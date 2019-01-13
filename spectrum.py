@@ -14,7 +14,7 @@ def main():
         with GribFile(f) as gribFile:
             for i in range(len(gribFile)):
                 msg = GribMessage(gribFile)
-                print msg["pentagonalResolutionParameterJ"], len(msg["values"])
+                print(msg["pentagonalResolutionParameterJ"], len(msg["values"]))
 
 
 if __name__ == "__main__":
