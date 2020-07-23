@@ -9,16 +9,15 @@ from eccodes import GribMessage
 from eccodes import GribFile
 
 
-
 def spectrum(T, sh):
-    rds = 1.
-    ra = rds * 1000.
+    rds = 1.0
+    ra = rds * 1000.0
     zlam = 0.5  # only need 0.5 due to eq in Lambert, is eq(3)*2 in IFS
-    
+
     def norm(m, n, r, i):
-        zmet  = zlam * (1 if m == 0 else 2)
-        zfact = 1. if n == 0 else ra**2 / (n * (n + 1))
-        return zmet * zfact * (r**2 if m == 0 else (r**2 + i**2))
+        zmet = zlam * (1 if m == 0 else 2)
+        zfact = 1.0 if n == 0 else ra ** 2 / (n * (n + 1))
+        return zmet * zfact * (r ** 2 if m == 0 else (r ** 2 + i ** 2))
 
     sp = np.zeros(T + 1)
     i = 0
@@ -32,20 +31,28 @@ def spectrum(T, sh):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('files', metavar='file', type=str, nargs='+', help='input GRIB file(s)')
-    parser.add_argument('--linear', action='store_true', help='spectrum in linear scale (instead of log10)')
-    parser.add_argument('--vod', action='store_true', help='extract kinetic energy from vo/d')
+    parser.add_argument(
+        "files", metavar="file", type=str, nargs="+", help="input GRIB file(s)"
+    )
+    parser.add_argument(
+        "--vod", action="store_true", help="extract kinetic energy from vo/d"
+    )
+    parser.add_argument(
+        "--linear",
+        action="store_true",
+        help="spectrum in linear scale (instead of log10)",
+    )
 
     args = parser.parse_args()
     for f in args.files:
         with GribFile(f) as gribFile:
-            if (args.vod):
+            if args.vod:
                 for i in range(0, len(gribFile), 2):
                     msg1 = GribMessage(gribFile)
                     msg2 = GribMessage(gribFile)
 
                     T = msg1["pentagonalResolutionParameterJ"]
-                    assert(T == msg2["pentagonalResolutionParameterJ"])
+                    assert T == msg2["pentagonalResolutionParameterJ"]
 
                     sh_vo = msg1["values"]
                     sh_d = msg2["values"]
@@ -54,16 +61,22 @@ def main():
 
                     rot = spectrum(T, sh_vo)
                     div = spectrum(T, sh_d)
-                    ke = (rot + div) * np.array([n**1.6666 for n in range(T + 1)])
+                    ke = (rot + div) * np.array([n ** 1.6666 for n in range(T + 1)])
                     if not args.linear:
                         rot = np.log10(rot)
                         div = np.log10(div)
-                        ke =  np.log10(ke)
+                        ke = np.log10(ke)
 
-                    print("#{}: paramId={}/{}, T={}".format(i + 1, msg1["paramId"], msg2["paramId"], T))
-                    print('T, rotKE, divKE, KE')
+                    print(
+                        "#{}: paramId={}/{}, T={}".format(
+                            i + 1, msg1["paramId"], msg2["paramId"], T
+                        )
+                    )
+                    print("T, rotKE, divKE, KE")
                     for n in range(1, T + 1):
-                        print('{}, {}, {}, {}'.format(np.log10(n), rot[n], div[n], ke[n]))
+                        print(
+                            "{}, {}, {}, {}".format(np.log10(n), rot[n], div[n], ke[n])
+                        )
 
             else:
                 for i in range(len(gribFile)):
@@ -78,11 +91,10 @@ def main():
                         scalar = np.log10(scalar)
 
                     print("#{}: paramId={}, T={}".format(i + 1, msg["paramId"], T))
-                    print('T, lev')
+                    print("T, lev")
                     for n in range(1, T + 1):
-                        print('{}, {}'.format(np.log10(n), scalar[n]))
+                        print("{}, {}".format(np.log10(n), scalar[n]))
 
 
 if __name__ == "__main__":
     sys.exit(main())
-
