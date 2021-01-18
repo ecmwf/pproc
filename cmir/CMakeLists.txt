@@ -9,7 +9,7 @@ find_package(mir REQUIRED)
 
 ecbuild_add_library(
     TARGET cmir
-    SOURCES cmir.cc cmir.h
+    SOURCES cmir.cc config.cc cmir.h
     INSTALL_HEADERS LISTED
     PRIVATE_LIBS eckit mir
 )

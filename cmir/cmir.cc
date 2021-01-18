@@ -12,12 +12,19 @@
 #include "mir/input/GribFileInput.h"
 #include "mir/output/MIROutput.h"
 #include "mir/output/GribFileOutput.h"
+#include "mir/param/SimpleParametrisation.h"
 
 using mir::api::MIRJob;
 using mir::input::MIRInput;
 using mir::output::MIROutput;
 
-int simple_mir(const char *infile, const char *outfile) {
+extern "C" {
+
+struct mir_cfg_t {
+    mir::param::SimpleParametrisation config;
+};
+
+int simple_mir(const char *infile, const char *outfile, struct mir_cfg_t *cfg) {
     try {
         static bool initialised = false;
         if (!initialised) {
@@ -28,7 +35,8 @@ int simple_mir(const char *infile, const char *outfile) {
 
         MIRJob job;
 
-        job.set("grid", "1/1");
+        ASSERT(cfg);
+        cfg->config.copyValuesTo(job);
 
         std::unique_ptr<MIRInput> input(new mir::input::GribFileInput(infile));
         ASSERT(input);
@@ -38,16 +46,18 @@ int simple_mir(const char *infile, const char *outfile) {
         ASSERT(output);
 
         job.execute(*input, *output);
+
+        return 0;
     }
     catch (std::exception& e) {
         eckit::Log::error() << "cmir: caught exception: " << e.what() << std::endl;
-        return 1;
     }
     catch (...) {
         eckit::Log::error() << "cmir: caught unknown exception" << std::endl;
-        return 1;
     }
 
-    return 0;
+    return 1;
 }
+
+} // extern "C"
 
