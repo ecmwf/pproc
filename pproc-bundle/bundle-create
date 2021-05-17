@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+
+# BOOTSTRAP ecbundle-create, and pass arguments to it
+
+BOOTSTRAPPED=ecbundle-create
+BUNDLE_DIR="$( cd $( dirname "${BASH_SOURCE[0]}" ) && pwd -P )"
+
+COMMAND_ARGS="$@"
+
+ECBUNDLE_BRANCH="develop"
+
+# Download ecbundle scripts if not already available
+command_exists () { type "$1" &> /dev/null ; }
+if ! command_exists ${BOOTSTRAPPED} ; then
+    if [[ ! -d ${BUNDLE_DIR}/ecbundle ]]; then
+        if [[ -z "${BITBUCKET}" ]]; then
+          BITBUCKET=ssh://git@git.ecmwf.int
+        fi
+        git clone -b ${ECBUNDLE_BRANCH} ${BITBUCKET}/ecsdk/ecbundle.git ${BUNDLE_DIR}/ecbundle
+    fi
+    export PATH=${BUNDLE_DIR}/ecbundle:${PATH}
+    UPDATE_ECBUNDLE=false
+    while [ $# != 0 ]; do
+        case "$1" in
+          "--update")        UPDATE_ECBUNDLE=true ;;
+          "--forced-update") UPDATE_ECBUNDLE=true ;;
+        esac
+        shift
+    done
+    if [ "${UPDATE_ECBUNDLE}" = true ] ; then
+        if [[ -d ${BUNDLE_DIR}/ecbundle ]]; then
+            echo "Updating ecbundle..."
+            ( cd ${BUNDLE_DIR}/ecbundle; git fetch; git checkout ${ECBUNDLE_BRANCH} )
+        fi
+    fi
+fi
+
+# Make sure python has version 2.7
+python_version_ok=$(python -c "import sys; print( sys.version_info[:3] >= tuple(map(int, '2.7'.split('.'))))")
+if [[ "${python_version_ok}" != "True" ]]; then
+    if [[ ${ARCH:-unset} == "cray" ]]; then
+        { module unload python; module load python; } 2>/dev/null
+    else
+        echo "ERROR: Installed python requires version \"2.7\" or greater"
+        exit 1
+    fi
+fi
+
+${BOOTSTRAPPED} ${COMMAND_ARGS}

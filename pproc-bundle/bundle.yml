@@ -1,0 +1,73 @@
+---
+### Bundle
+
+name    : pproc-bundle
+version : 0.1.0.0
+cmake   : >
+    ENABLE_FORTRAN=OFF
+
+build_type: RelWithDebInfo
+
+projects :
+    - ecbuild :
+        git     : ${BITBUCKET}/ecsdk/ecbuild
+        version : master
+        bundle  : false
+
+    - eccodes :
+        git     : ${BITBUCKET}/eccodes/eccodes
+        version : master
+        cmake   : >
+            ENABLE_ECCODES_THREADS=ON
+            ENABLE_NETCDF=OFF
+            ENABLE_MEMFS=ON
+            ENABLE_INSTALL_ECCODES_DEFINITIONS=OFF
+            ENABLE_INSTALL_ECCODES_SAMPLES=OFF
+
+    - eckit :
+        git     : ${BITBUCKET}/ecsdk/eckit
+        version : master
+        cmake   : >
+            ENABLE_VIENNACL=OFF
+            ENABLE_EIGEN=OFF
+            ENABLE_ARMADILLO=OFF
+            ENABLE_CUDA=OFF
+            ENABLE_MPI=ON
+
+    - metkit :
+        git     : ${BITBUCKET}/ecsdk/metkit
+        version : master
+        require : eckit
+
+    - fdb5 :
+        git     : ${BITBUCKET}/mars/fdb5
+        version : feature/archiveMessages
+        #version : master
+        require : eccodes eckit metkit
+
+    - transi :
+        git     : ${BITBUCKET}/atlas/transi
+        version : master
+
+    - atlas :
+        git     : ${BITBUCKET}/atlas/atlas
+        version : master
+        require : transi eckit
+
+    - mir :
+        git     : ${BITBUCKET}/mir/mir
+        version : master
+        require : atlas eckit eccodes
+
+options:
+    - with-experimental :
+        help  : Enable experimental code
+        cmake : ENABLE_EXPERIMENTAL=ON
+
+    - with-sandbox :
+        help  : Enable sandbox code
+        cmake : ENABLE_SANDBOX=ON
+
+    - with-python :
+        help  : Enable python bindings
+        cmake : ENABLE_PYTHON=ON
