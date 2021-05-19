@@ -22,9 +22,9 @@ req = {
 fdb = pyfdb.FDB()
 reader = fdb.retrieve(req)
 
-job = mir.MIRJob().set('grid', '1.0/1.0')
+job = mir.Job(grid='1.0/1.0')
 stream = BytesIO()
-job.execute(mir.GribPyIOInput(reader), mir.GribPyIOOutput(stream))
+job.execute(reader, stream)
 
 stream.seek(0)
 stream.mode = 'rb'  # for pyeccodes
