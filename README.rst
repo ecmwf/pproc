@@ -62,6 +62,12 @@ Needed only for the example::
 
   pip install pyeccodes
 
+Install eccodes-python
+-----------------
+
+Needed only for the example::
+
+  pip install eccodes
 
 Run the example
 ===============

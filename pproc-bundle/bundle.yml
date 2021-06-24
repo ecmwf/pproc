@@ -41,8 +41,8 @@ projects :
 
     - fdb5 :
         git     : ${BITBUCKET}/mars/fdb5
-        version : feature/archiveMessages
-        #version : master
+        #version : feature/archiveMessages
+        version : develop
         require : eccodes eckit metkit
 
     - transi :
