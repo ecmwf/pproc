@@ -3,49 +3,77 @@ import time
 import numpy as np
 import pyeccodes
 import pyfdb
-import efi
+from meteokit import climatology
 import xarray as xr
 
 
-def get_ens(fc_date):
+def fdb_read_fc(fdb, fc_date):
 
-    fdb = pyfdb.FDB()
     values = []
 
-    for i in range(51):
-        if i == 0:
-            ens_type = 'cf'
-        else:
-            ens_type = 'pf'
-        req = {
-            'class': 'od',
-            'expver': '0075',
-            'stream':'enfo',
-            'date': fc_date,
-            'time': '0000',
-            'domain': 'g',
-            'type': ens_type,
-            'levtype': 'sfc',
-            'step': '6',
-            'param': '167'
-        }
-        if i > 0 :
-            req['number'] = str(i)
+    cf_req = {
+        'class': 'od',
+        'expver': '0075',
+        'stream':'enfo',
+        'date': fc_date,
+        'time': '0000',
+        'domain': 'g',
+        'type': 'cf',
+        'levtype': 'sfc',
+        'step': '6',
+        'param': '167'
+    }
+    pf_req = cf_req.copy()
+    pf_req['type'] = 'pf'
+    pf_req['number'] = list(range(1, 51))
 
-        print(i)
+    for req in [cf_req, pf_req]:
+        print(req)
         fdb_reader = fdb.retrieve(req)
 
         eccodes_reader = pyeccodes.Reader(fdb_reader)
-        message = next(eccodes_reader)
-        values.append(message.get('values'))
+        for message in eccodes_reader:
+            val = message.get('values')
+            print(val.shape)
+            values.append(val)
 
     return np.asarray(values)
 
-# {class=od,expver=0075,stream=efhs,date=20210621,time=0000,domain=g}{type=cd,levtype=sfc}{step=0-24,quantile=9:100,param=228004}
-def read_clim(clim_file):
-    da = xr.open_dataarray(clim_file, engine='cfgrib')
-    print(da)
-    return da.values
+
+def fdb_read_clim(fdb, clim_date):
+
+    values = []
+
+    req = {
+        'class': 'od',
+        'expver': '0075',
+        'stream': 'efhs',
+        'date': clim_date,
+        'time': '0000',
+        'domain': 'g',
+        'type': 'cd',
+        'levtype': 'sfc',
+        'step': '0-24',
+        'quantile': ['{}:100'.format(i) for i in range(101)],
+        'param': '228004'
+    }
+
+    fdb_reader = fdb.retrieve(req)
+
+    eccodes_reader = pyeccodes.Reader(fdb_reader)
+    for message in eccodes_reader:
+        val = message.get('values')
+        print(val.shape)
+        values.append(val)
+
+    return np.asarray(values)
+
+    # values = []
+
+    # clim_file = 'efi_sot/clim/clim_2t024_{}_000h_024h_perc.grib'.format(clim_date)
+    # da = xr.open_dataarray(clim_file, engine='cfgrib')
+    # print(da)
+    # return da.values
 
 
 def read_efi(efi_file):
@@ -56,25 +84,28 @@ def read_efi(efi_file):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Small python EFI test')
-    parser.add_argument('clim', help='climatology file')
+    parser.add_argument('fc_date', help='Forecast date')
+    parser.add_argument('clim_date', help='climatology date')
     parser.add_argument('efi', help='EFI file')
-    parser.add_argument('date', help='Forecast date')
 
     args = parser.parse_args()
-    clim_file = args.clim
-    fc_date = args.date
+    clim_date = args.clim_date
+    fc_date = args.fc_date
     efi_file = args.efi
 
-    ens = get_ens(fc_date)
-    print(ens.shape)
-    clim = read_clim(clim_file)
+    fdb = pyfdb.FDB()
+
+    fc = fdb_read_fc(fdb, fc_date)
+    print(fc.shape)
+    clim = fdb_read_clim(fdb, clim_date)
     print(clim.shape)
 
-    print(ens[:, 0])
+    print(fc[:, 0])
     print(clim[:, 0])
     t1 = time.perf_counter()
-    efi_array = efi.efi(clim.astype(np.float64), ens)
+    efi_array = climatology.efi(clim.astype(np.float64), fc)
     print('time to compute efi: {}'.format(time.perf_counter() - t1))
+    print(efi_array[0])
     
     efi_check = read_efi(efi_file)
 
