@@ -1,8 +1,10 @@
 
 import numpy as np
 
-import pyeccodes
+import eccodes
 import pyfdb
+
+import eccodeshl
 
 def compute_avg(fields):
     nsteps = fields.shape[0]
@@ -35,23 +37,36 @@ req_pf["type"] = "pf"
 
 fdb = pyfdb.FDB()
 
-ref_reader = pyeccodes.Reader("ens_2t_avg_ref.grib")
-avg_ref = [message.get('values') for message in ref_reader]
+ref_reader = eccodeshl.FileReader("ens_2t_avg_ref.grib")
+avg_ref = [message.get_array('values') for message in ref_reader]
 
-print("Control:")
-fdb_reader = fdb.retrieve(req_cf)
-eccodes_reader = pyeccodes.Reader(fdb_reader)
-vals_cf = np.asarray([message.get('values') for message in eccodes_reader])
-avg_cf = compute_avg(vals_cf)
-compare_arrs(avg_cf, avg_ref[0])
+with open("ens_2t_avg.grib", "wb") as outfile:
+    print("Control:")
+    fdb_reader = fdb.retrieve(req_cf)
+    eccodes_reader = eccodeshl.StreamReader(fdb_reader)
+    messages = list(eccodes_reader)
+    vals_cf = np.asarray([message.get_array('values') for message in messages])
+    avg_cf = compute_avg(vals_cf)
+    compare_arrs(avg_cf, avg_ref[0])
 
-print("Perturbed:")
-for member in range(1, 51):
-    print(f"Member {member}:")
-    req = req_pf.copy()
-    req["number"] = member
-    fdb_reader = fdb.retrieve(req)
-    eccodes_reader = pyeccodes.Reader(fdb_reader)
-    vals_pf = np.asarray([message.get('values') for message in eccodes_reader])
-    avg_pf = compute_avg(vals_pf)
-    compare_arrs(avg_pf, avg_ref[member])
+    message = messages[0]
+    message.set_array('values', avg_cf)
+    # FIXME: set metadata
+    message.write_to(outfile)
+
+    print("Perturbed:")
+    for member in range(1, 51):
+        print(f"Member {member}:")
+        req = req_pf.copy()
+        req["number"] = member
+        fdb_reader = fdb.retrieve(req)
+        eccodes_reader = eccodeshl.StreamReader(fdb_reader)
+        messages = list(eccodes_reader)
+        vals_pf = np.asarray([message.get_array('values') for message in messages])
+        avg_pf = compute_avg(vals_pf)
+        compare_arrs(avg_pf, avg_ref[member])
+
+        message = messages[0]
+        message.set_array('values', avg_pf)
+        # FIXME: set metadata
+        message.write_to(outfile)
