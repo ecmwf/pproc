@@ -1,1 +1,1 @@
-from .reader import FileReader, StreamReader
+from .reader import FileReader, MemoryReader, StreamReader

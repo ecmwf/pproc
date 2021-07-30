@@ -41,6 +41,18 @@ class FileReader(ReaderBase):
         return self.file.__exit__(exc_type, exc_value, traceback)
 
 
+class MemoryReader(ReaderBase):
+    def __init__(self, buf):
+        self.buf = buf
+
+    def _next_handle(self):
+        if self.buf is None:
+            return None
+        handle = eccodes.codes_new_from_message(self.buf)
+        self.buf = None
+        return handle
+
+
 @ffi.callback("long(*)(void*, void*, long)")
 def pyread_callback(payload, buf, length):
     stream = ffi.from_handle(payload)

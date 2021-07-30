@@ -31,11 +31,10 @@ def test_with_mir():
     stream = BytesIO()
     job.execute(reader, stream)
 
-    handle = eccodes.codes_new_from_message(stream.getvalue())
+    ecc_reader = eccodeshl.MemoryReader(stream.getvalue())
+    message = next(ecc_reader)
 
-    val = eccodes.codes_get_array(handle, "values")
-
-    eccodes.codes_release(handle)
+    val = message.get_array("values")
 
     return val
 
