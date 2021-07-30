@@ -5,6 +5,42 @@ from gribapi import ffi
 
 from .message import Message
 
+
+class ReaderBase:
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        handle = self._next_handle()
+        if handle is None:
+            raise StopIteration
+        return Message(handle)
+
+    def _next_handle(self):
+        raise NotImplementedError
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
+
+
+class FileReader(ReaderBase):
+    def __init__(self, path):
+        self.file = open(path, 'rb')
+
+    def _next_handle(self):
+        return eccodes.codes_new_from_file(self.file, eccodes.CODES_PRODUCT_GRIB)
+
+    def __enter__(self):
+        self.file.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        return self.file.__exit__(exc_type, exc_value, traceback)
+
+
 @ffi.callback("long(*)(void*, void*, long)")
 def pyread_callback(payload, buf, length):
     stream = ffi.from_handle(payload)
@@ -36,15 +72,9 @@ def codes_new_from_stream(stream):
         return gribapi.put_handle(handle)
 
 
-class Reader:
+class StreamReader(ReaderBase):
     def __init__(self, stream):
         self.stream = stream
 
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        handle = codes_new_from_stream(self.stream)
-        if handle is None:
-            raise StopIteration
-        return Message(handle)
+    def _next_handle(self):
+        return codes_new_from_stream(self.stream)

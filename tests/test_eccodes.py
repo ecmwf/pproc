@@ -43,7 +43,7 @@ def test_with_mir():
 def test_without_mir():
     fdb = pyfdb.FDB()
     result = fdb.retrieve(req)
-    reader = eccodeshl.Reader(result)
+    reader = eccodeshl.StreamReader(result)
 
     message = next(reader)
 
