@@ -2,6 +2,7 @@ import argparse
 import time
 import numpy as np
 import pyeccodes
+import eccodes
 import pyfdb
 from meteokit import climatology
 import xarray as xr
@@ -39,6 +40,40 @@ def fdb_read_fc(fdb, fc_date):
 
     return np.asarray(values)
 
+def fdb_read_fc_eccodes(fdb, fc_date):
+
+    values = []
+
+    cf_req = {
+        'class': 'od',
+        'expver': '0075',
+        'stream':'enfo',
+        'date': fc_date,
+        'time': '0000',
+        'domain': 'g',
+        'type': 'cf',
+        'levtype': 'sfc',
+        'step': '6',
+        'param': '167'
+    }
+    pf_req = cf_req.copy()
+    pf_req['type'] = 'pf'
+    pf_req['number'] = list(range(1, 51))
+
+    for req in [cf_req, pf_req]:
+        print(req)
+        fdb_reader = fdb.retrieve(req)
+
+        while 1:
+            igrib = eccodes.codes_new_from_message(fdb_reader)
+            if igrib is None: break
+
+            val = eccodes.codes_get_values()
+            values.append(val)
+
+            codes_release(igrib)
+
+    return np.asarray(values)
 
 def fdb_read_clim(fdb, clim_date):
 
@@ -95,7 +130,7 @@ if __name__ == "__main__":
 
     fdb = pyfdb.FDB()
 
-    fc = fdb_read_fc(fdb, fc_date)
+    fc = fdb_read_fc_eccodes(fdb, fc_date)
     print(fc.shape)
     clim = fdb_read_clim(fdb, clim_date)
     print(clim.shape)

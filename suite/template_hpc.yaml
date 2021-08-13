@@ -1,0 +1,40 @@
+---
+
+suite_name: 'ppop_ci'
+
+host: ccb
+user: macw
+deploy_dir: /perm/ma/macw/pyflow/ppop_ci
+output_root: '$SCRATCH/ppop_ci'
+
+date: '20210601'
+
+installer_dir: /home/ma/macw/git/pproc/suite/installers
+
+# example of path:
+#   - git: "git+ssh://git.link/package@branch"
+#   - remote sources: "remote:/path/to/sources" # never use localhost or the hpc won't know it
+#   - local sources: "/path/to/sources"
+packages:
+  meteokit: git+ssh://git.ecmwf.int/ecsdk/meteokit.git@master
+  pproc_bundle: ravenglass:/home/ma/macw/git/pproc/pproc-bundle
+  mir_python: git+ssh://git.ecmwf.int/mir/mir-python.git@master
+  pyfdb: git+ssh://git.ecmwf.int/mars/pyfdb.git@develop
+  eccodeshl: ravenglass:/home/ma/macw/git/pproc/eccodeshl
+  ppop: ravenglass:/home/ma/macw/git/pproc/ppop
+
+modules:
+  python3: '3.8.8-01'
+  cmake: '3.19.5'
+  fftw: '3.3.4.11'
+
+pip_packages:
+  - pyeccodes
+  - eccodes
+
+# example of path:
+#   - local link: "path/to/dir"
+#   - ecfs archive: "ec:/path/to/archive.tgz"
+#   - remote copy: "remote:path/to/dir"
+static_data:
+  fdb_templates: ravenglass:/home/ma/macw/git/pproc/suite/fdb_templates
