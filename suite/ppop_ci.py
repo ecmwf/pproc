@@ -50,7 +50,8 @@ def create_execution_context(hostname, user):
 class VirtualEnvTool(wl.Tool):
     def __init__(self, name, lib_dir, depends=[]):
         env_root = path.join(lib_dir, name)
-        script = 'source {}'.format(path.join(env_root, 'bin', 'activate'))
+        script = ['source {}'.format(path.join(env_root, 'bin', 'activate')),
+                  'export LD_LIBRARY_PATH={}'.format(path.join(env_root, 'lib'))]
         super().__init__(name, depends, script)
 
 
