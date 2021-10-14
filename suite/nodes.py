@@ -29,7 +29,12 @@ class MainFamily(pf.AnchorFamily):
         super().__init__(name='main', **kwargs)
 
         with self:
-            with pf.Family(name='test_efi_sot'):
+            variables = {
+                'YMD': config.date.strftime("%Y%m%d"),
+                'HOUR': config.date.strftime('%H'),
+                'CLIM_YMD': config.clim_date.strftime("%Y%m%d"),
+            }
+            with pf.Family(name='test_efi_sot', variables=variables):
                 for param in config.parameters:
                     ParameterFamily(config, param)
                             

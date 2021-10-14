@@ -13,6 +13,9 @@ class Message:
     def get_array(self, name):
         return eccodes.codes_get_array(self.handle, name)
 
+    def get(self, name):
+        return eccodes.codes_get(self.handle, name)
+
     def set_array(self, name, value):
         return eccodes.codes_set_array(self.handle, name, value)
 

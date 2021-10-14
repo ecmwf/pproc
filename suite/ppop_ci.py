@@ -5,6 +5,7 @@ import yaml
 import pyflow as pf
 import wellies as wl
 from pwd import getpwuid
+from datetime import datetime, timedelta
 
 import nodes
 
@@ -90,6 +91,23 @@ def register_tools(virtual_env, packages, modules, lib_dir):
     return wl.ToolStore(tools)
 
 
+def climatology_date(fc_date):
+
+    weekday = fc_date.weekday()
+
+    # friday to monday -> take previous monday clim, else previous thursday clim
+    if weekday == 0 or weekday > 3:
+        clim_date = fc_date - timedelta(days=(weekday+4)%7)
+    else:
+        clim_date = fc_date - timedelta(days=weekday)
+
+    print(fc_date)
+    print(weekday)
+    print(clim_date)
+
+    return clim_date
+
+
 class Config:
     def __init__(self, args):
 
@@ -112,7 +130,8 @@ class Config:
         self.data_dir = os.path.join(self.output_root, 'data')
         self.fdb_dir = os.path.join(self.output_root, 'fdb')
 
-        self.date = options['date']
+        self.date = datetime.strptime(options['date'], "%Y%m%d%H")
+        self.clim_date = climatology_date(self.date)
         self.windows = [24]
         self.parameters = ['2t']
 

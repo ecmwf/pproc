@@ -7,7 +7,7 @@ user: macw
 deploy_dir: /perm/ma/macw/pyflow/ppop_ci
 output_root: '$SCRATCH/ppop_ci'
 
-date: '20210601'
+date: '2021090512'
 
 installer_dir: /home/ma/macw/git/pproc/suite/installers
 

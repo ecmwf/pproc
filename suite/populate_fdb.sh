@@ -3,8 +3,8 @@ retrieve,
 stream  =   enfo,
 levtype =   sfc,
 expver  =   0001,
-date    =   20210812,
-time    =   12,
+date    =   $YMD,
+time    =   $HOUR,
 type    =   cf,
 Grid   =   O640, Gaussian=   'reduced',
 accuracy = av,
@@ -15,7 +15,7 @@ field   =   fld_167.128
 
 write,
 field   =   fld_167.128,
-target  =   fld_167.128.grib
+target  =   cf_fld_167.128.grib
 EOF
 
 cat >> mars_req_pf <<EOF
@@ -23,8 +23,8 @@ retrieve,
 stream  =   enfo,
 levtype =   sfc,
 expver  =   0001,
-date    =   20210812,
-time    =   12,
+date    =   $YMD,
+time    =   $HOUR,
 type    =   pf,
 Grid   =   O640, Gaussian=   'reduced',
 accuracy = av,
@@ -36,16 +36,18 @@ field   =   fld_167.128
 
 write,
 field   =   fld_167.128,
-target  =   fld_167.128.grib
+target  =   pf_fld_167.128.grib
 EOF
 
 mars mars_req_cf
+fdb-write cf_fld_167.128.grib
+
 mars mars_req_pf
+fdb-write pf_fld_167.128.grib
 
-ls -lh fld_167.128.grib
+ls -lh *_fld_167.128.grib
+cp *_fld_167.128.grib $DATA_DIR/
 
-export FDB5_CONFIG_FILE=$FDB_DIR/config.yaml
+fdb-write /sc1/tcwork/emos/emos_data/0001/efi_clim/clim/$CLIM_YMD/clim_2t024_${CLIM_YMD}_000h_024h_perc.grib
 
-fdb-write fld_167.128.grib
-
-cp fld_167.128.grib $DATA_DIR/
+cp /sc1/tcwork/emos/emos_data/0001/efi_clim/clim/$CLIM_YMD/clim_2t024_${CLIM_YMD}_000h_024h_perc.grib $DATA_DIR/
