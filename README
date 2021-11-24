@@ -1,10 +1,17 @@
 
-Example:
-./pts msl_05L_ELSA_2021070300 out.grib --distance=2.0e5
+Setup
+-----
+
+* e=~/.venv/pts # or another environment
+* module sw python python3
+* python3 -m venv --system-site-packages $e
+* cd <where-you-cloned-pts>
+* python3 -m pip install -r requirements.txt
 
 
-Files:
-* StrikeProbability: Metview Macro
-* TCSP_05L_ELSA_000_240_2021070300.grib: interpolation (pex. template)
-* msl_05L_ELSA_2021070300: data
+Run
+---
+
+* ./pts --help
+* ./pts msl_05L_ELSA_2021070300 out.grib --distance=2.0e5
 
