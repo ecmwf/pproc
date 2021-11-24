@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+
+
+import argparse
+import numpy as np
+import pandas as pd
+
+from math import cos, sin, radians
+from scipy.spatial import KDTree
+
+from eccodes import *
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--template", help="GRIB template", default="O640.grib1")
+parser.add_argument("--distance", help="Point search radius", default=2.0e5)
+parser.add_argument("--ens-size", help="N ensemble members", default=50, type=int)
+parser.add_argument("--bitsPerValue", help="GRIB bitsPerValue", default=8, type=int)
+parser.add_argument("fin", help="Input points file", metavar="in")
+parser.add_argument("fout", help="GRIB output file", metavar="out")
+
+args = parser.parse_args()
+print(args)
+
+
+def ll_to_ecef(lat, lon, height=0.0, radius=6371229.0):
+    lonr = radians(lon)
+    latr = radians(lat)
+
+    x = (radius + height) * cos(latr) * cos(lonr)
+    y = (radius + height) * cos(latr) * sin(lonr)
+    z = (radius + height) * sin(latr)
+    return x, y, z
+
+
+with open(args.template, "rb") as f:
+    h = codes_grib_new_from_file(f)
+    assert not h is None
+
+    # k-d tree input data (offline)
+    N = codes_get(h, "numberOfDataPoints")
+    P = np.empty([N, 3])
+
+    it = codes_grib_iterator_new(h, 0)
+    i = 0
+    while True:
+        result = codes_grib_iterator_next(it)
+        if not result:
+            break
+        [lat, lon, value] = result
+
+        assert i < N
+        P[i, :] = ll_to_ecef(lat, lon)
+
+        i += 1
+    codes_grib_iterator_delete(it)
+
+    # k-d tree
+    tree = KDTree(P)
+
+    # input
+    df = pd.read_csv(
+        args.fin,
+        sep=r"\s+",
+        header=None,
+        names=["lat", "lon", "number", "date", "step", "?", "msl"],
+        usecols=["lat", "lon", "number"],
+    )
+
+    # probability field
+    val = np.zeros(N)
+    for row in df.itertuples():
+        if row.number <= args.ens_size:
+            p = ll_to_ecef(row.lat, row.lon)
+            for i in tree.query_ball_point(p, r=args.distance):
+                assert i < N
+                val[i] = val[i] + 1.0
+
+    # write results
+    if args.bitsPerValue is not None:
+        codes_set(h, "bitsPerValue", args.bitsPerValue)
+    codes_set_values(h, val)
+
+    with open(args.fout, "wb") as f:
+        codes_write(h, f)
+
+    codes_release(h)

@@ -1,0 +1,10 @@
+
+Example:
+./pts msl_05L_ELSA_2021070300 out.grib --distance=2.0e5
+
+
+Files:
+* StrikeProbability: Metview Macro
+* TCSP_05L_ELSA_000_240_2021070300.grib: interpolation (pex. template)
+* msl_05L_ELSA_2021070300: data
+
