@@ -55,8 +55,8 @@ def ll_to_ecef(lat, lon, height=0.0, radius=6371229.0):
 if pts_home_dir in environ:
     tpl_dir = environ[pts_home_dir]
 else:
-    tpl_dir = path.dirname(path.realpath(__file__))
-tpl_path = path.join([tpl_dir, "."][not tpl_dir], args.grib_template)
+    tpl_dir = path.dirname(__file__)
+tpl_path = path.realpath(path.join(tpl_dir, args.grib_template))
 print("Loading template: '{}'".format(tpl_path))
 
 with open(tpl_path, "rb") as f:
