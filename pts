@@ -7,14 +7,25 @@ import pandas as pd
 
 from math import cos, sin, radians
 from scipy.spatial import KDTree
+from os import environ, path
+import pickle
 
 from eccodes import *
+
+pts_cache_dir = "PTS_CACHE_DIR"
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--template", help="GRIB template", default="O640.grib1")
 parser.add_argument("--distance", help="Point search radius", default=2.0e5)
 parser.add_argument("--ens-size", help="N ensemble members", default=50, type=int)
 parser.add_argument("--bitsPerValue", help="GRIB bitsPerValue", default=8, type=int)
+
+parser.add_argument(
+    "--caching",
+    help="Caching (can use env. variable '" + pts_cache_dir + "')",
+    action="store_true",
+)
+
 parser.add_argument("fin", help="Input points file", metavar="in")
 parser.add_argument("fout", help="GRIB output file", metavar="out")
 
@@ -36,26 +47,40 @@ with open(args.template, "rb") as f:
     h = codes_grib_new_from_file(f)
     assert not h is None
 
-    # k-d tree input data (offline)
     N = codes_get(h, "numberOfDataPoints")
-    P = np.empty([N, 3])
-
-    it = codes_grib_iterator_new(h, 0)
-    i = 0
-    while True:
-        result = codes_grib_iterator_next(it)
-        if not result:
-            break
-        [lat, lon, value] = result
-
-        assert i < N
-        P[i, :] = ll_to_ecef(lat, lon)
-
-        i += 1
-    codes_grib_iterator_delete(it)
 
     # k-d tree
-    tree = KDTree(P)
+    tree_path = codes_get(h, "md5GridSection") + ".tree"
+    if pts_cache_dir in environ:
+        tree_path = path.join(environ[pts_cache_dir], tree_path)
+
+    if args.caching and path.exists(tree_path):
+        print("Loading cache file: '{}'".format(tree_path))
+        with open(tree_path, "rb") as f:
+            tree = pickle.load(f)
+    else:
+        it = codes_grib_iterator_new(h, 0)
+
+        P = np.empty([N, 3])
+        i = 0
+        while True:
+            result = codes_grib_iterator_next(it)
+            if not result:
+                break
+            [lat, lon, value] = result
+
+            assert i < N
+            P[i, :] = ll_to_ecef(lat, lon)
+
+            i += 1
+        codes_grib_iterator_delete(it)
+
+        tree = KDTree(P)
+
+    if args.caching and not path.exists(tree_path):
+        print("Creating cache file: '{}'".format(tree_path))
+        with open(tree_path, "wb") as f:
+            pickle.dump(tree, f)
 
     # input
     df = pd.read_csv(
