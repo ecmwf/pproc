@@ -1,28 +1,28 @@
 #!/usr/bin/env python3
 
-
 import argparse
+import pickle
+from math import cos, radians, sin
+from os import environ, path
+
+import eccodes
 import numpy as np
 import pandas as pd
-
-from math import cos, sin, radians
 from scipy.spatial import KDTree
-from os import environ, path
-import pickle
-
-from eccodes import *
 
 pts_cache_dir = "PTS_CACHE_DIR"
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--template", help="GRIB template", default="O640.grib1")
 parser.add_argument("--distance", help="Point search radius", default=2.0e5)
-parser.add_argument("--ens-size", help="N ensemble members", default=50, type=int)
-parser.add_argument("--bitsPerValue", help="GRIB bitsPerValue", default=8, type=int)
+parser.add_argument("--ens-size", help="Ensemble size", default=50, type=int)
+parser.add_argument("--grib-template", help="GRIB template", default="O640.grib1")
+parser.add_argument("--grib-accuracy", help="GRIB bitsPerValue", default=8, type=int)
+parser.add_argument("--grib-date", help="GRIB dataDate", default=None)
+parser.add_argument("--grib-step", help="GRIB stepRange", default=None)
 
 parser.add_argument(
     "--no-normalise",
-    help="Values [0, 1]",
+    help="Values not normalised to [0, 1]",
     action="store_const",
     const=True,
     default=False,
@@ -30,12 +30,12 @@ parser.add_argument(
 
 parser.add_argument(
     "--caching",
-    help="Caching (can use env. variable '" + pts_cache_dir + "')",
+    help="Caching (env. variable '" + pts_cache_dir + "')",
     action="store_true",
 )
 
 parser.add_argument("fin", help="Input points file", metavar="in")
-parser.add_argument("fout", help="GRIB output file", metavar="out")
+parser.add_argument("fout", help="Output GRIB file", metavar="out")
 
 args = parser.parse_args()
 print(args)
@@ -51,14 +51,14 @@ def ll_to_ecef(lat, lon, height=0.0, radius=6371229.0):
     return x, y, z
 
 
-with open(args.template, "rb") as f:
-    h = codes_grib_new_from_file(f)
-    assert not h is None
+with open(args.grib_template, "rb") as f:
+    h = eccodes.codes_grib_new_from_file(f)
+    assert h is not None
 
-    N = codes_get(h, "numberOfDataPoints")
+    N = eccodes.codes_get(h, "numberOfDataPoints")
 
     # k-d tree
-    tree_path = codes_get(h, "md5GridSection") + ".tree"
+    tree_path = eccodes.codes_get(h, "md5GridSection") + ".tree"
     if pts_cache_dir in environ:
         tree_path = path.join(environ[pts_cache_dir], tree_path)
 
@@ -67,12 +67,12 @@ with open(args.template, "rb") as f:
         with open(tree_path, "rb") as f:
             tree = pickle.load(f)
     else:
-        it = codes_grib_iterator_new(h, 0)
+        it = eccodes.codes_grib_iterator_new(h, 0)
 
         P = np.empty([N, 3])
         i = 0
         while True:
-            result = codes_grib_iterator_next(it)
+            result = eccodes.codes_grib_iterator_next(it)
             if not result:
                 break
             [lat, lon, value] = result
@@ -81,8 +81,8 @@ with open(args.template, "rb") as f:
             P[i, :] = ll_to_ecef(lat, lon)
 
             i += 1
-        codes_grib_iterator_delete(it)
 
+        eccodes.codes_grib_iterator_delete(it)
         tree = KDTree(P)
 
     if args.caching and not path.exists(tree_path):
@@ -108,16 +108,20 @@ with open(args.template, "rb") as f:
                 assert i < N
                 val[i] = val[i] + 1.0
 
-    # normalise
     if not args.no_normalise:
         val = np.minimum(val / args.ens_size, 1.0)
 
     # write results
-    if args.bitsPerValue is not None:
-        codes_set(h, "bitsPerValue", args.bitsPerValue)
-    codes_set_values(h, val)
+    if args.grib_accuracy:
+        eccodes.codes_set(h, "bitsPerValue", args.grib_accuracy)
+    if args.grib_date:
+        eccodes.codes_set(h, "dataDate", args.grib_date)
+    if args.grib_step:
+        eccodes.codes_set(h, "stepRange", args.grib_step)
+
+    eccodes.codes_set_values(h, val)
 
     with open(args.fout, "wb") as f:
-        codes_write(h, f)
+        eccodes.codes_write(h, f)
 
-    codes_release(h)
+    eccodes.codes_release(h)
