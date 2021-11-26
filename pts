@@ -23,14 +23,6 @@ parser.add_argument("--grib-date", help="GRIB dataDate", default=None)
 parser.add_argument("--grib-step", help="GRIB stepRange", default=None)
 
 parser.add_argument(
-    "--no-normalise",
-    help="Values not normalised to [0, 1]",
-    action="store_const",
-    const=True,
-    default=False,
-)
-
-parser.add_argument(
     "--caching",
     help="Caching (env. variable '" + pts_cache_dir + "')",
     action="store_true",
@@ -163,9 +155,7 @@ with open(tpl_path, "rb") as f:
             assert i < N
             val[i] = val[i] + 1.0
 
-    if not args.no_normalise:
-        assert args.super_sample >= 1
-        val = np.minimum(val / args.ens_size, 1.0) * 100.0  # %
+    val = np.minimum(val / args.ens_size, 1.0) * 100.0  # %
 
     # write results
     if args.grib_accuracy:
