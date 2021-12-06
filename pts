@@ -15,12 +15,17 @@ pts_home_dir = "PTS_HOME_DIR"
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--distance", help="Point search radius", default=300.0e3)
-parser.add_argument("--ens-size", help="Ensemble size", default=50, type=int)
+parser.add_argument("--number", help="Number range", default="1-50")
 parser.add_argument("--super-sample", help="SS factor", default=10, type=int)
-parser.add_argument("--grib-template", help="GRIB template", default="O640.grib1")
 parser.add_argument("--grib-accuracy", help="GRIB bitsPerValue", default=8, type=int)
 parser.add_argument("--grib-date", help="GRIB dataDate", default=None)
 parser.add_argument("--grib-step", help="GRIB stepRange", default=None)
+
+parser.add_argument(
+    "--grib-template",
+    help="GRIB template (env. variable '" + pts_home_dir + "')",
+    default="O640.grib1",
+)
 
 parser.add_argument(
     "--caching",
@@ -51,12 +56,23 @@ def ll_to_ecef(lat, lon, height=0.0, radius=6371229.0):
     return x, y, z
 
 
+def parse_range(rstr):
+    s = set()
+    for part in rstr.split(","):
+        x = part.split("-")
+        s.update(range(int(x[0]), int(x[-1]) + 1))
+    return sorted(s)
+
+
+numbers = parse_range(args.number)
+
 if pts_home_dir in environ:
     tpl_dir = environ[pts_home_dir]
 else:
     tpl_dir = path.dirname(__file__)
 tpl_path = path.realpath(path.join(tpl_dir, args.grib_template))
 print("Loading template: '{}'".format(tpl_path))
+
 
 with open(tpl_path, "rb") as f:
     h = eccodes.codes_grib_new_from_file(f)
@@ -114,39 +130,40 @@ with open(tpl_path, "rb") as f:
     df["t"] = df["step"] + 2400 * (df["date"] - df["date"].min())
     df.drop(["lat", "lon", "date", "step"], axis=1, inplace=True)
 
-    if args.super_sample > 1:
-        dfi = pd.DataFrame()
+    dfi = pd.DataFrame()
+    for n in numbers:
+        track = df[df.number == n].sort_values("t")
+        if len(track.index) < 2:
+            continue
 
-        for ens in range(1, args.ens_size + 1):
-            track = df[df.number == ens].sort_values("t")
-            if len(track.index) < 2:
-                continue
-
-            ti = np.array([])
-            for a, b in previous_and_current(track.t):
-                if a is not None:
-                    ti = np.append(
-                        ti, np.linspace(a, b, num=args.super_sample, endpoint=False)
-                    )
-            ti = np.append(ti, [track.t[track.index[-1]]])
-
-            dfi = dfi.append(
-                pd.DataFrame(
-                    {
-                        "number": np.full(len(ti), ens),
-                        "t": ti,
-                        "x": np.interp(ti, track.t, track.x),
-                        "y": np.interp(ti, track.t, track.y),
-                        "z": np.interp(ti, track.t, track.z),
-                    }
+        ti = np.array([])
+        for a, b in previous_and_current(track.t):
+            if a is not None:
+                ti = np.append(
+                    ti,
+                    np.linspace(a, b, num=args.super_sample, endpoint=False)
+                    if args.super_sample > 1
+                    else a,
                 )
+        ti = np.append(ti, [track.t[track.index[-1]]])
+
+        dfi = dfi.append(
+            pd.DataFrame(
+                {
+                    "number": np.full(len(ti), n),
+                    "t": ti,
+                    "x": np.interp(ti, track.t, track.x),
+                    "y": np.interp(ti, track.t, track.y),
+                    "z": np.interp(ti, track.t, track.z),
+                }
             )
-        df = dfi
+        )
+    df = dfi
 
     # probability field
     val = np.zeros(N)
-    for ens in range(1, args.ens_size + 1):
-        track = df[df.number == ens]
+    for n in numbers:
+        track = df[df.number == n]
         pts = set()
         for row in track.itertuples():
             p = (row.x, row.y, row.z)
@@ -155,7 +172,7 @@ with open(tpl_path, "rb") as f:
             assert i < N
             val[i] = val[i] + 1.0
 
-    val = np.minimum(val / args.ens_size, 1.0) * 100.0  # %
+    val = np.minimum(val / len(numbers), 1.0) * 100.0  # %
 
     # write results
     if args.grib_accuracy:
