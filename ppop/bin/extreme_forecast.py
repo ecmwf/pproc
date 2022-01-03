@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
+
+import os
 import numpy as np
 
-import eccodes
+# import eccodes
 import pyfdb
 
 import eccodeshl
@@ -10,6 +12,7 @@ import eccodeshl
 def compute_avg(fields):
     nsteps = fields.shape[0]
     return np.sum(fields, axis=0) / nsteps
+
 
 def compare_arrs(act, exp):
     if np.allclose(act, exp):
