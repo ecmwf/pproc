@@ -1,0 +1,20 @@
+
+Setup (do once!)
+----------------
+
+* cd /where/you/cloned/pts
+* e=~/.venv/pts # or another environment
+* module sw python python3
+* python3 -m venv --system-site-packages $e  # create environment
+* source $e/bin/activate  # load environment
+* python3 -m pip install -r requirements.txt
+
+
+Run
+---
+
+* cd /where/you/cloned/pts
+* source $e/bin/activate  # load environment (if not done yet)
+* ./pts --help
+* ./pts msl_05L_ELSA_2021070300 out.grib --distance=2.0e5
+

@@ -1,5 +1,5 @@
-__pycache__
 *.pyc
+*.sw[op]
 .idea/
 
 # Byte-compiled / optimized / DLL files
@@ -34,5 +34,3 @@ MANIFEST
 profile_default/
 ipython_config.py
 
-# Custom
-*.sw[op]
