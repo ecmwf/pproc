@@ -70,7 +70,6 @@ environments:
         depends: [python3]
         packages: [meteokit, pproc_bundle, mir_python, pyfdb, eccodeshl, ppop]
 
-
 # ---------- Data paths-------- -----------------------------------------------
 # example of path:
 #   - local link: "path/to/dir"
@@ -79,4 +78,4 @@ environments:
 #   - git: git+ssh://git.ecmwf.int/cefl/danu.git@develop
 #   - MARS ?
 static_data:
-  fdb_templates: ravenglass:/home/ma/macw/git/pproc/pproc-ci/fdb_templates
+  fdb_templates: ravenglass:/home/ma/macw/git/pproc/suite/fdb_templates

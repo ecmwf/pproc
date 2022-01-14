@@ -23,17 +23,19 @@ class GenericTestFamily(pf.AnchorFamily):
 
         test_dir = os.path.join(test_root, test)
         test_params = parse_test_directory(test_dir)
-        
-        for task in test_params['tasks']:
-            exec_context = config.execution_contexts[test_params['execution_context']]
-            tools = test_params['tools']
-            script = [
-                config.tools.load(tools),
-                pf.FileScript(os.path.join(test_dir, f'{task}.sh')
-            ]
-            pf.Task(name=task, script=script, submit_arguments=exec_context)
 
-
+        with self: 
+            for task, task_params in test_params['tasks'].items():
+                with pf.AnchorFamily(name=task):
+                    exec_context = config.execution_contexts[task_params['execution_context']]
+                    tools = task_params['tools']
+                    script = [
+                        config.tools.load(tools),
+                        pf.FileScript(os.path.join(test_dir, f'{task}.sh')),
+                    ]
+                    pf.Task(name=task, script=script, submit_arguments=exec_context)
+  
+ 
 class IntegrationTestsFamily(pf.AnchorFamily):
     def __init__(self, config, **kwargs):
         test_type = 'integration'
@@ -78,15 +80,13 @@ class InitFamily(pf.AnchorFamily):
             # install environments and packages
             tools_family = wl.DeployToolsFamily(
                 config.environments,
-                config.packages,
                 config.tools,
-                config.installers_dir
             )
 
             # setup static data (remote/local copy/link)
             deploy_data = wl.DeployDataFamily(config.static_data, config.data_dir)
 
-            fdb = wl.ExecTask(name='bootstrap_fdb', script=pf.FileScript(os.path.join(SUITE_DIR, 'bootstrap_fdb.sh')), exec_context=exec_context['sequential'])
+            fdb = pf.Task(name='bootstrap_fdb', script=pf.FileScript(os.path.join(SUITE_DIR, 'bootstrap_fdb.sh')), submit_arguments=config.execution_contexts['sequential'])
             fdb.triggers = deploy_data.complete & tools_family.complete
 
 
@@ -124,6 +124,7 @@ class MainSuite(pf.Suite):
             labels=labels,
             defstatus=pf.state.suspended,
             out=config.log_out,
+            workdir='$TMPDIR'
         )
 
         limits = {

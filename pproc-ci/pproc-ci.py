@@ -20,7 +20,6 @@ class Config:
 
         self.deploy_dir = options['deploy_dir']
         self.def_file = os.path.join(self.deploy_dir, 'pproc-ci.def')
-        self.installers_dir = os.path.join(ROOT_DIR, 'installers')
 
         self.user = options['user']
 
@@ -45,7 +44,6 @@ class Config:
 
         self.tools = wl.register_tools(
             self.lib_dir,
-            self.installers_dir,
             self.modules,
             self.packages,
             self.environments,
@@ -123,6 +121,7 @@ if __name__ == '__main__':
     # create config object and suite
     config = Config(args)
     suite = MainSuite(config)
+    print(suite)
 
     # deploy suite scripts and definition file
     suite.deploy_suite(overwrite=True)

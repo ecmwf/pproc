@@ -8,7 +8,7 @@
 suite_name: pproc_ci
 log_out: '%ECF_HOME%'
 
-deploy_dir: /perm/ma/macw/pyflow/pproc_ci
+deploy_dir: /scratch/macw/pyflow/pproc_ci
 
 # host options
 hostname: ccb
