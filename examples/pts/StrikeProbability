@@ -1,0 +1,80 @@
+#Metview Macro# Importing : /QEDSEP19/Copy 2 of GRIB Filter
+dummy=read("msl_05L_ELSA_2021070300")
+#dummy=read("foca.atl")
+#print(dummy)
+
+lat=nil
+lon=nil
+for k=1 to count(dummy) do
+  lat=lat & [parse(dummy[k]," ")[1]]
+  lon=lon & [parse(dummy[k]," ")[2]]
+  
+end for
+tcgene=create_geo(count(dummy))
+print(lat)
+
+
+tcgene=set_latitudes(tcgene,lat)
+tcgene=set_longitudes(tcgene,lon)
+geopoints=tcgene 
+# Importing : /QEDSEP19/Symbol Plotting 1
+
+symbol = msymb(
+    symbol_type         : "marker",
+    symbol_colour       : "black",
+    symbol_height       : 0.3,
+    symbol_marker_index : 15
+    )
+
+
+
+x = read(source:"TCSP_05L_ELSA_000_240_2021070300.grib", #tc_gen_ts_048_096.grib",#strikeprob_090700.grib",#StrikeProb_ts_048_096.grib",
+         #levtype: "sfc",
+         stream : "enfo")
+print(count(x))
+
+# Importing : /QEDSEP19/Contouring 2
+
+cont = mcont( legend : 'on',
+    contour_automatic_setting : "style_name",
+    contour_style_name        : "genesis_prob"
+    )
+  
+graph_circle = mgraph
+    (
+        graph_line_colour    : "white",
+        graph_line_thickness : "5",
+        graph_line_style     : 'solid'
+    )
+vis = [mvl_geocircle(47.5, -53, 120, 70)]
+
+land_sea_shade = mcoast
+(
+    map_coastline_land_shade        : "on",
+    map_coastline_land_shade_colour : "RGB(0.98,0.95,0.82)",
+    map_coastline_sea_shade         : "on",
+    map_coastline_sea_shade_colour  : "RGB(0.85,0.93,1)"
+)
+geo = geoview(
+    map_projection         : "polar_stereographic",
+    map_area_definition    : "corners",
+    area                   : [5,-90,60,-20], #[25.02,-79.91,54.91,-12.02],
+    map_vertical_longitude : -60,
+    coastlines          : land_sea_shade
+) 
+    # Importing : /QEDSEP19/Copy 1 of Euro_Atl_2#/Coastlines/Coastlines
+
+coastlines = mcoast(
+    map_coastline_thickness       : 4,
+    map_coastline_resolution      : "high",
+    map_boundaries                : "on",
+    map_boundaries_colour         : "black",
+    map_administrative_boundaries : "on",
+    map_grid_colour               : "grey",
+    map_grid_longitude_increment  : 10
+    )
+
+plot(geo,x,cont,geopoints,symbol,vis,graph_circle)
+
+  
+

@@ -1,0 +1,7 @@
+tasks:
+  populate_fdb:
+    tools: pproc_env
+    execution_context: sequential
+  efi_sot:
+    tools: pproc_env
+    execution_context: parallel

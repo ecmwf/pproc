@@ -1,0 +1,29 @@
+# Configuration file for pyflow suite.
+
+# This file only contains a selection of most common options.
+# All new entries can be treated on /Users/ccartond/git/pproc/pproc-ci/suite/config.py:Config
+
+# -------- Suite deployment configuration -------------------------------------
+# server options
+suite_name: pproc_ci
+log_out: '%ECF_HOME%'
+
+deploy_dir: $PERM/pyflow/pproc_ci
+
+# host options
+hostname: ccb
+user: macw
+logport: 51953
+
+output_root: '$SCRATCH/ppop_ci'
+lib_dir: '$SCRATCH/ppop_ci/local'
+data_dir: '$SCRATCH/ppop_ci/data'
+
+# ---------- Specific optionals -----------------------------------------------
+# add your project's specific variables and options here
+
+test_types: 
+  - unit
+  - integration
+
+date: '20210601'

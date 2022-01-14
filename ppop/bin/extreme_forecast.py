@@ -1,10 +1,21 @@
 #!/usr/bin/env python3
+#
+# (C) Copyright 1996- ECMWF.
+#
+# This software is licensed under the terms of the Apache Licence Version 2.0
+# which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# In applying this licence, ECMWF does not waive the privileges and immunities
+# granted to it by virtue of its status as an intergovernmental organisation nor
+# does it submit to any jurisdiction.
+
+
 import os
 import argparse
 import numpy as np
 from datetime import datetime, timedelta
 
-import eccodes
+# import eccodes
 import pyfdb
 
 import eccodeshl
@@ -36,7 +47,7 @@ def write_avg(template_message, avg, filename):
 
     with open(filename, "ab") as outfile:
         message = template_message
-        message.set_array('values', avg)
+        message.set_array("values", avg)
         # FIXME: set metadata
         message.write_to(outfile)
 
@@ -44,8 +55,8 @@ def write_avg(template_message, avg, filename):
 def compute_forecast_average(fdb, fc_date, ref_dir, out_dir):
 
     # read reference file
-    ref_reader = eccodeshl.FileReader(os.path.join(ref_dir, 'avg', 'eps_2t024_{}_012h_036h.grib'.format(fc_date.strftime("%Y%m%d%H"))))
-    avg_ref = [message.get_array('values') for message in ref_reader]
+    ref_reader = eccodeshl.FileReader(os.path.join(ref_dir, "ens_2t_avg_ref.grib"))
+    avg_ref = [message.get_array("values") for message in ref_reader]
 
     req_cf = {
         "class": "od",
@@ -56,9 +67,8 @@ def compute_forecast_average(fdb, fc_date, ref_dir, out_dir):
         "domain": "g",
         "type": "cf",
         "levtype": "sfc",
-        # "step": [6, 12, 18, 24], # 0_24
-        "step": [18, 24, 30, 36], # 0_24
-        "param": "167"
+        "step": [6, 12, 18, 24],
+        "param": "167",
     }
 
     req_pf = req_cf.copy()
@@ -168,7 +178,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Small python EFI test')
     parser.add_argument('fc_date', help='Forecast date')
     parser.add_argument('ref_dir', help='Reference directory')
-    # parser.add_argument('out_dir', help='Output directory')
 
     args = args = parser.parse_args()
     fc_date = datetime.strptime(args.fc_date,"%Y%m%d%H")
