@@ -1,15 +1,3 @@
-# ---------- System modules ---------------------------------------------------
-# Examples:
-#  python3:
-#    name: python3
-#    version: 3.6.10-01
-modules:
-  python3:
-    version: '3.8.8-01'
-  cmake:
-    version: '3.19.5'
-  fftw:
-    version: '3.3.4.11'
   
 # ---------- Extra installables -----------------------------------------------
 # example of path from different sources:
@@ -19,25 +7,21 @@ modules:
 packages:
   meteokit: 
     source: git+ssh://git.ecmwf.int/ecsdk/meteokit.git@master
-    installer: /home/ma/macw/git/pproc/pproc-ci/installers/meteokit.sh
-  pproc_bundle: 
-    source: ravenglass:/home/ma/macw/git/pproc/pproc-bundle
-    depends: ['cmake', 'fftw']
-    installer: /home/ma/macw/git/pproc/pproc-ci/installers/pproc_bundle.sh
+    installer: /home/macw/git/pproc/pproc-ci/installers/meteokit.sh
   mir_python: 
     source: git+ssh://git.ecmwf.int/mir/mir-python.git@master
     depends: ['pproc_bundle']
-    installer: /home/ma/macw/git/pproc/pproc-ci/installers/mir_python.sh
+    installer: /home/macw/git/pproc/pproc-ci/installers/mir_python.sh
   pyfdb: 
     source: git+ssh://git.ecmwf.int/mars/pyfdb.git@develop
     depends: ['pproc_bundle']
-    installer: /home/ma/macw/git/pproc/pproc-ci/installers/pyfdb.sh
+    installer: /home/macw/git/pproc/pproc-ci/installers/pyfdb.sh
   eccodeshl: 
-    source: ravenglass:/home/ma/macw/git/pproc/eccodeshl
-    installer: /home/ma/macw/git/pproc/pproc-ci/installers/eccodeshl.sh
+    source: /home/macw/git/pproc/eccodeshl
+    installer: /home/macw/git/pproc/pproc-ci/installers/eccodeshl.sh
   ppop: 
-    source: ravenglass:/home/ma/macw/git/pproc/ppop
-    installer: /home/ma/macw/git/pproc/pproc-ci/installers/ppop.sh
+    source: /home/macw/git/pproc/ppop
+    installer: /home/macw/git/pproc/pproc-ci/installers/ppop.sh
 
 # --------Virtual envs --------------------------------------------------
 # conda or venv virtual environments
@@ -66,9 +50,9 @@ packages:
 #        depends = [danu, efas]
 environments:
     pproc_env:
-        type: system_venv
-        depends: [python3]
-        packages: [meteokit, pproc_bundle, mir_python, pyfdb, eccodeshl, ppop]
+        type: conda
+        environment: /home/macw/git/pproc/pproc-ci/config/atos/environment.yaml
+        packages: [meteokit, mir_python, pyfdb, eccodeshl, ppop]
 
 # ---------- Data paths-------- -----------------------------------------------
 # example of path:
@@ -78,4 +62,4 @@ environments:
 #   - git: git+ssh://git.ecmwf.int/cefl/danu.git@develop
 #   - MARS ?
 static_data:
-  fdb_templates: ravenglass:/home/ma/macw/git/pproc/suite/fdb_templates
+  fdb_templates: /home/macw/git/pproc/pproc-ci/fdb_templates
