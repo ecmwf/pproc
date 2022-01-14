@@ -1,6 +1,6 @@
 
 templates_fdb=$DATA_DIR/fdb_templates
-fdb_conf=$LIB_DIR/$PPOP_ENV/etc/fdb
+fdb_conf=$LIB_DIR/$PPROC_ENV/etc/fdb
 
 mkdir -p $FDB_DIR
 mkdir -p $fdb_conf

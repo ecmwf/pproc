@@ -25,15 +25,18 @@ class GenericTestFamily(pf.AnchorFamily):
         test_params = parse_test_directory(test_dir)
 
         with self: 
+            prev_task = None
             for task, task_params in test_params['tasks'].items():
-                with pf.AnchorFamily(name=task):
-                    exec_context = config.execution_contexts[task_params['execution_context']]
-                    tools = task_params['tools']
-                    script = [
-                        config.tools.load(tools),
-                        pf.FileScript(os.path.join(test_dir, f'{task}.sh')),
-                    ]
-                    pf.Task(name=task, script=script, submit_arguments=exec_context)
+                exec_context = config.execution_contexts[task_params['execution_context']]
+                tools = task_params['tools']
+                script = [
+                    config.tools.load(tools),
+                    pf.FileScript(os.path.join(test_dir, f'{task}.sh')),
+                ]
+                cur_task = pf.Task(name=task, script=script, submit_arguments=exec_context)
+                if prev_task is not None:
+                    cur_task.triggers = prev_task.complete
+                prev_task = cur_task
   
  
 class IntegrationTestsFamily(pf.AnchorFamily):
@@ -99,6 +102,7 @@ class MainSuite(pf.Suite):
             'DATA_DIR':    config.data_dir,
             'SUITE': config.name,
             'FDB_DIR': config.fdb_dir,
+            'PPROC_ENV': 'pproc_env'
         }
         if config.hostname in ['cca', 'ccb']:
             variables['HOST'] = "%SCHOST:{}%".format(config.hostname)  # in operation, SCHOST will be set by operational server

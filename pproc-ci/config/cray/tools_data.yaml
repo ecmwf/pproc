@@ -23,11 +23,11 @@ packages:
   pproc_bundle: 
     source: ravenglass:/home/ma/macw/git/pproc/pproc-bundle
     depends: ['cmake', 'fftw']
-    installer: /home/ma/macw/git/pproc/pproc-ci/installers/pproc_bundle.sh
+    installer: /home/ma/macw/git/pproc/pproc-ci/installers/pproc_bundle_cray.sh
   mir_python: 
     source: git+ssh://git.ecmwf.int/mir/mir-python.git@master
     depends: ['pproc_bundle']
-    installer: /home/ma/macw/git/pproc/pproc-ci/installers/mir_python.sh
+    installer: /home/ma/macw/git/pproc/pproc-ci/installers/mir_python_cray.sh
   pyfdb: 
     source: git+ssh://git.ecmwf.int/mars/pyfdb.git@develop
     depends: ['pproc_bundle']

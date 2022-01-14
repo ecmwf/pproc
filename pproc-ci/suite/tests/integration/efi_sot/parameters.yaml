@@ -1,3 +1,6 @@
+variables:
+  YMD: 20210905
+  HOUR: 12
 tasks:
   populate_fdb:
     tools: pproc_env

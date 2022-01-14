@@ -1,4 +1,11 @@
 
+ # switch to gnu environment
+set +xv
+module switch cdt/18.12
+set -xv
+source /usr/local/etc/ksh_functions/prgenvswitchto
+prgenvswitchto gnu
+
 rm -rf .git # required to avoid pip errors... :/
 
 pip uninstall mir-python -y
