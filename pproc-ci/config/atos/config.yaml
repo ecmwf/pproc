@@ -11,13 +11,13 @@ log_out: '%ECF_HOME%'
 deploy_dir: /scratch/macw/pyflow/pproc_ci
 
 # host options
-hostname: ccb
+hostname: aa
 user: macw
 logport: 51953
 
-output_root: '$SCRATCH/ppop_ci'
-lib_dir: '$SCRATCH/ppop_ci/local'
-data_dir: '$SCRATCH/ppop_ci/data'
+output_root: '$SCRATCH/pproc_ci'
+lib_dir: '$SCRATCH/pproc_ci/local'
+data_dir: '$SCRATCH/pproc_ci/data'
 
 # ---------- Specific optionals -----------------------------------------------
 # add your project's specific variables and options here

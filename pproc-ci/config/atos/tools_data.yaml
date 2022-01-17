@@ -10,11 +10,9 @@ packages:
     installer: /home/macw/git/pproc/pproc-ci/installers/meteokit.sh
   mir_python: 
     source: git+ssh://git.ecmwf.int/mir/mir-python.git@master
-    depends: ['pproc_bundle']
     installer: /home/macw/git/pproc/pproc-ci/installers/mir_python.sh
   pyfdb: 
     source: git+ssh://git.ecmwf.int/mars/pyfdb.git@develop
-    depends: ['pproc_bundle']
     installer: /home/macw/git/pproc/pproc-ci/installers/pyfdb.sh
   eccodeshl: 
     source: /home/macw/git/pproc/eccodeshl
@@ -51,7 +49,7 @@ packages:
 environments:
     pproc_env:
         type: conda
-        environment: /home/macw/git/pproc/pproc-ci/config/atos/environment.yaml
+        file: /home/macw/git/pproc/pproc-ci/config/atos/environment.yaml
         packages: [meteokit, mir_python, pyfdb, eccodeshl, ppop]
 
 # ---------- Data paths-------- -----------------------------------------------

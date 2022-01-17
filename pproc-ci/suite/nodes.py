@@ -97,6 +97,7 @@ class MainSuite(pf.Suite):
     def __init__(self, config):
 
         variables = {
+            'HOST': "%SCHOST:{}%".format(config.hostname),
             'OUTPUT_ROOT': config.output_root,
             'LIB_DIR':     config.lib_dir,
             'DATA_DIR':    config.data_dir,
