@@ -1,7 +1,0 @@
----
-type: local
-engine: toc
-schema: "FDB_SCHEMA"
-spaces:
-  - roots:
-    - path: "FDB_ROOT"

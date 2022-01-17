@@ -1,9 +1,0 @@
-
-execution_contexts:
-    sequential:
-        queue: ns
-    parallel:
-        queue: nf
-        nodes: 1
-        tasks_per_node: 18
-        memory_per_task: 4Gb
