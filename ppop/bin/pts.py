@@ -103,7 +103,7 @@ numbers = parse_range(args.number)
 if pts_home_dir in environ:
     tpl_dir = environ[pts_home_dir]
 else:
-    tpl_dir = path.dirname(__file__)
+    tpl_dir = path.join(path.dirname(__file__), "..", "data", "pts")
 tpl_path = path.realpath(path.join(tpl_dir, args.grib_template))
 print("Loading template: '{}'".format(tpl_path))
 
