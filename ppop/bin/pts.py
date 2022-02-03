@@ -31,6 +31,7 @@ parser.add_argument("--overlap", help="Search overlap [0, 1[", default=0.7, type
 parser.add_argument("--grib-accuracy", help="GRIB bitsPerValue", default=8, type=int)
 parser.add_argument("--grib-date", help="GRIB dataDate", default=None)
 parser.add_argument("--grib-step", help="GRIB stepRange", default=None)
+parser.add_argument("--grib-paramid", help="GRIB paramId", default=None)
 
 parser.add_argument(
     "--grib-template",
@@ -207,6 +208,8 @@ with open(tpl_path, "rb") as f:
         eccodes.codes_set(h, "dataDate", args.grib_date)
     if args.grib_step:
         eccodes.codes_set(h, "stepRange", args.grib_step)
+    if args.grib_paramid:
+        eccodes.codes_set(h, "paramId", args.grib_paramid)
 
     eccodes.codes_set_values(h, val)
 
