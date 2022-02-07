@@ -32,7 +32,7 @@ f = r"([0-9]*[.])?[0-9]+"
 
 _grid = r"^" + f + r"/" + f + "|" + g + r"$"
 _area = r"^-?" + f + r"/-?" + f + r"/-?" + f + r"/-?" + f + r"$"
-_interpolation = r"^(linear|nn|grid-box-average)$"
+_interpolation = r"^(linear|nn|grid-box-average|fail)$"
 _intgrid = r"^" + g + r"|none|source$"
 _truncation = r"^[1-9][0-9]*|none$"
 
