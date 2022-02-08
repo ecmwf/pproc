@@ -30,7 +30,7 @@ class _Regex(object):
 g = r"[ONF][1-9][0-9]*"
 f = r"([0-9]*[.])?[0-9]+"
 
-_grid = r"^" + f + r"/" + f + "|" + g + r"$"
+_grid = r"^" + f + r"/" + f + r"|" + g + r"$"
 _area = r"^-?" + f + r"/-?" + f + r"/-?" + f + r"/-?" + f + r"$"
 _interpolation = r"^(linear|nn|grid-box-average|fail)$"
 _intgrid = r"^" + g + r"|none|source$"
