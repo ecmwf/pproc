@@ -38,7 +38,7 @@ Create an environment for the Python packages::
 Install requirements
 --------------------
 
-Install the ppop package requirements::
+Install the pproc package requirements::
 
   python3 -m pip install -r requirements.txt
 
@@ -95,6 +95,6 @@ pts
 
 This example creates a pts GRIB product, some options are available::
 
-  ppop/bin/pproc-pts --help
-  ppop/bin/pproc-pts examples/pts/msl_05L_ELSA_2021070300 out.grib --distance=2.0e5
+  pproc/bin/pproc-pts --help
+  pproc/bin/pproc-pts examples/pts/msl_05L_ELSA_2021070300 out.grib --distance=2.0e5
 
