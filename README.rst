@@ -95,6 +95,6 @@ pts
 
 This example creates a pts GRIB product, some options are available::
 
-  ppop/bin/pts.py --help
-  ppop/bin/pts.py examples/pts/msl_05L_ELSA_2021070300 out.grib --distance=2.0e5
+  ppop/bin/pproc-pts --help
+  ppop/bin/pproc-pts examples/pts/msl_05L_ELSA_2021070300 out.grib --distance=2.0e5
 
