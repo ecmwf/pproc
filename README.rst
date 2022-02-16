@@ -29,7 +29,6 @@ Create an environment for the Python packages::
 
   python3 -m venv venv
   source venv/bin/activate
-  python3 -m pip install cython
 
 ..
   FIXME 
@@ -42,32 +41,26 @@ Install the pproc package requirements::
 
   python3 -m pip install -r requirements.txt
 
-..
-  FIXME this should replace the "Install" sections, incl. cython?
-  Needs populating requirements.txt
-
-Install pyfdb
--------------
-
-Clone and install pyfdb::
-
-  git clone ssh://git@git.ecmwf.int/mars/pyfdb.git
-  cd pyfdb
-  git checkout develop
-  python3 -m pip install -e .
-  cd ..
-
 Install mir-python
 ------------------
 
-Clone, build and install mir-python::
+Build and install mir-python::
 
-  git clone ssh://git@git.ecmwf.int/mir/mir-python.git
-  cd mir-python
+  python3 -m pip install cython
   export MIR_INCLUDE_DIRS=/path/to/pproc-bundle/install/include
   export MIR_LIB_DIR=/path/to/pproc-bundle/install/lib64
-  python setup.py install
-  cd ..
+  python3 -m pip install git+ssh://git@git.ecmwf.int/mir/mir-python.git
+
+Install Python modules
+----------------------
+
+Install eccodeshl::
+
+  python3 -m pip install ./eccodeshl
+
+Install pproc::
+
+  python3 -m pip install ./pproc
 
 Examples
 ========
