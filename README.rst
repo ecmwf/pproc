@@ -69,13 +69,6 @@ Clone, build and install mir-python::
   python setup.py install
   cd ..
 
-Install pyeccodes
------------------
-
-Needed only for the example::
-
-  python3 -m pip install pyeccodes
-
 Examples
 ========
 
@@ -84,7 +77,7 @@ fdb
 
 This example assumes that an FDB is set up and contains a field (see the
 request in the example script). The field is read using pyfdb, interpolated to
-a regular grid, then read into pyeccodes::
+a regular grid, then read into eccodeshl::
 
   export LD_LIBRARY_PATH=/path/to/pproc-bundle/install/lib64:$LD_LIBRARY_PATH
   python3 test_fdb_mir.py

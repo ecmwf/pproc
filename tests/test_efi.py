@@ -1,8 +1,8 @@
 import argparse
 import time
 import numpy as np
-import pyeccodes
 import eccodes
+import eccodeshl
 import pyfdb
 from meteokit import climatology
 import xarray as xr
@@ -32,7 +32,7 @@ def fdb_read_fc(fdb, fc_date):
         print(req)
         fdb_reader = fdb.retrieve(req)
 
-        eccodes_reader = pyeccodes.Reader(fdb_reader)
+        eccodes_reader = eccodeshl.StreamReader(fdb_reader)
         for message in eccodes_reader:
             val = message.get('values')
             print(val.shape)
@@ -95,7 +95,7 @@ def fdb_read_clim(fdb, clim_date):
 
     fdb_reader = fdb.retrieve(req)
 
-    eccodes_reader = pyeccodes.Reader(fdb_reader)
+    eccodes_reader = eccodeshl.StreamReader(fdb_reader)
     for message in eccodes_reader:
         val = message.get('values')
         print(val.shape)

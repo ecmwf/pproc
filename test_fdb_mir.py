@@ -2,8 +2,8 @@
 
 from io import BytesIO
 
+import eccodeshl
 import mir
-import pyeccodes
 import pyfdb
 
 req = {
@@ -27,8 +27,6 @@ job = mir.Job(grid='1.0/1.0')
 stream = BytesIO()
 job.execute(reader, stream)
 
-stream.seek(0)
-stream.mode = 'rb'  # for pyeccodes
-reader = pyeccodes.Reader(stream)
+reader = eccodeshl.MemoryReader(stream.getvalue())
 grib = next(reader)
 grib.dump()

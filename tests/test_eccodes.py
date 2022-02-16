@@ -1,12 +1,10 @@
 # coding: utf-8
 from io import BytesIO
 
-import eccodes
 import mir
 import pyfdb
 
 import eccodeshl
-from eccodeshl.reader import codes_new_from_stream
 
 req = {
     "class": "rd",
