@@ -18,7 +18,7 @@ if ! command_exists ${BOOTSTRAPPED} ; then
         fi
         git clone -b ${ECBUNDLE_BRANCH} ${BITBUCKET}/ecsdk/ecbundle.git ${BUNDLE_DIR}/ecbundle
     fi
-    export PATH=${BUNDLE_DIR}/ecbundle:${PATH}
+    export PATH=${BUNDLE_DIR}/ecbundle/bin:${PATH}
     UPDATE_ECBUNDLE=false
     while [ $# != 0 ]; do
         case "$1" in
