@@ -173,13 +173,13 @@ def climatology_date(fc_date):
     return clim_date
 
 
-if __name__ == "__main__":
+def main(args=None):
 
     parser = argparse.ArgumentParser(description='Small python EFI test')
     parser.add_argument('fc_date', help='Forecast date')
     parser.add_argument('ref_dir', help='Reference directory')
 
-    args = args = parser.parse_args()
+    args = parser.parse_args(args)
     fc_date = datetime.strptime(args.fc_date,"%Y%m%d%H")
     clim_date = climatology_date(fc_date)
     print(fc_date)
@@ -197,3 +197,7 @@ if __name__ == "__main__":
     efi = compute_efi(fdb, fc_date, fc_avg, clim, ref_dir, out_dir)
 
     sot = compute_sot(fdb, fc_date, fc_avg, clim, ref_dir, out_dir)
+
+
+if __name__ == "__main__":
+    main()

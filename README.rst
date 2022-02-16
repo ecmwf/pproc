@@ -6,7 +6,7 @@ Requirements
 ============
 
 * CMake (3.12 or higher)
-* Python 3
+* Python 3 (3.7 or higher)
 
 Build instructions
 ==================
@@ -95,6 +95,6 @@ pts
 
 This example creates a pts GRIB product, some options are available::
 
-  pproc/bin/pproc-pts --help
-  pproc/bin/pproc-pts examples/pts/msl_05L_ELSA_2021070300 out.grib --distance=2.0e5
+  pproc-pts --help
+  pproc-pts examples/pts/msl_05L_ELSA_2021070300 out.grib --distance=2.0e5
 
