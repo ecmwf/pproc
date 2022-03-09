@@ -72,17 +72,25 @@ def parse_range(rstr):
 
 
 def main(args=None):
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+
     parser.add_argument(
         "--columns",
         help="Input list of column names to use",
         default="lat,lon,number,date,step,wind,msl",
     )
     parser.add_argument("--number", help="Number range", default="1-50")
-    parser.add_argument("--distance", help="Search radius [m]", default=300.0e3, type=float)
-    parser.add_argument("--overlap", help="Search overlap [0, 1[", default=0.7, type=float)
-    parser.add_argument("--grib-accuracy", help="GRIB bitsPerValue", default=8, type=int)
+    parser.add_argument(
+        "--distance", help="Search radius [m]", default=300.0e3, type=float
+    )
+    parser.add_argument(
+        "--overlap", help="Search overlap [0, 1[", default=0.7, type=float
+    )
+    parser.add_argument(
+        "--grib-accuracy", help="GRIB bitsPerValue", default=8, type=int
+    )
     parser.add_argument("--grib-date", help="GRIB dataDate", default=None)
     parser.add_argument("--grib-step", help="GRIB stepRange", default=None)
     parser.add_argument("--grib-paramid", help="GRIB paramId", default=None)
@@ -112,9 +120,13 @@ def main(args=None):
     with ExitStack() as stack:
         if pts_home_dir in environ:
             tpl_dir = environ[pts_home_dir]
-            tpl_path = nullcontext(path.realpath(path.join(tpl_dir, args.grib_template)))
+            tpl_path = nullcontext(
+                path.realpath(path.join(tpl_dir, args.grib_template))
+            )
         else:
-            tpl_path = stack.enter_context(resources.path("pproc.data.pts", args.grib_template))
+            tpl_path = stack.enter_context(
+                resources.path("pproc.data.pts", args.grib_template)
+            )
 
         print("Loading template: '{}'".format(tpl_path))
         f = stack.enter_context(open(tpl_path, "rb"))
@@ -185,7 +197,9 @@ def main(args=None):
             ti = np.array([])
             for a, b in previous_and_current(track.itertuples()):
                 if a is not None:
-                    dist_ab = np.linalg.norm(np.array([b.x - a.x, b.y - a.y, b.z - a.z]))
+                    dist_ab = np.linalg.norm(
+                        np.array([b.x - a.x, b.y - a.y, b.z - a.z])
+                    )
                     num = max(1, int(np.ceil(dist_ab / dist_circle)))
                     ti = np.append(ti, np.linspace(a.t, b.t, num=num, endpoint=False))
             ti = np.append(ti, [track.t[track.index[-1]]])
@@ -228,5 +242,5 @@ def main(args=None):
         eccodes.codes_release(h)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
