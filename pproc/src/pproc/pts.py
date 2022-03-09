@@ -72,15 +72,16 @@ def parse_range(rstr):
 
 
 def main(args=None):
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--number", help="Number range", default="1-50")
-    parser.add_argument("--distance", help="Search radius [m]", default=300.0e3, type=float)
-    parser.add_argument("--overlap", help="Search overlap [0, 1[", default=0.7, type=float)
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    
     parser.add_argument(
         "--columns",
         help="Input list of column names to use",
         default="lat,lon,number,date,step,wind,msl",
     )
+    parser.add_argument("--number", help="Number range", default="1-50")
+    parser.add_argument("--distance", help="Search radius [m]", default=300.0e3, type=float)
+    parser.add_argument("--overlap", help="Search overlap [0, 1[", default=0.7, type=float)
     parser.add_argument("--grib-accuracy", help="GRIB bitsPerValue", default=8, type=int)
     parser.add_argument("--grib-date", help="GRIB dataDate", default=None)
     parser.add_argument("--grib-step", help="GRIB stepRange", default=None)
