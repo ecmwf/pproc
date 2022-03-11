@@ -93,7 +93,7 @@ def main(args=None):
     )
     parser.add_argument("--grib-date", help="GRIB dataDate", type=int, default=None)
     parser.add_argument("--grib-time", help="GRIB dataTime", type=int, default=None)
-    parser.add_argument("--grib-step", help="GRIB stepRange", type=int, default=None)
+    parser.add_argument("--grib-step", help="GRIB stepRange", default=None)
     parser.add_argument("--grib-paramid", help="GRIB paramId", type=int, default=None)
 
     parser.add_argument(
