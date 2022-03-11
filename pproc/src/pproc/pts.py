@@ -91,9 +91,10 @@ def main(args=None):
     parser.add_argument(
         "--grib-accuracy", help="GRIB bitsPerValue", default=8, type=int
     )
-    parser.add_argument("--grib-date", help="GRIB dataDate", default=None)
-    parser.add_argument("--grib-step", help="GRIB stepRange", default=None)
-    parser.add_argument("--grib-paramid", help="GRIB paramId", default=None)
+    parser.add_argument("--grib-date", help="GRIB dataDate", type=int, default=None)
+    parser.add_argument("--grib-time", help="GRIB dataTime", type=int, default=None)
+    parser.add_argument("--grib-step", help="GRIB stepRange", type=int, default=None)
+    parser.add_argument("--grib-paramid", help="GRIB paramId", type=int, default=None)
 
     parser.add_argument(
         "--grib-template",
@@ -229,6 +230,8 @@ def main(args=None):
             eccodes.codes_set(h, "bitsPerValue", args.grib_accuracy)
         if args.grib_date:
             eccodes.codes_set(h, "dataDate", args.grib_date)
+        if args.grib_time:
+            eccodes.codes_set(h, "dataTime", args.grib_time)
         if args.grib_step:
             eccodes.codes_set(h, "stepRange", args.grib_step)
         if args.grib_paramid:
