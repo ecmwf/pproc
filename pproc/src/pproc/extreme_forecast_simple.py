@@ -24,7 +24,7 @@ def compute_efi(fcs, clim, eps):
     return efi
 
 
-def compute_sot(fcs, clim, sot_values eps, missing):
+def compute_sot(fcs, clim, sot_values, eps, missing):
 
     sot = {}
     for perc in sot_values:
@@ -36,7 +36,6 @@ def compute_sot(fcs, clim, sot_values eps, missing):
 def read_grib(in_file):
     reader = eccodeshl.FileReader(in_file)
     data = [message.get_array("values") for message in reader]
-    #print(data)
 
     return np.asarray(data)
 
@@ -84,7 +83,7 @@ def main(args=None):
     write_grib(args.template, efi, args.out_dir, efifile)
     
     if fc_name == 'eps':
-        sot = compute_sot(fcs, clim, sot_num eps=args.eps, missing=missing)
+        sot = compute_sot(fcs, clim, sot_num, eps=args.eps, missing=missing)
         for val in sot_num:
             sotfile = 'sot' + str(val) + os.path.basename(args.fc_file)[3:]
             write_grib(args.template, sot[val], args.out_dir, sotfile, missing=missing)
