@@ -47,8 +47,15 @@ def write_grib(template, data, out_dir, out_name, missing=None):
 
     if missing is not None:
         message.set('missingValue', missing)
-
+        message.set('bitmapPresent', 1)
+        
     message.set_array('values', data)
+
+    if missing is not None:
+        n_missing1 = len(data[data==missing])
+        n_missing2 = message.get('numberOfMissing')
+        if n_missing1 != n_missing2:
+            raise Exception(f'Number of missing values in the message not consistent, is {n_missing1} and should be {n_missing2}')
 
     out_file = os.path.join(out_dir, out_name)
     with open(out_file,"ab") as outfile:
