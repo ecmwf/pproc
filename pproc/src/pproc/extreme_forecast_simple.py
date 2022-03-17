@@ -35,7 +35,17 @@ def compute_sot(fcs, clim, sot_values, eps, missing):
 
 def read_grib(in_file):
     reader = eccodeshl.FileReader(in_file)
-    data = [message.get_array("values") for message in reader]
+
+    data = []
+    for message in reader:
+        data_array = message.get_array("values")
+
+        # handle missing values and replace by nan
+        if message.get('bitmapPresent'):
+            missing = message.get('missingValue')
+            data_array[data_array == missing] = np.nan
+
+        data.append(data_array)
 
     return np.asarray(data)
 
@@ -45,7 +55,10 @@ def write_grib(template, data, out_dir, out_name, missing=None):
     messages = list(reader)
     message = messages[0]
 
-    if missing is not None:
+    # replace missing values if any
+    missing = -9999
+    if np.isnan(data).any():
+        data[np.isnan(data)] = missing
         message.set('missingValue', missing)
         message.set('bitmapPresent', 1)
         
@@ -73,7 +86,6 @@ def main(args=None):
     parser.add_argument('--eps', type=float, help='epsilon factor')
     
     args = parser.parse_args(args)
-    missing = -99999
 
     sot_num = args.sot
     if not isinstance(sot_num, list):
@@ -90,10 +102,10 @@ def main(args=None):
     write_grib(args.template, efi, args.out_dir, efifile)
     
     if fc_name == 'eps':
-        sot = compute_sot(fcs, clim, sot_num, eps=args.eps, missing=missing)
+        sot = compute_sot(fcs, clim, sot_num, eps=args.eps)
         for val in sot_num:
             sotfile = 'sot' + str(val) + os.path.basename(args.fc_file)[3:]
-            write_grib(args.template, sot[val], args.out_dir, sotfile, missing=missing)
+            write_grib(args.template, sot[val], args.out_dir, sotfile)
     
 
 if __name__ == "__main__":
