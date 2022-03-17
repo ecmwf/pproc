@@ -24,11 +24,11 @@ def compute_efi(fcs, clim, eps):
     return efi
 
 
-def compute_sot(fcs, clim, sot_values, eps, missing):
+def compute_sot(fcs, clim, sot_values, eps):
 
     sot = {}
     for perc in sot_values:
-        sot[perc] = extreme.sot(clim, fcs, perc, eps=eps, missing=missing)
+        sot[perc] = extreme.sot(clim, fcs, perc, eps=eps)
 
     return sot
 
@@ -50,21 +50,22 @@ def read_grib(in_file):
     return np.asarray(data)
 
 
-def write_grib(template, data, out_dir, out_name, missing=None):
+def write_grib(template, data, out_dir, out_name):
     reader = eccodeshl.FileReader(template)
     messages = list(reader)
     message = messages[0]
 
     # replace missing values if any
     missing = -9999
-    if np.isnan(data).any():
+    is_missing = np.isnan(data).any()
+    if is_missing:
         data[np.isnan(data)] = missing
         message.set('missingValue', missing)
         message.set('bitmapPresent', 1)
         
     message.set_array('values', data)
 
-    if missing is not None:
+    if is_missing:
         n_missing1 = len(data[data==missing])
         n_missing2 = message.get('numberOfMissing')
         if n_missing1 != n_missing2:
