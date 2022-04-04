@@ -56,7 +56,7 @@ projects :
 
     - mir :
         git     : ${BITBUCKET}/mir/mir
-        version : master
+        version : develop
         require : atlas eckit eccodes
 
 options:
