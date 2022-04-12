@@ -115,8 +115,7 @@ def ensemble_anomalies(ens, ens_mean=None, clip=None):
     else:
         assert ens_mean.shape[:-2] == ens.shape[:-3]
         assert ens_mean.shape[-2:] == ens.shape[-2:]
-    nstep, npoints = ens.shape[-2:]
-    anom = ens - ens_mean[..., np.newaxis, nstep, npoints]
+    anom = ens - ens_mean[..., np.newaxis, :, :]
     if clip is None:
         return anom
     return np.clip(anom, -clip, clip)
@@ -163,7 +162,7 @@ def ensemble_pca(ens_anom, ncomp, weights=None):
     comp_ev = evals[-ncomp:][::-1]
     sum_ev = evals.sum()
 
-    pcens = np.empty(ncomp, nfld)
+    pcens = np.empty((ncomp, nfld))
     for i in range(ncomp):
         pcens[i, :] = evecs[:, -i]
     pcens *= np.sqrt(nfld)
@@ -185,7 +184,7 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--factor', default=None, type=float, help="Apply this conversion factor to the input fields")
     parser.add_argument('-m', '--mask', default=None, help="Mask file")
     parser.add_argument('-s', '--spread', required=True, help="Ensemble spread (GRIB)")
-    parser.add_argument('num-components', type=int, help="Number of components to extract")
+    parser.add_argument('num_components', type=int, help="Number of components to extract")
     parser.add_argument('ensemble', help="Ensemble data (GRIB)")
     parser.add_argument('output', help="Output file (NPZ)")
     args = parser.parse_args()
@@ -204,14 +203,14 @@ if __name__ == '__main__':
 
     # Read ensemble
     nexp = args.num_members
-    nstep = args.num_steps
     monthly = (args.steps[1] - args.steps[0] > 120) or (args.steps[1] == args.steps[0])
     steps = gen_steps(args.steps[0], args.steps[1], args.steps[2], monthly=monthly)
     inv_steps = {s: i for i, s in enumerate(steps)}
+    nstep = len(steps)
     with eccodeshl.FileReader(args.ensemble) as reader:
         message = reader.peek()
         npoints = message.get('numberOfDataPoints')
-        lat = message.get('latitudes')
+        lat = message.get_array('latitudes')
         ens = np.empty((nexp, nstep, npoints))
         for message in reader:
             iexp = message.get('perturbationNumber')
@@ -225,14 +224,14 @@ if __name__ == '__main__':
     weights = lat_weights(lat, mask)
 
     # Normalise ensemble fields
-    if args.fact is not None:
-        ens *= args.fact
+    if args.factor is not None:
+        ens *= args.factor
 
     # Compute ensemble mean
     ens_mean = ensemble_mean(ens)
 
     # Compute ensemble anomalies
-    ens_anom = ensemble_anomalies(ens, emean=ens_mean, clip=args.clip)
+    ens_anom = ensemble_anomalies(ens, ens_mean=ens_mean, clip=args.clip)
     del ens
 
     # Compute EOF
