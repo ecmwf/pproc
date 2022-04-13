@@ -15,7 +15,7 @@ def gen_steps(start, end, delta, monthly=False):
         Interval between steps
     monthly: bool
         If True, delta is scaled by 7 (monthly forecast)
-    
+
     Returns
     -------
     list[int]
@@ -23,6 +23,105 @@ def gen_steps(start, end, delta, monthly=False):
     """
     delta_eff = delta if not monthly else (7 * delta)
     return list(range(start, end + 1, delta_eff))
+
+
+def normalise_angles(angles, positive=True):
+    """Normalise angles in degrees
+
+    Parameters
+    ----------
+    angles: numpy array
+        Input angles in degrees
+    positive: bool
+        If True, the return value is in [0, 360), in [-180, 180) otherwise
+
+    Returns
+    -------
+    numpy array
+        Angles in the appropriate range, see ``positive``
+    """
+    angles = np.asarray(angles) % 360
+    if positive:
+        return angles
+    return angles - 180
+
+
+def region_mask(lat_n, lat_s, lon_w, lon_e, lat, lon):
+    """Mask off a region
+
+    Parameters
+    ----------
+    lat_n: float
+        Latitude of the northern border ([-90, 90])
+    lat_s: float
+        Latitude of the southern border ([-90, 90])
+    lon_w: float
+        Longitude of the western border ([0, 360])
+    lon_e: float
+        Longitude of the eastern border
+    lat: numpy array (npoints)
+        Latitudes ([-90, 90])
+    lon: numpy array (npoints)
+        Longitudes ([0, 360])
+
+    Returns
+    -------
+    numpy array (npoints)
+        Boolean mask
+    """
+    lat = np.asarray(lat)
+    lon = np.asarray(lon)
+    assert lat.shape == lon.shape
+
+    mask = (lat >= lat_s) & (lat <= lat_n)
+    if lon_w <= lon_e:
+        # Contiguous case
+        mask &= (lon >= lon_w) & (lon <= lon_e)
+    else:
+        # Wrap around
+        mask &= (lon >= lon_w) | (lon <= lon_e)
+
+    return mask
+
+
+def region_weights(lat_n, lat_s, lon_w, lon_e, lat, lon, weights=None):
+    """Restrict weights to a region
+
+    Parameters
+    ----------
+    lat_n: float
+        Latitude of the northern border ([-90, 90])
+    lat_s: float
+        Latitude of the southern border ([-90, 90])
+    lon_w: float
+        Longitude of the western border ([0, 360])
+    lon_e: float
+        Longitude of the eastern border
+    lat: numpy array (npoints)
+        Latitudes ([-90, 90])
+    lon: numpy array (npoints)
+        Longitudes ([0, 360])
+    weights: numpy array (npoints), optional
+        Initial weights
+
+    Returns
+    -------
+    numpy array (npoints)
+        Masked weights
+    """
+    lat = np.asarray(lat)
+    lon = np.asarray(lon)
+    assert lat.shape == lon.shape
+
+    mask = region_mask(lat_n, lat_s, lon_w, lon_e, lat, lon)
+
+    if weights is None:
+        weights = np.ones_like(lat)
+    else:
+        weights = np.asarray(weights)
+        assert weights.shape == lat.shape
+    weights[~mask] = 0
+    return weights
 
 
 def lat_weights(lat, weights=None):
@@ -41,11 +140,11 @@ def lat_weights(lat, weights=None):
         Latitude-corrected weights
     """
     if weights is None:
-        weights = np.cos(lat)
+        weights = np.cos(np.radians(lat))
     else:
         weights = np.asarray(weights)
         assert weights.shape == lat.shape
-        weights = weights * np.cos(lat)
+        weights = weights * np.cos(np.radians(lat))
     weights /= weights.sum()
     return weights
 
@@ -164,7 +263,7 @@ def ensemble_pca(ens_anom, ncomp, weights=None):
 
     pcens = np.empty((ncomp, nfld))
     for i in range(ncomp):
-        pcens[i, :] = evecs[:, -i]
+        pcens[i, :] = evecs[:, -i-1]
     pcens *= np.sqrt(nfld)
 
     eof = np.tensordot(pcens, ens, axes=1)
@@ -180,6 +279,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="PCA for ensemble data")
     parser.add_argument('-N', '--num-members', type=int, default=51, help="Number of ensemble members")
     parser.add_argument('-S', '--steps', nargs=3, type=int, required=True, help="Steps (start, stop, delta)")
+    parser.add_argument('-b', '--bbox', nargs=4, type=float, default=None, help="Bounding box (N, S, W, E)")
     parser.add_argument('-c', '--clip', default=None, type=float, help="Clip anomalies to this absolute value")
     parser.add_argument('-f', '--factor', default=None, type=float, help="Apply this conversion factor to the input fields")
     parser.add_argument('-m', '--mask', default=None, help="Mask file")
@@ -195,12 +295,6 @@ if __name__ == '__main__':
         # format?
         raise NotImplementedError()
 
-    # Read ensemble stddev, compute mean spread
-    with eccodeshl.FileReader(args.spread) as reader:
-        message = next(reader)
-        # TODO: check param and level
-        ens_spread = mean_spread(message.get_array('values'))
-
     # Read ensemble
     nexp = args.num_members
     monthly = (args.steps[1] - args.steps[0] > 120) or (args.steps[1] == args.steps[0])
@@ -211,6 +305,7 @@ if __name__ == '__main__':
         message = reader.peek()
         npoints = message.get('numberOfDataPoints')
         lat = message.get_array('latitudes')
+        lon = normalise_angles(message.get_array('longitudes'))
         ens = np.empty((nexp, nstep, npoints))
         for message in reader:
             iexp = message.get('perturbationNumber')
@@ -220,8 +315,19 @@ if __name__ == '__main__':
             if istep is not None:
                 ens[iexp, istep, :] = message.get_array('values')
 
-    # Compute weights
+    # Mask off region
+    if args.bbox is not None:
+        lat_n, lat_s, lon_w, lon_e = normalise_angles(args.bbox)
+        mask = region_weights(lat_n, lat_s, lon_w, lon_e, lat, lon, mask)
+
+    # Weight by latitude
     weights = lat_weights(lat, mask)
+
+    # Read ensemble stddev, compute mean spread
+    with eccodeshl.FileReader(args.spread) as reader:
+        message = next(reader)
+        # TODO: check param and level
+        ens_spread = mean_spread(message.get_array('values'), weights=weights)
 
     # Normalise ensemble fields
     if args.factor is not None:
@@ -245,6 +351,8 @@ if __name__ == '__main__':
     var_cum = np.cumsum(var_pct)
 
     data = {
+        'lat': lat,
+        'lon': lon,
         'mask': mask,              # EOF
         'ens_mean': ens_mean,      # EM, per ensemble then step
         'ens_anom': ens_anom,      # AN, per ensemble then member then step
