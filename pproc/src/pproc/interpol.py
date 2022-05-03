@@ -36,8 +36,8 @@ def main(args=None):
     _grid = r"^" + f + r"/" + f + r"$|^" + g + r"$"
     _area = r"^-?" + f + r"/-?" + f + r"/-?" + f + r"/-?" + f + r"$"
     _interpolation = r"^(linear|nn|grid-box-average|fail)$"
-    _intgrid = r"^" + g + r"|none|source$"
-    _truncation = r"^[1-9][0-9]*|none$"
+    _intgrid = r"^" + g + r"$|^(none|source)$"
+    _truncation = r"^[1-9][0-9]*$|^none$"
 
     grids = path.join(mir.home(), "etc", "mir", "grids.yaml")
     if path.exists(grids):
