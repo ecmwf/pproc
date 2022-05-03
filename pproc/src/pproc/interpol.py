@@ -12,6 +12,8 @@
 
 import argparse
 import re
+import yaml
+from os import path
 import mir
 
 
@@ -31,12 +33,17 @@ def main(args=None):
     g = r"[ONF][1-9][0-9]*"
     f = r"([0-9]*[.])?[0-9]+"
 
-    _grid = r"^" + f + r"/" + f + r"|" + g + r"$"
+    _grid = r"^" + f + r"/" + f + r"$|^" + g + r"$"
     _area = r"^-?" + f + r"/-?" + f + r"/-?" + f + r"/-?" + f + r"$"
     _interpolation = r"^(linear|nn|grid-box-average|fail)$"
     _intgrid = r"^" + g + r"|none|source$"
     _truncation = r"^[1-9][0-9]*|none$"
 
+    grids = path.join(mir.home(), "etc", "mir", "grids.yaml")
+    if path.exists(grids):
+        with open(grids) as file:
+            for key in yaml.safe_load(file).keys():
+                _grid = _grid + r"|^" + key + r"$"
 
     arg = argparse.ArgumentParser()
 
@@ -94,14 +101,12 @@ def main(args=None):
     args = arg.parse_args(args)
     print(args)
 
-
     options = {}
     for k in ["area", "grid", "interpolation", "intgrid", "truncation"]:
         if hasattr(args, k):
             v = getattr(args, k)
             if v is not None:
                 options[k] = getattr(args, k)
-
 
     job = mir.Job(**options)
     print("Running", job)
@@ -111,5 +116,5 @@ def main(args=None):
         job.execute(grib_in, grib_out)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
