@@ -35,7 +35,8 @@ def main(args=None):
 
     _grid = r"^" + f + r"/" + f + r"$|^" + g + r"$"
     _area = r"^-?" + f + r"/-?" + f + r"/-?" + f + r"/-?" + f + r"$"
-    _interpolation = r"^(linear|nn|grid-box-average|fail)$"
+    _interpolation = r"^(linear|nn|grid-box-average|grid-box-statistics|fail)$"
+    _statistics = r"^(maximum|minimum|count)$"
     _intgrid = r"^" + g + r"$|^(none|source)$"
     _truncation = r"^[1-9][0-9]*$|^none$"
 
@@ -65,6 +66,12 @@ def main(args=None):
         "--interpolation",
         type=_Regex(_interpolation),
         help="interpolation method (" + _interpolation + ")",
+    )
+
+    arg.add_argument(
+        "--interpolation-statistics",
+        type=_Regex(_statistics),
+        help="interpolation statistics method (" + _statistics + ")",
     )
 
     arg.add_argument(
@@ -102,11 +109,11 @@ def main(args=None):
     print(args)
 
     options = {}
-    for k in ["area", "grid", "interpolation", "intgrid", "truncation"]:
+    for k in ["area", "grid", "interpolation", "interpolation_statistics",  "intgrid", "truncation"]:
         if hasattr(args, k):
             v = getattr(args, k)
             if v is not None:
-                options[k] = getattr(args, k)
+                options[k.replace("_", "-")] = getattr(args, k)
 
     job = mir.Job(**options)
     print("Running", job)
