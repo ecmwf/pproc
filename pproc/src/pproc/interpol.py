@@ -109,11 +109,18 @@ def main(args=None):
     print(args)
 
     options = {}
-    for k in ["area", "grid", "interpolation", "interpolation_statistics",  "intgrid", "truncation"]:
+    for k in [
+        "area",
+        "grid",
+        "interpolation",
+        "interpolation_statistics",
+        "intgrid",
+        "truncation",
+    ]:
         if hasattr(args, k):
             v = getattr(args, k)
             if v is not None:
-                options[k.replace("_", "-")] = getattr(args, k)
+                options[k.replace("_", "-")] = v
 
     job = mir.Job(**options)
     print("Running", job)
