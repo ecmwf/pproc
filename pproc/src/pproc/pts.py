@@ -203,17 +203,20 @@ def main(args=None):
                 for col in ["lat", "lon", "number", "date", "step", "wind", "msl", "tc"]
             }
 
-            re_number = re.compile("^.*_(\d\d\d)_.*$")
+            re_number = re.compile("_(\d\d\d)_")
             re_data = re.compile(
                 "^..... (..../../..)/(..)\*(...)(....)  (..) (....)\*(...)(....)\*(.....)(.....)(.....)(.....)\*(.....)(.....)(.....)(.....)\*(.....)(.....)(.....)(.....)\*$"
             )
 
             for fn in args.input_tc_tracks:
+                found_number = re_number.search(path.basename(fn))
+                number = int(found_number.group(1)) if found_number else 1
+                if number not in numbers:
+                    continue
+
                 flip = args.flip and any(
                     fn.endswith(ext) for ext in ("_aus", "_sin", "_spc")
                 )
-                found_number = re_number.match(path.basename(fn))
-                number = int(found_number.group(1)) if found_number else 1
 
                 with open(fn, "r") as file:
                     for line in file:
@@ -237,13 +240,11 @@ def main(args=None):
                 names=args.input_points_columns,
                 usecols=["lat", "lon", "number", "date", "step", "wind"],
             )
+            df = df[df.number.isin(numbers)]
 
-        df["x"], df["y"], df["z"] = ll_to_ecef(df["lat"], df["lon"])
-        df["t"] = df["step"] + 2400 * (df["date"] - df["date"].min())
+        df["x"], df["y"], df["z"] = ll_to_ecef(df.lat, df.lon)
+        df["t"] = df.step + 2400 * (df.date - df.date.min())
         df.drop(["lat", "lon", "date", "step"], axis=1, inplace=True)
-
-        # filter (partial)
-        df = df[df["number"].isin(numbers)]
 
         # probability field
         val = np.zeros(N)
@@ -251,7 +252,7 @@ def main(args=None):
             track = df[df.number == n].sort_values("t")
             if len(track.index) < 2:
                 continue
-            if track["wind"].max() < args.filter_min_wind:
+            if track.wind.max() < args.filter_min_wind:
                 continue
 
             # super-sampled time and position
