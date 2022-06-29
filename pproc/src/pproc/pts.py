@@ -88,9 +88,8 @@ def main(args=None):
     parser.add_argument(
         "--overlap", help="Search overlap [0, 1[", default=0.7, type=float
     )
-    parser.add_argument(
-        "--grib-accuracy", help="GRIB bitsPerValue", default=8, type=int
-    )
+
+    parser.add_argument("--grib-accuracy", help="GRIB accuracy", default=8, type=int)
     parser.add_argument("--grib-date", help="GRIB dataDate", type=int, default=None)
     parser.add_argument("--grib-time", help="GRIB dataTime", type=int, default=None)
     parser.add_argument("--grib-step", help="GRIB stepRange", default=None)
@@ -228,7 +227,7 @@ def main(args=None):
 
         # write results
         if args.grib_accuracy:
-            eccodes.codes_set(h, "bitsPerValue", args.grib_accuracy)
+            eccodes.codes_set(h, "accuracy", args.grib_accuracy)
         if args.grib_date:
             eccodes.codes_set(h, "dataDate", args.grib_date)
         if args.grib_time:
