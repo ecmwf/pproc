@@ -87,8 +87,13 @@ def main(args=None):
     parser.add_argument("--filter-number", help="Filter number range", default="1-50")
 
     parser.add_argument(
+        "--filter-min-wind", help="Filter minimum wind speed", default=0.0, type=float
+    )
+
+    parser.add_argument(
         "--distance", help="Search radius [m]", default=300.0e3, type=float
     )
+
     parser.add_argument(
         "--overlap", help="Search overlap [0, 1[", default=0.7, type=float
     )
@@ -183,7 +188,7 @@ def main(args=None):
             header=None,
             comment="#",
             names=args.input_points_columns,
-            usecols=["lat", "lon", "number", "date", "step"],
+            usecols=["lat", "lon", "number", "date", "step", "wind"],
         )
 
         df["x"], df["y"], df["z"] = ll_to_ecef(df["lat"], df["lon"])
@@ -198,6 +203,8 @@ def main(args=None):
         for n in numbers:
             track = df[df.number == n].sort_values("t")
             if len(track.index) < 2:
+                continue
+            if track["wind"].max() < args.filter_min_wind:
                 continue
 
             # super-sampled time and position
