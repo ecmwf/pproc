@@ -16,6 +16,7 @@ from contextlib import ExitStack, nullcontext
 from importlib import resources
 from itertools import chain, tee
 from os import environ, makedirs, path
+import re
 
 import eccodes
 import numpy as np
@@ -76,7 +77,17 @@ def main(args=None):
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
 
-    parser.add_argument("--input-points", help="Input points file", nargs=1)
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--input-tc-tracks", help="Input TC tracks files", nargs="+")
+    group.add_argument("--input-points", help="Input points file", nargs=1)
+
+    parser.add_argument(
+        "--input-tc-tracks-no-flip",
+        help="TC tracks latitude flip based on file name",
+        action="store_false",
+        dest="flip",
+    )
+
     parser.add_argument(
         "--input-points-columns",
         help="Point column names to use",
@@ -185,14 +196,47 @@ def main(args=None):
             print("Created cache file: '{}'".format(tree_path))
 
         # input
-        df = pd.read_csv(
-            args.input_points,
-            sep=r"\s+",
-            header=None,
-            comment="#",
-            names=args.input_points_columns,
-            usecols=["lat", "lon", "number", "date", "step", "wind"],
-        )
+        assert bool(args.input_points) != bool(args.input_tc_tracks)
+        if args.input_tc_tracks:
+            d = {
+                col: []
+                for col in ["lat", "lon", "number", "date", "step", "wind", "msl", "tc"]
+            }
+
+            re_number = re.compile("^.*_(\d\d\d)_.*$")
+            re_data = re.compile(
+                "^..... (..../../..)/(..)\*(...)(....)  (..) (....)\*(...)(....)\*(.....)(.....)(.....)(.....)\*(.....)(.....)(.....)(.....)\*(.....)(.....)(.....)(.....)\*$"
+            )
+
+            for fn in args.input_tc_tracks:
+                flip = args.flip and any(
+                    fn.endswith(ext) for ext in ("_aus", "_sin", "_spc")
+                )
+                found_number = re_number.match(path.basename(fn))
+                number = int(found_number.group(1)) if found_number else 1
+
+                with open(fn, "r") as file:
+                    for line in file:
+                        data = re_data.search(line)
+                        if data:
+                            d["lat"].append((0.1, -0.1)[flip] * float(data.group(3)))
+                            d["lon"].append(0.1 * float(data.group(4)))
+                            d["number"].append(number)
+                            d["date"].append(int(data.group(1).replace("/", "")))
+                            d["step"].append(int(data.group(2)))
+                            d["wind"].append(float(data.group(5)))
+                            d["msl"].append(float(data.group(6)))
+            df = pd.DataFrame(d)
+
+        elif args.input_points:
+            df = pd.read_csv(
+                args.input_points,
+                sep=r"\s+",
+                header=None,
+                comment="#",
+                names=args.input_points_columns,
+                usecols=["lat", "lon", "number", "date", "step", "wind"],
+            )
 
         df["x"], df["y"], df["z"] = ll_to_ecef(df["lat"], df["lon"])
         df["t"] = df["step"] + 2400 * (df["date"] - df["date"].min())
