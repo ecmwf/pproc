@@ -76,11 +76,14 @@ def main(args=None):
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
 
+    parser.add_argument("--input-points", help="Input points file", nargs=1)
     parser.add_argument(
-        "--columns",
-        help="Input list of column names to use",
-        default="lat,lon,number,date,step,wind,msl",
+        "--input-points-columns",
+        help="Point column names to use",
+        default=["lat", "lon", "number", "date", "step", "wind", "msl"],
+        nargs="+",
     )
+
     parser.add_argument("--number", help="Number range", default="1-50")
     parser.add_argument(
         "--distance", help="Search radius [m]", default=300.0e3, type=float
@@ -108,8 +111,7 @@ def main(args=None):
         dest="caching",
     )
 
-    parser.add_argument("fin", help="Input points file", metavar="in")
-    parser.add_argument("fout", help="Output GRIB file", metavar="out")
+    parser.add_argument("out", help="Output GRIB file", metavar="OUTPUT_GRIB")
 
     args = parser.parse_args(args)
     print(args)
@@ -175,11 +177,11 @@ def main(args=None):
 
         # input
         df = pd.read_csv(
-            args.fin,
+            args.input_points,
             sep=r"\s+",
             header=None,
             comment="#",
-            names=args.columns.split(","),
+            names=args.input_points_columns,
             usecols=["lat", "lon", "number", "date", "step"],
         )
 
@@ -239,7 +241,7 @@ def main(args=None):
 
         eccodes.codes_set_values(h, val)
 
-        with open(args.fout, "wb") as f:
+        with open(args.out, "wb") as f:
             eccodes.codes_write(h, f)
 
         eccodes.codes_release(h)

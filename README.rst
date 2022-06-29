@@ -82,5 +82,5 @@ pts
 This example creates a pts GRIB product, some options are available::
 
   pproc-pts --help
-  pproc-pts examples/pts/msl_05L_ELSA_2021070300 out.grib --distance=2.0e5
+  pproc-pts --input-points examples/pts/msl_05L_ELSA_2021070300 out.grib --distance=2.0e5
 
