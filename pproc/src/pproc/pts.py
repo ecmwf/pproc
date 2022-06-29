@@ -12,11 +12,12 @@
 
 import argparse
 import pickle
+import re
 from contextlib import ExitStack, nullcontext
+from datetime import datetime
 from importlib import resources
 from itertools import chain, tee
 from os import environ, makedirs, path
-import re
 
 import eccodes
 import numpy as np
@@ -72,6 +73,11 @@ def parse_range(rstr):
     return sorted(s)
 
 
+def delta_hours(a: datetime, b: datetime):
+    delta = a - b
+    return delta.days * 24 + delta.seconds // 3600
+
+
 def main(args=None):
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
@@ -102,6 +108,14 @@ def main(args=None):
     )
 
     parser.add_argument(
+        "--filter-datestep",
+        help="Filter date/step range [h]",
+        default=[0.0, float("inf")],
+        type=float,
+        nargs=2,
+    )
+
+    parser.add_argument(
         "--distance", help="Search radius [m]", default=300.0e3, type=float
     )
 
@@ -110,10 +124,10 @@ def main(args=None):
     )
 
     parser.add_argument("--grib-accuracy", help="GRIB accuracy", default=8, type=int)
-    parser.add_argument("--grib-date", help="GRIB dataDate", type=int, default=None)
-    parser.add_argument("--grib-time", help="GRIB dataTime", type=int, default=None)
+    parser.add_argument("--grib-date", help="GRIB dataDate", default=None, type=int)
+    parser.add_argument("--grib-time", help="GRIB dataTime", default=None, type=int)
     parser.add_argument("--grib-step", help="GRIB stepRange", default=None)
-    parser.add_argument("--grib-paramid", help="GRIB paramId", type=int, default=None)
+    parser.add_argument("--grib-paramid", help="GRIB paramId", default=None, type=int)
 
     parser.add_argument(
         "--grib-template",
@@ -195,7 +209,7 @@ def main(args=None):
                 pickle.dump(tree, f)
             print("Created cache file: '{}'".format(tree_path))
 
-        # input
+        # input (apply filter_number)
         assert bool(args.input_points) != bool(args.input_tc_tracks)
         if args.input_tc_tracks:
             d = {
@@ -242,8 +256,15 @@ def main(args=None):
             )
             df = df[df.number.isin(numbers)]
 
+        # pre-process (apply filter_datestep and calculate new columns)
+        datestep = [
+            datetime.strptime(k, "%Y%m%d %H")
+            for k in (df.date.astype(str) + " " + df.step.astype(str))
+        ]
+        df["t"] = [delta_hours(ds, min(datestep)) for ds in datestep]
+        df = df[(args.filter_datestep[0] <= df.t) & (df.t <= args.filter_datestep[1])]
+
         df["x"], df["y"], df["z"] = ll_to_ecef(df.lat, df.lon)
-        df["t"] = df.step + 2400 * (df.date - df.date.min())
         df.drop(["lat", "lon", "date", "step"], axis=1, inplace=True)
 
         # probability field
