@@ -110,6 +110,8 @@ def main(args=None):
         default="O640.grib1",
     )
 
+    parser.add_argument("-v", "--verbosity", action="count", default=0)
+
     parser.add_argument(
         "--no-caching",
         help="Caching (env. variable '" + pts_cache_dir + "')",
@@ -120,7 +122,8 @@ def main(args=None):
     parser.add_argument("out", help="Output GRIB file", metavar="OUTPUT_GRIB")
 
     args = parser.parse_args(args)
-    print(args)
+    if args.verbosity >= 1:
+        print(args)
 
     dist_circle = distance_from_overlap(args.distance, args.overlap)
 
