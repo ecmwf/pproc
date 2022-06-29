@@ -103,9 +103,10 @@ def main(args=None):
     )
 
     parser.add_argument(
-        "--caching",
+        "--no-caching",
         help="Caching (env. variable '" + pts_cache_dir + "')",
-        action="store_true",
+        action="store_false",
+        dest="caching",
     )
 
     parser.add_argument("fin", help="Input points file", metavar="in")
