@@ -12,7 +12,7 @@
 
 import argparse
 import pickle
-from contextlib import ExitStack
+from contextlib import ExitStack, nullcontext
 from importlib import resources
 from itertools import chain, tee
 from os import environ, makedirs, path
