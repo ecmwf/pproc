@@ -84,7 +84,8 @@ def main(args=None):
         nargs="+",
     )
 
-    parser.add_argument("--number", help="Number range", default="1-50")
+    parser.add_argument("--filter-number", help="Filter number range", default="1-50")
+
     parser.add_argument(
         "--distance", help="Search radius [m]", default=300.0e3, type=float
     )
@@ -118,7 +119,7 @@ def main(args=None):
 
     dist_circle = distance_from_overlap(args.distance, args.overlap)
 
-    numbers = parse_range(args.number)
+    numbers = parse_range(args.filter_number)
 
     with ExitStack() as stack:
         if pts_home_dir in environ:
@@ -188,6 +189,9 @@ def main(args=None):
         df["x"], df["y"], df["z"] = ll_to_ecef(df["lat"], df["lon"])
         df["t"] = df["step"] + 2400 * (df["date"] - df["date"].min())
         df.drop(["lat", "lon", "date", "step"], axis=1, inplace=True)
+
+        # filter (partial)
+        df = df[df["number"].isin(numbers)]
 
         # probability field
         val = np.zeros(N)
