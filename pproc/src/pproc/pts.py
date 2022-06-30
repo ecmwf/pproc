@@ -116,6 +116,10 @@ def main(args=None):
     )
 
     parser.add_argument(
+        "--basetime", help="date/time of the model run", default=None, type=str
+    )
+
+    parser.add_argument(
         "--distance", help="Search radius [m]", default=300.0e3, type=float
     )
 
@@ -151,7 +155,7 @@ def main(args=None):
         print(args)
 
     dist_circle = distance_from_overlap(args.distance, args.overlap)
-
+    basetime = datetime.fromisoformat(args.basetime) if args.basetime else None
     numbers = parse_range(args.filter_number)
 
     with ExitStack() as stack:
@@ -217,20 +221,20 @@ def main(args=None):
                 for col in ["lat", "lon", "number", "id", "date", "step", "wind", "msl"]
             }
 
-            re_number = re.compile(r"_(\d\d\d)_")
+            re_filename = re.compile(r"^\d{4}(\d{10})_(\d{3})_\d{6}_\l{3}$")
             re_split = re.compile(r"^.....  (TD|TS|HR\d)$")
             re_data = re.compile(
-                r"^..... (..../../..)/(..)\*(...)(....)  (..) (....)\*"
-                r"(...)(....)\*"
-                r"(.....)(.....)(.....)(.....)\*"
-                r"(.....)(.....)(.....)(.....)\*"
-                r"(.....)(.....)(.....)(.....)\*$"
+                r"^..... (\d{4}/\d{2}/\d{2})/(\d{2})\*(\d{3})(\d{4}) (\d{3}) (\d{4})\*"
+                r"(\d{3})(\d{4})\*"
+                r"\d{5}\d{5}\d{5}\d{5}\*\d{5}\d{5}\d{5}\d{5}\*\d{5}\d{5}\d{5}\d{5}\*$"
             )
 
             id = 0
             for fn in args.input_tc_tracks:
-                found_number = re_number.search(path.basename(fn))
-                number = int(found_number.group(1)) if found_number else 1
+                filename = re_filename.search(path.basename(fn))
+                if filename and not basetime:
+                    basetime = datetime.strptime(filename.group(1), "%Y%m%d%H")
+                number = int(filename.group(2)) if filename else 1
                 if number not in numbers:
                     continue
 
@@ -270,7 +274,9 @@ def main(args=None):
             datetime.strptime(k, "%Y%m%d %H")
             for k in (df.date.astype(str) + " " + df.step.astype(str))
         ]
-        df["t"] = [delta_hours(ds, min(datestep)) for ds in datestep]
+        if not basetime:
+            basetime = min(datestep)
+        df["t"] = [delta_hours(ds, basetime) for ds in datestep]
         df = df[(args.filter_time[0] <= df.t) & (df.t <= args.filter_time[1])]
 
         df["x"], df["y"], df["z"] = ll_to_ecef(df.lat, df.lon)
