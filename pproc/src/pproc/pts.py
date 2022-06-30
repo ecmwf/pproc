@@ -221,10 +221,10 @@ def main(args=None):
                 for col in ["lat", "lon", "number", "id", "date", "step", "wind", "msl"]
             }
 
-            re_filename = re.compile(r"^\d{4}(\d{10})_(\d{3})_\d{6}_\l{3}$")
-            re_split = re.compile(r"^.....  (TD|TS|HR\d)$")
+            re_filename = re.compile(r"^\d{4}(\d{10})_(\d{3}|..)_\d{6}_.{3}$")
+            re_split = re.compile(r"^..... ( TD| TS|HR\d)$")
             re_data = re.compile(
-                r"^..... (\d{4}/\d{2}/\d{2})/(\d{2})\*(\d{3})(\d{4}) (\d{3}) (\d{4})\*"
+                r"^..... (\d{4}/\d{2}/\d{2})/(\d{2})\*(\d{3})(\d{4}) ([ 0-9]{2}\d) ([ 0-9]{3}\d)\*"
                 r"(\d{3})(\d{4})\*"
                 r"\d{5}\d{5}\d{5}\d{5}\*\d{5}\d{5}\d{5}\d{5}\*\d{5}\d{5}\d{5}\d{5}\*$"
             )
@@ -232,9 +232,12 @@ def main(args=None):
             id = 0
             for fn in args.input_tc_tracks:
                 filename = re_filename.search(path.basename(fn))
-                if filename and not basetime:
-                    basetime = datetime.strptime(filename.group(1), "%Y%m%d%H")
-                number = int(filename.group(2)) if filename else 1
+                number = 1
+                if filename:
+                    if not basetime:
+                        basetime = datetime.strptime(filename.group(1), "%Y%m%d%H")
+                    if filename.group(2).isdigit():
+                        number = int(filename.group(2))
                 if number not in numbers:
                     continue
 
@@ -270,17 +273,18 @@ def main(args=None):
             df["id"] = df.number
 
         # pre-process (apply filter_time and calculate/drop columns)
-        datestep = [
-            datetime.strptime(k, "%Y%m%d %H")
-            for k in (df.date.astype(str) + " " + df.step.astype(str))
-        ]
-        if not basetime:
-            basetime = min(datestep)
-        df["t"] = [delta_hours(ds, basetime) for ds in datestep]
-        df = df[(args.filter_time[0] <= df.t) & (df.t <= args.filter_time[1])]
+        if not df.empty:
+            datestep = [
+                datetime.strptime(k, "%Y%m%d %H")
+                for k in (df.date.astype(str) + " " + df.step.astype(str))
+            ]
+            if not basetime:
+                basetime = min(datestep)
+            df["t"] = [delta_hours(ds, basetime) for ds in datestep]
+            df = df[(args.filter_time[0] <= df.t) & (df.t <= args.filter_time[1])]
 
-        df["x"], df["y"], df["z"] = ll_to_ecef(df.lat, df.lon)
-        df.drop(["lat", "lon", "date", "step"], axis=1, inplace=True)
+            df["x"], df["y"], df["z"] = ll_to_ecef(df.lat, df.lon)
+            df.drop(["lat", "lon", "date", "step"], axis=1, inplace=True)
 
         # probability field
         val = np.zeros(N)
