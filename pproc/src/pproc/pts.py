@@ -216,10 +216,7 @@ def main(args=None):
         # input (apply filter_number)
         assert bool(args.input_points) != bool(args.input_tc_tracks)
         if args.input_tc_tracks:
-            d = {
-                col: []
-                for col in ["lat", "lon", "number", "id", "date", "step", "wind", "msl"]
-            }
+            d = {col: [] for col in ["lat", "lon", "id", "date", "step", "wind", "msl"]}
 
             re_filename = re.compile(r"^\d{4}(\d{10})_(\d{3}|..)_\d{6}_.{3}$")
             re_split = re.compile(r"^..... ( TD| TS|HR\d)$")
@@ -229,15 +226,15 @@ def main(args=None):
                 r"\d{5}\d{5}\d{5}\d{5}\*\d{5}\d{5}\d{5}\d{5}\*\d{5}\d{5}\d{5}\d{5}\*$"
             )
 
+            if not basetime:
+                fns = re_filename.search(path.basename(args.input_tc_tracks[0]))
+                if fns:
+                    basetime = datetime.strptime(fns.group(1), "%Y%m%d%H")
+
             id = 0
             for fn in args.input_tc_tracks:
-                filename = re_filename.search(path.basename(fn))
-                number = 1
-                if filename:
-                    if not basetime:
-                        basetime = datetime.strptime(filename.group(1), "%Y%m%d%H")
-                    if filename.group(2).isdigit():
-                        number = int(filename.group(2))
+                fns = re_filename.search(path.basename(fn))
+                number = int(fns.group(2)) if fns and fns.group(2).isdigit() else 1
                 if number not in numbers:
                     continue
 
@@ -252,7 +249,6 @@ def main(args=None):
                         if data:
                             d["lat"].append((0.1, -0.1)[flip] * float(data.group(3)))
                             d["lon"].append(0.1 * float(data.group(4)))
-                            d["number"].append(number)
                             d["id"].append(id)
                             d["date"].append(data.group(1).replace("/", ""))
                             d["step"].append(data.group(2))
@@ -270,7 +266,7 @@ def main(args=None):
                 usecols=["lat", "lon", "number", "date", "step", "wind", "msl"],
             )
             df = df[df.number.isin(numbers)]
-            df["id"] = df.number
+            df.rename(columns={"number": "id"}, inplace=True)
 
         # pre-process (apply filter_time and calculate/drop columns)
         if not df.empty:
