@@ -82,6 +82,7 @@ pts
 This example creates a pts GRIB product, some options are available::
 
   pproc-pts --help
-  pproc-pts --input-points examples/pts/msl_05L_ELSA_2021070300 out1.grib --distance=2.0e5
-  pproc-pts --input-tc-tracks 2022062800/pf/*/* --filter-min-wind 62.2 out2.grib
+  pproc-pts out1.grib --input-points examples/pts/msl_05L_ELSA_2021070300 --distance=2.0e5
+  pproc-pts out2.grib --input-tc-tracks 2022062800/pf/*/* --filter-wind 62.2
+  pproc-pts out3.grib --input-tc-tracks 2022062800/cf/* --filter-number 1 --filter-time 24 72
 

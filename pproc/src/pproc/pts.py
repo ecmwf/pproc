@@ -104,12 +104,12 @@ def main(args=None):
     parser.add_argument("--filter-number", help="Filter number range", default="1-50")
 
     parser.add_argument(
-        "--filter-min-wind", help="Filter minimum wind speed", default=0.0, type=float
+        "--filter-wind", help="Filter minimum wind speed", default=0.0, type=float
     )
 
     parser.add_argument(
-        "--filter-datestep",
-        help="Filter date/step range [h]",
+        "--filter-time",
+        help="Filter time (date/step) range [h]",
         default=[0.0, float("inf")],
         type=float,
         nargs=2,
@@ -214,12 +214,16 @@ def main(args=None):
         if args.input_tc_tracks:
             d = {
                 col: []
-                for col in ["lat", "lon", "number", "date", "step", "wind", "msl", "tc"]
+                for col in ["lat", "lon", "number", "date", "step", "wind", "msl"]
             }
 
-            re_number = re.compile("_(\d\d\d)_")
+            re_number = re.compile(r"_(\d\d\d)_")
             re_data = re.compile(
-                "^..... (..../../..)/(..)\*(...)(....)  (..) (....)\*(...)(....)\*(.....)(.....)(.....)(.....)\*(.....)(.....)(.....)(.....)\*(.....)(.....)(.....)(.....)\*$"
+                r"^..... (..../../..)/(..)\*(...)(....)  (..) (....)\*"
+                r"(...)(....)\*"
+                r"(.....)(.....)(.....)(.....)\*"
+                r"(.....)(.....)(.....)(.....)\*"
+                r"(.....)(.....)(.....)(.....)\*$"
             )
 
             for fn in args.input_tc_tracks:
@@ -228,9 +232,7 @@ def main(args=None):
                 if number not in numbers:
                     continue
 
-                flip = args.flip and any(
-                    fn.endswith(ext) for ext in ("_aus", "_sin", "_spc")
-                )
+                flip = args.flip and fn.endswith(("_aus", "_sin", "_spc"))
 
                 with open(fn, "r") as file:
                     for line in file:
@@ -256,13 +258,13 @@ def main(args=None):
             )
             df = df[df.number.isin(numbers)]
 
-        # pre-process (apply filter_datestep and calculate new columns)
+        # pre-process (apply filter_time and calculate/drop columns)
         datestep = [
             datetime.strptime(k, "%Y%m%d %H")
             for k in (df.date.astype(str) + " " + df.step.astype(str))
         ]
         df["t"] = [delta_hours(ds, min(datestep)) for ds in datestep]
-        df = df[(args.filter_datestep[0] <= df.t) & (df.t <= args.filter_datestep[1])]
+        df = df[(args.filter_time[0] <= df.t) & (df.t <= args.filter_time[1])]
 
         df["x"], df["y"], df["z"] = ll_to_ecef(df.lat, df.lon)
         df.drop(["lat", "lon", "date", "step"], axis=1, inplace=True)
@@ -271,21 +273,22 @@ def main(args=None):
         val = np.zeros(N)
         for n in numbers:
             track = df[df.number == n].sort_values("t")
-            if len(track.index) < 2:
-                continue
-            if track.wind.max() < args.filter_min_wind:
-                continue
 
-            # super-sampled time and position
+            # super-sampled time and position (apply filter_wind)
             ti = np.array([])
+            tend = None
             for a, b in previous_and_current(track.itertuples()):
-                if a is not None:
+                if a is not None and args.filter_wind <= max(a.wind, b.wind):
+                    tend = b.t
                     dist_ab = np.linalg.norm(
                         np.array([b.x - a.x, b.y - a.y, b.z - a.z])
                     )
                     num = max(1, int(np.ceil(dist_ab / dist_circle)))
                     ti = np.append(ti, np.linspace(a.t, b.t, num=num, endpoint=False))
-            ti = np.append(ti, [track.t[track.index[-1]]])
+            if not tend:
+                continue
+            ti = np.append(ti, tend)
+
             print(
                 "number={} len={} ss={}x".format(
                     n, len(ti), round(float(len(ti)) / len(track.index), 1)
