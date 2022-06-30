@@ -214,10 +214,11 @@ def main(args=None):
         if args.input_tc_tracks:
             d = {
                 col: []
-                for col in ["lat", "lon", "number", "date", "step", "wind", "msl"]
+                for col in ["lat", "lon", "number", "id", "date", "step", "wind", "msl"]
             }
 
             re_number = re.compile(r"_(\d\d\d)_")
+            re_split = re.compile(r"^.....  (TD|TS|HR\d)$")
             re_data = re.compile(
                 r"^..... (..../../..)/(..)\*(...)(....)  (..) (....)\*"
                 r"(...)(....)\*"
@@ -226,6 +227,7 @@ def main(args=None):
                 r"(.....)(.....)(.....)(.....)\*$"
             )
 
+            id = 0
             for fn in args.input_tc_tracks:
                 found_number = re_number.search(path.basename(fn))
                 number = int(found_number.group(1)) if found_number else 1
@@ -236,13 +238,17 @@ def main(args=None):
 
                 with open(fn, "r") as file:
                     for line in file:
+                        if re_split.search(line):
+                            id += 1
+                            continue
                         data = re_data.search(line)
                         if data:
                             d["lat"].append((0.1, -0.1)[flip] * float(data.group(3)))
                             d["lon"].append(0.1 * float(data.group(4)))
                             d["number"].append(number)
-                            d["date"].append(int(data.group(1).replace("/", "")))
-                            d["step"].append(int(data.group(2)))
+                            d["id"].append(id)
+                            d["date"].append(data.group(1).replace("/", ""))
+                            d["step"].append(data.group(2))
                             d["wind"].append(float(data.group(5)))
                             d["msl"].append(float(data.group(6)))
             df = pd.DataFrame(d)
@@ -254,9 +260,10 @@ def main(args=None):
                 header=None,
                 comment="#",
                 names=args.input_points_columns,
-                usecols=["lat", "lon", "number", "date", "step", "wind"],
+                usecols=["lat", "lon", "number", "date", "step", "wind", "msl"],
             )
             df = df[df.number.isin(numbers)]
+            df["id"] = df.number
 
         # pre-process (apply filter_time and calculate/drop columns)
         datestep = [
@@ -271,15 +278,17 @@ def main(args=None):
 
         # probability field
         val = np.zeros(N)
-        for n in numbers:
-            track = df[df.number == n].sort_values("t")
+        for id in set(df.id.tolist()):
+            track = df[df.id == id].sort_values("t")
 
             # super-sampled time and position (apply filter_wind)
             ti = np.array([])
             tend = None
+            npoints = 1
             for a, b in previous_and_current(track.itertuples()):
                 if a is not None and args.filter_wind <= max(a.wind, b.wind):
                     tend = b.t
+                    npoints += 1
                     dist_ab = np.linalg.norm(
                         np.array([b.x - a.x, b.y - a.y, b.z - a.z])
                     )
@@ -290,9 +299,9 @@ def main(args=None):
             ti = np.append(ti, tend)
 
             print(
-                "number={} len={} ss={}x".format(
-                    n, len(ti), round(float(len(ti)) / len(track.index), 1)
-                )
+                f"segments={npoints-1}/{track.shape[0]-1} "
+                f"len={len(ti)} "
+                f"ss={round(float(len(ti)) / npoints, 1)}x"
             )
 
             xi = np.interp(ti, track.t, track.x)
