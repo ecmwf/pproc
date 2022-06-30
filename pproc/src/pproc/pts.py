@@ -83,31 +83,48 @@ def main(args=None):
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
 
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument("--input-tc-tracks", help="Input TC tracks files", nargs="+")
-    group.add_argument("--input-points", help="Input points file", nargs=1)
+    parser.add_argument("output", help="Output GRIB file")
+    parser.add_argument("input", help="Input file(s)", nargs="+")
 
+    parser.add_argument("-v", "--verbosity", action="count", default=0)
     parser.add_argument(
-        "--input-tc-tracks-no-flip",
-        help="TC tracks latitude flip based on file name",
+        "--no-caching",
+        help="Caching control (env. variable '" + pts_cache_dir + "')",
         action="store_false",
-        dest="flip",
+        dest="caching",
     )
 
-    parser.add_argument(
-        "--input-points-columns",
-        help="Point column names to use",
+    input = parser.add_argument_group("Input")
+    input.add_argument(
+        "--input",
+        help="Input format",
+        choices=["tc-tracks", "points"],
+        default="tc-tracks",
+        dest="input_format",
+    )
+
+    input.add_argument(
+        "--tc-tracks-flip-suffix",
+        help="TC tracks latitude flip based on file name suffix",
+        default=["_aus", "_sin", "_spc"],
+        nargs="*",
+    )
+
+    input.add_argument(
+        "--points-columns",
+        help="Points/geopoints column names to use",
         default=["lat", "lon", "number", "date", "step", "wind", "msl"],
         nargs="+",
     )
 
-    parser.add_argument("--filter-number", help="Filter number range", default="1-50")
+    filter = parser.add_argument_group("Filtering")
+    filter.add_argument("--filter-number", help="Filter number range", default="1-50")
 
-    parser.add_argument(
+    filter.add_argument(
         "--filter-wind", help="Filter minimum wind speed", default=0.0, type=float
     )
 
-    parser.add_argument(
+    filter.add_argument(
         "--filter-time",
         help="Filter time (date/step) range [h]",
         default=[0.0, float("inf")],
@@ -115,43 +132,33 @@ def main(args=None):
         nargs=2,
     )
 
-    parser.add_argument(
-        "--basetime", help="date/time of the model run", default=None, type=str
+    filter.add_argument(
+        "--filter-basetime",
+        help="Date/time of the model run [iso]",
+        default=None,
+        dest="basetime",
     )
 
-    parser.add_argument(
+    geo = parser.add_argument_group("Geometry")
+    geo.add_argument(
         "--distance", help="Search radius [m]", default=300.0e3, type=float
     )
+    geo.add_argument("--overlap", help="Search overlap [0, 1[", default=0.7, type=float)
 
-    parser.add_argument(
-        "--overlap", help="Search overlap [0, 1[", default=0.7, type=float
-    )
-
-    parser.add_argument("--grib-accuracy", help="GRIB accuracy", default=8, type=int)
-    parser.add_argument("--grib-date", help="GRIB dataDate", default=None, type=int)
-    parser.add_argument("--grib-time", help="GRIB dataTime", default=None, type=int)
-    parser.add_argument("--grib-step", help="GRIB stepRange", default=None)
-    parser.add_argument("--grib-paramid", help="GRIB paramId", default=None, type=int)
-
-    parser.add_argument(
+    out = parser.add_argument_group("Output")
+    out.add_argument("--grib-accuracy", help="GRIB accuracy", default=8, type=int)
+    out.add_argument("--grib-date", help="GRIB dataDate", default=None, type=int)
+    out.add_argument("--grib-time", help="GRIB dataTime", default=None, type=int)
+    out.add_argument("--grib-step", help="GRIB stepRange", default=None)
+    out.add_argument("--grib-paramid", help="GRIB paramId", default=None, type=int)
+    out.add_argument(
         "--grib-template",
         help="GRIB template (env. variable '" + pts_home_dir + "')",
         default="O640.grib1",
     )
 
-    parser.add_argument("-v", "--verbosity", action="count", default=0)
-
-    parser.add_argument(
-        "--no-caching",
-        help="Caching (env. variable '" + pts_cache_dir + "')",
-        action="store_false",
-        dest="caching",
-    )
-
-    parser.add_argument("out", help="Output GRIB file", metavar="OUTPUT_GRIB")
-
     args = parser.parse_args(args)
-    if args.verbosity >= 1:
+    if args.verbosity >= 2:
         print(args)
 
     dist_circle = distance_from_overlap(args.distance, args.overlap)
@@ -169,7 +176,8 @@ def main(args=None):
                 resources.path("pproc.data.pts", args.grib_template)
             )
 
-        print("Loading template: '{}'".format(tpl_path))
+        if args.verbosity >= 1:
+            print(f"Loading template: '{tpl_path}'")
         f = stack.enter_context(open(tpl_path, "rb"))
         h = eccodes.codes_grib_new_from_file(f)
         assert h is not None
@@ -182,7 +190,8 @@ def main(args=None):
             tree_path = path.join(environ[pts_cache_dir], tree_path)
 
         if args.caching and path.exists(tree_path):
-            print("Loading cache file: '{}'".format(tree_path))
+            if args.verbosity >= 1:
+                print(f"Loading cache file: '{tree_path}'")
             with open(tree_path, "rb") as f:
                 tree = pickle.load(f)
         else:
@@ -211,11 +220,11 @@ def main(args=None):
                 assert path.isdir(tpl_dir)
             with open(tree_path, "wb") as f:
                 pickle.dump(tree, f)
-            print("Created cache file: '{}'".format(tree_path))
+            if args.verbosity >= 1:
+                print(f"Created cache file: '{tree_path}'")
 
         # input (apply filter_number)
-        assert bool(args.input_points) != bool(args.input_tc_tracks)
-        if args.input_tc_tracks:
+        if args.input_format == "tc-tracks":
             d = {col: [] for col in ["lat", "lon", "id", "date", "step", "wind", "msl"]}
 
             re_filename = re.compile(r"^\d{4}(\d{10})_(\d{3}|..)_\d{6}_.{3}$")
@@ -227,18 +236,18 @@ def main(args=None):
             )
 
             if not basetime:
-                fns = re_filename.search(path.basename(args.input_tc_tracks[0]))
+                fns = re_filename.search(path.basename(args.input[0]))
                 if fns:
                     basetime = datetime.strptime(fns.group(1), "%Y%m%d%H")
 
             id = 0
-            for fn in args.input_tc_tracks:
+            for fn in args.input:
                 fns = re_filename.search(path.basename(fn))
                 number = int(fns.group(2)) if fns and fns.group(2).isdigit() else 1
                 if number not in numbers:
                     continue
 
-                flip = args.flip and fn.endswith(("_aus", "_sin", "_spc"))
+                flip = fn.endswith(tuple(args.tc_tracks_flip_suffix))
 
                 with open(fn, "r") as file:
                     for line in file:
@@ -256,13 +265,14 @@ def main(args=None):
                             d["msl"].append(float(data.group(6)))
             df = pd.DataFrame(d)
 
-        elif args.input_points:
+        else:
+            assert len(args.input) == 1, "--input points takes 1 argument"
             df = pd.read_csv(
-                args.input_points,
+                args.input[0],
                 sep=r"\s+",
                 header=None,
                 comment="#",
-                names=args.input_points_columns,
+                names=args.points_columns,
                 usecols=["lat", "lon", "number", "date", "step", "wind", "msl"],
             )
             df = df[df.number.isin(numbers)]
@@ -281,6 +291,9 @@ def main(args=None):
 
             df["x"], df["y"], df["z"] = ll_to_ecef(df.lat, df.lon)
             df.drop(["lat", "lon", "date", "step"], axis=1, inplace=True)
+
+        if df.empty:
+            print("Warning:", df)
 
         # probability field
         val = np.zeros(N)
@@ -304,11 +317,12 @@ def main(args=None):
                 continue
             ti = np.append(ti, tend)
 
-            print(
-                f"segments={npoints-1}/{track.shape[0]-1} "
-                f"len={len(ti)} "
-                f"ss={round(float(len(ti)) / npoints, 1)}x"
-            )
+            if args.verbosity >= 1:
+                print(
+                    f"segments={npoints-1}/{track.shape[0]-1} "
+                    f"len={len(ti)} "
+                    f"ss={round(float(len(ti)) / npoints, 1)}x"
+                )
 
             xi = np.interp(ti, track.t, track.x)
             yi = np.interp(ti, track.t, track.y)
@@ -339,7 +353,7 @@ def main(args=None):
 
         eccodes.codes_set_values(h, val)
 
-        with open(args.out, "wb") as f:
+        with open(args.output, "wb") as f:
             eccodes.codes_write(h, f)
 
         eccodes.codes_release(h)
