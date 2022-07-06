@@ -281,8 +281,11 @@ def main(args=None):
         # pre-process (apply filter_time and calculate/drop columns)
         if not df.empty:
             datestep = [
-                datetime.strptime(k, "%Y%m%d %H")
-                for k in (df.date.astype(str) + " " + df.step.astype(str))
+                datetime.strptime(k, "%Y%m%d%H%M")
+                for k in (
+                    df.date.astype(str)
+                    + df.step.astype(str).apply(lambda s: s.zfill(4))
+                )
             ]
             if not basetime:
                 basetime = min(datestep)
