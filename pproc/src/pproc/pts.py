@@ -283,8 +283,7 @@ def main(args=None):
             datestep = [
                 datetime.strptime(k, "%Y%m%d%H%M")
                 for k in (
-                    df.date.astype(str)
-                    + df.step.astype(str).apply(lambda s: s.zfill(4))
+                    df.date.astype(str) + df.step.apply(lambda s: str(s).zfill(4))
                 )
             ]
             if not basetime:
