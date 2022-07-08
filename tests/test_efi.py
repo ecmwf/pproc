@@ -2,7 +2,6 @@ import argparse
 import time
 import numpy as np
 import eccodes
-import eccodeshl
 import pyfdb
 from meteokit import climatology
 import xarray as xr
@@ -32,7 +31,7 @@ def fdb_read_fc(fdb, fc_date):
         print(req)
         fdb_reader = fdb.retrieve(req)
 
-        eccodes_reader = eccodeshl.StreamReader(fdb_reader)
+        eccodes_reader = eccodes.StreamReader(fdb_reader)
         for message in eccodes_reader:
             val = message.get('values')
             print(val.shape)
@@ -71,7 +70,7 @@ def fdb_read_fc_eccodes(fdb, fc_date):
             val = eccodes.codes_get_values()
             values.append(val)
 
-            codes_release(igrib)
+            eccodes.codes_release(igrib)
 
     return np.asarray(values)
 
@@ -95,7 +94,7 @@ def fdb_read_clim(fdb, clim_date):
 
     fdb_reader = fdb.retrieve(req)
 
-    eccodes_reader = eccodeshl.StreamReader(fdb_reader)
+    eccodes_reader = eccodes.StreamReader(fdb_reader)
     for message in eccodes_reader:
         val = message.get('values')
         print(val.shape)

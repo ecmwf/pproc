@@ -1,10 +1,9 @@
 # coding: utf-8
 from io import BytesIO
 
+import eccodes
 import mir
 import pyfdb
-
-import eccodeshl
 
 req = {
     "class": "rd",
@@ -29,7 +28,7 @@ def test_with_mir():
     stream = BytesIO()
     job.execute(reader, stream)
 
-    ecc_reader = eccodeshl.MemoryReader(stream.getvalue())
+    ecc_reader = eccodes.MemoryReader(stream.getvalue())
     message = next(ecc_reader)
 
     val = message.get_array("values")
@@ -40,7 +39,7 @@ def test_with_mir():
 def test_without_mir():
     fdb = pyfdb.FDB()
     result = fdb.retrieve(req)
-    reader = eccodeshl.StreamReader(result)
+    reader = eccodes.StreamReader(result)
 
     message = next(reader)
 

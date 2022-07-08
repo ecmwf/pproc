@@ -4,8 +4,6 @@ import numpy as np
 import eccodes
 import pyfdb
 
-import eccodeshl
-
 def compute_avg(fields):
     nsteps = fields.shape[0]
     return np.sum(fields, axis=0) / nsteps
@@ -37,13 +35,13 @@ req_pf["type"] = "pf"
 
 fdb = pyfdb.FDB()
 
-ref_reader = eccodeshl.FileReader("ens_2t_avg_ref.grib")
+ref_reader = eccodes.FileReader("ens_2t_avg_ref.grib")
 avg_ref = [message.get_array('values') for message in ref_reader]
 
 with open("ens_2t_avg.grib", "wb") as outfile:
     print("Control:")
     fdb_reader = fdb.retrieve(req_cf)
-    eccodes_reader = eccodeshl.StreamReader(fdb_reader)
+    eccodes_reader = eccodes.StreamReader(fdb_reader)
     messages = list(eccodes_reader)
     vals_cf = np.asarray([message.get_array('values') for message in messages])
     avg_cf = compute_avg(vals_cf)
@@ -60,7 +58,7 @@ with open("ens_2t_avg.grib", "wb") as outfile:
         req = req_pf.copy()
         req["number"] = member
         fdb_reader = fdb.retrieve(req)
-        eccodes_reader = eccodeshl.StreamReader(fdb_reader)
+        eccodes_reader = eccodes.StreamReader(fdb_reader)
         messages = list(eccodes_reader)
         vals_pf = np.asarray([message.get_array('values') for message in messages])
         avg_pf = compute_avg(vals_pf)

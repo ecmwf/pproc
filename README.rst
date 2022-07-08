@@ -54,10 +54,6 @@ Build and install mir-python::
 Install Python modules
 ----------------------
 
-Install eccodeshl::
-
-  python3 -m pip install ./eccodeshl
-
 Install pproc::
 
   python3 -m pip install ./pproc
