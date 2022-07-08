@@ -274,7 +274,7 @@ def ensemble_pca(ens_anom, ncomp, weights=None):
 
 if __name__ == '__main__':
     import argparse
-    import eccodeshl
+    import eccodes
 
     parser = argparse.ArgumentParser(description="PCA for ensemble data")
     parser.add_argument('-N', '--num-members', type=int, default=51, help="Number of ensemble members")
@@ -301,7 +301,7 @@ if __name__ == '__main__':
     steps = gen_steps(args.steps[0], args.steps[1], args.steps[2], monthly=monthly)
     inv_steps = {s: i for i, s in enumerate(steps)}
     nstep = len(steps)
-    with eccodeshl.FileReader(args.ensemble) as reader:
+    with eccodes.FileReader(args.ensemble) as reader:
         message = reader.peek()
         npoints = message.get('numberOfDataPoints')
         lat = message.get_array('latitudes')
@@ -324,7 +324,7 @@ if __name__ == '__main__':
     weights = lat_weights(lat, mask)
 
     # Read ensemble stddev, compute mean spread
-    with eccodeshl.FileReader(args.spread) as reader:
+    with eccodes.FileReader(args.spread) as reader:
         message = next(reader)
         # TODO: check param and level
         ens_spread = mean_spread(message.get_array('values'), weights=weights)
