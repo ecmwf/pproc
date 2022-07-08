@@ -2,7 +2,7 @@
 
 from io import BytesIO
 
-import eccodeshl
+import eccodes
 import mir
 import pyfdb
 
@@ -27,6 +27,6 @@ job = mir.Job(grid='1.0/1.0')
 stream = BytesIO()
 job.execute(reader, stream)
 
-reader = eccodeshl.MemoryReader(stream.getvalue())
+reader = eccodes.MemoryReader(stream.getvalue())
 grib = next(reader)
 grib.dump()

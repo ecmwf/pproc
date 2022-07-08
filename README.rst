@@ -54,10 +54,6 @@ Build and install mir-python::
 Install Python modules
 ----------------------
 
-Install eccodeshl::
-
-  python3 -m pip install ./eccodeshl
-
 Install pproc::
 
   python3 -m pip install ./pproc
@@ -82,5 +78,7 @@ pts
 This example creates a pts GRIB product, some options are available::
 
   pproc-pts --help
-  pproc-pts examples/pts/msl_05L_ELSA_2021070300 out.grib --distance=2.0e5
+  pproc-pts out1.grib examples/pts/msl_05L_ELSA_2021070300 --input points --distance=2.0e5
+  pproc-pts out2.grib 2022062800/pf/*/* --input tc-tracks --filter-wind 62.2
+  pproc-pts out3.grib 2022062800/cf/* --filter-number 1 --filter-basetime "2022-06-28 00" --filter-time 24 72
 

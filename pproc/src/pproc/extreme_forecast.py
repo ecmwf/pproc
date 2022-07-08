@@ -15,10 +15,9 @@ import argparse
 import numpy as np
 from datetime import datetime, timedelta
 
-# import eccodes
+import eccodes
 import pyfdb
 
-import eccodeshl
 from meteokit import extreme
 
 
@@ -38,7 +37,7 @@ def compare_arrs(dev, ref):
 
 def read_grib(fdb, req):
     fdb_reader = fdb.retrieve(req)
-    eccodes_reader = eccodeshl.StreamReader(fdb_reader)
+    eccodes_reader = eccodes.StreamReader(fdb_reader)
     messages = list(eccodes_reader)
     return messages
 
@@ -55,7 +54,7 @@ def write_avg(template_message, avg, filename):
 def compute_forecast_average(fdb, fc_date, ref_dir, out_dir):
 
     # read reference file
-    ref_reader = eccodeshl.FileReader(os.path.join(ref_dir, "ens_2t_avg_ref.grib"))
+    ref_reader = eccodes.FileReader(os.path.join(ref_dir, "ens_2t_avg_ref.grib"))
     avg_ref = [message.get_array("values") for message in ref_reader]
 
     req_cf = {
@@ -136,7 +135,7 @@ def compute_efi(fdb, fc_date, fc_avg, clim, ref_dir, out_dir):
 
     efi = extreme.efi(clim, fc_avg)
 
-    ref_reader = eccodeshl.FileReader(os.path.join(ref_dir, 'efi', 'efi0_50_2t024_{}_012h_036h.grib'.format(fc_date.strftime("%Y%m%d%H"))))
+    ref_reader = eccodes.FileReader(os.path.join(ref_dir, 'efi', 'efi0_50_2t024_{}_012h_036h.grib'.format(fc_date.strftime("%Y%m%d%H"))))
     ref_efi = [message.get_array('values') for message in ref_reader]
 
     compare_arrs(efi, ref_efi[0])
@@ -150,11 +149,11 @@ def compute_sot(fdb, fc_date, fc_avg, clim, ref_dir, out_dir):
     for perc in [10, 90]:
         sot[perc] = extreme.sot(clim, fc_avg, perc)
 
-    ref_reader = eccodeshl.FileReader(os.path.join(ref_dir, 'sot', 'sot10_50_2t024_{}_012h_036h.grib'.format(fc_date.strftime("%Y%m%d%H"))))
+    ref_reader = eccodes.FileReader(os.path.join(ref_dir, 'sot', 'sot10_50_2t024_{}_012h_036h.grib'.format(fc_date.strftime("%Y%m%d%H"))))
     ref_sot10 = [message.get_array('values') for message in ref_reader]
     compare_arrs(sot[10], ref_sot10[0])
 
-    ref_reader = eccodeshl.FileReader(os.path.join(ref_dir, 'sot', 'sot90_50_2t024_{}_012h_036h.grib'.format(fc_date.strftime("%Y%m%d%H"))))
+    ref_reader = eccodes.FileReader(os.path.join(ref_dir, 'sot', 'sot90_50_2t024_{}_012h_036h.grib'.format(fc_date.strftime("%Y%m%d%H"))))
     ref_sot90 = [message.get_array('values') for message in ref_reader]
     compare_arrs(sot[90], ref_sot90[0])
     return sot

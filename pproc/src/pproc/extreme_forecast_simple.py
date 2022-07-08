@@ -13,7 +13,7 @@ import os
 import argparse
 import numpy as np
 
-import eccodeshl
+import eccodes
 from meteokit import extreme
 
 
@@ -34,7 +34,7 @@ def compute_sot(fcs, clim, sot_values, eps):
 
 
 def read_grib(in_file):
-    reader = eccodeshl.FileReader(in_file)
+    reader = eccodes.FileReader(in_file)
 
     data = []
     for message in reader:
@@ -51,7 +51,7 @@ def read_grib(in_file):
 
 
 def write_grib(template, data, out_dir, out_name):
-    reader = eccodeshl.FileReader(template)
+    reader = eccodes.FileReader(template)
     messages = list(reader)
     message = messages[0]
 
