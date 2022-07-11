@@ -14,10 +14,8 @@ class SpectralOrder:
     )
 
     def __init__(self, order):
-        self.order = float(
-            SpectralOrder._orders[order] if isinstance(order, str) else order
-        )
-        assert self.order
+        self.order = float(SpectralOrder._orders.get(order, order))
+        assert self.order > 0
 
     def spectral_truncation(self, n: float):
         assert n > 0
