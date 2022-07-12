@@ -94,10 +94,13 @@ def main(args=None):
     
     fcs = read_grib(args.fc_file)
     clim = read_grib(args.clim_file)
+    print(np.mean(fcs))
+    print(np.mean(clim))
     
     fc_name = os.path.basename(args.fc_file).split('_')[0]
     
     efi = compute_efi(fcs, clim, eps=args.eps)
+    print(np.mean(efi))
     
     efifile = 'efi' + os.path.basename(args.fc_file)[3:]
     write_grib(args.template, efi, args.out_dir, efifile)

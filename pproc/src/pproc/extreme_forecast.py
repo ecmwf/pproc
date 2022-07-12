@@ -14,6 +14,7 @@ import os
 import argparse
 import numpy as np
 from datetime import datetime, timedelta
+from dataclasses import dataclass
 
 import eccodes
 import pyfdb
@@ -21,18 +22,70 @@ import pyfdb
 from meteokit import extreme
 
 
+@dataclass
+class Parameter():
+    name: str
+    paramId: str
+    eps: float = -1e-4
+
+
+def build_parameter_database():
+
+    params_db = dict(
+        2t = Parameter('2t', '167.128'),
+        2tmin = Parameter('2tmin', '122'),
+        2tmax = Parameter('2tmax', '121'),
+        10ff = Parameter('10ff', '165'),
+        10fg = Parameter('10fg', '123'),
+        10dd = Parameter('10dd', '165'),
+        tcc = Parameter('tcc', '164'),
+        500z = Parameter('500z', '129'),
+        850t = Parameter('850t', '130'),
+        hsttmax = Parameter('hsttmax', '229'),
+        hsstmax = Parameter('hsstmax', '229'),
+        wvf = Parameter('wvf', '162071'),
+        tp = Parameter('tp', '228', 1e-4),
+        ts = Parameter('ts', '144', 1e-4),
+        sf = Parameter('sf', '144', 1e-4),
+        cape = Parameter('cape', '228035', 1e-4),
+        capeshear = Parameter('capeshear', '228036', 1e-4),
+    )
+
+    return params_db
+
+
+def climatology_date(cfg):
+
+    fc_date = cfg.fc_date
+    weekday = fc_date.weekday()
+
+    # friday to monday -> take previous monday clim, else previous thursday clim
+    if weekday == 0 or weekday > 3:
+        clim_date = fc_date - timedelta(days=(weekday+4)%7)
+    else:
+        clim_date = fc_date - timedelta(days=weekday)
+
+    return clim_date
+
+
 def compute_avg(fields):
     nsteps = fields.shape[0]
     return np.sum(fields, axis=0) / nsteps
 
+
 def compare_arrs(dev, ref):
+    dev = dev.flatten()
+    ref = ref.flatten()
     if np.allclose(dev, ref, rtol=1e-4):
         print("OK")
+        return 0
     else:
         mask = np.logical_not(np.isclose(dev, ref, rtol=1e-4))
+        print(mask.shape)
         print(dev[mask], ref[mask])
         print("{}/{} values differ, max rel diff {}".format(
             np.sum(mask), dev.size, (np.abs(dev - ref) / ref).max()))
+        return 1
 
 
 def read_grib(fdb, req):
@@ -42,20 +95,59 @@ def read_grib(fdb, req):
     return messages
 
 
-def write_avg(template_message, avg, filename):
+def read_grib_file(in_file):
+    reader = eccodes.FileReader(in_file)
 
-    with open(filename, "ab") as outfile:
-        message = template_message
-        message.set_array("values", avg)
-        # FIXME: set metadata
-        message.write_to(outfile)
+    data = []
+    for message in reader:
+        data_array = message.get_array("values")
 
+        # handle missing values and replace by nan
+        if message.get('bitmapPresent'):
+            missing = message.get('missingValue')
+            data_array[data_array == missing] = np.nan
 
-def compute_forecast_average(fdb, fc_date, ref_dir, out_dir):
+        data.append(data_array)
 
+<<<<<<< Updated upstream
     # read reference file
     ref_reader = eccodes.FileReader(os.path.join(ref_dir, "ens_2t_avg_ref.grib"))
     avg_ref = [message.get_array("values") for message in ref_reader]
+=======
+    return np.asarray(data)
+
+
+def write_grib(template, data, out_dir, out_name):
+    reader = eccodes.FileReader(template)
+    messages = list(reader)
+    message = messages[0]
+
+    # replace missing values if any
+    missing = -9999
+    is_missing = np.isnan(data).any()
+    if is_missing:
+        data[np.isnan(data)] = missing
+        message.set('missingValue', missing)
+        message.set('bitmapPresent', 1)
+        
+    message.set_array('values', data)
+
+    if is_missing:
+        n_missing1 = len(data[data==missing])
+        n_missing2 = message.get('numberOfMissing')
+        if n_missing1 != n_missing2:
+            raise Exception(f'Number of missing values in the message not consistent, is {n_missing1} and should be {n_missing2}')
+
+    out_file = os.path.join(out_dir, out_name)
+    with open(out_file,"ab") as outfile:
+    	message.write_to(outfile)
+
+
+def compute_forecast_average(cfg):
+
+    fc_date = cfg.fc_date
+    ymdh = fc_date.strftime("%Y%m%d%H")
+>>>>>>> Stashed changes
 
     req_cf = {
         "class": "od",
@@ -75,42 +167,55 @@ def compute_forecast_average(fdb, fc_date, ref_dir, out_dir):
 
     avg = []
 
+    fdb_dir = os.path.join(cfg.root_dir, 'fdb_data', ymdh)
+
     print("Control:")
-    messages = read_grib(fdb, req_cf)
+    messages = eccodes.FileReader(os.path.join(fdb_dir, f'{cfg.param}_cf.grib'))
     print(messages)
-    vals_cf = np.asarray([message.get_array('values') for message in messages])
+    vals_cf = np.asarray([message.get_array('values') for message in messages])[:4]
+    print(vals_cf.shape)
     avg_cf = compute_avg(vals_cf)
-    compare_arrs(avg_cf, avg_ref[0])
-    cf_avg_file = 'cf_avg.grib'
-    write_avg(messages[0], avg_cf, cf_avg_file)
+    
     avg.append(avg_cf)
+
+    # read reference file
+    ref_dir = os.path.join(cfg.root_dir, 'prepeps', ymdh)
+    avg_ref = read_grib_file(os.path.join(ref_dir, f'eps_{cfg.param}{cfg.window_size:0>3}_{ymdh}_{cfg.window[0]:0>3}h_{cfg.window[1]:0>3}h.grib'))
+    print(f'Reference array: {avg_ref.shape}')
 
     print("Perturbed:")
     avg_pf = []
+    messages = eccodes.FileReader(os.path.join(fdb_dir, f'{cfg.param}_pf.grib'))
+    print(messages)
+    vals_pf = {}
     for member in range(1, 51):
-        print("Member {}:".format(member))
-        req = req_pf.copy()
-        req["number"] = member
-        messages = read_grib(fdb, req)
-        print(messages)
-        vals_pf = np.asarray([message.get_array('values') for message in messages])
-        avg_pf = compute_avg(vals_pf)
-        compare_arrs(avg_pf, avg_ref[member])
+        vals_pf[member] = []
 
-        pf_avg_file = 'pf_avg.grib'
-        write_avg(messages[0], avg_pf, pf_avg_file)
+    for message in messages:
+        member = message.get('number')
+        if int(message.get('stepRange')) <= 24:
+            vals_pf[member].append(message.get_array('values'))
+
+    for member in range(1, 51):
+        vals_np = np.asarray(vals_pf[member])
+        avg_pf = compute_avg(vals_np)
         avg.append(avg_pf)
 
-    return np.asarray(avg)
+    avg = np.asarray(avg)
+    compare_arrs(avg, avg_ref)
+
+    return avg_ref
 
 
-def read_clim(fdb, clim_date, n_clim=101):
+def read_clim(cfg, n_clim=101):
+
+    clim_ymd = cfg.clim_date.strftime("%Y%m%d")
 
     req = {
         'class': 'od',
         'expver': '0001',
         'stream': 'efhs',
-        'date': clim_date.strftime("%Y%m%d"),
+        'date': clim_ymd,
         'time': '0000',
         'domain': 'g',
         'type': 'cd',
@@ -119,36 +224,33 @@ def read_clim(fdb, clim_date, n_clim=101):
         'quantile': ['{}:100'.format(i) for i in range(n_clim)],
         'param': '228004'
     }
-    messages = read_grib(fdb, req)
-    print('Climatology:')
-    print(messages)
-    vals_clim = []
-    for message in messages:
-        q = message.get('quantile')
-        print(q)
-        vals_clim.append(message.get_array('values'))
+    vals_clim = read_grib_file(os.path.join(cfg.clim_dir, f'clim_{cfg.param}{cfg.window_size:0>3}_{clim_ymd}_{cfg.window[0]:0>3}h_{cfg.window[1]:0>3}h_perc.grib'))
 
     return np.asarray(vals_clim)
 
 
-def compute_efi(fdb, fc_date, fc_avg, clim, ref_dir, out_dir):
+def compute_efi(cfg, fc_avg, clim):
 
-    efi = extreme.efi(clim, fc_avg)
-
+<<<<<<< Updated upstream
     ref_reader = eccodes.FileReader(os.path.join(ref_dir, 'efi', 'efi0_50_2t024_{}_012h_036h.grib'.format(fc_date.strftime("%Y%m%d%H"))))
     ref_efi = [message.get_array('values') for message in ref_reader]
+=======
+    efi = extreme.efi(clim, fc_avg, cfg.eps)
+>>>>>>> Stashed changes
 
-    compare_arrs(efi, ref_efi[0])
+    write_grib(cfg.template, efi, cfg.out_dir, f'efi_{cfg.param}_{cfg.window_size:0>3}_{cfg.window[0]:0>3}h_{cfg.window[1]:0>3}h.grib')
 
     return efi
 
 
-def compute_sot(fdb, fc_date, fc_avg, clim, ref_dir, out_dir):
+def compute_sot(cfg, fc_avg, clim):
 
     sot = {}
     for perc in [10, 90]:
-        sot[perc] = extreme.sot(clim, fc_avg, perc)
+        sot[perc] = extreme.sot(clim, fc_avg, perc, cfg.eps)
+        write_grib(cfg.template, sot[perc], cfg.out_dir, f'sot{perc}_{cfg.param}_{cfg.window_size:0>3}_{cfg.window[0]:0>3}h_{cfg.window[1]:0>3}h.grib')
 
+<<<<<<< Updated upstream
     ref_reader = eccodes.FileReader(os.path.join(ref_dir, 'sot', 'sot10_50_2t024_{}_012h_036h.grib'.format(fc_date.strftime("%Y%m%d%H"))))
     ref_sot10 = [message.get_array('values') for message in ref_reader]
     compare_arrs(sot[10], ref_sot10[0])
@@ -156,46 +258,84 @@ def compute_sot(fdb, fc_date, fc_avg, clim, ref_dir, out_dir):
     ref_reader = eccodes.FileReader(os.path.join(ref_dir, 'sot', 'sot90_50_2t024_{}_012h_036h.grib'.format(fc_date.strftime("%Y%m%d%H"))))
     ref_sot90 = [message.get_array('values') for message in ref_reader]
     compare_arrs(sot[90], ref_sot90[0])
+=======
+>>>>>>> Stashed changes
     return sot
 
 
-def climatology_date(fc_date):
+def check_results(cfg):
 
-    weekday = fc_date.weekday()
+    check = 0
 
-    # friday to monday -> take previous monday clim, else previous thursday clim
-    if weekday == 0 or weekday > 3:
-        clim_date = fc_date - timedelta(days=(weekday+4)%7)
-    else:
-        clim_date = fc_date - timedelta(days=weekday)
+    fc_date = cfg.fc_date.strftime("%Y%m%d%H")
 
-    return clim_date
+    print('Checking sot results')
+    for perc in [10, 90]:
+        test_sot = read_grib_file(os.path.join(cfg.out_dir, f'sot{perc}_{cfg.param}_{cfg.window_size:0>3}_{cfg.window[0]:0>3}h_{cfg.window[1]:0>3}h.grib'))
+        ref_sot = read_grib_file(os.path.join(cfg.ref_dir, f'sot{perc}_{cfg.param}{cfg.window_size:0>3}_{fc_date}_{cfg.window[0]:0>3}h_{cfg.window[1]:0>3}h.grib'))
+        check += compare_arrs(test_sot, ref_sot)
+
+    print('Checking efi results')
+    test_efi = read_grib_file(os.path.join(cfg.out_dir, f'efi_{cfg.param}_{cfg.window_size:0>3}_{cfg.window[0]:0>3}h_{cfg.window[1]:0>3}h.grib'))
+    ref_efi = read_grib_file(os.path.join(cfg.ref_dir, f'efi_{cfg.param}{cfg.window_size:0>3}_{fc_date}_{cfg.window[0]:0>3}h_{cfg.window[1]:0>3}h.grib'))
+    print(test_efi.shape, ref_efi.shape)
+    check += compare_arrs(test_efi, ref_efi[0])
+
+    return check
+
+
+class Config():
+    def __init__(self, args):
+
+        self.fc_date = datetime.strptime(args.fc_date,"%Y%m%d%H")
+        self.param = args.param
+        self.window = [int(i) for i in args.window.split('-')]
+        self.window_size = self.window[1]-self.window[0]
+
+        self.template = args.template
+        self.eps = args.eps
+        self.fdb = pyfdb.FDB()
+        
+        self.root_dir = args.root_dir
+        self.ref_dir = os.path.join(self.root_dir, 'efi', self.fc_date.strftime("%Y%m%d%H"))
+        self.out_dir = os.path.join(self.root_dir, 'efi_test', self.fc_date.strftime("%Y%m%d%H"))
+
+        self.clim_date = climatology_date(self)
+        self.clim_dir = os.path.join(self.root_dir, 'clim', self.clim_date.strftime("%Y%m%d"))
+
+        print(f'Forecast date is {self.fc_date}')
+        print(f'Climatology date is {self.clim_date}')
+        print(f'Parameter is {self.param}')
+        print(f'window is {self.window}, size {self.window_size}')
+        print(f'Root directory is {self.root_dir}')
+        print(f'Grib template is {self.template}')
+        print(f'eps is {self.eps}')
 
 
 def main(args=None):
 
     parser = argparse.ArgumentParser(description='Small python EFI test')
     parser.add_argument('fc_date', help='Forecast date')
-    parser.add_argument('ref_dir', help='Reference directory')
+    parser.add_argument('param', help='Parameter')
+    parser.add_argument('window', help='Averaging window')
+    parser.add_argument('root_dir', help='Root directory')
+    parser.add_argument('template', help='GRIB template')
+    parser.add_argument('--eps', type=float, help='epsilon factor')
 
     args = parser.parse_args(args)
-    fc_date = datetime.strptime(args.fc_date,"%Y%m%d%H")
-    clim_date = climatology_date(fc_date)
-    print(fc_date)
-    print(clim_date)
-    ref_dir = os.path.join(args.ref_dir, args.fc_date)
-    out_dir = None#args.out_dir
+    cfg = Config(args)
 
-    fdb = pyfdb.FDB()
+    fc_avg = compute_forecast_average(cfg)
+    print(f'Resulting averaged array: {fc_avg.shape}')
 
-    fc_avg = compute_forecast_average(fdb, fc_date, ref_dir, out_dir)
+    clim = read_clim(cfg)
+    print(f'Climatology array: {clim.shape}')
 
-    clim = read_clim(fdb, clim_date)
-    print(clim)
+    efi = compute_efi(cfg, fc_avg, clim)
 
-    efi = compute_efi(fdb, fc_date, fc_avg, clim, ref_dir, out_dir)
+    sot = compute_sot(cfg, fc_avg, clim)
 
-    sot = compute_sot(fdb, fc_date, fc_avg, clim, ref_dir, out_dir)
+    return check_results(cfg)
 
 
 if __name__ == "__main__":
