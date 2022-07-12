@@ -2,7 +2,7 @@
 
 import pytest
 import argparse
-from pproc.Hardcode import Hardcode
+from pproc.Config import Config
 
 
 TESTS = ((range(0, 48 + 1, 3), ("mx2t6",), (850, 250)),)
@@ -13,13 +13,13 @@ def test_ensms(test):
     step_range, list_param, list_lev = test
     for a in (step_range, list_param, list_lev):
         print(a, type(a))
-    h = Hardcode()
+    h = Config()
     for p in list_param:
         print(h[p])
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="wind850.ecf test")
+    parser = argparse.ArgumentParser(description="ensms.ecf test")
     # parser.add_argument('fc_date', help='Forecast date')
     # parser.add_argument('clim_date', help='climatology date')
     # parser.add_argument('efi', help='EFI file')
