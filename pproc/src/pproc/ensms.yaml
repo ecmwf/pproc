@@ -1,0 +1,80 @@
+---
+
+_default:
+  - mars:
+    - levtype: pl
+  - ensms:
+    - step1_mod_6: False
+
+121:  # mx2t6
+  - mars:
+    - levtype: sfc
+    - levelist: None
+  - ensms:
+    - step1_mod_6: True
+
+122:  # mn2t6
+  - mars:
+    - levtype: sfc
+    - levelist: None
+  - ensms:
+    - step1_mod_6: True
+
+129:  # z
+  - pass
+
+130:  # t
+  - pass
+
+138:  # vo
+  - pass
+
+151:  # msl
+  - mars:
+    - levtype: sfc
+    - levelist: None
+
+155:  # d
+  - pass
+
+167:  # 2t
+  - mars:
+    - levtype: sfc
+    - levelist: None
+
+207:  # 10si
+  - mars:
+    - levtype: sfc
+    - levelist: None
+
+228026:  # mx2t3
+  - mars:
+    - levtype: sfc
+    - levelist: None
+
+228027:  # mn2t3
+  - mars:
+    - levtype: sfc
+    - levelist: None
+
+228249:  # 100si
+  - mars:
+    - levtype: sfc
+    - levelist: None
+
+228241:  # 200si
+  - mars:
+    - levtype: sfc
+    - levelist: None
+
+3015:  # tmax
+  - mars:
+    - levtype: sfc
+    - levelist: None
+
+3016:  # tmin
+  - mars:
+    - levtype: sfc
+    - levelist: None
+
+
