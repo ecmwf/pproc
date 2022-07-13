@@ -8,6 +8,7 @@ import yaml
 import sys
 import argparse
 
+
 def read_gribs(request, fdb, step, paramId) -> List[eccodes.GRIBMessage]:
 
     # Modify FDB request and read input data
@@ -79,15 +80,6 @@ def instantaneous_probability(messages: List[eccodes.GRIBMessage], threshold):
     return probability
 
 
-def period_probabilities():
-    """ Period Probabilities:
-
-        Takes the instantaneous probabilities at all 3h and 6h output steps and computes the overall mean
-
-    """
-    pass
-
-
 def main(args=None):
 
     parser = argparse.ArgumentParser(description='Compute instantaneous and period probabilities')
@@ -122,6 +114,7 @@ def main(args=None):
             write_instantaneous_grib(fdb, messages[0], step, threshold, probability)
 
     # Period probabilities
+    # - Takes the instantaneous probabilities at all 3h and 6h output steps and computes the overall mean
 
     start_step = config.get("period", {}).get("start_step", 120)
     end_step = config.get("period", {}).get("end_step", 240)
