@@ -60,7 +60,7 @@ def write_period_grib(fdb, template_grib, leg, start_step, end_step, threshold, 
     fdb.archive(out_grib.get_buffer())
 
 
-def instantaneous_probability(messages: List[eccodes.GRIBMessage], threshold):
+def instantaneous_probability(messages: List[eccodes.GRIBMessage], threshold) -> np.array:
 
     """ Instantaneous Probabilities:
 
