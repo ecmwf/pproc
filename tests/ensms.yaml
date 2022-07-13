@@ -1,0 +1,44 @@
+---
+
+main:
+  12:
+    postproc:
+      240:
+        ensms:
+          48: &base
+            _config: { step: 0/to/48/by/3 }
+            t: { _config: { param: 130, levtype: pl, levelist: [250, 500, 850] } }
+            z: { _config: { param: 129, levtype: pl, levelist: [300, 500, 1000] } }
+            msl: { _config: { param: 151, levtype: sfc } }
+            2t: { _config: { param: 167, levtype: sfc } }
+            10si: { _config: { param: 207, levtype: sfc } }
+            mn2t3: { _config: { param: 228027, levtype: sfc } }
+            mx2t3: { _config: { param: 228026, levtype: sfc } }
+            100si: { _config: { param: 228249, levtype: sfc } }
+            mn2t6: { _config: { param: 122, levtype: sfc, step: 0/to/48/by/6 } }
+            mx2t6: { _config: { param: 121, levtype: sfc, step: 0/to/48/by/6 } }
+          96:
+            <<: *base
+            _config: { step: 51/to/96/by/3 }
+            mn2t6: { _config: { step: 54/to/96/by/6 } }
+            mx2t6: { _config: { step: 54/to/96/by/6 } }
+          144:
+            <<: *base
+            _config: { step: 99/to/144/by/3 }
+            mn2t6: { _config: { step: 102/to/144/by/6 } }
+            mx2t6: { _config: { step: 102/to/144/by/6 } }
+          192:
+            <<: *base
+            _config: { step: 144/to/192/by/6 }
+          240:
+            <<: *base
+            _config: { step: 192/to/240/by/6 }
+      360:
+        ensms:
+          300:
+            <<: *base
+            _config: { step: 246/to/300/by/6 }
+          360:
+            <<: *base
+            _config: { step: 306/to/360/by/6 }
+
