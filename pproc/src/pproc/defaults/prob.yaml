@@ -1,0 +1,24 @@
+number_of_ensembles: 50
+leg: 1
+instantaneous:
+  start_step: 12
+  end_step: 240
+  interval: 12
+period:
+  start_step: 120
+  end_step: 240
+  3hourly_output_cutoff_step: 144
+thresholds:
+- in_paramid: 167
+  out_paramid: 131073
+  comparison: "<="
+  value: 273.15
+base_request:
+  class: od
+  stream: enfo
+  expver: '0001'
+  type: pf
+  levtype: sfc
+  domain: g
+  date: "20220708"
+  time: "1200"
