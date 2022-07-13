@@ -101,6 +101,7 @@ def main(args=None):
     thresholds = config.get("thresholds", [])
 
     # Instantaneous probabilities
+    # - Reads all ensembles for every given step and computes the probability of a threshold being reached
 
     start_step = config.get("instantaneous", {}).get("start_step", 12)
     end_step = config.get("instantaneous", {}).get("end_step", 240)
