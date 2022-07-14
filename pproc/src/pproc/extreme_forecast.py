@@ -35,9 +35,17 @@ def climatology_date(cfg):
     return clim_date
 
 
-def compute_avg(fields):
-    nsteps = fields.shape[0]
-    return np.sum(fields, axis=0) / nsteps
+def compute_accumulation(cfg, fields):
+    if cfg.accumulation == 'mean':
+        nsteps = fields.shape[0]
+        accum = np.sum(fields, axis=0) / nsteps
+    elif cfg.accumulation == 'min':
+        accum = np.min(fields, axis=0)
+    elif cfg.accumulation == 'max':
+        accum = np.max(fields, axis=0)
+    else:
+        raise Exception(f'Accumulation {cfg.accumulation} not supported! Accepted values: (mean, min, max)')
+    return accum
 
 
 def compare_arrs(dev, ref):
@@ -58,6 +66,7 @@ def compare_arrs(dev, ref):
 
 
 def read_grib_fdb(fdb, req):
+    print(f'Requesting:\n {req}')
     fdb_reader = fdb.retrieve(req)
     eccodes_reader = eccodes.StreamReader(fdb_reader)
 
@@ -118,7 +127,7 @@ def write_grib(template, data, out_dir, out_name):
     	message.write_to(outfile)
 
 
-def compute_forecast_average(cfg):
+def compute_forecast_operation(cfg):
 
     fc_date = cfg.fc_date
     ymdh = fc_date.strftime("%Y%m%d%H")
@@ -131,7 +140,7 @@ def compute_forecast_average(cfg):
     req = {
         "class": "od",
         "expver": "0001",
-        "stream": "enfo",
+        "stream": cfg.stream,
         "date": fc_date.strftime("%Y%m%d"),
         "time": fc_date.strftime("%H")+'00',
         "domain": "g",
@@ -150,12 +159,13 @@ def compute_forecast_average(cfg):
             req['number'] = m
 
         vals = read_grib_fdb(cfg.fdb, req)
-        avg_member = compute_avg(vals)
-        avg.append(avg_member)
+        acc_members = compute_accumulation(cfg, vals)
+        avg.append(acc_members)
 
     avg = np.asarray(avg)
     print(f'Array computed from FDB: {avg.shape}')
-    compare_arrs(avg, avg_ref)
+    if compare_arrs(avg, avg_ref):
+        exit(1)
 
     return avg_ref
 
@@ -167,7 +177,7 @@ def read_clim(cfg, n_clim=101):
     req = {
         'class': 'od',
         'expver': '0001',
-        'stream': 'efhs',
+        'stream': cfg.stream_clim,
         'date': clim_ymd,
         'time': '0000',
         'domain': 'g',
@@ -236,6 +246,9 @@ class Config():
         self.clim_id = parameter['clim_id']
         self.efi_id = parameter['efi_id']
         self.eps = parameter['eps']
+        self.stream = parameter['stream']
+        self.stream_clim = parameter['stream_clim']
+        self.accumulation = parameter['accumulation']
         self.sot_values = [int(i) for i in str(parameter['sot']).split(',')]
 
         self.window = [int(i) for i in args.window.split('-')]
@@ -275,7 +288,7 @@ def main(args=None):
     args = parser.parse_args(args)
     cfg = Config(args)
 
-    fc_avg = compute_forecast_average(cfg)
+    fc_avg = compute_forecast_operation(cfg)
     print(f'Resulting averaged array: {fc_avg.shape}')
 
     clim = read_clim(cfg)
