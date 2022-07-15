@@ -13,7 +13,7 @@ main:
             z: { param: 129, levtype: pl, levelist: [300, 500, 1000] }
             msl: { param: 151, levtype: sfc, levelist: null }
             2t: { param: 167, levtype: sfc, levelist: null }
-            10si: { param: 207, levtype: sfc, levelist: nll }
+            10si: { param: 207, levtype: sfc, levelist: null }
             mn2t3: { param: 228027, levtype: sfc, levelist: null }
             mx2t3: { param: 228026, levtype: sfc, levelist: null }
             100si: { param: 228249, levtype: sfc, levelist: null }

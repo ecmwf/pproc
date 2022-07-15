@@ -1,36 +1,42 @@
 # coding: utf-8
 
 import pytest
-import argparse
-from pproc.Config import Config
+from pproc.Config import VariableTree
+from os import path
+
+vars_file = 1
+vars = VariableTree(path.join(path.dirname(__file__), "test_ensms.yaml"))
+
+TESTS_VARS = (
+    (
+        ("main", 12, "postproc", 240, "ensms", 48, "t"),
+        {
+            "step": "0/to/48/by/3",
+            "param": 130,
+            "levtype": "pl",
+            "levelist": [250, 500, 850],
+        },
+    ),
+    (
+        ("main", 12, "postproc", 240, "ensms", 96, "mx2t6"),
+        {"step": "54/to/96/by/6", "param": 121, "levtype": "sfc"},
+    ),
+    (
+        ("main", 12, "postproc", 360, "ensms", 360, "mn2t6"),
+        {"step": "306/to/360/by/6", "param": 122, "levtype": "sfc"},
+    ),
+)
 
 
-TESTS = ((range(0, 48 + 1, 3), ("mx2t6",), (850, 250)),)
-
-
-@pytest.mark.parametrize("test", TESTS)
-def test_ensms(test):
-    step_range, list_param, list_lev = test
-    for a in (step_range, list_param, list_lev):
-        print(a, type(a))
-    h = Config()
-    for p in list_param:
-        print(h[p])
+@pytest.mark.parametrize("test", TESTS_VARS)
+def test_variables(test):
+    path, variables = test
+    assert vars.variables(*path) == variables
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="ensms.ecf test")
-    # parser.add_argument('fc_date', help='Forecast date')
-    # parser.add_argument('clim_date', help='climatology date')
-    # parser.add_argument('efi', help='EFI file')
-
-    args = parser.parse_args()
-    # clim_date = args.clim_date
-    # fc_date = args.fc_date
-    # efi_file = args.efi
-
-    for test in TESTS:
+    for test in TESTS_VARS:
         try:
-            test_ensms(test)
+            test_variables(test)
         except Exception as e:
             print(e)
