@@ -55,8 +55,8 @@ Example contents of `00012022062800_034_000360_atl`:
 00470 2022/06/28/18*5623495  29  997*5563418*00000000000000000000*00000000000000000000*00000000000000000000*
 00480 2022/06/29/00*5793498  28  999*5623449*00000000000000000000*00000000000000000000*00000000000000000000*
 00490 2022/06/29/06*5893480  28  998*5553427*00000000000000000000*00000000000000000000*00000000000000000000*
-00494 TS
-#     k-
+00494  TS
+#     k--
 ```
 
 Where:
@@ -71,14 +71,15 @@ Where:
 - i) 50kt wind radii ...
 - j) 64kt wind radii ...
 - k) strength category attribution (TS)
-  - TD: wind < 34kt, tropical depression
-  - TS: wind >= 34kt, tropical storm
-  - HR1: wind >= 64kt, hurricane category 1
-  - HR2: wind >= 83kt, hurricane category 2
-  - HR3: wind >= 95kt, hurricane category 3
-  - HR4: ... hurricane category 4
-  - HR5: ... hurricane category 5
+  - " TD": wind < 34kt, tropical depression
+  - " TS": wind >= 34kt, tropical storm
+  - "HR1": wind >= 64kt, hurricane category 1
+  - "HR2": wind >= 83kt, hurricane category 2
+  - "HR3": wind >= 95kt, hurricane category 3
+  - "HR4": ... hurricane category 4
+  - "HR5": ... hurricane category 5
 
+Note: numbers are right-flushed; a-b, d-g are " "-padded, others are "0"-padded.
 
 Filtering
 ---
