@@ -227,11 +227,14 @@ def main(args=None):
         if args.input_format == "tc-tracks":
             d = {col: [] for col in ["lat", "lon", "id", "date", "step", "wind", "msl"]}
 
+            # regex: fixed size (n) " "-padded right-flushed integers
+            rd = lambda n: "|".join(" " * i + "\d" * (n - i) for i in range(n))
+
             re_filename = re.compile(r"^\d{4}(\d{10})_(\d{3}|..)_\d{6}_.{3}$")
             re_split = re.compile(r"^..... ( TD| TS|HR\d)$")
             re_data = re.compile(
-                r"^..... (\d{4}/\d{2}/\d{2})/(\d{2})\*(\d{3})(\d{4}) ([ 0-9]{2}\d) ([ 0-9]{3}\d)\*"
-                r"(\d{3})(\d{4})\*"
+                r"^..... (\d{4}/\d{2}/\d{2})/(\d{2})\*"
+                f"({rd(3)})({rd(4)}) ({rd(3)}) ({rd(4)})\*({rd(3)})({rd(4)})\*"
                 r"\d{5}\d{5}\d{5}\d{5}\*\d{5}\d{5}\d{5}\d{5}\*\d{5}\d{5}\d{5}\d{5}\*$"
             )
 
