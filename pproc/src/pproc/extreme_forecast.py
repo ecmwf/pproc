@@ -236,7 +236,7 @@ def check_results(cfg):
 class Config():
     def __init__(self, args):
 
-        self.fc_date = datetime.strptime(args.fc_date,"%Y%m%d%H")
+        self.fc_date = datetime.strptime(args.fc_date, "%Y%m%d%H")
 
         with open(args.parameter, 'r') as file:
             parameter = yaml.load(file, Loader=yaml.SafeLoader)

@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-import pyfdb
-import eccodes
 import numpy as np
 import numexpr
 from typing import List
 import yaml
 import sys
 import argparse
+from datetime import datetime, timedelta
+
+import pyfdb
+import eccodes
 
 
 def read_gribs(request, fdb, step, paramId) -> List[eccodes.GRIBMessage]:
@@ -84,10 +86,13 @@ def main(args=None):
 
     parser = argparse.ArgumentParser(description='Compute instantaneous and period probabilities')
     parser.add_argument('-c', '--config', required=True, help='YAML configuration file')
+    parser.add_argument('-d', '--date', required=True, help='Forecast date')
     args = parser.parse_args()
 
     with open(args.config, 'r') as f:
         config = yaml.safe_load(f)
+
+    date = datetime.strptime(args.date, "%Y%m%d%H")
 
     fdb = pyfdb.FDB()
 
@@ -97,53 +102,60 @@ def main(args=None):
 
     base_request = config.get("base_request")
     base_request["number"] = range(1, nensembles)
+    base_request['date'] = date.strftime("%Y%m%d")
+    base_request['time'] = date.strftime("%H")+'00'
 
     thresholds = config.get("thresholds", [])
-
-    # Instantaneous probabilities
-    # - Reads all ensembles for every given step and computes the probability of a threshold being reached
-
-    start_step = config.get("instantaneous", {}).get("start_step", 12)
-    end_step = config.get("instantaneous", {}).get("end_step", 240)
-    interval = config.get("instantaneous", {}).get("interval", 12)
-
-    for threshold in thresholds:
-        for step in range(start_step, end_step + 1, interval):
-            messages = read_gribs(base_request, fdb, step, threshold["in_paramid"])
-            probability = instantaneous_probability(messages, threshold)
-            print(f"Writing instantaneous probability for param {threshold['in_paramid']} at step {step}")
-            write_instantaneous_grib(fdb, messages[0], step, threshold, probability)
-
-    # Period probabilities
-    # - Takes the instantaneous probabilities at all 3h and 6h output steps and computes the overall mean
-
-    start_step = config.get("period", {}).get("start_step", 120)
-    end_step = config.get("period", {}).get("end_step", 240)
-    h3_stop = config.get("period", {}).get("3hourly_output_cutoff_step", 144)
-
-    # 3-hourly output steps (may be no steps if start_step > h3_stop)
-    h3_steps = list(range(start_step + 3, min(h3_stop, end_step + 1), 3))
-    # 6-hourly output steps (may be no steps if end_step < h3_stop)
-    h6_steps = list(range(max(h3_stop, start_step), end_step + 1, 6))
-
-    steps = h3_steps + h6_steps
-
     for threshold in thresholds:
 
-        probabilities_accumulated = []
+        paramid = threshold["in_paramid"]
+        
+        # Instantaneous probabilities
+        # - Reads all ensembles for every given step and computes the probability of a threshold being reached
+        probabilities = {}
+        for steps in config.get("steps"):
+            
+            start_step = steps['start_step']
+            end_step = steps['end_step']
+            interval = steps['interval']
+            write = steps.get('write', False)
+            
+            for step in range(start_step, end_step+1, interval):
+                if step not in probabilities:
+                    messages = read_gribs(base_request, fdb, step, paramid)
+                    probability = instantaneous_probability(messages, threshold)
+                    probabilities[step] = probability
+                if write:
+                    print(f"Writing instantaneous probability for param {paramid} at step {step}")
+                    write_instantaneous_grib(fdb, messages[0], step, threshold, probabilities[step])
+        
+        all_steps = sorted(probabilities.keys())
+        print(f'Total number of steps available:\n {all_steps}')
 
-        for step in steps:
-            messages = read_gribs(base_request, fdb, step, threshold["in_paramid"])
-            probability = instantaneous_probability(messages, threshold)
-            probabilities_accumulated.append(probability)
-            print(f"Accumulating period probability for {threshold['in_paramid']} at step {step}")
+        # Time-averaged probabilities
+        # - Takes the instantaneous probabilities computes the time average window
+        for window in config.get('windows'):
+            start_step = window['start_step']
+            end_step = window['end_step']
 
-        probabilities_accumulated = np.array(probabilities_accumulated)
+            mean_probability = 0
+            window_size = 0
+            for i, step in enumerate(all_steps):
+                if step > start_step and step <= end_step:
+                    print(step)
+                    if i == 0:
+                        dt = step
+                    else:
+                        dt = step - all_steps[i-1]
+                    mean_probability += probabilities[step]/dt
+                    window_size += dt
+            mean_probability *= window_size
 
-        period_probability = probabilities_accumulated.mean(axis=0)
+            if window_size != (end_step - start_step):
+                raise Exception(f'window size {window_size} does not match window from config')
 
-        print(f"Writing period probability for {threshold['in_paramid']}")
-        write_period_grib(fdb, messages[0], leg, start_step, end_step, threshold, period_probability)
+            print(f"Writing time-averaged {start_step}-{end_step} probability for {paramid}")
+            write_period_grib(fdb, messages[0], leg, start_step, end_step, threshold, mean_probability)
 
     fdb.flush()
 
