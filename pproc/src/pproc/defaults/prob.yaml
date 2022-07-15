@@ -11,7 +11,7 @@ steps:
   - interval: 6
     start_step: 150
     end_step: 240
-windows:
+periods:
   - start_step: 120
     end_step: 168
   - start_step: 120

@@ -62,7 +62,7 @@ def write_period_grib(fdb, template_grib, leg, start_step, end_step, threshold, 
     fdb.archive(out_grib.get_buffer())
 
 
-def instantaneous_probability(messages: List[eccodes.GRIBMessage], threshold) -> np.array:
+def instantaneous_probability(data: np.array, threshold) -> np.array:
 
     """ Instantaneous Probabilities:
 
@@ -71,8 +71,6 @@ def instantaneous_probability(messages: List[eccodes.GRIBMessage], threshold) ->
         e.g. the chance of temperature being less than 0C
 
     """
-
-    data = np.asarray([message.get_array('values') for message in messages])
 
     # Read threshold configuration and compute probability
     comparison = threshold["comparison"]
@@ -100,12 +98,12 @@ def main(args=None):
     leg = config.get("leg")
     nensembles = config.get("number_of_ensembles", 50)
 
-    base_request = config.get("base_request")
+    base_request = config.["base_request"]
     base_request["number"] = range(1, nensembles)
     base_request['date'] = date.strftime("%Y%m%d")
     base_request['time'] = date.strftime("%H")+'00'
 
-    thresholds = config.get("thresholds", [])
+    thresholds = ["thresholds"]
     for threshold in thresholds:
 
         paramid = threshold["in_paramid"]
@@ -123,7 +121,8 @@ def main(args=None):
             for step in range(start_step, end_step+1, interval):
                 if step not in probabilities:
                     messages = read_gribs(base_request, fdb, step, paramid)
-                    probability = instantaneous_probability(messages, threshold)
+                    data = np.asarray([message.get_array('values') for message in messages])
+                    probability = instantaneous_probability(data, threshold)
                     probabilities[step] = probability
                 if write:
                     print(f"Writing instantaneous probability for param {paramid} at step {step}")
@@ -134,12 +133,12 @@ def main(args=None):
 
         # Time-averaged probabilities
         # - Takes the instantaneous probabilities computes the time average window
-        for window in config.get('windows'):
-            start_step = window['start_step']
-            end_step = window['end_step']
+        for periods in config['periods']:
+            start_step = periods['start_step']
+            end_step = periods['end_step']
 
             mean_probability = 0
-            window_size = 0
+            period_size = 0
             for i, step in enumerate(all_steps):
                 if step > start_step and step <= end_step:
                     print(step)
@@ -148,11 +147,11 @@ def main(args=None):
                     else:
                         dt = step - all_steps[i-1]
                     mean_probability += probabilities[step]/dt
-                    window_size += dt
-            mean_probability *= window_size
+                    period_size += dt
+            mean_probability *= period_size
 
-            if window_size != (end_step - start_step):
-                raise Exception(f'window size {window_size} does not match window from config')
+            if period_size != (end_step - start_step):
+                raise Exception(f'Period size {period_size} does not match window from config')
 
             print(f"Writing time-averaged {start_step}-{end_step} probability for {paramid}")
             write_period_grib(fdb, messages[0], leg, start_step, end_step, threshold, mean_probability)
