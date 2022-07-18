@@ -1,102 +1,40 @@
 #!/usr/bin/env python3
 
 import numpy as np
-
-from datetime import datetime  # , timedelta
+from datetime import datetime
 
 import eccodes
 
 
-def read_gribs(request, fdb, step, paramId):
-    pass
+class Grib:
+    def __init__(self, fn: str):
+        self._file = open(fn)
+        self.ids = list()
 
+        while True:
+            id = eccodes.codes_grib_new_from_file(self._file)
+            if id:
+                self.ids.append(id)
+            else:
+                break
 
-#     # Modify FDB request and read input data
-#     request["param"] = paramId
-#     request["step"] = step
-
-#     fdb_reader = fdb.retrieve(request)
-#     eccodes_reader = eccodes.StreamReader(fdb_reader)
-#     messages = list(eccodes_reader)
-#     assert len(messages) == len(request["number"])
-#     return messages
-
-
-def write_instantaneous_grib(fdb, template_grib, step, threshold, data) -> None:
-    pass
-
-
-#     # Copy an input GRIB message and modify headers for writing probability field
-#     out_grib = template_grib.copy()
-#     out_grib.set("step", step)
-#     out_grib.set("type", "ep")
-#     out_grib.set("paramId", threshold["out_paramid"])
-#     out_grib.set("localDefinitionNumber", 5)
-#     out_grib.set("localDecimalScaleFactor", 2)
-#     out_grib.set("thresholdIndicator", 2)
-#     out_grib.set("upperThreshold", threshold["value"])
-
-#     # Set GRIB data and write to FDB
-#     out_grib.set_array("values", data)
-#     fdb.archive(out_grib.get_buffer())
-
-
-def write_period_grib(
-    fdb, template_grib, leg, start_step, end_step, threshold, data
-) -> None:
-    pass
-
-
-#     # Copy an input GRIB message and modify headers for writing probability field
-#     out_grib = template_grib.copy()
-#     out_grib.set("stepRange", f"{start_step}-{end_step}")
-#     out_grib.set("type", "ep")
-#     out_grib.set("paramId", threshold["out_paramid"])
-#     out_grib.set("stepType", "max")
-#     out_grib.set("localDefinitionNumber", 5)
-#     out_grib.set("localDecimalScaleFactor", 2)
-#     out_grib.set("thresholdIndicator", 2)
-#     out_grib.set("upperThreshold", threshold["value"])
-
-#     if leg == 2:
-#         out_grib.set("unitOfTimeRange", 11)
-
-#     # Set GRIB data and write to FDB
-#     out_grib.set_array("values", data)
-#     fdb.archive(out_grib.get_buffer())
-
-
-def instantaneous_probability(messages, threshold) -> np.array:
-    pass
-
-
-#     """ Instantaneous Probabilities:
-
-#         Computes the probability of a given parameter crossing a given threshold,
-#         by checking how many times it occurs across all ensembles.
-#         e.g. the chance of temperature being less than 0C
-
-#     """
-
-#     data = np.asarray([message.get_array('values') for message in messages])
-
-#     # Read threshold configuration and compute probability
-#     comparison = threshold["comparison"]
-#     comp = numexpr.evaluate("data " + comparison + str(threshold["value"]), local_dict={"data": data})
-#     probability = np.where(comp, 100, 0).mean(axis=0)
-
-#     return probability
+    def __del__(self):
+        for id in self.ids:
+            eccodes.codes_release(id)
+        self._file.close()
 
 
 def parse_range(r: str):
     if not r:
-        return ()
+        return None
 
     l = r.lower().split("/")
     if len(l) == 5 and l[1] == "to" and l[3] == "by":
         return range(int(l[0]), int(l[2]) + 1, int(l[4]))
+
     if len(l) == 3 and l[1] == "to":
         return range(int(l[0]), int(l[2]) + 1, 1)
+
     return sorted(set(map(int, l)))
 
 
@@ -118,10 +56,41 @@ def mars(input: str = ""):
     return p.returncode == 0
 
 
+def calculate_mean(ids):
+    """
+    Ensemble mean:
+    Calculates the mean across forecast ensemble members (perturbed and control).
+    """
+    data = np.asarray([eccodes.codes_get_values(id) for id in ids])
+    return np.mean(data, axis=0)  # nanmean?
+
+
+def calculate_stddev(ids):
+    """
+    Ensemble stddev:
+    Calculates the standard deviation across forecast ensemble members (perturbed and control).
+    """
+    data = np.asarray([eccodes.codes_get_values(id) for id in ids])
+    return np.std(data, axis=0)  # nanstd?
+
+
+def write_fdb(fdb, template_grib, values, type, nens) -> None:
+    # Copy template GRIB message and modify headers
+    assert False
+    out_grib = template_grib.copy()
+    out_grib.set("type", type)
+    out_grib.set("perturbationNumber", 0)
+    out_grib.set("numberOfForecastsInEnsemble", nens)
+    out_grib.set_array("values", values)
+
+    fdb.archive(out_grib.get_buffer())
+
+
 def main(args=None):
     import argparse
     from os import path
 
+    # import pyfdb
     from pproc.Config import VariableTree
 
     # arguments
@@ -134,6 +103,7 @@ def main(args=None):
     parser.add_argument("--config-node", help="Configuration node", nargs="+")
 
     parser.add_argument("--no-mars", action="store_false", dest="mars")
+    parser.add_argument("--write", action="store_true")
 
     parser.add_argument("--class", default="od", dest="klass")
     parser.add_argument("--stream", default="enfo")
@@ -151,7 +121,7 @@ def main(args=None):
     var = tree.variables(*map(lambda n: int(n) if n.isdigit() else n, args.config_node))
     var.update(vars(args))
     var["class"] = var.pop("klass")
-    # print(var)
+    print(var)
 
     target = (
         "param={param},"
@@ -186,66 +156,35 @@ def main(args=None):
     """
     print(request)
 
+    fdb = None  # pyfdb.FDB()
+
     if var["mars"]:
         assert mars(request)
+        assert path.exists(target)
 
-    print(parse_range(var["step"]))
-    print(parse_range(var["levelist"]))
+    for level in parse_range(var["levelist"]):
+        for step in parse_range(var["step"]):
+            param = var["param"]
+            levtype = var["levtype"]
 
+            fn = f"""param={param},levtype={levtype}{("",f",levelist={level}")[bool(level)]},step={step}"""
+            assert path.exists(fn)
 
-#     thresholds = config.get("thresholds", [])
-#     for threshold in thresholds:
+            grib = Grib(fn)
 
-#         paramid = threshold["in_paramid"]
-#
-#         # Instantaneous probabilities
-#         # - Reads all ensembles for every given step and computes the probability of a threshold being reached
-#         probabilities = {}
-#         for steps in config.get("steps"):
-#
-#             start_step = steps['start_step']
-#             end_step = steps['end_step']
-#             interval = steps['interval']
-#             write = steps.get('write', False)
-#
-#             for step in range(start_step, end_step+1, interval):
-#                 if step not in probabilities:
-#                     messages = read_gribs(base_request, fdb, step, paramid)
-#                     probability = instantaneous_probability(messages, threshold)
-#                     probabilities[step] = probability
-#                 if write:
-#                     print(f"Writing instantaneous probability for param {paramid} at step {step}")
-#                     write_instantaneous_grib(fdb, messages[0], step, threshold, probabilities[step])
-#
-#         all_steps = sorted(probabilities.keys())
-#         print(f'Total number of steps available:\n {all_steps}')
+            nens = len(grib.ids)
+            print(f"nens={nens}")
+            assert nens == 51
 
-#         # Time-averaged probabilities
-#         # - Takes the instantaneous probabilities computes the time average window
-#         for window in config.get('windows'):
-#             start_step = window['start_step']
-#             end_step = window['end_step']
+            mean = calculate_mean(grib.ids)
+            if var["write"]:
+                write_fdb(fdb, grib.ids[0], mean, "em", nens)
 
-#             mean_probability = 0
-#             window_size = 0
-#             for i, step in enumerate(all_steps):
-#                 if step > start_step and step <= end_step:
-#                     print(step)
-#                     if i == 0:
-#                         dt = step
-#                     else:
-#                         dt = step - all_steps[i-1]
-#                     mean_probability += probabilities[step]/dt
-#                     window_size += dt
-#             mean_probability *= window_size
+            stddev = calculate_stddev(grib.ids)
+            if var["write"]:
+                write_fdb(fdb, grib.ids[0], stddev, "es", nens)
 
-#             if window_size != (end_step - start_step):
-#                 raise Exception(f'window size {window_size} does not match window from config')
-
-#             print(f"Writing time-averaged {start_step}-{end_step} probability for {paramid}")
-#             write_period_grib(fdb, messages[0], leg, start_step, end_step, threshold, mean_probability)
-
-#     fdb.flush()
+    # fdb.flush()
 
 
 if __name__ == "__main__":
