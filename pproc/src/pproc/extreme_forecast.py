@@ -262,7 +262,7 @@ def parameter_factory(paramid):
         parameter = Parameter('2tmin', 122, clim_id=202, efi_id=202, sot=[10, 90], accumulation='min')
     elif paramid == 121:
         parameter = Parameter('2tmax', 121, clim_id=201, efi_id=201, sot=[10, 90], accumulation='max')
-    elif paramid == 165:
+    elif paramid == 207:
         parameter = Parameter('10ff', 207, clim_id=228005)
     elif paramid == 123:
         parameter = Parameter('10fg', 123, clim_id=49, efi_id=49, accumulation='max')
@@ -379,11 +379,11 @@ class Config():
 
         self.window = [int(i) for i in args.window.split('-')]
         self.window_size = self.window[1]-self.window[0]
-        self.window_step = 6
+        self.window_step = args.timestep
         self.steps = list(range(self.window[0]+self.window_step, self.window[1]+self.window_step, self.window_step))
 
         self.template = args.template
-        self.members = 51
+        self.members = args.members
         self.fdb = pyfdb.FDB()
         
         self.root_dir = args.root_dir
@@ -409,6 +409,8 @@ def main(args=None):
     parser.add_argument('window', help='Averaging window')
     parser.add_argument('root_dir', help='Root directory')
     parser.add_argument('template', help='GRIB template')
+    parser.add_argument('-m', '--members', type=int, default=51, help='Number of ensemble members')
+    parser.add_argument('-t', '--timestep', type=int, default=6, help='Time step')
 
     args = parser.parse_args(args)
     cfg = Config(args)
