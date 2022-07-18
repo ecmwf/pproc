@@ -74,16 +74,16 @@ def calculate_stddev(ids):
     return np.std(data, axis=0)  # nanstd?
 
 
-def write_fdb(fdb, template_grib, values, type, nens) -> None:
+def write_fdb(fdb, template_grib_id, values, type, nens) -> None:
     # Copy template GRIB message and modify headers
-    assert False
-    out_grib = template_grib.copy()
-    out_grib.set("type", type)
-    out_grib.set("perturbationNumber", 0)
-    out_grib.set("numberOfForecastsInEnsemble", nens)
-    out_grib.set_array("values", values)
+    out = eccodes.codes_clone(template_grib_id)
 
-    fdb.archive(out_grib.get_buffer())
+    eccodes.codes_set_string(out, "type", type)
+    eccodes.codes_set_long(out, "perturbationNumber", 0)
+    eccodes.codes_set_string(out, "numberOfForecastsInEnsemble", nens)
+    eccodes.codes_set_values(out, values)
+
+    # fdb.archive(out_grib.get_buffer())
 
 
 def main(args=None):
