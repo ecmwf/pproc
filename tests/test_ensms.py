@@ -4,26 +4,25 @@ import pytest
 from pproc.Config import VariableTree
 from os import path
 
-vars_file = 1
-vars = VariableTree(path.join(path.dirname(__file__), "test_ensms.yaml"))
+tree = VariableTree(path.join(path.dirname(__file__), "test_ensms.yaml"))
 
 TESTS_VARS = (
     (
-        ("main", 12, "postproc", 240, "ensms", 48, "t"),
+        ("ensms", 48, "t"),
         {
             "step": "0/to/48/by/3",
             "param": 130,
             "levtype": "pl",
-            "levelist": [250, 500, 850],
+            "levelist": "250/500/850",
         },
     ),
     (
-        ("main", 12, "postproc", 240, "ensms", 96, "mx2t6"),
-        {"step": "54/to/96/by/6", "param": 121, "levtype": "sfc"},
+        ("ensms", 96, "mx2t6"),
+        {"step": "54/to/96/by/6", "param": 121, "levtype": "sfc", "levelist": None},
     ),
     (
-        ("main", 12, "postproc", 360, "ensms", 360, "mn2t6"),
-        {"step": "306/to/360/by/6", "param": 122, "levtype": "sfc"},
+        ("ensms", 360, "mn2t6"),
+        {"step": "306/to/360/by/6", "param": 122, "levtype": "sfc", "levelist": None},
     ),
 )
 
@@ -31,7 +30,10 @@ TESTS_VARS = (
 @pytest.mark.parametrize("test", TESTS_VARS)
 def test_variables(test):
     path, variables = test
-    assert vars.variables(*path) == variables
+    x = tree.variables(*path)
+    print(x)
+    print(variables)
+    assert x == variables
 
 
 if __name__ == "__main__":

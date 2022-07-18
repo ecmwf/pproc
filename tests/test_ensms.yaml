@@ -3,55 +3,43 @@
 _mn2t6: &_mn2t6 { param: 122, levtype: sfc, levelist: null }
 _mx2t6: &_mx2t6 { param: 121, levtype: sfc, levelist: null }
 
-main:
-  12:
-    postproc:
-      240:
-        ensms:
-          _base: &_base
-            t: { param: 130, levtype: pl, levelist: [250, 500, 850] }
-            z: { param: 129, levtype: pl, levelist: [300, 500, 1000] }
-            msl: { param: 151, levtype: sfc, levelist: null }
-            2t: { param: 167, levtype: sfc, levelist: null }
-            10si: { param: 207, levtype: sfc, levelist: null }
-            mn2t3: { param: 228027, levtype: sfc, levelist: null }
-            mx2t3: { param: 228026, levtype: sfc, levelist: null }
-            100si: { param: 228249, levtype: sfc, levelist: null }
-          48:
-            <<: *_base
-            step: 0/to/48/by/3
-            mn2t6: { <<: *_mn2t6, step: 0/to/48/by/6 }
-            mx2t6: { <<: *_mx2t6, step: 0/to/48/by/6 }
-          96:
-            <<: *_base
-            step: 51/to/96/by/3
-            mn2t6: { <<: *_mn2t6, step: 54/to/96/by/6 }
-            mx2t6: { <<: *_mx2t6, step: 54/to/96/by/6 }
-          144:
-            <<: *_base
-            step: 99/to/144/by/3
-            mn2t6: { <<: *_mn2t6, step: 102/to/144/by/6 }
-            mx2t6: { <<: *_mx2t6, step: 102/to/144/by/6 }
-          192:
-            <<: *_base
-            step: 144/to/192/by/6
-            mn2t6: { <<: *_mn2t6, step: 144/to/192/by/6 }
-            mx2t6: { <<: *_mx2t6, step: 144/to/192/by/6 }
-          240:
-            <<: *_base
-            step: 192/to/240/by/6
-            mn2t6: { <<: *_mn2t6, step: 192/to/240/by/6 }
-            mx2t6: { <<: *_mx2t6, step: 192/to/240/by/6 }
-      360:
-        ensms:
-          300:
-            <<: *_base
-            step: 246/to/300/by/6
-            mn2t6: { <<: *_mn2t6, step: 246/to/300/by/6 }
-            mx2t6: { <<: *_mx2t6, step: 246/to/300/by/6 }
-          360:
-            <<: *_base
-            step: 306/to/360/by/6
-            mn2t6: { <<: *_mn2t6, step: 306/to/360/by/6 }
-            mx2t6: { <<: *_mx2t6, step: 306/to/360/by/6 }
+ensms:
+  _base: &_base
+    z: { param: 129, levtype: pl, levelist: 300/500/1000 }
+    t: { param: 130, levtype: pl, levelist: 250/500/850 }
+    msl: { param: 151, levtype: sfc, levelist: null }
+    2t: { param: 167, levtype: sfc, levelist: null }
+    10si: { param: 207, levtype: sfc, levelist: null }
+    100si: { param: 228249, levtype: sfc, levelist: null }
+    mn2t3: { param: 228027, levtype: sfc, levelist: null }
+    mx2t3: { param: 228026, levtype: sfc, levelist: null }
+    mn2t6: *_mn2t6
+    mx2t6: *_mx2t6
+  48:
+    <<: *_base
+    step: 0/to/48/by/3
+    mn2t6: { <<: *_mn2t6, step: 0/to/48/by/6 }
+    mx2t6: { <<: *_mx2t6, step: 0/to/48/by/6 }
+  96:
+    <<: *_base
+    step: 51/to/96/by/3
+    mn2t6: { <<: *_mn2t6, step: 54/to/96/by/6 }
+    mx2t6: { <<: *_mx2t6, step: 54/to/96/by/6 }
+  144:
+    <<: *_base
+    step: 99/to/144/by/3
+    mn2t6: { <<: *_mn2t6, step: 102/to/144/by/6 }
+    mx2t6: { <<: *_mx2t6, step: 102/to/144/by/6 }
+  192:
+    <<: *_base
+    step: 144/to/192/by/6
+  240:
+    <<: *_base
+    step: 192/to/240/by/6
+  300:
+    <<: *_base
+    step: 246/to/300/by/6
+  360:
+    <<: *_base
+    step: 306/to/360/by/6
 

@@ -20,6 +20,7 @@ setup(
             "pproc-interpol=pproc.interpol:main",
             "pproc-pts=pproc.pts:main",
             "pproc-prob=pproc.prob:main",
+            "pproc-ensms=pproc.ensms:main",
             "pproc-spectrum=pproc.spectrum:main",
             "pproc-clustereps-pca=pproc.clustereps.pca:main",
             "pproc-clustereps-cluster=pproc.clustereps.cluster:main",
