@@ -19,6 +19,7 @@ setup(
             "pproc-extreme-forecast=pproc.extreme_forecast:main",
             "pproc-interpol=pproc.interpol:main",
             "pproc-pts=pproc.pts:main",
+            "pproc-prob=pproc.prob:main",
             "pproc-spectrum=pproc.spectrum:main",
         ],
     },

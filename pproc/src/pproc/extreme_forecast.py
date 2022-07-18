@@ -373,7 +373,7 @@ def check_results(cfg):
 class Config():
     def __init__(self, args):
 
-        self.fc_date = datetime.strptime(args.fc_date,"%Y%m%d%H")
+        self.fc_date = datetime.strptime(args.fc_date, "%Y%m%d%H")
 
         self.parameter = parameter_factory(args.parameter)
 
