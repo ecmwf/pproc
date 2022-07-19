@@ -16,7 +16,7 @@ def default_parser(description):
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('-c', '--config', required=True, help='YAML configuration file')
-    parser.add_argument("--set",
+    parser.add_argument('-s', '--set',
                         metavar="KEY=VALUE",
                         nargs='+',
                         help="Set a number of key-value pairs "
@@ -34,7 +34,7 @@ def nested_set(dic, keys, value):
     Set the values from a nested dictionnary using a list of keys
     """
     for key in keys[:-1]:
-        dic = dic.setdefault(key, {})
+        dic = dic[key]
     val_in_dic = dic.get(keys[-1], None)
     val_type = type(val_in_dic) if val_in_dic else None
     dic[keys[-1]] = val_type(value)
@@ -49,5 +49,4 @@ class Config():
         if args.set:
             values_to_set = parse_vars(args.set)
             for key, value in values_to_set.items():
-                nested_set()
-                self.options[key] = value
+                nested_set(self.options, key.split('.'), value)
