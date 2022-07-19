@@ -21,7 +21,8 @@ from typing import List
 
 import eccodes
 import pyfdb
-from meteokit import extreme, wind
+from meteokit import extreme
+from pproc import common
 
 
 def climatology_date(cfg):
@@ -96,9 +97,10 @@ def read_grib_file(in_file):
 
 
 def write_grib(template, data, out_dir, out_name):
-    reader = eccodes.FileReader(template)
-    messages = list(reader)
-    message = messages[0]
+    # reader = eccodes.FileReader(template)
+    # messages = list(reader)
+    # message = messages[0]
+    message = template.copy()
 
     # replace missing values if any
     missing = -9999
@@ -146,7 +148,7 @@ def fdb_request_forecast(stream, paramid, date, steps, member):
 
 
 @dataclass
-class Parameter():
+class Parameter(): # change id to paramid
     name: str
     id: int
     clim_id: int = id
@@ -172,9 +174,11 @@ class Parameter():
     def preprocessing(self, cfg, member):
         fc_date = cfg.fc_date
         req = fdb_request_forecast(self.stream, self.id, fc_date, cfg.steps, member)
-        vals = read_grib_fdb(cfg.fdb, req)
-        acc = self.compute_accumulation(vals)
-        return acc
+        ds = common.fdb_read(cfg.fdb, req)
+        print(ds)
+        # vals = read_grib_fdb(cfg.fdb, req)
+        acc = self.compute_accumulation(ds.values)
+        return acc, ds.grib_template
 
 
 class ParameterVector(Parameter):
@@ -296,7 +300,7 @@ def compute_forecast_operation(cfg):
 
     avg = []
     for member in range(cfg.members):
-        acc = cfg.parameter.preprocessing(cfg, member)
+        acc, grib_template = cfg.parameter.preprocessing(cfg, member)
         avg.append(acc)
 
     avg = np.asarray(avg)
@@ -304,7 +308,7 @@ def compute_forecast_operation(cfg):
     if not compare_arrs(avg, avg_ref):
         exit(1)
 
-    return avg_ref
+    return avg_ref, grib_template
 
 
 def read_clim(cfg, n_clim=101):
@@ -329,21 +333,21 @@ def read_clim(cfg, n_clim=101):
     return np.asarray(vals_clim)
 
 
-def compute_efi(cfg, fc_avg, clim):
+def compute_efi(cfg, fc_avg, clim, template):
 
     efi = extreme.efi(clim, fc_avg, cfg.parameter.eps)
 
-    write_grib(cfg.template, efi, cfg.out_dir, f'efi_{cfg.parameter.name}_{cfg.window_size:0>3}_{cfg.window[0]:0>3}h_{cfg.window[1]:0>3}h.grib')
+    write_grib(template, efi, cfg.out_dir, f'efi_{cfg.parameter.name}_{cfg.window_size:0>3}_{cfg.window[0]:0>3}h_{cfg.window[1]:0>3}h.grib')
 
     return efi
 
 
-def compute_sot(cfg, fc_avg, clim):
+def compute_sot(cfg, fc_avg, clim, template):
 
     sot = {}
     for perc in cfg.parameter.sot:
         sot[perc] = extreme.sot(clim, fc_avg, perc, cfg.parameter.eps)
-        write_grib(cfg.template, sot[perc], cfg.out_dir, f'sot{perc}_{cfg.parameter.name}_{cfg.window_size:0>3}_{cfg.window[0]:0>3}h_{cfg.window[1]:0>3}h.grib')
+        write_grib(template, sot[perc], cfg.out_dir, f'sot{perc}_{cfg.parameter.name}_{cfg.window_size:0>3}_{cfg.window[0]:0>3}h_{cfg.window[1]:0>3}h.grib')
 
     return sot
 
@@ -415,15 +419,15 @@ def main(args=None):
     args = parser.parse_args(args)
     cfg = Config(args)
 
-    fc_avg = compute_forecast_operation(cfg)
+    fc_avg, template = compute_forecast_operation(cfg)
     print(f'Resulting averaged array: {fc_avg.shape}')
 
     clim = read_clim(cfg)
     print(f'Climatology array: {clim.shape}')
 
-    efi = compute_efi(cfg, fc_avg, clim)
+    efi = compute_efi(cfg, fc_avg, clim, template)
 
-    sot = compute_sot(cfg, fc_avg, clim)
+    sot = compute_sot(cfg, fc_avg, clim, template)
 
     if check_results(cfg):
         return 0

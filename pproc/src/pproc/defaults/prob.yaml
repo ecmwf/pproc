@@ -18,11 +18,12 @@ periods:
     end_step: 240
   - start_step: 168
     end_step: 240
-thresholds:
+parameters:
   - in_paramid: 167
     out_paramid: 131073
-    comparison: "<="
-    value: 273.15
+    thresholds:
+      - comparison: "<="
+      value: 273.15
 base_request:
   class: od
   stream: enfo
