@@ -11,13 +11,10 @@
 
 
 import os
-import argparse
 import numpy as np
 from datetime import datetime, timedelta
-import yaml
 from dataclasses import dataclass, field
 from typing import List
-
 
 import eccodes
 import pyfdb
@@ -25,9 +22,8 @@ from meteokit import extreme
 from pproc import common
 
 
-def climatology_date(cfg):
+def climatology_date(fc_date):
 
-    fc_date = cfg.fc_date
     weekday = fc_date.weekday()
 
     # friday to monday -> take previous monday clim, else previous thursday clim
@@ -60,25 +56,6 @@ def compare_arrs(dev, ref):
             return True
 
 
-def read_grib_fdb(fdb, req):
-    print(f'Requesting:\n {req}')
-    fdb_reader = fdb.retrieve(req)
-    eccodes_reader = eccodes.StreamReader(fdb_reader)
-
-    data = []
-    for message in eccodes_reader:
-        data_array = message.get_array("values")
-
-        # handle missing values and replace by nan
-        if message.get('bitmapPresent'):
-            missing = message.get('missingValue')
-            data_array[data_array == missing] = np.nan
-
-        data.append(data_array)
-
-    return np.asarray(data)
-
-
 def read_grib_file(in_file):
     reader = eccodes.FileReader(in_file)
 
@@ -97,9 +74,7 @@ def read_grib_file(in_file):
 
 
 def write_grib(template, data, out_dir, out_name):
-    # reader = eccodes.FileReader(template)
-    # messages = list(reader)
-    # message = messages[0]
+
     message = template.copy()
 
     # replace missing values if any
@@ -171,14 +146,13 @@ class Parameter(): # change id to paramid
             raise Exception(f'Accumulation {self.accumulation} not supported! Accepted values: (mean, min, max)')
         return accum
 
-    def preprocessing(self, cfg, member):
+    def preprocessing(self, cfg, member, steps):
         fc_date = cfg.fc_date
-        req = fdb_request_forecast(self.stream, self.id, fc_date, cfg.steps, member)
-        ds = common.fdb_read(cfg.fdb, req)
-        print(ds)
-        # vals = read_grib_fdb(cfg.fdb, req)
-        acc = self.compute_accumulation(ds.values)
-        return acc, ds.grib_template
+        req = fdb_request_forecast(self.stream, self.id, fc_date, steps[1:], member)
+        da = common.fdb_read(cfg.fdb, req)
+
+        acc = self.compute_accumulation(da.values)
+        return acc, da.attrs['grib_template']
 
 
 class ParameterVector(Parameter):
@@ -189,31 +163,31 @@ class ParameterVector(Parameter):
         self.id1 = id1
         self.id2 = id2
     
-    def preprocessing(self, cfg, member):
+    def preprocessing(self, cfg, member, steps):
         fc_date = cfg.fc_date
 
-        req_1 = fdb_request_forecast(self.stream, self.id1, fc_date, cfg.steps, member)
-        vals_1 = read_grib_fdb(cfg.fdb, req_1)
-        req_2 = fdb_request_forecast(self.stream, self.id2, fc_date, cfg.steps, member)
-        vals_2 = read_grib_fdb(cfg.fdb, req_2)
+        req_1 = fdb_request_forecast(self.stream, self.id1, fc_date, steps[1:], member)
+        da_1 = common.fdb_read(cfg.fdb, req_1)
+        req_2 = fdb_request_forecast(self.stream, self.id2, fc_date, steps[1:], member)
+        da_2 = common.fdb_read(cfg.fdb, req_2)
 
-        norm = np.sqrt(vals_1*vals_1+vals_2*vals_2)
+        norm = np.sqrt(da_1*da_1+da_2*da_2)
 
-        acc = self.compute_accumulation(norm)
-        return acc
+        acc = self.compute_accumulation(norm.values)
+        return acc, da_1.attrs['grib_template']
 
 
 class ParameterDifference(Parameter):
     
-    def preprocessing(self, cfg, member):
+    def preprocessing(self, cfg, member, steps):
         fc_date = cfg.fc_date
 
-        req = fdb_request_forecast(self.stream, self.id, fc_date, cfg.window, member)
-        vals = read_grib_fdb(cfg.fdb, req)
+        req = fdb_request_forecast(self.stream, self.id, fc_date, [steps[0], steps[-1]], member)
+        da = common.fdb_read(cfg.fdb, req)
+        vals = da.values
 
-        print(vals.shape)
         acc = vals[1]-vals[0]
-        return acc
+        return acc, da.attrs['grib_template']
 
 class ParameterCape(Parameter):
 
@@ -222,16 +196,17 @@ class ParameterCape(Parameter):
         super().__init__(*args, **kwargs)
         self.threshold = threshold
     
-    def preprocessing(self, cfg, member):
+    def preprocessing(self, cfg, member, steps):
         fc_date = cfg.fc_date
 
-        req = fdb_request_forecast(self.stream, self.id, fc_date, cfg.steps, member)
-        vals = read_grib_fdb(cfg.fdb, req)
+        req = fdb_request_forecast(self.stream, self.id, fc_date, steps[1:], member)
+        da = common.fdb_read(cfg.fdb, req)
+        vals = da.values
 
         vals[vals<=self.threshold] = 0
 
         acc = self.compute_accumulation(vals)
-        return acc
+        return acc, da.attrs['grib_template']
 
 
 class ParameterCapeShear(Parameter):
@@ -243,19 +218,21 @@ class ParameterCapeShear(Parameter):
         self.threshold = threshold
         self.id_filt = id_filt
     
-    def preprocessing(self, cfg, member):
+    def preprocessing(self, cfg, member, steps):
         fc_date = cfg.fc_date
 
-        req = fdb_request_forecast(self.stream, self.id, fc_date, cfg.steps, member)
-        vals = read_grib_fdb(cfg.fdb, req)
+        req = fdb_request_forecast(self.stream, self.id, fc_date, steps, member)
+        da = common.fdb_read(cfg.fdb, req)
+        vals = da.values
 
-        req_filt = fdb_request_forecast(self.stream, self.id_filt, fc_date, cfg.steps, member)
-        vals_filt = read_grib_fdb(cfg.fdb, req_filt)
+        req_filt = fdb_request_forecast(self.stream, self.id_filt, fc_date, steps[1:], member)
+        da_filt = common.fdb_read(cfg.fdb, req_filt)
+        vals_filt = da_filt.values
 
         vals[vals_filt<=self.threshold] = 0
 
         acc = self.compute_accumulation(vals)
-        return acc
+        return acc, da.attrs['grib_template']
 
 
 def parameter_factory(paramid):
@@ -295,12 +272,12 @@ def compute_forecast_operation(cfg):
 
     # read reference file
     ref_dir = os.path.join(cfg.root_dir, 'prepeps', ymdh)
-    avg_ref = read_grib_file(os.path.join(ref_dir, f'eps_{cfg.parameter.name}{cfg.window_size:0>3}_{ymdh}_{cfg.window[0]:0>3}h_{cfg.window[1]:0>3}h.grib'))
+    avg_ref = read_grib_file(os.path.join(ref_dir, f'eps_{cfg.suffix_ref}.grib'))
     print(f'Reference array: {avg_ref.shape}')
 
     avg = []
     for member in range(cfg.members):
-        acc, grib_template = cfg.parameter.preprocessing(cfg, member)
+        acc, grib_template = cfg.parameter.preprocessing(cfg, member, cfg.steps[0])
         avg.append(acc)
 
     avg = np.asarray(avg)
@@ -324,20 +301,21 @@ def read_clim(cfg, n_clim=101):
         'domain': 'g',
         'type': 'cd',
         'levtype': 'sfc',
-        'step': f'{cfg.window[0]}-{cfg.window[1]}',
         'quantile': ['{}:100'.format(i) for i in range(n_clim)],
+        'step': f'{cfg.steps[0][0]}-{cfg.steps[0][-1]}',
         'param': cfg.parameter.clim_id
     }
-    vals_clim = read_grib_fdb(cfg.fdb, req)
+    da_clim = common.fdb_read(cfg.fdb, req)
+    print(da_clim)
 
-    return np.asarray(vals_clim)
+    return np.asarray(da_clim.values)
 
 
 def compute_efi(cfg, fc_avg, clim, template):
 
     efi = extreme.efi(clim, fc_avg, cfg.parameter.eps)
 
-    write_grib(template, efi, cfg.out_dir, f'efi_{cfg.parameter.name}_{cfg.window_size:0>3}_{cfg.window[0]:0>3}h_{cfg.window[1]:0>3}h.grib')
+    write_grib(template, efi, cfg.out_dir, f'efi_{cfg.suffix}.grib')
 
     return efi
 
@@ -347,7 +325,7 @@ def compute_sot(cfg, fc_avg, clim, template):
     sot = {}
     for perc in cfg.parameter.sot:
         sot[perc] = extreme.sot(clim, fc_avg, perc, cfg.parameter.eps)
-        write_grib(template, sot[perc], cfg.out_dir, f'sot{perc}_{cfg.parameter.name}_{cfg.window_size:0>3}_{cfg.window[0]:0>3}h_{cfg.window[1]:0>3}h.grib')
+        write_grib(template, sot[perc], cfg.out_dir, f'sot{perc}_{cfg.suffix}.grib')
 
     return sot
 
@@ -356,17 +334,15 @@ def check_results(cfg):
 
     check = True
 
-    fc_date = cfg.fc_date.strftime("%Y%m%d%H")
-
     print('Checking sot results')
     for perc in cfg.parameter.sot:
-        test_sot = read_grib_file(os.path.join(cfg.out_dir, f'sot{perc}_{cfg.parameter.name}_{cfg.window_size:0>3}_{cfg.window[0]:0>3}h_{cfg.window[1]:0>3}h.grib'))
-        ref_sot = read_grib_file(os.path.join(cfg.ref_dir, f'sot{perc}_{cfg.parameter.name}{cfg.window_size:0>3}_{fc_date}_{cfg.window[0]:0>3}h_{cfg.window[1]:0>3}h.grib'))
+        test_sot = read_grib_file(os.path.join(cfg.out_dir, f'sot{perc}_{cfg.suffix}.grib'))
+        ref_sot = read_grib_file(os.path.join(cfg.ref_dir, f'sot{perc}_{cfg.suffix_ref}.grib'))
         check = check and compare_arrs(test_sot, ref_sot)
     print(check)
     print('Checking efi results')
-    test_efi = read_grib_file(os.path.join(cfg.out_dir, f'efi_{cfg.parameter.name}_{cfg.window_size:0>3}_{cfg.window[0]:0>3}h_{cfg.window[1]:0>3}h.grib'))
-    ref_efi = read_grib_file(os.path.join(cfg.ref_dir, f'efi_{cfg.parameter.name}{cfg.window_size:0>3}_{fc_date}_{cfg.window[0]:0>3}h_{cfg.window[1]:0>3}h.grib'))
+    test_efi = read_grib_file(os.path.join(cfg.out_dir, f'efi_{cfg.suffix}.grib'))
+    ref_efi = read_grib_file(os.path.join(cfg.ref_dir, f'efi_{cfg.suffix_ref}.grib'))
     print(test_efi.shape, ref_efi.shape)
     check = check and compare_arrs(test_efi, ref_efi[0])
     print(check)
@@ -374,50 +350,48 @@ def check_results(cfg):
     return check
 
 
-class Config():
+class ConfigExtreme(common.Config):
     def __init__(self, args):
+        super().__init__(args)
 
-        self.fc_date = datetime.strptime(args.fc_date, "%Y%m%d%H")
+        self.fc_date = datetime.strptime(str(self.options['fc_date']), "%Y%m%d%H")
 
-        self.parameter = parameter_factory(args.parameter)
+        self.parameter = parameter_factory(self.options['paramid'])
 
-        self.window = [int(i) for i in args.window.split('-')]
-        self.window_size = self.window[1]-self.window[0]
-        self.window_step = args.timestep
-        self.steps = list(range(self.window[0]+self.window_step, self.window[1]+self.window_step, self.window_step))
+        self.steps = []
+        for steps in self.options['steps']:
+            start_step = int(steps['start_step'])
+            end_step = int(steps['end_step'])
+            timestep = int(steps['timestep'])
+            self.steps.append(list(range(start_step, end_step+timestep, timestep)))
 
-        self.template = args.template
-        self.members = args.members
+        self.members = self.options['members']
         self.fdb = pyfdb.FDB()
         
-        self.root_dir = args.root_dir
+        self.root_dir = self.options['root_dir']
         self.ref_dir = os.path.join(self.root_dir, 'efi', self.fc_date.strftime("%Y%m%d%H"))
         self.out_dir = os.path.join(self.root_dir, 'efi_test', self.fc_date.strftime("%Y%m%d%H"))
 
-        self.clim_date = climatology_date(self)
+        self.clim_date = self.options.get('clim_date', climatology_date(self.fc_date))
         self.clim_dir = os.path.join(self.root_dir, 'clim', self.clim_date.strftime("%Y%m%d"))
+
+        window_size = self.steps[0][-1]-self.steps[0][0]
+        ymdh = self.fc_date.strftime("%Y%m%d%H")
+        self.suffix = f"{self.parameter.name}_{window_size:0>3}_{self.steps[0][0]:0>3}h_{self.steps[0][-1]:0>3}h"
+        self.suffix_ref = f"{self.parameter.name}{window_size:0>3}_{ymdh}_{self.steps[0][0]:0>3}h_{self.steps[0][-1]:0>3}h"
 
         print(f'Forecast date is {self.fc_date}')
         print(f'Climatology date is {self.clim_date}')
         print(f'ParamID is {self.parameter.id}')
-        print(f'window is {self.window}, size {self.window_size}, steps {self.steps}')
+        print(f'steps are {self.steps}')
         print(f'Root directory is {self.root_dir}')
-        print(f'Grib template is {self.template}')
 
 
 def main(args=None):
 
-    parser = argparse.ArgumentParser(description='Small python EFI test')
-    parser.add_argument('fc_date', help='Forecast date')
-    parser.add_argument('parameter', type=int, help='Parameter ID')
-    parser.add_argument('window', help='Averaging window')
-    parser.add_argument('root_dir', help='Root directory')
-    parser.add_argument('template', help='GRIB template')
-    parser.add_argument('-m', '--members', type=int, default=51, help='Number of ensemble members')
-    parser.add_argument('-t', '--timestep', type=int, default=6, help='Time step')
-
+    parser = common.default_parser('Compute EFI and SOT from forecast and climatology for one parameter')
     args = parser.parse_args(args)
-    cfg = Config(args)
+    cfg = ConfigExtreme(args)
 
     fc_avg, template = compute_forecast_operation(cfg)
     print(f'Resulting averaged array: {fc_avg.shape}')

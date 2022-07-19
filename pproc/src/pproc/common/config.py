@@ -9,12 +9,12 @@ def parse_vars(items):
     return dict(map(lambda s: s.split('='), items))
 
 
-def default_parser():
+def default_parser(description):
     """
     Create a default parser with two options: a yaml config file and a set option to update the entries of the yaml config
     """
 
-    parser = argparse.ArgumentParser(description='Compute instantaneous and period probabilities')
+    parser = argparse.ArgumentParser(description=description)
     parser.add_argument('-c', '--config', required=True, help='YAML configuration file')
     parser.add_argument("--set",
                         metavar="KEY=VALUE",
@@ -46,7 +46,8 @@ class Config():
         with open(args.config, 'r') as f:
             self.options = yaml.safe_load(f)
         
-        values_to_set = parse_vars(args.set)
-        for key, value in values_to_set.items():
-            nested_set()
-            self.options[key] = value
+        if args.set:
+            values_to_set = parse_vars(args.set)
+            for key, value in values_to_set.items():
+                nested_set()
+                self.options[key] = value

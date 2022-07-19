@@ -30,9 +30,9 @@ class GRIBFields:
         for key_tuple, value in self.data.items():
             indexes = [coords[self.dims[i]].index(key) for i, key in enumerate(key_tuple)]
             data_np[indexes] = value
-        ds = xr.DataArray(data_np, coords=coords, dims=dims, attrs={'grib_template': self.template})
+        da = xr.DataArray(data_np, coords=coords, dims=dims, attrs={'grib_template': self.template})
 
-        return ds
+        return da
 
 
 def extract(keys, message):
@@ -108,35 +108,77 @@ def nan_to_missing(message, data, missing=None):
     return data
 
 
-def read_grib(reader, groupby=()):
-    """Read all input messages with grouping
+def read_grib_messages(messages, dims=()):
+    """Read all input messages with coordinates grouping
 
     Parameters
     ----------
-    infile: reader
-    groupby: iterable
-        Group using these keys. Keys can be specified as strings (literal keys)
-        or callable objects to be applied to a message
+    messages: grib messages
+    dims: tuple of strings
 
     Returns
     -------
     GRIBFields
-        GRIBFields object, containing a template and the messages values
+        GRIBFields object, containing the messages values, the dimensions and a grib template
     """
     fields = None
-    for message in reader:
+    for message in messages:
         if fields is None:
-            fields = GRIBFields(message, groupby, {})
-        key = extract(groupby, message)
+            fields = GRIBFields(message, dims, {})
+        key = extract(dims, message)
         fields.data[key] = missing_to_nan(message)
     return fields
 
 
 def fdb_read(fdb, request):
+    """Load grib messages from FDB from request and returns Xarray DataArray
+
+    Parameters
+    ----------
+    messages: grib messages
+    dims: tuple of strings
+
+    Returns
+    -------
+    Xarray DataArray
+        Xarray DataArray object, containing the data and the associated coordinates
+        together with a grib template in the attributes
+    """
 
     fdb_reader = fdb.retrieve(request)
     fields_dims = [key for key in request if isinstance(request[key], (list, range))]
     eccodes_reader = eccodes.StreamReader(fdb_reader)
-    fields = read_grib(eccodes_reader, fields_dims)
+    fields = read_grib_messages(eccodes_reader, fields_dims)
 
     return fields.to_xarray()
+
+
+def fdb_write_ufunc(data, fdb, template, values_to_set):
+
+    message = template.copy()
+    for key, value in values_to_set.items():
+        message[key] = value
+    
+    # Set GRIB data and write to FDB
+    message.set_array("values", data)
+    fdb.write(message)
+
+
+# def write_fdb(data_array, values_to_set):
+
+    # for data in data_array:
+        
+
+    # out_grib = template_grib.copy()
+    # out_grib.set("step", step)
+    # out_grib.set("type", "ep")
+    # out_grib.set("paramId", threshold["out_paramid"])
+    # out_grib.set("localDefinitionNumber", 5)
+    # out_grib.set("localDecimalScaleFactor", 2)
+    # out_grib.set("thresholdIndicator", 2)
+    # out_grib.set("upperThreshold", threshold["value"])
+
+    # # Set GRIB data and write to FDB
+    # out_grib.set_array("values", data)
+    # fdb.archive(out_grib.get_buffer())
+
