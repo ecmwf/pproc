@@ -3,7 +3,7 @@ import numpy as np
 import numpy.random as npr
 
 from eccodes import FileReader, GRIBMessage
-from pca import gen_steps, lat_weights, region_weights
+from .utils import gen_steps, lat_weights, region_weights
 
 
 def disc_stat(xs, ndis):
