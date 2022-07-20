@@ -21,6 +21,8 @@ setup(
             "pproc-pts=pproc.pts:main",
             "pproc-prob=pproc.prob:main",
             "pproc-spectrum=pproc.spectrum:main",
+            "pproc-clustereps-pca=pproc.clustereps.pca:main",
+            "pproc-clustereps-cluster=pproc.clustereps.cluster:main",
             "pproc-clustereps-attr=pproc.clustereps.attribution:main",
         ],
     },

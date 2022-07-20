@@ -1,9 +1,14 @@
 
+import sys
+import argparse
+
 import numpy as np
 import numpy.random as npr
 
 from eccodes import FileReader, GRIBMessage
-from .utils import gen_steps, lat_weights, region_weights
+
+from pproc.common import Config, default_parser
+from pproc.clustereps.utils import gen_steps, lat_weights, region_weights
 
 
 def disc_stat(xs, ndis):
@@ -617,55 +622,72 @@ def write_cluster_grib(steps, ind_cl, rep_members, det_index, data, target, keys
             target.write(message)
 
 
-class ClusterConfig:
-    def __init__(self, cfg):
+class ClusterConfig(Config):
+    def __init__(self, args):
+
+        super().__init__(args)
+
         # Variance threshold
-        self.var_th = cfg['var_th']
+        self.var_th = self.options['var_th']
         # Number of PCs to use, optional
-        self.npc = cfg.get('npc')
+        self.npc = self.options.get('npc')
         # Normalisation factor (2/5)
-        self.factor = cfg.get('factor', 0.4)
+        self.factor = self.options.get('factor', 0.4)
         # Max number of clusters
-        self.ncl_max = cfg['ncl_max']
+        self.ncl_max = self.options['ncl_max']
         # Number of clustering passes
-        self.npass = cfg['npass']
+        self.npass = self.options['npass']
         # Number of red-noise samples for significance computation
-        self.nrsamples = cfg['nrsamples']
+        self.nrsamples = self.options['nrsamples']
         # Maximum significance threshold
-        self.max_sig = cfg['max_sig']
+        self.max_sig = self.options['max_sig']
         # Medium significance threshold
-        self.med_sig = cfg['med_sig']
+        self.med_sig = self.options['med_sig']
         # Minimum significance threshold
-        self.min_sig = cfg['min_sig']
+        self.min_sig = self.options['min_sig']
         # Significance tolerance
-        self.sig_tol = cfg['sig_tol']
+        self.sig_tol = self.options['sig_tol']
         # Bounding box
-        self.lat_n = cfg['lat_n']
-        self.lat_s = cfg['lat_s']
-        self.lon_w = cfg['lon_w']
-        self.lon_e = cfg['lon_e']
+        self.lat_n = self.options['lat_n']
+        self.lat_s = self.options['lat_s']
+        self.lon_w = self.options['lon_w']
+        self.lon_e = self.options['lon_e']
         # Step range
-        self.step_start = cfg['step_start']
-        self.step_end = cfg['step_end']
-        self.step_del = cfg['step_del']
+        self.step_start = self.options['step_start']
+        self.step_end = self.options['step_end']
+        self.step_del = self.options['step_del']
 
 
-if __name__ == '__main__':
-    import argparse
-    import yaml
+def get_parser() -> argparse.ArgumentParser:
+    """initialize command line application argument parser.
 
-    parser = argparse.ArgumentParser(description="K-Means clustering of ensemble data")
-    parser.add_argument('-d', '--deterministic', default=None, help="Deterministic forecast (GRIB)")
-    parser.add_argument('config', type=argparse.FileType('r'), help="Configuration file (YAML)")
-    parser.add_argument('pca', help="PCA data (NPZ)")
-    parser.add_argument('template', help="Field to extract keys from (GRIB)")
-    parser.add_argument('centroids', help="Cluster centroids output (GRIB)")
-    parser.add_argument('representative', help="Cluster representative members output (GRIB)")
-    parser.add_argument('indexes', help="Cluster indexes output (NPZ)")
-    args = parser.parse_args()
+    Returns
+    -------
+    argparse.ArgumentParser
+        
+    """
 
-    cfg = yaml.safe_load(args.config)
-    config = ClusterConfig(cfg)
+    _description='K-Means clustering of ensemble data'
+    parser = default_parser(description=_description)
+
+    group = parser.add_argument_group('Clustering arguments')
+
+    group.add_argument('-d', '--deterministic', default=None, help="Deterministic forecast (GRIB)")
+    group.add_argument('pca', help="PCA data (NPZ)")
+    group.add_argument('template', help="Field to extract keys from (GRIB)")
+    group.add_argument('centroids', help="Cluster centroids output (GRIB)")
+    group.add_argument('representative', help="Cluster representative members output (GRIB)")
+    group.add_argument('indexes', help="Cluster indexes output (NPZ)")
+   
+    return parser
+
+
+def main(args=sys.argv[1:]):
+    parser = get_parser()
+    
+    args = parser.parse_args(args)
+
+    config = ClusterConfig(args)
 
     data = np.load(args.pca)
 
@@ -929,3 +951,9 @@ if __name__ == '__main__':
     keys['type'] = 'cr'
     wr_rep_members = [rep_members_gp[i][best_ncl-1] for i in range(nstep)]
     write_cluster_grib(steps, ind_cl[best_ncl-2], rep_members[best_ncl-1], det_index, wr_rep_members, target, keys)
+
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))

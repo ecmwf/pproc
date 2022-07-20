@@ -1,7 +1,12 @@
 
-import numpy as np
+import argparse
+import sys
 
-from .utils import gen_steps, normalise_angles, lat_weights, region_weights
+import numpy as np
+import eccodes
+
+from pproc.common import Config, default_parser
+from pproc.clustereps.utils import gen_steps, normalise_angles, lat_weights, region_weights
 
 
 def mean_spread(stddev, weights=None):
@@ -127,22 +132,39 @@ def ensemble_pca(ens_anom, ncomp, weights=None):
     return eof, pcens.reshape((ncomp,) + orig_sh), comp_ev, sum_ev
 
 
-if __name__ == '__main__':
-    import argparse
-    import eccodes
+def get_parser() -> argparse.ArgumentParser:
+    """initialize command line application argument parser.
 
-    parser = argparse.ArgumentParser(description="PCA for ensemble data")
-    parser.add_argument('-N', '--num-members', type=int, default=51, help="Number of ensemble members")
-    parser.add_argument('-S', '--steps', nargs=3, type=int, required=True, help="Steps (start, stop, delta)")
-    parser.add_argument('-b', '--bbox', nargs=4, type=float, default=None, help="Bounding box (N, S, W, E)")
-    parser.add_argument('-c', '--clip', default=None, type=float, help="Clip anomalies to this absolute value")
-    parser.add_argument('-f', '--factor', default=None, type=float, help="Apply this conversion factor to the input fields")
-    parser.add_argument('-m', '--mask', default=None, help="Mask file")
-    parser.add_argument('-s', '--spread', required=True, help="Ensemble spread (GRIB)")
-    parser.add_argument('num_components', type=int, help="Number of components to extract")
-    parser.add_argument('ensemble', help="Ensemble data (GRIB)")
-    parser.add_argument('output', help="Output file (NPZ)")
-    args = parser.parse_args()
+    Returns
+    -------
+    argparse.ArgumentParser
+        
+    """
+
+    _description='PCA for ensemble data'
+    parser = default_parser(description=_description)
+
+    group = parser.add_argument_group('Principal components analysis arguments')
+
+    group.add_argument('-N', '--num-members', type=int, default=51, help="Number of ensemble members")
+    group.add_argument('-S', '--steps', nargs=3, type=int, required=True, help="Steps (start, stop, delta)")
+    group.add_argument('-b', '--bbox', nargs=4, type=float, default=None, help="Bounding box (N, S, W, E)")
+    group.add_argument('-f', '--factor', default=None, type=float, help="Apply this conversion factor to the input fields")
+    group.add_argument('-m', '--mask', default=None, help="Mask file")
+    group.add_argument('--spread', required=True, help="Ensemble spread (GRIB)")
+    group.add_argument('--clip', default=None, type=float, help="Clip anomalies to this absolute value")
+    group.add_argument('num_components', type=int, help="Number of components to extract")
+    group.add_argument('ensemble', help="Ensemble data (GRIB)")
+    group.add_argument('output', help="Output file (NPZ)")
+   
+    return parser
+
+
+def main(cmdArgs=sys.argv[1:]):
+
+    parser = get_parser()
+    
+    args = parser.parse_args(cmdArgs)
 
     # Read mask
     mask = None
@@ -220,3 +242,9 @@ if __name__ == '__main__':
         'weights': weights,        # EOF
     }
     np.savez_compressed(args.output, **data)
+
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))
