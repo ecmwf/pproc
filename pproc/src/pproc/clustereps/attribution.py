@@ -4,8 +4,8 @@ from datetime import datetime, timedelta
 from calendar import isleap
 from typing import List, Tuple
 import os
+from os.path import join as pjoin
 
-import yaml
 import numpy as np
 from scipy.io import FortranFile
 
@@ -81,11 +81,12 @@ class AttributionConfig(Config):
         self.nEns = self.options.get('nEns', 51)
         # Climatological data options
         self.nClusterClim = self.options.get('nClusterClim', 6)
-        self.climPCs = self.options['climPCs']
-        self.climSdv = self.options['climSdv']
-        self.climEOFs = self.options['climEOFs']
-        self.climClusterIndex = self.options['climClusterIndex']
-        self.climClusterCentroidsEOF = self.options['climClusterCentroidsEOF']
+        self.climMeans = pjoin(args.clim_dir, self.options['climMeans'])
+        self.climPCs = pjoin(args.clim_dir, self.options['climPCs'])
+        self.climSdv = pjoin(args.clim_dir, self.options['climSdv'])
+        self.climEOFs = pjoin(args.clim_dir, self.options['climEOFs'])
+        self.climClusterIndex = pjoin(args.clim_dir, self.options['climClusterIndex'])
+        self.climClusterCentroidsEOF = pjoin(args.clim_dir, self.options['climClusterCentroidsEOF'])
         # pca options
         self.anMax = self.options.get('anMax', 10000.)
         self._seasons = self.options.get('seasons', [(1, 12)])
@@ -124,6 +125,12 @@ class AttributionConfig(Config):
                 break
         self.monStartDoy = self.thisSeason.dos(datetime(self.year, self.month, 1))
         self.monEndDoy = self.thisSeason.dos(datetime(self.year, self.month, MONTH_DAYS[self.month - 1]))
+
+        # parse clim file if template
+        for attr in ['climPCs', 'climSdv', 'climEOFs', 'climClusterIndex', 'climClusterCentroidsEOF']:
+            val = getattr(self, attr)
+            newVal = val.format(season=self.thisSeason.name)
+            setattr(self, attr, newVal)
         
         # config file derived parameters
         # grid specs
@@ -152,7 +159,8 @@ def get_parser() -> argparse.ArgumentParser:
     group.add_argument('--date', help='forecast date (YYMMDD)', type=lambda x: datetime.strptime(x, '%Y%m%d'), metavar='YMD')
     group.add_argument('--centroids', help='Forecast cluster centroids (GRIB)', metavar='FILENAME.grib')
     group.add_argument('--representative', help='Forecast cluster representative (GRIB)',  metavar='FILENAME.grib')
-    group.add_argument('-o', '--output_root', default=os.getcwd(), help='output base directory', metavar='PATH')
+    group.add_argument('--clim_dir', help='climatological data root directory', metavar='DIR')
+    group.add_argument('-o', '--output_root', default=os.getcwd(), help='output base directory', metavar='DIR')
 
     return parser
 
@@ -221,7 +229,7 @@ def read_clim_file(filePath: str, nRecords: int, dtype: str ='>f4'):
     return np.vstack(arr) if len(arr) > 1 else np.array(arr[0])
 
 
-def get_climatology_fields(nPoints: int, seasons: List[Season], dayIndex: int):
+def get_climatology_fields(fname_template: str, nPoints: int, seasons: List[Season], dayIndex: int):
     """_summary_
 
     Parameters
@@ -237,7 +245,6 @@ def get_climatology_fields(nPoints: int, seasons: List[Season], dayIndex: int):
         field array values from GRIB
     """
     # read all seasons and merge to one year climatology file (365, npoints)
-    fname_template = '{season}_means.grd'
     year_clim = np.empty((365, nPoints))
     for sea in seasons:
         sea_clim = read_clim_file(fname_template.format(season=sea.name), sea.ndays)
@@ -356,10 +363,23 @@ def attribution(
     return cluster_index, min_dist
 
 
-def main(config: AttributionConfig, clusterFiles: dict) -> int:
+def main(sysArgs: List = sys.argv[1:]) -> int:
+
+    parser = get_parser()
+
+    args = parser.parse_args(sysArgs)
+
+    config = AttributionConfig(args)
+
+    clusterFiles = {
+        'centroids': args.centroids,
+        'representative': args.representative,
+    }
 
     # read climatology fields
-    clim = get_climatology_fields(config.nPoints, config.seasons, config.stepDoy)
+    clim = get_climatology_fields(
+        config.climMeans, config.nPoints, config.seasons, config.stepDoy
+    )
 
     # read climatological EOFs
     eof, clim_ind = get_climatology_eof(
@@ -394,13 +414,13 @@ def main(config: AttributionConfig, clusterFiles: dict) -> int:
         # write report output
         # table: attribution cluster index all fc clusters, step 
         np.savetxt(
-            os.path.join(config.output_root, f'{config.stepStart}_{config.stepEnd}dist_index_{scenario}.txt'), min_dist,
+            pjoin(config.output_root, f'{config.stepStart}_{config.stepEnd}dist_index_{scenario}.txt'), min_dist,
             fmt='%-10.5f', delimiter=3*' '
         )
 
         # table: distance measure for all fc clusters, step
         np.savetxt(
-            os.path.join(config.output_root, f'{config.stepStart}_{config.stepEnd}att_index_{scenario}.txt'), cluster_att,
+            pjoin(config.output_root, f'{config.stepStart}_{config.stepEnd}att_index_{scenario}.txt'), cluster_att,
             fmt='%-3d', delimiter=3*' '
         )
     
@@ -408,15 +428,4 @@ def main(config: AttributionConfig, clusterFiles: dict) -> int:
 
 
 if __name__ == "__main__":
-    parser = get_parser()
-
-    args = parser.parse_args(sys.argv[1:])
-
-    config = AttributionConfig(args)
-
-    to_process = {
-        'centroids': args.centroids,
-        'representative': args.representative,
-    }
-
-    sys.exit(main(config, to_process))
+    sys.exit(main(sys.argv[1:]))
