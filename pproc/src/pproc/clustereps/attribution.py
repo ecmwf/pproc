@@ -60,48 +60,67 @@ class Season:
 
 
 class AttributionConfig:
-    def __init__(self, args: argparse.Namespace) -> None:
+    def __init__(self, options: dict, date: datetime, output_root: str) -> None:
 
         # yaml config file
-        self.__dict__.update(yaml.load(args.config, Loader=yaml.SafeLoader))
+        self.stepStart = options.get('stepStart', 0)
+        self.stepEnd = options.get('stepEnd', 120)
+        self.stepDel = options.get('stepDel', 12)
+        # main grid specs
+        self.nLat = options['nLat']
+        self.nLon = options['nLon']
+        # EOF grid dimensions
+        self.rLatN = options.get('rLatN', 90.)
+        self.rLatS = options.get('rLatS', -90.)
+        self.rLonW = options.get('rLonW', 0.)
+        self.rLonE = options.get('rLonE', 360.)
+        # forecast options
+        self.nEns = options.get('nEns', 51)
+        # Climatological data options
+        self.nClusterClim = options.get('nClusterClim', 6)
+        self.climPCs = options['climPCs']
+        self.climSdv = options['climSdv']
+        self.climEOFs = options['climEOFs']
+        self.climClusterIndex = options['climClusterIndex']
+        self.climClusterCentroidsEOF = options['climClusterCentroidsEOF']
+        # pca options
+        self.anMax = options.get('anMax', 10000.)
+        self._seasons = options.get('seasons', [(1, 12)])
         
         # forecast date
-        self.date = args.date
+        self.date = date
         self.year = self.date.year
         self.month = self.date.month
-        self.doy = self.date.timetuple().tm_yday
-        self.monStartDoy = datetime(self.year, self.month, 1).timetuple().tm_yday
-        self.monEndDoy = (
-            datetime(self.year, self.month, 1)
-            + timedelta(days=MONTH_DAYS[self.month - 1]) 
-            - timedelta(days=1)
-        ).timetuple().tm_yday
+        self.fcDoy = self.date.timetuple().tm_yday
 
         # adjust indexes to ignore leap years
         if isleap(self.date.year) and self.dateDoy > 59:
-            self.doy -= 1
+            self.fcDoy -= 1
             self.monEndDoy -= 1
             self.monStartDoy -= 1
 
         self.stepDay = self.stepStart // 24
         self.nSteps = 1 + (self.stepEnd - self.stepStart) // self.stepDel
-
-        # clustering files
-        self.centroids = args.centroids
-        self.representative = args.representative
+        refDayIndex = self.fcDoy + self.stepDay - 1
+        if refDayIndex > 364:
+            refDayIndex = refDayIndex - 364
+        self.stepDoy = refDayIndex
 
         # out directory
-        self.output_root =  args.output_root
+        self.output_root =  output_root
 
         # seasons parsing
-        # TODO: make seasons configurable
-        self.coldSeason = Season(10, 4, self.date.year)
-        self.warmSeason = Season(5, 9, self.date.year)
-        self.seasons = [self.coldSeason, self.warmSeason]
+        _seasons = []
+        for startMonth, endMonth in self._seasons:
+            _seasons.append(Season(startMonth, endMonth, self.year))
+        self.seasons = _seasons
+
         for sea in self.seasons:
-            if self.doy in sea.doys:
+            if self.fcDoy in sea.doys:
                 self.thisSeason = sea
                 break
+        self.monStartDoy = self.thisSeason.dos(datetime(self.year, self.month, 1))
+        self.monEndDoy = self.thisSeason.dos(datetime(self.year, self.month, MONTH_DAYS[self.month - 1]))
         
         # config file derived parameters
         # grid specs
@@ -128,7 +147,7 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument('date', help='forecast date (YYMMDD)', type=lambda x: datetime.strptime(x, '%Y%m%d'))
     parser.add_argument('centroids', help='Forecast cluster centroids (NPZ)')
     parser.add_argument('representative', help='Forecast cluster representative (NPZ)')
-    parser.add_argument('--output_root', default=os.getcwd(), help='output base directory')
+    parser.add_argument('-o', '--output_root', default=os.getcwd(), help='output base directory')
 
     return parser
 
@@ -197,19 +216,19 @@ def read_clim_file(filePath: str, nRecords: int, dtype: str ='>f4'):
     return np.vstack(arr) if len(arr) > 1 else np.array(arr[0])
 
 
-def get_climatology_fields(nPoints: int, seasons: List[Season]):
+def get_climatology_fields(nPoints: int, seasons: List[Season], dayIndex: int):
     """_summary_
 
     Parameters
     ----------
     nPoints : int
-        _description_
+        total number of grid points
     seasons : List[Season]
-        _description_
+        list of season definitions
 
     Returns
     -------
-    np.Array (365, nPoints)
+    np.Array (nPoints)
         field array values from GRIB
     """
     # read all seasons and merge to one year climatology file (365, npoints)
@@ -219,7 +238,7 @@ def get_climatology_fields(nPoints: int, seasons: List[Season]):
         sea_clim = read_clim_file(fname_template.format(season=sea.name), sea.ndays)
         year_clim[sea.doys, :] = sea_clim
     
-    return year_clim
+    return year_clim[dayIndex, :]
 
 
 def get_climatology_eof(
@@ -332,16 +351,10 @@ def attribution(
     return cluster_index, min_dist
 
 
-def main(args: argparse.Namespace) -> int:
-
-    config = AttributionConfig(args)
+def main(config: AttributionConfig, clusterFiles: dict) -> int:
 
     # read climatology fields
-    clim = get_climatology_fields(config.nPoints, config.seasons)
-    refDayIndex = config.doy + config.stepDay - 1
-    if refDayIndex > 364:
-        refDayIndex = refDayIndex - 364
-    clim = clim[refDayIndex, :]
+    clim = get_climatology_fields(config.nPoints, config.seasons, config.stepDoy)
 
     # read climatological EOFs
     eof, clim_ind = get_climatology_eof(
@@ -355,8 +368,7 @@ def main(args: argparse.Namespace) -> int:
         config.monEndDoy,
     )
 
-    for scenario in ['centroids', 'representative']:
-        fname = getattr(config, scenario)
+    for scenario, fname in clusterFiles.items():
         # read grib cluster
         cents, ens_numbers, lat, lon = read_grib_cluster(
             fname, config.stepStart, config.stepDel, config.nSteps, config.nEns
@@ -370,19 +382,20 @@ def main(args: argparse.Namespace) -> int:
 
         # compute anomalies
         anom = cents - clim
+        anom = np.clip(anom, -config.anMax, config.anMax)
         
         cluster_att, min_dist = attribution(anom, eof, clim_ind, weights)
 
         # write report output
         # table: attribution cluster index all fc clusters, step 
         np.savetxt(
-            os.path.join(args.output_root, f'{config.stepStart}_{config.stepEnd}dist_index_{scenario}.txt'), min_dist,
+            os.path.join(config.output_root, f'{config.stepStart}_{config.stepEnd}dist_index_{scenario}.txt'), min_dist,
             fmt='%-10.5f', delimiter=3*' '
         )
 
         # table: distance measure for all fc clusters, step
         np.savetxt(
-            os.path.join(args.output_root, f'{config.stepStart}_{config.stepEnd}att_index_{scenario}.txt'), cluster_att,
+            os.path.join(config.output_root, f'{config.stepStart}_{config.stepEnd}att_index_{scenario}.txt'), cluster_att,
             fmt='%-3d', delimiter=3*' '
         )
     
@@ -393,5 +406,14 @@ if __name__ == "__main__":
     parser = get_parser()
 
     args = parser.parse_args(sys.argv[1:])
-    
-    sys.exit(main(args))
+
+    options = yaml.load(args.config, Loader=yaml.SafeLoader)
+
+    config = AttributionConfig(options, args.date, args.output_root)
+
+    to_process = {
+        'centroids': args.centroids,
+        'representative': args.representative,
+    }
+
+    sys.exit(main(config, to_process))
