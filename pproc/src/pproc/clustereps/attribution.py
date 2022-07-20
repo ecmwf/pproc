@@ -12,6 +12,7 @@ from scipy.io import FortranFile
 from eccodes import FileReader
 
 from pproc.clustereps.utils import region_weights, lat_weights, normalise_angles
+from pproc.common import Config, default_parser
 
 
 MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
@@ -59,36 +60,38 @@ class Season:
         return f"Season ({self.name}) - {self.start:%d/%m/%Y}: {self.end:%d/%m/%Y} ({self.ndays} days)"
 
 
-class AttributionConfig:
-    def __init__(self, options: dict, date: datetime, output_root: str) -> None:
+class AttributionConfig(Config):
+    def __init__(self, args: argparse.ArgumentParser) -> None:
+
+        super().__init__(args)
 
         # yaml config file
-        self.stepStart = options.get('stepStart', 0)
-        self.stepEnd = options.get('stepEnd', 120)
-        self.stepDel = options.get('stepDel', 12)
+        self.stepStart = self.options.get('stepStart', 0)
+        self.stepEnd = self.options.get('stepEnd', 120)
+        self.stepDel = self.options.get('stepDel', 12)
         # main grid specs
-        self.nLat = options['nLat']
-        self.nLon = options['nLon']
+        self.nLat = self.options['nLat']
+        self.nLon = self.options['nLon']
         # EOF grid dimensions
-        self.rLatN = options.get('rLatN', 90.)
-        self.rLatS = options.get('rLatS', -90.)
-        self.rLonW = options.get('rLonW', 0.)
-        self.rLonE = options.get('rLonE', 360.)
+        self.rLatN = self.options.get('rLatN', 90.)
+        self.rLatS = self.options.get('rLatS', -90.)
+        self.rLonW = self.options.get('rLonW', 0.)
+        self.rLonE = self.options.get('rLonE', 360.)
         # forecast options
-        self.nEns = options.get('nEns', 51)
+        self.nEns = self.options.get('nEns', 51)
         # Climatological data options
-        self.nClusterClim = options.get('nClusterClim', 6)
-        self.climPCs = options['climPCs']
-        self.climSdv = options['climSdv']
-        self.climEOFs = options['climEOFs']
-        self.climClusterIndex = options['climClusterIndex']
-        self.climClusterCentroidsEOF = options['climClusterCentroidsEOF']
+        self.nClusterClim = self.options.get('nClusterClim', 6)
+        self.climPCs = self.options['climPCs']
+        self.climSdv = self.options['climSdv']
+        self.climEOFs = self.options['climEOFs']
+        self.climClusterIndex = self.options['climClusterIndex']
+        self.climClusterCentroidsEOF = self.options['climClusterCentroidsEOF']
         # pca options
-        self.anMax = options.get('anMax', 10000.)
-        self._seasons = options.get('seasons', [(1, 12)])
+        self.anMax = self.options.get('anMax', 10000.)
+        self._seasons = self.options.get('seasons', [(1, 12)])
         
         # forecast date
-        self.date = date
+        self.date = args.date
         self.year = self.date.year
         self.month = self.date.month
         self.fcDoy = self.date.timetuple().tm_yday
@@ -107,7 +110,7 @@ class AttributionConfig:
         self.stepDoy = refDayIndex
 
         # out directory
-        self.output_root =  output_root
+        self.output_root = args.output_root
 
         # seasons parsing
         _seasons = []
@@ -142,12 +145,14 @@ def get_parser() -> argparse.ArgumentParser:
         
     """
 
-    parser = argparse.ArgumentParser(description='Cluster attribution to closest partition of climatological weather regimes')
-    parser.add_argument('config', type=argparse.FileType('r'), help="Configuration file (YAML)")
-    parser.add_argument('date', help='forecast date (YYMMDD)', type=lambda x: datetime.strptime(x, '%Y%m%d'))
-    parser.add_argument('centroids', help='Forecast cluster centroids (NPZ)')
-    parser.add_argument('representative', help='Forecast cluster representative (NPZ)')
-    parser.add_argument('-o', '--output_root', default=os.getcwd(), help='output base directory')
+    _description='Cluster attribution to closest partition of climatological weather regimes'
+    parser = default_parser(description=_description)
+
+    group = parser.add_argument_group('Attribution arguments')
+    group.add_argument('--date', help='forecast date (YYMMDD)', type=lambda x: datetime.strptime(x, '%Y%m%d'), metavar='YMD')
+    group.add_argument('--centroids', help='Forecast cluster centroids (GRIB)', metavar='FILENAME.grib')
+    group.add_argument('--representative', help='Forecast cluster representative (GRIB)',  metavar='FILENAME.grib')
+    group.add_argument('-o', '--output_root', default=os.getcwd(), help='output base directory', metavar='PATH')
 
     return parser
 
@@ -407,9 +412,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args(sys.argv[1:])
 
-    options = yaml.load(args.config, Loader=yaml.SafeLoader)
-
-    config = AttributionConfig(options, args.date, args.output_root)
+    config = AttributionConfig(args)
 
     to_process = {
         'centroids': args.centroids,
