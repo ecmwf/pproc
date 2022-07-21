@@ -1,6 +1,18 @@
 # coding: utf-8
 
 
+def postproc_keys(metkit_share_dir: str = ""):
+    from yaml import safe_load
+    from os import path
+
+    fn = path.expanduser(path.join(metkit_share_dir, "language.yaml"))
+    with open(fn, "r") as f:
+        y = safe_load(f)
+        return set(y['_postproc'].keys())
+    return set()
+
+
+
 class ParamId:
     def __init__(self, metkit_share_dir: str = ""):
         from yaml import safe_load
@@ -85,8 +97,8 @@ def main():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
-    parser.add_argument("file", help="Variables file")
-    parser.add_argument("--path", help="variables path", nargs="*", type=str)
+    parser.add_argument("file", help="Variables configuration file", metavar="CONFIG_FILE")
+    parser.add_argument("--config-node", help="Variables configuration node", nargs="*", type=str)
     # parser.add_argument(
     #     "--metkit-share-dir",
     #     help="Metkit configuration directory",
@@ -96,8 +108,8 @@ def main():
     args = parser.parse_args()
 
     tree = VariableTree(args.file)
-    path = [int(p) if p.isdigit() else p for p in args.path]
-    print(tree.variables(*path))
+    node = [int(p) if p.isdigit() else p for p in args.config_node]
+    print(tree.variables(*node))
 
 
 if __name__ == "__main__":
