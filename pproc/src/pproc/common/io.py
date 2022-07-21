@@ -1,9 +1,10 @@
 import numpy as np
 import xarray as xr
-import eccodes
+import yaml
 from dataclasses import dataclass, field
 from typing import Union, Any, List, Dict
 
+import eccodes
 
 @dataclass
 class GRIBFields:
@@ -149,36 +150,77 @@ def fdb_read(fdb, request):
     fields_dims = [key for key in request if isinstance(request[key], (list, range))]
     eccodes_reader = eccodes.StreamReader(fdb_reader)
     fields = read_grib_messages(eccodes_reader, fields_dims)
+    if fields is None:
+        raise Exception(f"Could not perform the following retrieve:\n{yaml.dump(request)}")
 
     return fields.to_xarray()
 
 
-def fdb_write_ufunc(data, fdb, template, values_to_set):
+class FileTarget:
+    def __init__(self, path, mode="wb"):
+        self.file = open(path, mode)
 
-    message = template.copy()
-    for key, value in values_to_set.items():
-        message[key] = value
+    def __enter__(self):
+        return self.file.__enter__()
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        return self.file.__exit__(exc_type, exc_value, traceback)
+
+    def write(self, message):
+        message.write_to(self.file)
+
+
+class FDBTarget:
+    def __init__(self, fdb):
+        self.fdb = fdb
+
+    def write(self, message):
+        self.fdb.archive(message.get_buffer())
+
+
+def fdb_write_ufunc(data, coords, fdb, template):
+
+    message = template.copy()  # are we always copying the full message with the data values?
+
+    for key, value in coords:
+        if len(value) > 1:
+            raise Exception("Can't have more than one coordinate in the parallel write function")
+        message.set(key, value.values[0])
     
     # Set GRIB data and write to FDB
     message.set_array("values", data)
+    nan_to_missing(message, data)
     fdb.write(message)
 
 
-# def write_fdb(data_array, values_to_set):
+def iterate_xarray(func, args, data_array, core_dims='data'):
+    if list(data_array.dims) == list(core_dims):
+        return func(data_array, *args)
+    else:
+        for sub_array in data_array:
+            return iterate_xarray(func, args, sub_array, core_dims)
 
-    # for data in data_array:
-        
 
-    # out_grib = template_grib.copy()
-    # out_grib.set("step", step)
-    # out_grib.set("type", "ep")
-    # out_grib.set("paramId", threshold["out_paramid"])
-    # out_grib.set("localDefinitionNumber", 5)
-    # out_grib.set("localDecimalScaleFactor", 2)
-    # out_grib.set("thresholdIndicator", 2)
-    # out_grib.set("upperThreshold", threshold["value"])
+def write_message(target, template, data_array): 
+    message = template.copy()  # are we always copying the full message with the data values?
+    for key, value in data_array.coords:
+        if len(value) > 1:
+            raise Exception("Can't have more than one coordinate in the parallel write function")
+        message.set(key, value.values)  
+    # Set GRIB data and write to FDB
+    message.set_array("values", data_array.values)
+    nan_to_missing(message, data_array.values)
+    target.write(message)
 
-    # # Set GRIB data and write to FDB
-    # out_grib.set_array("values", data)
-    # fdb.archive(out_grib.get_buffer())
 
+def write(target, template, attributes, data_array):
+
+    message = template.copy()
+    for key, value in attributes.items():
+        message[key] = value
+
+    iterate_xarray(write_message, (target, template), data_array, 'data')
+    # xr.apply_ufunc(fdb_write_ufunc, data_array, data_array.coords,
+    #                input_core_dims=[['data'], []],
+    #                dask='parallelized',
+    #                kwargs={'fdb': fdb, 'template': template})

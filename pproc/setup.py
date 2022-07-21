@@ -16,7 +16,7 @@ setup(
     entry_points={
         "console_scripts": [
             "pproc-extreme-forecast-simple=pproc.extreme_forecast_simple:main",
-            "pproc-extreme-forecast=pproc.extreme_forecast:main",
+            "pproc-extreme=pproc.extreme:main",
             "pproc-interpol=pproc.interpol:main",
             "pproc-pts=pproc.pts:main",
             "pproc-prob=pproc.prob:main",

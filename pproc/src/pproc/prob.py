@@ -89,6 +89,7 @@ def main(args=None):
 
     with open(args.config, 'r') as f:
         config = yaml.safe_load(f)
+    print(config)
 
     date = datetime.strptime(args.date, "%Y%m%d%H")
 
@@ -98,12 +99,12 @@ def main(args=None):
     leg = config.get("leg")
     nensembles = config.get("number_of_ensembles", 50)
 
-    base_request = config.["base_request"]
+    base_request = config["base_request"]
     base_request["number"] = range(1, nensembles)
     base_request['date'] = date.strftime("%Y%m%d")
     base_request['time'] = date.strftime("%H")+'00'
 
-    thresholds = ["thresholds"]
+    thresholds = config["thresholds"]
     for threshold in thresholds:
 
         paramid = threshold["in_paramid"]
