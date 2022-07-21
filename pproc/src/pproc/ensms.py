@@ -130,19 +130,14 @@ retrieve,
                 # post-process
                 pp = {key: var[key] for key in pp_keys if var.get(key, None)}
                 if pp:
-                    buf = bytearray(64 * 1024 * 1024)
-                    out = mir.GribMemoryOutput(buf)
-                    # out = BytesIO() 
-                    # out = mir.GribFileOutput("x.grib")
-
+                    out = BytesIO() 
                     inp = mir.GribFileInput(target)
 
                     job = mir.Job(**pp)
                     job.execute(inp, out)
 
-                    eccodes_reader = eccodes.MemoryReader(out)
-                    # eccodes_reader = eccodes.MemoryReader(out.getvalue())
-                    # eccodes_reader = eccodes.FileReader("x.grib")
+                    out.seek(0)
+                    eccodes_reader = eccodes.StreamReader(out)
                 else:
                     eccodes_reader = eccodes.FileReader(target)
 
