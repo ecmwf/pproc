@@ -62,7 +62,7 @@ def mars(input: str = ""):
     return p.returncode == 0
 
 
-def wind_mean_sd_eps(ws, levelist, step, expver, var: dict, pp: dict) -> list:
+def wind_mean_sd_eps(wind, levelist, step, expver, var: dict, pp: dict) -> list:
     """
     Calculate ensemble (type=cf/pf) mean and standard deviation of wind speed
     """
@@ -82,7 +82,7 @@ retrieve,
     type     = pf,
     step     = {step},
     class    = {var["class"]},
-    param    = {"/".join((str(ws.vo), str(ws.d)))},
+    param    = {"/".join((str(wind.vo), str(wind.d)))},
     target   = '{target}'
 retrieve,
     type   = cf,
@@ -237,7 +237,6 @@ def main(args=None):
     print(args)
 
     date = datetime.strptime(args.date, "%Y%m%d")
-    pp_keys = postproc_keys(args.metkit_share_dir)
 
     # assert fdb or mars-client
     fdb = None  # pyfdb.FDB()
@@ -250,12 +249,15 @@ def main(args=None):
     var["class"] = var.pop("klass")
     print(var)
 
-    # wind variables
+    # wind paramids
     wind = parse_wind_paramids(var["param"], args.metkit_share_dir)
 
+    # post-processing keys
+    pp_keys = postproc_keys(args.metkit_share_dir)
+    pp = {key: var[key] for key in pp_keys if var.get(key, None)}
+    
     for levelist in parse_range(var["levelist"]):
         for step in parse_range(var["step"]):
-            pp = {key: var[key] for key in pp_keys if var.get(key, None)}
 
             # calculate mean/stddev of wind speed for type=pf/cf (eps)
             em, es = wind_mean_sd_eps(wind, levelist, step, var["expver"], var, pp)
