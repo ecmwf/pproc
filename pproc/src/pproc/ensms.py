@@ -7,6 +7,7 @@ import numpy as np
 
 import eccodes
 import mir
+
 # import pyfdb
 
 
@@ -55,13 +56,23 @@ def main(args=None):
     )
 
     parser.add_argument("--config-file", help="Configuration file", required=True)
-    parser.add_argument("--config-node", help="Configuration node", required=True, nargs="+")
+    parser.add_argument(
+        "--config-node", help="Configuration node", required=True, nargs="+"
+    )
 
     parser.add_argument("--no-mars", action="store_false", dest="mars")
     parser.add_argument("--write-grib", action="store_true")
     parser.add_argument("--write-fdb", action="store_true")
-    parser.add_argument("--std-corrected-sample", help="corrected sample standard deviation", action="store_true")
-    parser.add_argument("--metkit-share-dir", help="Metkit configuration directory", default="/usr/local/apps/ecmwf-toolbox/2022.05.0.0/GNU/11.2/share/metkit")
+    parser.add_argument(
+        "--std-corrected-sample",
+        help="corrected sample standard deviation",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--metkit-share-dir",
+        help="Metkit configuration directory",
+        default="/usr/local/apps/ecmwf-toolbox/2022.05.0.0/GNU/11.2/share/metkit",
+    )
 
     parser.add_argument("--class", default="od", dest="klass")
     parser.add_argument("--stream", default="enfo")
@@ -121,16 +132,15 @@ retrieve,
     type   = cf,
     number = off
 """
-# grid=[{var["grid"]}, intgrid=source, truncation=none,
 
                 print(request)
-                # assert mars(request)
+                assert mars(request)
                 assert path.exists(target)
 
                 # post-process
                 pp = {key: var[key] for key in pp_keys if var.get(key, None)}
                 if pp:
-                    out = BytesIO() 
+                    out = BytesIO()
                     inp = mir.GribFileInput(target)
 
                     job = mir.Job(**pp)

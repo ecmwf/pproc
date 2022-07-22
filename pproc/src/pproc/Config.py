@@ -8,9 +8,8 @@ def postproc_keys(metkit_share_dir: str = ""):
     fn = path.expanduser(path.join(metkit_share_dir, "language.yaml"))
     with open(fn, "r") as f:
         y = safe_load(f)
-        return set(y['_postproc'].keys())
+        return set(y["_postproc"].keys())
     return set()
-
 
 
 class ParamId:
@@ -97,8 +96,12 @@ def main():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
-    parser.add_argument("file", help="Variables configuration file", metavar="CONFIG_FILE")
-    parser.add_argument("--config-node", help="Variables configuration node", nargs="*", type=str)
+    parser.add_argument(
+        "file", help="Variables configuration file", metavar="CONFIG_FILE"
+    )
+    parser.add_argument(
+        "--config-node", help="Variables configuration node", nargs="*", type=str
+    )
     # parser.add_argument(
     #     "--metkit-share-dir",
     #     help="Metkit configuration directory",
@@ -109,7 +112,7 @@ def main():
 
     tree = VariableTree(args.file)
     node = [int(p) if p.isdigit() else p for p in args.config_node]
-    print(tree.variables(*node))
+    print(tree.variables(*args.config_node))
 
 
 if __name__ == "__main__":
