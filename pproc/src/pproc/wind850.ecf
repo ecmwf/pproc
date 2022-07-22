@@ -1,0 +1,368 @@
+%manual
+
+Description: Generate STDEV, EM for given parameter
+
+Mainframe:    HPC
+
+OPERATORS:
+  in od:/mc/: immediate callout
+  do not set complete
+
+  If fails try a few reruns over a few minutes before calling analyst
+  
+  Occassionally get mars 'Error in function' which works on reruns.
+
+ANALYST:
+  generates ensemble mean and standard deviation for wind
+
+  EXPVER_DA may be used when OPER/DA data are retrieved from another
+  experience.
+
+  If no clue contact a MetOps assistant if they are on site.
+
+Second line support:
+  Evaluation analyst
+
+%end
+%include <%QSUB_H:qsub.h%>
+#PBS -l EC_memory_per_task=%MEM:5000%mb
+%include <config.h>
+%include <trap.h>
+%include <setup.h>
+
+cd $TMPDIR
+[[ $EPSLEG -ge 3 ]] && export GRIB_GRIBEX_MODE_ON=0
+
+time=$(substring $BASETIME 9 10)
+date=$(substring $BASETIME 1 8)
+param=%PARAM:Wind%
+steplist=%STEP_LIST:-1%
+number=${EPSNENS:-50}
+levels="%LEVEL:850/250%"
+param_ret=u/v
+[[ %STEP2:0% -gt 360 ]] && levels="%LEVEL:850%"
+
+if [[ $OD_MODE = true ]]; then
+cat  >$TMPDIR/gaussgr  <<\_eof_gaussgr
+%include <gaussgr>
+_eof_gaussgr
+chmod 755 $TMPDIR/gaussgr
+# grid=$( $TMPDIR/gaussgr -r $FCRES -g $FCGTYPE )
+grid_epsa=$( $TMPDIR/gaussgr -r $EPSFCRES_A -g $EPSFCGTYPE )
+grid_epsb=$( $TMPDIR/gaussgr -r $EPSFCRES_B -g $EPSFCGTYPE )
+  grid=av
+
+  if [[ %FAMILY% = @(*06d*|*/144*) ]] ; then
+   grid=O$grid_epsa # 200
+   steplist=024/to/144/by/24
+   steplist=%STEP1:24%/to/%STEP2:240%/by/%BY:24%
+
+  elif [[ %FAMILY% = @(*15d*|*/360*) ]]; then # 41r2
+    export GRIB_GRIBEX_MODE_ON=0
+    grid=O$grid_epsa # 200
+    steplist=264/to/360/by/24
+    steplist=%STEP1:24%/to/%STEP2:240%/by/%BY:24%
+
+  elif [[ %FAMILY% = @(*10d*|*/240*) ]]; then # 41r2
+    grid=O$grid_epsa # 200
+    steplist=024/to/240/by/24
+    steplist=%STEP1:24%/to/%STEP2:240%/by/%BY:24%
+
+  elif [[ %FAMILY% = @(*46d*|*/1104*) ]]; then # 41r2
+    grid=O$grid_epsb # 128
+    steplist=384/to/768/by/24
+    steplist=%STEP1:24%/to/%STEP2:240%/by/%BY:24%
+
+  elif [[ 1 == 1 ]] ; then # echo FIXME; exit 1
+    grid=O$grid_epsa # 200
+    steplist=%STEP1:24%/to/%STEP2:240%/by/%BY:24%
+
+  elif [[ $EPSLEG = 1 ]] ; then
+    grid=O$grid_epsa # 200
+    steplist=024/to/240/by/24
+    steplist=%STEP1:24%/to/%STEP2:240%/by/%BY:24%
+
+  elif [[ $EPSLEG = 2 ]] ; then
+    grid=O$grid_epsb # 128
+    steplist=264/to/360/by/24
+    steplist=%STEP1:24%/to/%STEP2:240%/by/%BY:24%
+
+  elif [[ $EPSLEG = 3 ]] ; then
+    grid=O$grid_epsb # 128
+    steplist=384/to/768/by/24
+    steplist=%STEP1:24%/to/%STEP2:240%/by/%BY:24%
+  else
+    echo "please update wind850.sms"
+    exit 1
+  fi  
+  outdir=$WDIR/ensm
+  # format shall be xx/to/xx/by/xx
+  i=0
+  steps="$(echo $steplist | perl -ne 'my ($b,$e,$by)= m:(\d+)/to/(\d+)/by/(\d+):; my $i = $b; while ($i <= $e) { print "$i "; $i = $i+$by;}')"
+  grid="$grid, gaussian=reduced"
+else
+  grid=0.5/0.5
+  #outdir=$WEBDATA_ROOT/ensm
+  outdir=/gpfs2/webplots/data/cache/mc_pop_EF/ensm
+  steps=$(echo $steplist | sed 's/\// /g')
+fi
+
+mkdir -p $outdir
+echo $(echo $steps | cut -d" " -f1)
+
+## retrieve EPS members and CF
+retrieve_eps() {
+%include <trap_func.h>
+    if [[ %ENS_MARS:true% != true ]] ; then return; fi
+    if [[ "$ARCH" != "linux" ]] ; then
+      trap '{ echo "Error in function"; ERROR; }' 0 $SMS_SIGNAL_LIST
+    fi
+    set -ex
+
+echo DATUM ======================== $date
+
+export MARS_MULTITARGET_STRICT_FORMAT=1
+
+# if [[ -f $outfile.done ]]; then trap 0; return 0; fi
+$MARS_CMD << EOF
+retrieve,
+    date    = $date,
+    time    = $time,
+    number  = 1/to/$number,
+    stream  = enfo,
+    levelist= $levels,
+    levtype = pl,
+    expver  = $EXPVER,
+    type    = pf,
+    step    = $steplist,
+    class   = od,
+    param   = $param_ret,
+    grid    = $grid,
+    target  = "$outfile.pf.[step].[levelist]"
+retrieve,
+    date    = $date,
+    time    = $time,
+    stream  = enfo,
+    levelist= $levels, # $(echo $levels | tr ' ' '/'),
+    levtype = pl,
+    expver  = $EXPVER,
+    type    = cf,
+    step    = $steplist,
+    class   = od,
+    param   = $param_ret,
+    grid    = $grid,
+    target  = "$outfile.cf.[step].[levelist]"
+EOF
+touch $outfile.done
+trap 0
+return 0
+}
+
+retrieve_det() {
+  if [[ $EPSLEG != 1 ]] && [[ $OD_MODE = true ]] || \
+     [[ %FAMILY% = @(*15d*|*/360*) ]] || \
+     [[ %ENS_MARS:true% != true ]] ;
+  then 
+    return; 
+  fi
+
+    if [[ ! "$ARCH" = "linux" ]] ; then
+      trap '{ echo "Error in function"; ERROR; }' 0 $SMS_SIGNAL_LIST
+    fi
+    set -ex
+
+# deterministic field
+det=${outdir}/${param}fields_Determ_${date}${time}.${EPSLEG:-0}.grib
+EXPVER_DA=%EXPVER_DA:$EXPVER%
+# if [[ -f $det.done ]]; then trap 0; return 0; fi
+$MARS_CMD << EOF
+retrieve,
+     param      =   u,
+     levtype    =   pl,
+     date       =   $date,
+     time       =   $time,
+     type       =   fc,
+     step       =   $steplist,
+     levelist   =   $levels,
+     grid       =   $grid,
+     expver     =   $EXPVER_DA,
+     field      =   u
+retrieve,
+     param      =   v,
+     field      =   v
+compute,
+     field      =   wind,
+     formula    =   "sqrt(u*u+v*v)"
+write,
+     field      =   wind,
+     target     =   "$det.[levelist]"
+EOF
+touch $det.done
+trap 0
+return 0
+}
+
+## push into fdb
+push_to_fdb() {
+    if [[ $OD_MODE != true ]]; then return 0; fi
+    if [[ %ENS_FDB:true% != true ]] ; then return; fi
+
+    file=$1
+
+    if [[ ! "$ARCH" = "linux" ]] ; then
+      trap '{ echo "Error in function"; ERROR; }' 0 $SMS_SIGNAL_LIST
+    fi
+    set -ex
+
+    # expver and FDB modified in test mode
+    for type in em es; do
+      grib_set -s marsType=$type,indicatorOfParameter=010,gribTablesVersionNo=128 $outdir/${type}.$file ${file}.tmp;
+      $GRIB2FDB_CMD -f ${file}.tmp
+    done
+    # \rm $outdir/$file; mv ${file}.tmp $outdir/$file
+    # export FDB_ROOT=/s1b/emos_esuite/ma_fdb;
+  trap 0
+  return 0
+}
+
+## compute mean - STDEV
+compute_mean() {
+    if [[ %ENS_M:true% != true ]] ; then return; fi
+    if [[ ! "$ARCH" = "linux" ]] ; then
+      trap '{ echo "Error in function"; ERROR; }' 0 $SMS_SIGNAL_LIST
+    fi
+    set -ex
+
+echo Computing for the date ========================> $date
+
+export MARS_MULTITARGET_STRICT_FORMAT=1
+\rm -f mars.dir
+for step in $steps; do 
+for level in $(echo $levels | tr '/' ' '); do 
+step=$((step)) # remove trailing 0
+cat >> mars.dir << EOF
+read,
+        source  =  "$outfile.pf",
+        param  =  u,
+        field  =  pf.u
+read,
+  source  =  "$outfile.cf",
+  param  =  u,
+  field  =  cf.u
+
+read,
+  source  =  "$outfile.pf",
+  param  =  v,
+  field  =  pf.v
+read,
+  source  =  "$outfile.cf",
+  param  =  v,
+  field  =  cf.v
+
+# merge pf,cf
+compute,
+  field  =  u,
+  formula =  "merge(cf.u, pf.u)"
+
+compute,
+  field  =  v,
+  formula =  "merge(cf.v, pf.v)"
+
+# compute wind speed
+compute,
+  field  =   wind,
+  formula =   "sqrt(v * v + u * u)"
+    
+compute,
+  field  =   mean,
+  formula =   "mean(wind)"
+
+write,
+  field  =  mean,
+  target  =  "em.${fname}_${step}.${level}.grib"
+
+compute,
+  field  =   stdev,
+  formula =   "stdev(wind)"
+write,
+  field  =  stdev,
+  target  =  "es.${fname}_${step}.${level}.grib"  
+EOF
+done # level
+done # step
+$MARS_CMD < mars.dir
+
+for type in em es; do
+for step in $steps; do 
+for level in $(echo $levels | tr '/' ' '); do 
+  step=$((step)) # remove trailing 0
+  cat $type.${fname}_${step}.$level.grib >> $type.${fname}.grib
+done # level
+done # step
+mv $type.${fname}.grib $outdir/$type.${fname}.grib 
+done # type
+# push_to_fdb ${fname}.grib # em
+
+trap 0
+return 0
+}
+
+outfile=$outdir/eps_${param}_${date}_${time}.grib
+retrieve_eps
+retrieve_det
+
+fname=${param}_${date}${time}%STEP1:%%STEP2:%.${EPSLEG:-0}
+compute_mean
+push_to_fdb ${fname}.grib # em
+
+### now compute normalised stdev (accumulate over 30 days)
+## compute normalised stdev REQUIRES 30 days of STDEV 
+## normally cached on disk if not retrieve and compute
+
+if [[ $OD_MODE != true ]] || [[ %FAMILY% != @(main/*|thu/*|mon/*|00/*) ]]; then
+i=1
+while(( $i <= 30 ));
+do
+  date=$(newdate -D $date -1)
+  fn=$outdir/${param}fields_StDev_$date$time.grib
+  if [[ -s $fn ]]; then
+    echo $fn Already cached. Dumping ...
+    cat $outdir/${param}fields_StDev_$date$time.grib >> ${param}_MonthlyFields_$time.grib
+  else
+    echo $fn not cached. Computing ...
+    retrieve_eps
+    compute_stdev
+    cat $outdir/${param}fields_StDev_$date$time.grib >> ${param}_MonthlyFields_$time.grib
+  fi
+  i=$(($i+1))
+done
+
+rm -f ${param}_dir
+
+## reset date
+date=$(substring $BASETIME 1 8)
+
+for step in $steps; do 
+step=$((step)) # remove trailing 0
+cat >> ${param}_dir <<EOF
+read,
+ source="${param}_MonthlyFields_$time.grib",
+ step=$step,
+ field=30days.$step
+read,
+ source="$outdir/${param}fields_StDev_$date$time.grib",
+ field=es.$step,
+ step=$step
+compute,
+ field=norm_std.$step,
+ formula="es.$step/mean(30days.$step)"
+write,
+ field=norm_std.$step,
+ target="$outdir/${param}_StDev_normalised_$date$time.grib"
+EOF
+
+done # step
+# ls -lrt ${param}_dir
+$MARS_CMD < ${param}_dir
+fi
+%include <endt.h>
