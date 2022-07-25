@@ -109,8 +109,8 @@ retrieve,
     tens = (len(parse_range(var["number"])) + 1) * 2  # (nens + 1)*(vo, d)
     assert len(messages) == tens
 
-    u = np.asarray([m.get_array("values") for m in messages if m["paramId"] == ws.u])
-    v = np.asarray([m.get_array("values") for m in messages if m["paramId"] == ws.v])
+    u = np.asarray([m.get_array("values") for m in messages if m["paramId"] == wind.u])
+    v = np.asarray([m.get_array("values") for m in messages if m["paramId"] == wind.v])
     assert u.shape == v.shape
     assert u.shape[0] + v.shape[0] == tens
 
