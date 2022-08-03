@@ -74,31 +74,6 @@ def read_grib_file(in_file):
     return np.asarray(data)
 
 
-def write_grib(template, data, out_dir, out_name):
-
-    message = template.copy()
-
-    # replace missing values if any
-    missing = -9999
-    is_missing = np.isnan(data).any()
-    if is_missing:
-        data[np.isnan(data)] = missing
-        message.set('missingValue', missing)
-        message.set('bitmapPresent', 1)
-        
-    message.set_array('values', data)
-
-    if is_missing:
-        n_missing1 = len(data[data==missing])
-        n_missing2 = message.get('numberOfMissing')
-        if n_missing1 != n_missing2:
-            raise Exception(f'Number of missing values in the message not consistent, is {n_missing1} and should be {n_missing2}')
-
-    out_file = os.path.join(out_dir, out_name)
-    with open(out_file,"ab") as outfile:
-    	message.write_to(outfile)
-
-
 def fdb_request_forecast(stream, paramid, date, steps, member):
 
     req = {
@@ -246,22 +221,14 @@ def compute_forecast_operation(cfg, param):
     fc_date = cfg.fc_date
     ymdh = fc_date.strftime("%Y%m%d%H")
 
-    # read reference file
-    ref_dir = os.path.join(cfg.root_dir, 'prepeps', ymdh)
-    avg_ref = read_grib_file(os.path.join(ref_dir, f'eps_{param.suffix_ref}.grib'))
-    print(f'Reference array: {avg_ref.shape}')
-
     avg = []
     for member in range(cfg.members):
         acc, grib_template = param.preprocessing(cfg, member)
         avg.append(acc)
-
     avg = np.asarray(avg)
     print(f'Array computed from FDB: {avg.shape}')
-    if not compare_arrs(avg, avg_ref):
-        exit(1)
 
-    return avg_ref, grib_template
+    return avg, grib_template
 
 
 def read_clim(cfg, param, n_clim=101):
@@ -287,43 +254,24 @@ def read_clim(cfg, param, n_clim=101):
     return np.asarray(da_clim.values)
 
 
-def compute_efi(cfg, param, fc_avg, clim, template):
+# def check_results(cfg, param):
 
-    efi = extreme.efi(clim, fc_avg, param.eps)
+#     check = True
 
-    write_grib(template, efi, cfg.out_dir, f'efi_{param.suffix}.grib')
+#     print('Checking sot results')
+#     for perc in param.sot:
+#         test_sot = read_grib_file(os.path.join(cfg.out_dir, f'sot{perc}_{param.suffix}.grib'))
+#         ref_sot = read_grib_file(os.path.join(cfg.ref_dir, f'sot{perc}_{param.suffix_ref}.grib'))
+#         check = check and compare_arrs(test_sot, ref_sot)
+#     print(check)
+#     print('Checking efi results')
+#     test_efi = read_grib_file(os.path.join(cfg.out_dir, f'efi_{param.suffix}.grib'))
+#     ref_efi = read_grib_file(os.path.join(cfg.ref_dir, f'efi_{param.suffix_ref}.grib'))
+#     print(test_efi.shape, ref_efi.shape)
+#     check = check and compare_arrs(test_efi, ref_efi[0])
+#     print(check)
 
-    return efi
-
-
-def compute_sot(cfg, param, fc_avg, clim, template):
-
-    sot = {}
-    for perc in param.sot:
-        sot[perc] = extreme.sot(clim, fc_avg, perc, param.eps)
-        write_grib(template, sot[perc], cfg.out_dir, f'sot{perc}_{param.suffix}.grib')
-
-    return sot
-
-
-def check_results(cfg, param):
-
-    check = True
-
-    print('Checking sot results')
-    for perc in param.sot:
-        test_sot = read_grib_file(os.path.join(cfg.out_dir, f'sot{perc}_{param.suffix}.grib'))
-        ref_sot = read_grib_file(os.path.join(cfg.ref_dir, f'sot{perc}_{param.suffix_ref}.grib'))
-        check = check and compare_arrs(test_sot, ref_sot)
-    print(check)
-    print('Checking efi results')
-    test_efi = read_grib_file(os.path.join(cfg.out_dir, f'efi_{param.suffix}.grib'))
-    ref_efi = read_grib_file(os.path.join(cfg.ref_dir, f'efi_{param.suffix_ref}.grib'))
-    print(test_efi.shape, ref_efi.shape)
-    check = check and compare_arrs(test_efi, ref_efi[0])
-    print(check)
-
-    return check
+#     return check
 
 
 class ConfigExtreme(common.Config):
@@ -346,6 +294,8 @@ class ConfigExtreme(common.Config):
         self.clim_date = self.options.get('clim_date', climatology_date(self.fc_date))
         self.clim_dir = os.path.join(self.root_dir, 'clim', self.clim_date.strftime("%Y%m%d"))
 
+        self.target = self.options['target']
+
         print(f'Forecast date is {self.fc_date}')
         print(f'Climatology date is {self.clim_date}')
         print(f'Parameters are {self.parameters}')
@@ -366,14 +316,26 @@ def main(args=None):
         clim = read_clim(cfg, param)
         print(f'Climatology array: {clim.shape}')
 
-        efi = compute_efi(cfg, param, fc_avg, clim, template)
+        print('Computing efi')
+        efi = extreme.efi(clim, fc_avg, param.eps)
+        out_file = os.path.join(cfg.out_dir, f'efi_{param.suffix}.grib')
+        target = common.target_factory(cfg.target, out_file=out_file, fdb=cfg.fdb)
+        common.write_grib(target, template, efi)
 
-        sot = compute_sot(cfg, param, fc_avg, clim, template)
+        sot = {}
+        for perc in param.sot:
+            print(f'Computing sot {perc}')
+            sot[perc] = extreme.sot(clim, fc_avg, perc, param.eps)
+            out_file = os.path.join(cfg.out_dir, f'sot{perc}_{param.suffix}.grib')
+            target = common.target_factory(cfg.target, out_file=out_file, fdb=cfg.fdb)
+            common.write_grib(target, template, sot[perc])
 
-        if check_results(cfg, param):
-            return 0
-        else:
-            return 1
+        cfg.fdb.flush()
+
+        # if check_results(cfg, param):
+        #     return 0
+        # else:
+        #     return 1
 
 
 if __name__ == "__main__":

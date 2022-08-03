@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import Union, Any, List, Dict
 
 import eccodes
+import pyfdb
 
 @dataclass
 class GRIBFields:
@@ -156,28 +157,6 @@ def fdb_read(fdb, request):
     return fields.to_xarray()
 
 
-class FileTarget:
-    def __init__(self, path, mode="wb"):
-        self.file = open(path, mode)
-
-    def __enter__(self):
-        return self.file.__enter__()
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        return self.file.__exit__(exc_type, exc_value, traceback)
-
-    def write(self, message):
-        message.write_to(self.file)
-
-
-class FDBTarget:
-    def __init__(self, fdb):
-        self.fdb = fdb
-
-    def write(self, message):
-        self.fdb.archive(message.get_buffer())
-
-
 def fdb_write_ufunc(data, coords, fdb, template):
 
     message = template.copy()  # are we always copying the full message with the data values?
@@ -224,3 +203,68 @@ def write(target, template, attributes, data_array):
     #                input_core_dims=[['data'], []],
     #                dask='parallelized',
     #                kwargs={'fdb': fdb, 'template': template})
+
+
+class Target:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        return
+
+
+class FileTarget:
+    def __init__(self, path, mode="wb"):
+        self.file = open(path, mode)
+
+    def __enter__(self):
+        return self.file.__enter__()
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        return self.file.__exit__(exc_type, exc_value, traceback)
+
+    def write(self, message):
+        message.write_to(self.file)
+
+
+class FDBTarget:
+    def __init__(self, fdb):
+        self.fdb = fdb
+
+    def write(self, message):
+        self.fdb.archive(message.get_buffer())
+
+
+def target_factory(target_option, out_file=None, fdb=None):
+    if target_option == 'fdb':
+        assert fdb is not None
+        target = FDBTarget(fdb)
+    elif target_option == 'file':
+        assert out_file is not None
+        target = FileTarget(out_file)
+    else:
+        raise ValueError(f"Target {target_option} not supported, accepted values are 'fdb' and 'file' ")
+    return target
+
+
+def write_grib(target, template, data):
+
+    message = template.copy()
+
+    # replace missing values if any
+    missing = -9999
+    is_missing = np.isnan(data).any()
+    if is_missing:
+        data[np.isnan(data)] = missing
+        message.set('missingValue', missing)
+        message.set('bitmapPresent', 1)
+        
+    message.set_array('values', data)
+
+    if is_missing:
+        n_missing1 = len(data[data==missing])
+        n_missing2 = message.get('numberOfMissing')
+        if n_missing1 != n_missing2:
+            raise Exception(f'Number of missing values in the message not consistent, is {n_missing1} and should be {n_missing2}')
+
+    target.write(message)
