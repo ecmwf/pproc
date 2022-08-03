@@ -748,67 +748,22 @@ def main(args=sys.argv[1:]):
     rand_np = npr.RandomState(rand.randrange(1 << 32))
 
     # Perform the clustering
-    nfld = ens_anom.shape[0]
+    nfld = pc.shape[1]
     ind_cl = []  # [ncl-2]
     n_fields = []  # [ncl-2]
     var_opt = []  # [ncl-2]
     centroids = []  # [ncl-2]
-    rep_members = [None]  # [ncl-1][jcl]
-    centroids_gp = []  # [step][ncl-1][jcl]
-    rep_members_gp = []  # [step][ncl-1][jcl]
-    for i in range(nstep):
-        # TODO: write ensemble means to centroids and representative members files?
-        step_centroids_gp = [None]  # [ncl-1][jcl]
-        step_rep_members_gp = [None]  # [ncl-1][jcl]
-        for ncl in range(2, config.ncl_max + 1):
-            if i == 0:
-                cur_ind_cl, cur_n_fields, cur_var_opt, cur_centroids, _ = \
-                    full_clustering_skl(ncl, config.npass, pc, rand_np)
-                cur_var_opt = (cur_var_opt[0] / nfld, cur_var_opt[1] / nfld, cur_var_opt[2])
-                cur_n_fields, cur_ind_cl, cur_centroids = \
-                    sort_clusters(cur_n_fields, cur_ind_cl, cur_centroids)
-                ind_cl.append(cur_ind_cl)
-                n_fields.append(cur_n_fields)
-                var_opt.append(cur_var_opt)
-                centroids.append(cur_centroids)
-                print(f"Partition: {ncl}, internal variance: {cur_var_opt[1]}")
-
-            part_rep_members = []
-            part_centroids_gp = []
-            part_rep_members_gp = []
-            for jcl in range(ncl):
-                rn = 1 / n_fields[ncl-2][jcl]
-                centgp = np.zeros(ngp, dtype=ens_anom.dtype)
-                # Compute the representative member from the enesemble mean
-                first = True
-                rmmin = None
-                ifld = None
-                for jfld in range(nfld):
-                    rms = 0.
-                    if ind_cl[ncl-2][jfld] == jcl:
-                        centgp += (ens_anom[jfld, i, :] + ens_mean[i, :]) * rn
-                        rms = np.sqrt(np.mean(np.square(pc[:, jfld] - centroids[ncl-2][jcl, :])))
-                        if first or rms < rmmin:
-                            first = False
-                            rmmin = rms
-                            ifld = jfld
-
-                # TODO: write centroid in GP space
-                # TODO: write representative member (ens_anom[ifld, i, :] + ens_mean[i, :])
-
-                part_centroids_gp.append(centgp)
-                part_rep_members_gp.append(ens_anom[ifld, i, :] + ens_mean[i, :])
-
-                if i == 0:
-                    part_rep_members.append(ifld)
-            if i == 0:
-                rep_members.append(part_rep_members)
-            step_centroids_gp.append(part_centroids_gp)
-            step_rep_members_gp.append(part_rep_members_gp)
-        centroids_gp.append(step_centroids_gp)
-        rep_members_gp.append(step_rep_members_gp)
-
-    np.savez_compressed(args.indexes, {'ind_cl': ind_cl})
+    for ncl in range(2, config.ncl_max + 1):
+        cur_ind_cl, cur_n_fields, cur_var_opt, cur_centroids, _ = \
+            full_clustering_skl(ncl, config.npass, pc, rand_np)
+        cur_var_opt = (cur_var_opt[0] / nfld, cur_var_opt[1] / nfld, cur_var_opt[2])
+        cur_n_fields, cur_ind_cl, cur_centroids = \
+            sort_clusters(cur_n_fields, cur_ind_cl, cur_centroids)
+        ind_cl.append(cur_ind_cl)
+        n_fields.append(cur_n_fields)
+        var_opt.append(cur_var_opt)
+        centroids.append(cur_centroids)
+        print(f"Partition: {ncl}, internal variance: {cur_var_opt[1]}")
 
     # Perform a clustering on red noise
     pc_red = np.empty_like(pc)
@@ -871,15 +826,60 @@ def main(args=sys.argv[1:]):
 
     print(f"Optimal partition: {best_ncl} cluster{'s'*(best_ncl>1)}")
 
+    rep_members = []  # [jcl]
+    centroids_gp = []  # [step][jcl]
+    rep_members_gp = []  # [step][jcl]
     if best_ncl == 1:
         # No better partition than no partition at all
-        statcl = np.ones(nfld)
+        n_fields = np.array([nfld], dtype=int)
+        ind_cl = np.zeros(nfld, dtype=int)
+        centroids = np.zeros((1, npc))
+
         rms = np.sqrt(np.mean(np.square(pc), axis=0))
         ifld = np.argmin(rms)
-        rep_members[0] = [ifld]
+        rep_members.append([ifld])
         for i in range(nstep):
-            centroids_gp[i][0] = ens_mean[i, :]
-            rep_members_gp[i][0] = ens_anom[ifld, i, :] + ens_mean[i, :]
+            centroids_gp.append([ens_mean[i, :]])
+            rep_members_gp.append([ens_anom[ifld, i, :] + ens_mean[i, :]])
+
+    else:
+        n_fields, ind_cl, centroids = sort_clusters(
+            n_fields[best_ncl - 2], ind_cl[best_ncl - 2], centroids[best_ncl - 2]
+        )
+
+        # Compute the representative members from the enesemble mean
+        for jcl in range(best_ncl):
+            first = True
+            rmmin = None
+            ifld = None
+            for jfld in range(nfld):
+                if ind_cl[jfld] == jcl:
+                    rms = np.sqrt(np.mean(np.square(pc[:, jfld] - centroids[jcl, :])))
+                    if first or rms < rmmin:
+                        first = False
+                        rmmin = rms
+                        ifld = jfld
+
+            rep_members.append(ifld)
+
+        # Compute the centroids and representative members in grid point space
+        for i in range(nstep):
+            step_centroids_gp = []
+            step_rep_members_gp = []
+            for jcl in range(best_ncl):
+                rn = 1 / n_fields[jcl]
+                centgp = np.zeros(ngp, dtype=ens_anom.dtype)
+                # Compute the representative member from the enesemble mean
+                ifld = rep_members[jcl]
+                for jfld in range(nfld):
+                    if ind_cl[jfld] == jcl:
+                        centgp += (ens_anom[jfld, i, :] + ens_mean[i, :]) * rn
+
+                step_centroids_gp.append(centgp)
+                step_rep_members_gp.append(ens_anom[ifld, i, :] + ens_mean[i, :])
+
+            centroids_gp.append(step_centroids_gp)
+            rep_members_gp.append(step_rep_members_gp)
 
     # Find the deterministic forecast
     if args.deterministic is not None:
@@ -907,7 +907,7 @@ def main(args=sys.argv[1:]):
         norm = np.sqrt(np.einsum('ijk,ijk,k->i', eof, eof, weights))
         det_proj = np.einsum('jk,ijk,k->i', det, eof, weights) / norm
 
-        rms = np.sqrt(np.mean(np.square(det_proj[np.newaxis, :] - centroids[best_ncl-2]), axis=1))
+        rms = np.sqrt(np.mean(np.square(det_proj[np.newaxis, :] - centroids), axis=1))
         det_index = np.argmin(rms)
     else:
         det_index = 0
@@ -944,13 +944,13 @@ def main(args=sys.argv[1:]):
 
     target = FileTarget(args.centroids)
     keys['type'] = 'cm'
-    wr_centroids = [centroids_gp[i][best_ncl-1] for i in range(nstep)]
-    write_cluster_grib(steps, ind_cl[best_ncl-2], rep_members[best_ncl-1], det_index, wr_centroids, target, keys)
+    write_cluster_grib(steps, ind_cl, rep_members, det_index, centroids_gp, target, keys)
 
     target = FileTarget(args.representative)
     keys['type'] = 'cr'
-    wr_rep_members = [rep_members_gp[i][best_ncl-1] for i in range(nstep)]
-    write_cluster_grib(steps, ind_cl[best_ncl-2], rep_members[best_ncl-1], det_index, wr_rep_members, target, keys)
+    write_cluster_grib(steps, ind_cl, rep_members, det_index, rep_members_gp, target, keys)
+
+    np.savez_compressed(args.indexes, {"ind_cl": ind_cl})
 
     return 0
 
