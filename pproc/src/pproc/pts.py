@@ -75,7 +75,7 @@ def parse_range(rstr):
 
 def delta_hours(a: datetime, b: datetime) -> int:
     delta = a - b
-    return int(delta / timedelta(hours=1))
+    return delta // timedelta(hours=1)
 
 
 def main(args=None):
