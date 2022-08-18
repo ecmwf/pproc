@@ -14,7 +14,7 @@ import argparse
 import pickle
 import re
 from contextlib import ExitStack, nullcontext
-from datetime import datetime
+from datetime import datetime, timedelta
 from importlib import resources
 from itertools import chain, tee
 from os import environ, makedirs, path
@@ -73,9 +73,9 @@ def parse_range(rstr):
     return sorted(s)
 
 
-def delta_hours(a: datetime, b: datetime):
+def delta_hours(a: datetime, b: datetime) -> int:
     delta = a - b
-    return delta.days * 24 + delta.seconds // 3600
+    return int(delta / timedelta(hours=1))
 
 
 def main(args=None):
