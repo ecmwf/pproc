@@ -263,7 +263,7 @@ def main(args=None):
                             d["lon"].append(0.1 * float(data.group(4)))
                             d["id"].append(id)
                             d["date"].append(data.group(1).replace("/", ""))
-                            d["step"].append(data.group(2))
+                            d["step"].append(data.group(2) + "00")
                             d["wind"].append(float(data.group(5)))
                             d["msl"].append(float(data.group(6)))
             df = pd.DataFrame(d)
