@@ -11,12 +11,12 @@ build_type: RelWithDebInfo
 projects :
     - ecbuild :
         git     : ${BITBUCKET}/ecsdk/ecbuild
-        version : master
+        version : develop
         bundle  : false
 
     - eccodes :
         git     : ${BITBUCKET}/eccodes/eccodes
-        version : master
+        version : develop
         cmake   : >
             ENABLE_ECCODES_THREADS=ON
             ENABLE_NETCDF=OFF
@@ -26,7 +26,7 @@ projects :
 
     - eckit :
         git     : ${BITBUCKET}/ecsdk/eckit
-        version : master
+        version : develop
         cmake   : >
             ENABLE_VIENNACL=OFF
             ENABLE_EIGEN=OFF
@@ -36,22 +36,21 @@ projects :
 
     - metkit :
         git     : ${BITBUCKET}/ecsdk/metkit
-        version : master
+        version : develop
         require : eckit
 
     - fdb5 :
         git     : ${BITBUCKET}/mars/fdb5
-        #version : feature/archiveMessages
         version : develop
         require : eccodes eckit metkit
 
     - transi :
         git     : ${BITBUCKET}/atlas/transi
-        version : master
+        version : develop
 
     - atlas :
         git     : ${BITBUCKET}/atlas/atlas
-        version : master
+        version : develop
         require : transi eckit
 
     - mir :
