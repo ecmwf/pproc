@@ -98,7 +98,7 @@ def main(args=None):
     input.add_argument(
         "--input",
         help="Input format",
-        choices=["tc-tracks", "points"],
+        choices=["tc-tracks", "csv", "points"],
         default="tc-tracks",
         dest="input_format",
     )
@@ -267,6 +267,29 @@ def main(args=None):
                             d["wind"].append(float(data.group(5)))
                             d["msl"].append(float(data.group(6)))
             df = pd.DataFrame(d)
+
+        elif args.input_format == "csv":
+            assert len(args.input) == 1, "--input csv takes 1 argument"
+            df = pd.read_csv(
+                args.input[0], usecols=["datetime", "name", "lat_p", "lon_p", "wind"]
+            )
+
+            df.rename(
+                columns={
+                    "name": "id",
+                    "lat_p": "lat",
+                    "lon_p": "lon",
+                },
+                inplace=True,
+            )
+
+            df["number"] = 1
+            df[["date", "step"]] = df.datetime.str.extract(
+                "^(?P<date>\d{4}-\d{2}-\d{2}) (?P<step>\d{2}:\d{2}):\d{2}$"
+            )
+            df.date = df.date.str.replace("-", "")
+            df.step = df.step.str.replace(":", "")
+            df.drop(["datetime"], axis=1, inplace=True)
 
         else:
             assert len(args.input) == 1, "--input points takes 1 argument"
