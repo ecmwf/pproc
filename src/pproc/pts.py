@@ -225,7 +225,10 @@ def main(args=None):
 
         # input (apply filter_number)
         if args.input_format == "tc-tracks":
-            d = {col: [] for col in ["lat", "lon", "id", "date", "step", "wind", "msl"]}
+            d = {
+                col: []
+                for col in ["lat", "lon", "number", "id", "date", "step", "wind", "msl"]
+            }
 
             # regex: fixed size (n) " "-padded right-flushed integers
             rd = lambda n: "|".join(" " * i + "\d" * (n - i) for i in range(n))
@@ -261,6 +264,7 @@ def main(args=None):
                         if data:
                             d["lat"].append((0.1, -0.1)[flip] * float(data.group(3)))
                             d["lon"].append(0.1 * float(data.group(4)))
+                            d["number"].append(number)
                             d["id"].append(id)
                             d["date"].append(data.group(1).replace("/", ""))
                             d["step"].append(data.group(2) + "00")
@@ -302,7 +306,7 @@ def main(args=None):
                 usecols=["lat", "lon", "number", "date", "step", "wind", "msl"],
             )
             df = df[df.number.isin(numbers)]
-            df.rename(columns={"number": "id"}, inplace=True)
+            df["id"] = df.number
 
         # pre-process (apply filter_time and calculate/drop columns)
         if not df.empty:
@@ -325,47 +329,59 @@ def main(args=None):
 
         # probability field
         val = np.zeros(N)
-        for id in set(df.id.tolist()):
-            track = df[df.id == id].sort_values("t")
 
-            # super-sampled time and position (apply filter_wind)
-            ti = np.array([])
-            tend = None
-            npoints = 1
-            for a, b in previous_and_current(track.itertuples()):
-                if a is not None and args.filter_wind <= max(a.wind, b.wind):
-                    tend = b.t
-                    npoints += 1
-                    dist_ab = np.linalg.norm(
-                        np.array([b.x - a.x, b.y - a.y, b.z - a.z])
-                    )
-                    num = max(1, int(np.ceil(dist_ab / dist_circle)))
-                    ti = np.append(ti, np.linspace(a.t, b.t, num=num, endpoint=False))
-            if not tend:
-                continue
-            ti = np.append(ti, tend)
-
-            if args.verbosity >= 1:
-                print(
-                    f"segments={npoints-1}/{track.shape[0]-1} "
-                    f"len={len(ti)} "
-                    f"ss={round(float(len(ti)) / npoints, 1)}x"
-                )
-
-            xi = np.interp(ti, track.t, track.x)
-            yi = np.interp(ti, track.t, track.y)
-            zi = np.interp(ti, track.t, track.z)
-
-            # track points
+        for number in df.number.unique():
             pts = set()
-            for p in zip(xi, yi, zi):
-                pts.update(tree.query_ball_point(p, r=args.distance))
+
+            for id in df[df.number == number].id.unique():
+                # apply filter_wind
+                track = df[
+                    (df.number == number)
+                    & (df.id == id)
+                    & (args.filter_wind <= df.wind)
+                ].sort_values("t")
+
+                # super-sampled time and position
+                ti = np.array([])
+                tend = None
+                npoints = 1
+                for a, b in previous_and_current(track.itertuples()):
+                    if a is not None:
+                        tend = b.t
+                        npoints += 1
+                        dist_ab = np.linalg.norm(
+                            np.array([b.x - a.x, b.y - a.y, b.z - a.z])
+                        )
+                        num = max(1, int(np.ceil(dist_ab / dist_circle)))
+                        ti = np.append(
+                            ti, np.linspace(a.t, b.t, num=num, endpoint=False)
+                        )
+                if not tend:
+                    continue
+                ti = np.append(ti, tend)
+
+                if args.verbosity >= 1:
+                    print(
+                        f"number={number} "
+                        f"segments={npoints-1}/{track.shape[0]-1} "
+                        f"len={len(ti)} "
+                        f"ss={round(float(len(ti)) / npoints, 1)}x"
+                    )
+
+                xi = np.interp(ti, track.t, track.x)
+                yi = np.interp(ti, track.t, track.y)
+                zi = np.interp(ti, track.t, track.z)
+
+                # track points
+                for p in zip(xi, yi, zi):
+                    pts.update(tree.query_ball_point(p, r=args.distance))
+
             for i in pts:
                 assert i < N
                 val[i] = val[i] + 1.0
 
         if numbers:
-            val = np.minimum(val / len(numbers), 1.0) * 100.0  # %
+            val = (val / len(numbers)) * 100.0  # %
 
         # write results
         if args.grib_accuracy:
