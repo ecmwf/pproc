@@ -383,6 +383,10 @@ def main(args=None):
         if numbers:
             val = (val / len(numbers)) * 100.0  # %
 
+        if args.verbosity >= 1:
+            print(f"min={min(val)} max={max(val)}")
+        assert 0 <= min(val) and max(val) <= 100.0
+
         # write results
         if args.grib_accuracy:
             eccodes.codes_set(h, "accuracy", args.grib_accuracy)
