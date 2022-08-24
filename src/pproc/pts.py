@@ -360,10 +360,12 @@ def main(args=None):
                     continue
                 ti = np.append(ti, tend)
 
+                assert npoints == track.shape[0]
+
                 if args.verbosity >= 1:
                     print(
                         f"number={number} "
-                        f"segments={npoints-1}/{track.shape[0]-1} "
+                        f"segments={track.shape[0]-1} "
                         f"len={len(ti)} "
                         f"ss={round(float(len(ti)) / npoints, 1)}x"
                     )
