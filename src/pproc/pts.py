@@ -235,14 +235,10 @@ def main(args=None):
 
             re_filename = re.compile(r"^\d{4}(\d{10})_(\d{3}|..)_\d{6}_.{3}$")
             re_split = re.compile(r"^..... ( TD| TS|HR\d)$")
-            re_data_1 = re.compile(
-                r"^..... (\d{4}/\d{2}/\d{2})/(\d{2})\*"
-                f"({rd(3)})({rd(4)}) ({rd(3)}) ({rd(4)})\*({rd(3)})({rd(4)})\*"
-                r"\d{5}\d{5}\d{5}\d{5}\*\d{5}\d{5}\d{5}\d{5}\*\d{5}\d{5}\d{5}\d{5}\*$"
-            )
-            re_data_2 = re.compile(
-                r"^..... (\d{4}/\d{2}/\d{2})/(\d{2})\*"
-                f"({rd(3)})({rd(4)}) ({rd(3)}) ({rd(4)})\*({rd(3)})({rd(4)})$"
+            re_data = re.compile(
+                r"^..... (\d{4}/\d{2}/\d{2})/(\d{2})"
+                f"\*({rd(3)})({rd(4)}) ({rd(3)}) ({rd(4)})\*({rd(3)})({rd(4)})"
+                r"(\*(\d{5})(\d{5})(\d{5})(\d{5})\*(\d{5})(\d{5})(\d{5})(\d{5})\*(\d{5})(\d{5})(\d{5})(\d{5})\*)?$"
             )
 
             if not basetime:
@@ -264,10 +260,7 @@ def main(args=None):
                         if re_split.search(line):
                             id += 1
                             continue
-                        data = re_data_1.search(line)
-                        if not data:
-                            data = re_data_2.search(line)
-
+                        data = re_data.search(line)
                         if data:
                             d["lat"].append((0.1, -0.1)[flip] * float(data.group(3)))
                             d["lon"].append(0.1 * float(data.group(4)))
