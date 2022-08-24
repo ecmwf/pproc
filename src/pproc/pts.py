@@ -224,7 +224,7 @@ def main(args=None):
             if args.verbosity >= 1:
                 print(f"Created cache file: '{tree_path}'")
 
-        # input (apply filter_number)
+        # input
         if args.input_format == "tc-tracks":
             d = {
                 col: []
@@ -307,7 +307,7 @@ def main(args=None):
 
         # pre-process (apply filter_time and calculate/drop columns)
         if df.empty:
-            df[["lat", "lon", "number", "date", "step", "wind", "msl"]] = None
+            df[["lat", "lon", "number", "t", "wind", "msl"]] = None
             print("Warning:", df)
         else:
             datestep = [
@@ -320,17 +320,18 @@ def main(args=None):
                 basetime = min(datestep)
             df["t"] = [delta_hours(ds, basetime) for ds in datestep]
             df = df[(args.filter_time[0] <= df.t) & (df.t <= args.filter_time[1])]
+
             df.drop(["date", "step"], axis=1, inplace=True)
 
-        # probability field
+        # probability field (apply filter_number)
         val = np.zeros(N)
 
-        numbers = (
-            args.filter_number
-            if args.filter_number
-            else sorted(set(df.number.tolist()))
-        )
+        if args.filter_number:
+            numbers = args.filter_number
+        else:
+            numbers = sorted(set(df.number.tolist()))
         if args.verbosity >= 1:
+            print(f"basetime: {basetime}")
             print(f"len(numbers): {len(numbers)}, numbers: {numbers}")
 
         for number in numbers:
@@ -397,7 +398,7 @@ def main(args=None):
         if numbers:
             val = (val / len(numbers)) * 100.0  # %
 
-        if args.verbosity >= 1:
+        if args.verbosity >= 1 and len(numbers) > 1:
 
             def ranges(i):
                 from itertools import groupby
