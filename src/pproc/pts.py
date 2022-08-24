@@ -65,7 +65,7 @@ def distance_from_overlap(radius, overlap):
     return radius * d.root
 
 
-def parse_range(rstr):
+def parse_range(rstr) -> set:
     s = set()
     for part in rstr.split(","):
         x = part.split("-")
@@ -118,7 +118,9 @@ def main(args=None):
     )
 
     filter = parser.add_argument_group("Filtering")
-    filter.add_argument("--filter-number", help="Filter number range", default="1-50")
+    filter.add_argument(
+        "--filter-number", help="Filter number range", default=None, type=parse_range
+    )
 
     filter.add_argument(
         "--filter-wind", help="Filter minimum wind speed", default=0.0, type=float
@@ -163,7 +165,6 @@ def main(args=None):
 
     dist_circle = distance_from_overlap(args.distance, args.overlap)
     basetime = datetime.fromisoformat(args.basetime) if args.basetime else None
-    numbers = parse_range(args.filter_number)
 
     with ExitStack() as stack:
         if pts_home_dir in environ:
@@ -250,9 +251,6 @@ def main(args=None):
             for fn in args.input:
                 fns = re_filename.search(path.basename(fn))
                 number = int(fns.group(2)) if fns and fns.group(2).isdigit() else 1
-                if number not in numbers:
-                    continue
-
                 flip = fn.endswith(tuple(args.tc_tracks_flip_suffix))
 
                 with open(fn, "r") as file:
@@ -305,7 +303,6 @@ def main(args=None):
                 names=args.points_columns,
                 usecols=["lat", "lon", "number", "date", "step", "wind", "msl"],
             )
-            df = df[df.number.isin(numbers)]
             df["id"] = df.number
 
         # pre-process (apply filter_time and calculate/drop columns)
@@ -330,10 +327,15 @@ def main(args=None):
         # probability field
         val = np.zeros(N)
 
-        for number in df.number.unique():
+        numbers = (
+            args.filter_number
+            if args.filter_number
+            else sorted(set(df.number.tolist()))
+        )
+        for number in numbers:
             pts = set()
 
-            for id in df[df.number == number].id.unique():
+            for id in set(df[df.number == number].id.tolist()):
                 # apply filter_wind
                 track = df[
                     (df.number == number)
