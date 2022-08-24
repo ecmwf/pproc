@@ -306,7 +306,10 @@ def main(args=None):
             df["id"] = df.number
 
         # pre-process (apply filter_time and calculate/drop columns)
-        if not df.empty:
+        if df.empty:
+            df[["lat", "lon", "number", "date", "step", "wind", "msl"]] = None
+            print("Warning:", df)
+        else:
             datestep = [
                 datetime.strptime(k, "%Y%m%d%H%M")
                 for k in (
@@ -320,9 +323,6 @@ def main(args=None):
 
             df["x"], df["y"], df["z"] = ll_to_ecef(df.lat, df.lon)
             df.drop(["lat", "lon", "date", "step"], axis=1, inplace=True)
-
-        if df.empty:
-            print("Warning:", df)
 
         # probability field
         val = np.zeros(N)
@@ -338,12 +338,11 @@ def main(args=None):
         for number in numbers:
             pts = set()
 
-            for id in set(df[df.number == number].id.tolist()):
+            tracks = df[df.number == number]
+            for id in set(tracks.id.tolist()):
                 # apply filter_wind
-                track = df[
-                    (df.number == number)
-                    & (df.id == id)
-                    & (args.filter_wind <= df.wind)
+                track = tracks[
+                    (tracks.id == id) & (args.filter_wind <= tracks.wind)
                 ].sort_values("t")
 
                 # special cases
