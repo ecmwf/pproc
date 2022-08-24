@@ -320,9 +320,7 @@ def main(args=None):
                 basetime = min(datestep)
             df["t"] = [delta_hours(ds, basetime) for ds in datestep]
             df = df[(args.filter_time[0] <= df.t) & (df.t <= args.filter_time[1])]
-
-            df["x"], df["y"], df["z"] = ll_to_ecef(df.lat, df.lon)
-            df.drop(["lat", "lon", "date", "step"], axis=1, inplace=True)
+            df.drop(["date", "step"], axis=1, inplace=True)
 
         # probability field
         val = np.zeros(N)
@@ -349,7 +347,7 @@ def main(args=None):
                 if track.shape[0] == 1:
                     if args.verbosity >= 1:
                         print(f"number={number} segments=0 len=1")
-                    p = track.x.iat[0], track.y.iat[0], track.z.iat[0]
+                    p = ll_to_ecef(track.lat.iat[0], track.lon.iat[0])
                     pts.update(tree.query_ball_point(p, r=args.distance))
                     continue
 
@@ -360,9 +358,12 @@ def main(args=None):
                     if a is not None:
                         tend = b.t
                         npoints += 1
-                        dist_ab = np.linalg.norm(
-                            np.array([b.x - a.x, b.y - a.y, b.z - a.z])
-                        )
+
+                        # approximate distance(a, b) with Cartesian distance
+                        ax, ay, az = ll_to_ecef(a.lat, a.lon)
+                        bx, by, bz = ll_to_ecef(b.lat, b.lon)
+                        dist_ab = np.linalg.norm(np.array([bx - ax, by - ay, bz - az]))
+
                         num = max(1, int(np.ceil(dist_ab / dist_circle)))
                         ti = np.append(
                             ti, np.linspace(a.t, b.t, num=num, endpoint=False)
@@ -381,12 +382,12 @@ def main(args=None):
                         f"ss={round(float(len(ti)) / npoints, 1)}x"
                     )
 
-                xi = np.interp(ti, track.t, track.x)
-                yi = np.interp(ti, track.t, track.y)
-                zi = np.interp(ti, track.t, track.z)
+                lati = np.interp(ti, track.t, track.lat)
+                loni = np.interp(ti, track.t, track.lon)
 
                 # track points
-                for p in zip(xi, yi, zi):
+                x, y, z = ll_to_ecef(lati, loni)
+                for p in zip(x, y, z):
                     pts.update(tree.query_ball_point(p, r=args.distance))
 
             for i in pts:
