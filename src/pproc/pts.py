@@ -346,7 +346,14 @@ def main(args=None):
                     & (args.filter_wind <= df.wind)
                 ].sort_values("t")
 
-                # super-sampled time and position
+                # special cases
+                if track.shape[0] == 1:
+                    if args.verbosity >= 1:
+                        print(f"number={number} segments=0 len=1")
+                    p = track.x.iat[0], track.y.iat[0], track.z.iat[0]
+                    pts.update(tree.query_ball_point(p, r=args.distance))
+                    continue
+
                 ti = np.array([])
                 tend = None
                 npoints = 1
@@ -365,7 +372,7 @@ def main(args=None):
                     continue
                 ti = np.append(ti, tend)
 
-                assert npoints == track.shape[0]
+                assert 0 < npoints == track.shape[0]
 
                 if args.verbosity >= 1:
                     print(
