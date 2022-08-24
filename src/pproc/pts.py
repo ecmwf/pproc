@@ -332,6 +332,9 @@ def main(args=None):
             if args.filter_number
             else sorted(set(df.number.tolist()))
         )
+        if args.verbosity >= 1:
+            print(f"len(numbers): {len(numbers)}, numbers: {numbers}")
+
         for number in numbers:
             pts = set()
 
@@ -388,7 +391,19 @@ def main(args=None):
             val = (val / len(numbers)) * 100.0  # %
 
         if args.verbosity >= 1:
-            print(f"min={min(val)} max={max(val)}")
+
+            def ranges(i):
+                from itertools import groupby
+
+                for _, b in groupby(enumerate(i), lambda pair: pair[1] - pair[0]):
+                    b = list(b)
+                    yield b[0][1], b[-1][1]
+
+            mx = max(val)
+            print(
+                f"max={mx}, at {list(ranges(idx for idx, item in enumerate(val) if item == mx))}"
+            )
+
         assert 0 <= min(val) and max(val) <= 100.0
 
         # write results
