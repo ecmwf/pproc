@@ -1,0 +1,33 @@
+number_of_ensembles: 50
+leg: 1
+steps:
+  - interval: 12
+    start_step: 12
+    end_step: 240
+    write: True
+  - interval: 3
+    start_step: 123
+    end_step: 144
+  - interval: 6
+    start_step: 150
+    end_step: 240
+periods:
+  - start_step: 120
+    end_step: 168
+  - start_step: 120
+    end_step: 240
+  - start_step: 168
+    end_step: 240
+parameters:
+  - in_paramid: 167
+    out_paramid: 131073
+    thresholds:
+      - comparison: "<="
+      value: 273.15
+base_request:
+  class: od
+  stream: enfo
+  expver: '0001'
+  type: pf
+  levtype: sfc
+  domain: g
