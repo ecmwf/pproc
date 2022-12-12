@@ -15,7 +15,7 @@ req = {
     "domain": "g",
     "type": "an",
     "levtype": "pl",
-    "step": "0",
+    "step": "0/1/2",
     "levelist": "400",
     "param": "138"
 }
@@ -27,6 +27,7 @@ job = mir.Job(grid='1.0/1.0')
 stream = BytesIO()
 job.execute(reader, stream)
 
-reader = eccodes.MemoryReader(stream.getvalue())
-grib = next(reader)
-grib.dump()
+stream.seek(0)
+reader = eccodes.StreamReader(stream)
+for grib in reader:
+    grib.dump()

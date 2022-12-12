@@ -1,11 +1,15 @@
+from io import BytesIO
+import yaml
+import itertools
+
 import numpy as np
 import xarray as xr
-import yaml
 from dataclasses import dataclass, field
 from typing import Union, Any, List, Dict
 
 import eccodes
 import pyfdb
+import mir
 
 @dataclass
 class GRIBFields:
@@ -132,7 +136,7 @@ def read_grib_messages(messages, dims=()):
     return fields
 
 
-def fdb_read(fdb, request):
+def fdb_read(fdb, request, mir_options=None):
     """Load grib messages from FDB from request and returns Xarray DataArray
 
     Parameters
@@ -150,6 +154,16 @@ def fdb_read(fdb, request):
     fdb_reader = fdb.retrieve(request)
     fields_dims = [key for key in request if isinstance(request[key], (list, range))]
     eccodes_reader = eccodes.StreamReader(fdb_reader)
+    if mir_options:
+        mir_job = mir.Job(**mir_options)
+        mir_reader = []
+        for message in eccodes_reader:
+            stream = BytesIO()
+            mir_input = mir.GribMemoryInput(message.get_buffer()) 
+            mir_job.execute(mir_input, stream)
+            mem_reader = eccodes.MemoryReader(stream.getvalue())
+            mir_reader.append(mem_reader)
+        eccodes_reader = itertools.chain(mir_reader)
     fields = read_grib_messages(eccodes_reader, fields_dims)
     if fields is None:
         raise Exception(f"Could not perform the following retrieve:\n{yaml.dump(request)}")
