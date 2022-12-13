@@ -154,7 +154,7 @@ def fdb_read(fdb, request, mir_options=None):
     fdb_reader = fdb.retrieve(request)
     fields_dims = [key for key in request if isinstance(request[key], (list, range))]
     if mir_options:
-        job = mir.Job(grid='1.0/1.0')
+        job = mir.Job(mir_options)
         stream = BytesIO()
         job.execute(fdb_reader, stream)
         stream.seek(0)
