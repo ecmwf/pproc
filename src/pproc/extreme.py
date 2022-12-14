@@ -74,21 +74,13 @@ def read_grib_file(in_file):
     return np.asarray(data)
 
 
-def fdb_request_forecast(stream, paramid, date, steps, member):
+def fdb_request_forecast(fc_keys, paramid, date, steps, member):
 
-    req = {
-            "class": "od",
-            "expver": "0001",
-            "stream": stream,
-            "date": date.strftime("%Y%m%d"),
-            "time": date.strftime("%H")+'00',
-            "domain": "g",
-            "type": "cf",
-            "levtype": "sfc",
-            "step": steps,
-            "param": paramid
-    }
-
+    req = fc_keys.copy()
+    req["date"] = date.strftime("%Y%m%d")
+    req["time"] = date.strftime("%H")+'00'
+    req["step"] = steps
+    req["param"] = paramid
     if member == 0:
         req['type'] = 'cf'
     else:
@@ -104,13 +96,13 @@ class Parameter(): # change id to paramid
 
         self.paramid = paramid
         self.name = options['name']
-        self.clim_paramid = options['clim_paramid']
-        self.efi_paramid = options['efi_paramid']
-        self.req_paramids = {self.paramid}
+        self.clim_keys = options['clim_keys']
+        self.fc_keys = options['fc_keys']
+        self.out_keys = options['out_keys']
+        params = self.fc_keys.pop('param')
+        self.req_paramids = set(params) if isinstance(params, list) else {params}
         self.eps = float(options['eps'])
         self.sot = options['sot']
-        self.stream = options['stream']
-        self.stream_clim = options['stream_clim']
         self.type = options['preprocessing']
         window = options['windows']
         self.steps = list(range(window['start_step']+window['step_by'], window['end_step']+window['step_by'], window['step_by']))
@@ -138,7 +130,7 @@ class Parameter(): # change id to paramid
     def retrieve_fields(self, cfg, member):
         fields = {}
         for paramid in self.req_paramids:
-            req = fdb_request_forecast(self.stream, paramid, cfg.fc_date, self.steps, member)
+            req = fdb_request_forecast(self.fc_keys, paramid, cfg.fc_date, self.steps, member)
             print(req)
             fields[paramid] = common.fdb_read(cfg.fdb, req)
         return fields
@@ -156,16 +148,14 @@ class ParameterNorm(Parameter):
     def __init__(self, paramid, options, ymdh):
         super().__init__(paramid, options, ymdh)
         self.type = options['accumulation']
-        self.paramid_u = options['paramid_u']
-        self.paramid_v = options['paramid_v']
-        self.req_paramids = {self.paramid_u, self.paramid_v}
+        assert len(self.req_paramids) == 2
 
     def template(self, fields):
-        return fields[self.paramid_u].attrs['grib_template']
+        return list(fields.values())[0].attrs['grib_template']
 
     def accumulation(self, fields):
-        u = fields[self.paramid_u]
-        v = fields[self.paramid_v]
+        u = list(fields.values())[0]
+        v = list(fields.values())[1]
         norm = np.sqrt(u*u+v*v)
         return super().accumulation(norm.values)
 
@@ -186,7 +176,7 @@ class ParameterTreshold(Parameter):
     def __init__(self, paramid, options, ymdh):
         super().__init__(paramid, options, ymdh)
         self.type = options['accumulation']
-        self.paramid_filter = options.get('paramid_filter', self.paramid)
+        self.paramid_filter = options['fc_keys'].pop('paramid_filter', self.paramid)
         self.threshold = options['threshold']
         self.req_paramids.add(self.paramid_filter)
 
@@ -217,9 +207,6 @@ def parameter_factory(parameters_options, ymdh):
 
 def compute_forecast_operation(cfg, param):
 
-    fc_date = cfg.fc_date
-    ymdh = fc_date.strftime("%Y%m%d%H")
-
     avg = []
     for member in range(cfg.members):
         acc, grib_template = param.preprocessing(cfg, member)
@@ -232,25 +219,16 @@ def compute_forecast_operation(cfg, param):
 
 def read_clim(cfg, param, n_clim=101):
 
-    clim_ymd = cfg.clim_date.strftime("%Y%m%d")
+    req = param.clim_keys.copy()
+    req["date"] = cfg.clim_date.strftime("%Y%m%d")
+    req["time"] = '0000'
+    req["quantile"] = ['{}:100'.format(i) for i in range(n_clim)]
+    req["step"] = f'{param.window}'
 
-    req = {
-        'class': 'od',
-        'expver': '0001',
-        'stream': param.stream_clim,
-        'date': clim_ymd,
-        'time': '0000',
-        'domain': 'g',
-        'type': 'cd',
-        'levtype': 'sfc',
-        'quantile': ['{}:100'.format(i) for i in range(n_clim)],
-        'step': f'{param.window}',
-        'param': param.clim_paramid
-    }
     da_clim = common.fdb_read(cfg.fdb, req)
     print(da_clim)
 
-    return np.asarray(da_clim.values)
+    return np.asarray(da_clim.values), da_clim.attrs['grib_template']
 
 
 # def check_results(cfg, param):
@@ -304,70 +282,67 @@ class ConfigExtreme(common.Config):
 def extreme_template(cfg, param, template, template_clim):
 
     template_ext = template.copy()
-    
-    expver = '0001'
-    esuite_expver = '0076'
-    implem_date = '20211012'
-    nhyears = 20
-    ncdays = 7
-    cfnum = 1980 #$(($cnt*($nhens+1)*$nhyears)) #number of fields in the whole climate sample
-    efi_tableno = 132
-    efi_defnum = 19
-    mtype = 27
 
-    template_ext['timeRangeIndicator'] = param.rangeind
+    for key, value in param.out_keys.items():
+        template_ext[key] = value
+    
+    # EFI specific stuff
     template_ext['stepRange'] = param.window
-    if param.rangeind == 3:
+    if int(template_ext['timeRangeIndicator']) == 3:
         template_ext['numberIncludedInAverage'] = len(param.steps)
-        template_ext['numberMissingFromAveragesOrAccumulations'] = 0
+        template_ext['numberMissingFromAveragesOrAccumulations'] = 0        
 
-    template_ext['date'] = cfg.fc_date.strftime("%Y%m%d")
-    template_ext['gribTablesVersionNo'] = efi_tableno
-    template_ext['indicatorOfParameter'] = param.efi_paramid
-    template_ext['subCentre'] = 0
-    template_ext['localDefinitionNumber'] = efi_defnum
-    template_ext['marsType'] = mtype
-    template_ext['totalNumber'] = cfg.members
-    template_ext['powerOfTenUsedToScaleClimateWeight'] = int(esuite_expver)
-    template_ext['weightAppliedToClimateMonth1'] = implem_date
-    template_ext['firstMonthUsedToBuildClimateMonth1'] = nhyears
-    template_ext['lastMonthUsedToBuildClimateMonth1'] = ncdays
-    template_ext['firstMonthUsedToBuildClimateMonth2'] = cfnum
-    template_ext['lastMonthUsedToBuildClimateMonth2'] = 0
-    template_ext['numberOfBitsContainingEachPackedValue'] = 12
+    # set clim keys
+    clim_keys = [
+        'powerOfTenUsedToScaleClimateWeight',
+        'weightAppliedToClimateMonth1',
+        'firstMonthUsedToBuildClimateMonth1',
+        'lastMonthUsedToBuildClimateMonth1',
+        'firstMonthUsedToBuildClimateMonth2',
+        'lastMonthUsedToBuildClimateMonth2',
+        'numberOfBitsContainingEachPackedValue'
+    ]
+    for key in clim_keys:
+        template_ext[key] = template_clim[key]
 
-
-def efi_template(param, template):
-    template_efi = template.copy()
-    template_efi['number'] = 0
-    template_efi['efiOrder'] = 18
-    template_efi['marsType'] = 27
+    # set fc keys
+    fc_keys = [
+        'date',
+        'subCentre',
+        'totalNumber',
+    ]
+    for key in fc_keys:
+        template_ext[key] = template[key]
     
-    template_efi['timeRangeIndicator'] = param.rangeind
-    template_efi['stepRange'] = param.window
-    if param.rangeind == 3:
-        template_efi['numberIncludedInAverage'] = len(param.steps)
-        template_efi['numberMissingFromAveragesOrAccumulations'] = 0
+    return template_ext
 
 
+def efi_template(template):
+    template_efi = template.copy()
+    template_efi['marsType'] = 27
+    template_efi['efiOrder'] = 0
+    template_efi['number'] = 0
+    return template_efi
 
-def sot_template(param, template, sot):
+def efi_template_control(template):
+    template_efi = template.copy()
+    template_efi['marsType'] = 28
+    template_efi['efiOrder'] = 0
+    template_efi['totalNumber'] = 1
+    template_efi['number'] = 0
+    return template_efi
+
+def sot_template(template, sot):
     template_sot = template.copy()
+    template_sot['marsType'] = 38
     template_sot['number'] = sot
-    template_sot['marsType'] = 27
     if sot == 90:
         template_sot['efiOrder'] = 99
     elif sot == 10:
         template_sot['efiOrder'] = 1
     else:
         raise Exception("SOT value '{sot}' not supported in template! Only accepting 10 and 90")
-
-
-    template_sot['timeRangeIndicator'] = param.rangeind
-    template_sot['stepRange'] = param.window
-    if param.rangeind == 3:
-        template_sot['numberIncludedInAverage'] = len(param.steps)
-        template_sot['numberMissingFromAveragesOrAccumulations'] = 0
+    return template_sot
 
 
 def main(args=None):
@@ -381,20 +356,24 @@ def main(args=None):
         fc_avg, template = compute_forecast_operation(cfg, param)
         print(f'Resulting averaged array: {fc_avg.shape}')
 
-        clim = read_clim(cfg, param)
+        clim, template_clim = read_clim(cfg, param)
         print(f'Climatology array: {clim.shape}')
 
+        template_extreme = extreme_template(cfg, param, template, template_clim)
+
         print('Computing efi for the control member')
-        efi_control = extreme.efi(clim, fc_avg[0], param.eps)
+        efi_control = extreme.efi(clim, fc_avg, param.eps)
         out_file = os.path.join(cfg.out_dir, f'efi_control_{param.suffix}.grib')
         target = common.target_factory(cfg.target, out_file=out_file, fdb=cfg.fdb)
-        common.write_grib(target, template, efi_control)
+        template_efi = efi_template_control(template_extreme)
+        common.write_grib(target, template_efi, efi_control)
 
         print('Computing efi')
         efi = extreme.efi(clim, fc_avg, param.eps)
         out_file = os.path.join(cfg.out_dir, f'efi_{param.suffix}.grib')
         target = common.target_factory(cfg.target, out_file=out_file, fdb=cfg.fdb)
-        common.write_grib(target, template, efi)
+        template_efi = efi_template(template_extreme)
+        common.write_grib(target, template_efi, efi)
 
         sot = {}
         for perc in param.sot:
@@ -402,7 +381,8 @@ def main(args=None):
             sot[perc] = extreme.sot(clim, fc_avg, perc, param.eps)
             out_file = os.path.join(cfg.out_dir, f'sot{perc}_{param.suffix}.grib')
             target = common.target_factory(cfg.target, out_file=out_file, fdb=cfg.fdb)
-            common.write_grib(target, template, sot[perc])
+            template_sot = sot_template(template_extreme, perc)
+            common.write_grib(target, template_sot, sot[perc])
 
         cfg.fdb.flush()
 
