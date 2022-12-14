@@ -1,2 +1,2 @@
 include src/pproc/data/pts/*.grib1
-include src/pproc/data/templates/*
+include src/pproc/templates/*.yaml
