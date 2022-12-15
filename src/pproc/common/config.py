@@ -50,3 +50,5 @@ class Config():
             values_to_set = parse_vars(args.set)
             for key, value in values_to_set.items():
                 nested_set(self.options, key.split('.'), value)
+
+        print(yaml.dump(self.options))

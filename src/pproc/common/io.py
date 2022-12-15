@@ -257,12 +257,11 @@ def target_factory(target_option, out_file=None, fdb=None):
     return target
 
 
-def write_grib(target, template, data):
+def write_grib(target, template, data, missing=-9999):
 
     message = template.copy()
 
     # replace missing values if any
-    missing = -9999
     is_missing = np.isnan(data).any()
     if is_missing:
         data[np.isnan(data)] = missing
