@@ -679,6 +679,7 @@ def get_parser() -> argparse.ArgumentParser:
     group.add_argument('-C', '--centroids', required=True, help="Cluster centroids output (GRIB)")
     group.add_argument('-R', '--representative', required=True, help="Cluster representative members output (GRIB)")
     group.add_argument('-I', '--indexes', required=True, help="Cluster indexes output (NPZ)")
+    group.add_argument('-N', '--ncomp-file', default=None, help="Number of components output (text)")
    
     return parser
 
@@ -701,6 +702,10 @@ def main(args=sys.argv[1:]):
                 npc = i + 1
                 break
         assert npc is not None
+        if args.ncomp_file is not None:
+            with open(args.ncomp_file, 'w') as f:
+                print(npc, file=f)
+
     print(f"Number of PCs used: {npc}, explained variance: {var_cum[npc-1]} %")
 
     # Read PCA data
