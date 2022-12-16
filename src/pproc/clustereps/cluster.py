@@ -302,6 +302,7 @@ def compute_partition_skl(pc, indexes, max_iter=100):
     centroids, ind_cl, var = k_means(pc.T, ncl, init=init, n_init=1, max_iter=max_iter)
 
     n_fields = np.zeros(ncl, dtype=int)
+    nfld = ind_cl.shape[0]
     for jfld in range(nfld):
         jcl = ind_cl[jfld]
         n_fields[jcl] += 1
