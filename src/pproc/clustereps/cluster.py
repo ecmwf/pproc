@@ -599,7 +599,7 @@ def write_cluster_grib(steps, ind_cl, rep_members, det_index, data, target, keys
     for key, val in keys.items():
         sample.set(key, val)
     sample.set('totalNumberOfClusters', ncl)
-    sample.set('controlForecastCluster', ind_cl[0])
+    sample.set('controlForecastCluster', ind_cl[0] + 1)
     for icl in range(ncl):
         members = np.nonzero(ind_cl == icl)[0]
 
@@ -809,7 +809,7 @@ def main(args=sys.argv[1:]):
         centroids_gp.append(step_centroids_gp)
         rep_members_gp.append(step_rep_members_gp)
 
-    np.savez_compressed(args.indexes, {'ind_cl': ind_cl})
+    np.savez_compressed(args.indexes, **{'ind_cl': np.asarray(ind_cl)})
 
     # Perform a clustering on red noise
     pc_red = np.empty_like(pc)
