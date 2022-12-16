@@ -21,7 +21,7 @@ setup(
             "pproc-pts=pproc.pts:main",
             "pproc-prob=pproc.prob:main",
             "pproc-ensms=pproc.ensms:main",
-            "pproc-ws=pproc.wind850:main",
+            "pproc-wind=pproc.wind:main",
             "pproc-spectrum=pproc.spectrum:main",
             "pproc-clustereps-pca=pproc.clustereps.pca:main",
             "pproc-clustereps-cluster=pproc.clustereps.cluster:main",

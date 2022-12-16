@@ -72,17 +72,6 @@ def fdb_request_forecast(fc_keys, paramid, date, steps, member):
     return req
 
 
-class Window:
-    def __init__(self, window_options):
-        self.start = int(window_options['start_step'])
-        self.end = int(window_options['end_step'])
-        self.step = int(window_options['step_by'])
-        self.steps = list(range(self.start+self.step, self.end+self.step, self.step))
-        window_size = self.end-self.start
-        self.suffix = f"{window_size:0>3}_{self.start:0>3}h_{self.end:0>3}h"
-        self.name = f"{self.start}-{self.end}"
-
-
 @dataclass
 class Parameter(): # change id to paramid
     def __init__(self, paramid, options, window):
@@ -181,7 +170,7 @@ def parameter_factory(parameters_options):
     for paramid, options in parameters_options.items():
         param_windows = []
         for window_options in options['windows']:
-            window = Window(window_options)
+            window = common.Window(window_options, include_init=False)
             if options['preprocessing'] in ['min', 'max', 'mean']:
                 param = Parameter(paramid, options, window)
             elif options['preprocessing'] in ['accumulated']:
