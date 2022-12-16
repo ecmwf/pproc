@@ -167,6 +167,22 @@ def fdb_read(fdb, request, mir_options=None):
     return fields.to_xarray()
 
 
+def fdb_read_to_file(fdb, request, file_out, mir_options=None):
+    """Load grib messages from FDB from request and writes to temporary file
+
+    Parameters
+    ----------
+    messages: grib messages
+    dims: tuple of strings
+
+    Returns
+    -------
+    Xarray DataArray
+        Xarray DataArray object, containing the data and the associated coordinates
+        together with a grib template in the attributes
+    """
+
+
 def fdb_write_ufunc(data, coords, fdb, template):
 
     message = template.copy()  # are we always copying the full message with the data values?

@@ -18,13 +18,14 @@ import pyfdb
 from pproc import common
 
 
-def fdb_request_component_ensemble(cfg, levelist, window, component):
+def fdb_request_component_ensemble(cfg, levelist, window):
 
     req = cfg.request.copy()
+    req.pop('stream_det')
+    req['stream'] = req.pop('stream_ens')
 
     req['levelist'] = levelist
     req['step'] = window
-    req['param'] = req.pop('param')[component]
 
     req_cf = req.copy()
     req_cf['type'] = 'cf'
@@ -37,15 +38,27 @@ def fdb_request_component_ensemble(cfg, levelist, window, component):
 
     fields = xr.concat([fields_cf, fields_pf], 'member')
 
+    out = BytesIO()
+    inp = mir.MultiDimensionalGribFileInput(target, 2)
+
+    job = mir.Job(vod2uv="1", **pp)
+    job.execute(inp, out)
+
+    out.seek(0)
+    reader = eccodes.StreamReader(out)
+    messages = list(reader)
+
     return fields
 
 
 def fdb_request_component_deterministic(cfg, levelist, window, component):
 
     req = cfg.request.copy()
+    req.pop('stream_ens')
+    req['stream'] = req.pop('stream_det')
 
     req['levelist'] = levelist
-    req['step'] = window
+    req['step'] = window.steps
     req['param'] = req.pop('param')[component]
     req['type'] = 'fc'
     fields = common.fdb_read(cfg.fdb, req)
@@ -105,7 +118,8 @@ class ConfigExtreme(common.Config):
         super().__init__(args)
 
         self.date = datetime.strptime(str(self.options['fc_date']), "%Y%m%d")
-        self.metkit_share_dir = self.options['metkit_share_dir']
+        self.root_dir = self.options['root_dir']
+        self.out_dir = os.path.join(self.root_dir, 'wind_test', self.fc_date.strftime("%Y%m%d%H"))
 
         self.fdb = pyfdb.FDB()
 
@@ -133,14 +147,14 @@ def main(args=None):
             target_mean = common.target_factory(cfg.target, out_file=mean_file, fdb=cfg.fdb)
             template_mean = template_ens
             common.write_grib(target_mean, template_mean, mean)
-            std_file = os.path.join(cfg.out_dir, f'std.grib')
+            std_file = os.path.join(cfg.out_dir, f'std_{levelist}_{window}.grib')
             target_std = common.target_factory(cfg.target, out_file=std_file, fdb=cfg.fdb)
             template_std = template_ens
             common.write_grib(target_std, template_std, std)
 
             # calculate wind speed for type=fc (deterministic)
             det, template_det = wind_norm_det(cfg, levelist, window)
-            det_file = os.path.join(cfg.out_dir, f'det.grib')
+            det_file = os.path.join(cfg.out_dir, f'det_{levelist}_{window}.grib')
             target_det = common.target_factory(cfg.target, out_file=det_file, fdb=cfg.fdb)
             template_det = template_det
             common.write_grib(target_det, template_det, det)
