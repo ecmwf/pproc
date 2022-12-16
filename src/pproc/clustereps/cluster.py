@@ -674,11 +674,11 @@ def get_parser() -> argparse.ArgumentParser:
     group = parser.add_argument_group('Clustering arguments')
 
     group.add_argument('-d', '--deterministic', default=None, help="Deterministic forecast (GRIB)")
-    group.add_argument('pca', help="PCA data (NPZ)")
-    group.add_argument('template', help="Field to extract keys from (GRIB)")
-    group.add_argument('centroids', help="Cluster centroids output (GRIB)")
-    group.add_argument('representative', help="Cluster representative members output (GRIB)")
-    group.add_argument('indexes', help="Cluster indexes output (NPZ)")
+    group.add_argument('-p', '--pca', required=True, help="PCA data (NPZ)")
+    group.add_argument('-t', '--template', required=True, help="Field to extract keys from (GRIB)")
+    group.add_argument('-C', '--centroids', required=True, help="Cluster centroids output (GRIB)")
+    group.add_argument('-R', '--representative', required=True, help="Cluster representative members output (GRIB)")
+    group.add_argument('-I', '--indexes', required=True, help="Cluster indexes output (NPZ)")
    
     return parser
 
