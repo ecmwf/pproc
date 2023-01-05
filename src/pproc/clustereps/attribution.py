@@ -312,7 +312,7 @@ def get_climatology_eof(
     pcs = np.moveaxis(pcs, -1, 0)
 
     clus_index = read_clim_file(climIndex, ndays*nyrs)
-    clus_index = clus_index[:, nClusters-1]
+    clus_index = clus_index[:, nClusters-2]
     clus_index = clus_index.reshape(ndays, nyrs)
 
     # compute cluster centroids in EOF space for the corresponding month.
