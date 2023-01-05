@@ -234,7 +234,7 @@ def read_clim_file(filePath: str, nRecords: int, dtype: str ='>f4'):
 
 
 def get_climatology_fields(fname_template: str, seasons: SeasonConfig, date: datetime):
-    """_summary_
+    """Read the climatological field associated to the date according to its season
 
     Parameters
     ----------
@@ -348,6 +348,26 @@ def attribution(
     climIndex: np.array,
     weights: np.array,    
 ):
+    """Attribute fields to climatological clusters
+
+    Parameters
+    ----------
+    fcField : np.Array (nSteps, nClusters, nPoints)
+        cluster scenarios in anomaly space
+    climEOF : np.Array (nEOF, nPoints)
+        climatological EOFs
+    climIndex : np.Array (nClusterClim, nEOF)
+        mean monthly principal components for each cluster and EOF
+    weights : np.Array (nPoints)
+        geometry-based weights
+
+    Returns
+    -------
+    np.Array (nSteps, nClusters) [int]
+        closest climatological cluster index (1-based)
+    np.Array (nSteps, nClusters)
+        RMS distance between the projected field and the closest climatological cluster
+    """
 
     # ? Check on clim eof grid? in fortran there is a "change_grid" routine but it's never triggered and ngpeof is forcelly set to ngp in frame_attribute executable
     # 3.3) project anomalies onto climatological eof
