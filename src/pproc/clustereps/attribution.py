@@ -209,14 +209,14 @@ def read_grib_cluster(inFile: str, stepStart: int, stepDelta: int, nSteps: int, 
             if imes == 0:
                 nclusters = message.get('totalNumberOfClusters')
                 npoints = message.get_size('values')
-                cents = np.empty((nclusters, nSteps, npoints)).astype('float64')
+                cents = np.empty((nSteps, nclusters, npoints)).astype('float64')
                 ens_numbers = np.empty((nclusters, nEns)).astype('int16')
                 lat = message.get('latitudes')
                 lon = message.get('longitudes')
             icl = message.get('clusterNumber') - 1
             jstep = (message.get('step') - stepStart) // stepDelta
             # get field values
-            cents[icl, jstep, :] = message.get_array('values')
+            cents[jstep, icl, :] = message.get_array('values')
             # get ensemble number in cluster
             nFcsts = message.get('numberOfForecastsInCluster')
             ens_numbers[icl, :nFcsts] = message.get_array('ensembleForecastNumbers')
