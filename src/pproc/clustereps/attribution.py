@@ -2,7 +2,7 @@ import sys
 import argparse
 from datetime import datetime, timedelta
 from calendar import isleap
-from typing import List, Tuple
+from typing import Iterator, List, Tuple
 import os
 from os.path import join as pjoin
 
@@ -56,8 +56,28 @@ class Season:
     def __len__(self) -> int:
         return len(self.months)
 
+    def __contains__(self, date: datetime) -> bool:
+        return self.start.date() <= date.date() <= self.end.date()
+
     def __repr__(self) -> str:
         return f"Season ({self.name}) - {self.start:%d/%m/%Y}: {self.end:%d/%m/%Y} ({self.ndays} days)"
+
+
+class SeasonConfig:
+    def __init__(self, months: List[Tuple[int]]):
+        self.months = months
+
+    def get_season(self, date: datetime) -> Season:
+        month = date.month
+        for start, end in self.months:
+            if start <= month <= end:
+                return Season(start, end, date.year)
+            if end < start:
+                if month <= end:
+                    return Season(start, end, date.year)
+                if start <= month:
+                    return Season(start, end, date.year + 1)
+        raise ValueError(f"No season containing month {month}")
 
 
 class AttributionConfig(Config):
@@ -95,36 +115,20 @@ class AttributionConfig(Config):
         self.date = args.date
         self.year = self.date.year
         self.month = self.date.month
-        self.fcDoy = self.date.timetuple().tm_yday
 
-        # adjust indexes to ignore leap years
-        if isleap(self.date.year) and self.dateDoy > 59:
-            self.fcDoy -= 1
-            self.monEndDoy -= 1
-            self.monStartDoy -= 1
-
-        self.stepDay = self.stepStart // 24
         self.nSteps = 1 + (self.stepEnd - self.stepStart) // self.stepDel
-        refDayIndex = self.fcDoy + self.stepDay - 1
-        if refDayIndex > 364:
-            refDayIndex = refDayIndex - 364
-        self.stepDoy = refDayIndex
+        self.stepDate = self.date + timedelta(hours=self.stepStart)
 
         # out directory
         self.output_root = args.output_root
 
         # seasons parsing
-        _seasons = []
-        for startMonth, endMonth in self._seasons:
-            _seasons.append(Season(startMonth, endMonth, self.year))
-        self.seasons = _seasons
+        seasonConfig = SeasonConfig(self._seasons)
+        self.seasons = seasonConfig
 
-        for sea in self.seasons:
-            if self.fcDoy in sea.doys:
-                self.thisSeason = sea
-                break
-        self.monStartDoy = self.thisSeason.dos(datetime(self.year, self.month, 1))
-        self.monEndDoy = self.thisSeason.dos(datetime(self.year, self.month, MONTH_DAYS[self.month - 1]))
+        self.thisSeason = seasonConfig.get_season(self.date)
+        self.monStartDoS = self.thisSeason.dos(datetime(self.year, self.month, 1))
+        self.monEndDoS = self.thisSeason.dos(datetime(self.year, self.month, MONTH_DAYS[self.month - 1]))
 
         # parse clim file if template
         for attr in ['climPCs', 'climSdv', 'climEOFs', 'climClusterIndex', 'climClusterCentroidsEOF']:
@@ -229,28 +233,26 @@ def read_clim_file(filePath: str, nRecords: int, dtype: str ='>f4'):
     return np.vstack(arr) if len(arr) > 1 else np.array(arr[0])
 
 
-def get_climatology_fields(fname_template: str, nPoints: int, seasons: List[Season], dayIndex: int):
+def get_climatology_fields(fname_template: str, seasons: SeasonConfig, date: datetime):
     """_summary_
 
     Parameters
     ----------
-    nPoints : int
-        total number of grid points
-    seasons : List[Season]
-        list of season definitions
+    fname_template : str
+        format string for the data file, {season} is replaced by the season name
+    seasons : SeasonConfig
+        season definitions
+    date : datetime
+        requested date
 
     Returns
     -------
     np.Array (nPoints)
         field array values from GRIB
     """
-    # read all seasons and merge to one year climatology file (365, npoints)
-    year_clim = np.empty((365, nPoints))
-    for sea in seasons:
-        sea_clim = read_clim_file(fname_template.format(season=sea.name), sea.ndays)
-        year_clim[sea.doys, :] = sea_clim
-    
-    return year_clim[dayIndex, :]
+    sea = seasons.get_season(date)
+    sea_clim = read_clim_file(fname_template.format(season=sea.name), sea.ndays)
+    return sea_clim[sea.dos(date), :]
 
 
 def get_climatology_eof(
@@ -280,9 +282,9 @@ def get_climatology_eof(
     nClusters : int
         Number of clusters used in the climatological clustering.
     monStart : int
-        Start of month in day of year.
+        Start of month in day of season.
     monEnd : int
-        End of month in day of year.
+        End of month in day of season.
 
     Returns
     -------
@@ -378,7 +380,7 @@ def main(sysArgs: List = sys.argv[1:]) -> int:
 
     # read climatology fields
     clim = get_climatology_fields(
-        config.climMeans, config.nPoints, config.seasons, config.stepDoy
+        config.climMeans, config.seasons, config.stepDate
     )
 
     # read climatological EOFs
@@ -389,8 +391,8 @@ def main(sysArgs: List = sys.argv[1:]) -> int:
         config.climSdv,
         config.climClusterIndex,
         config.nClusterClim,
-        config.monStartDoy,
-        config.monEndDoy,
+        config.monStartDoS,
+        config.monEndDoS,
     )
 
     for scenario, fname in clusterFiles.items():
