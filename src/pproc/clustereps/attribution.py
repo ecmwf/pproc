@@ -377,7 +377,7 @@ def attribution(
     #del eof
 
     # 3.4) Compute distance between clusters and weather regimes
-    diff = anom_proj[:, :, np.newaxis, :] - climIndex
+    diff = anom_proj[:, :, np.newaxis, :] - climIndex[np.newaxis, np.newaxis, :, :]
     rms = np.sqrt((diff ** 2).mean(axis=-1))
     min_dist = rms.min(axis=-1)
     cluster_index = rms.argmin(axis=-1) + 1
