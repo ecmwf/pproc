@@ -11,6 +11,7 @@ from scipy.io import FortranFile
 
 from eccodes import FileReader
 
+from pproc.clustereps.cluster import FileTarget
 from pproc.clustereps.utils import region_weights, lat_weights, normalise_angles
 from pproc.common import Config, default_parser
 
@@ -386,6 +387,17 @@ def attribution(
     return cluster_index, min_dist
 
 
+def write_grib_outputs(inFile, stepStart, stepDelta, anom, clusterAtt, updatedTarget, anomTarget):
+    with FileReader(inFile) as reader:
+        for message in reader:
+            icl = message.get('clusterNumber') - 1
+            jstep = (message.get('step') - stepStart) // stepDelta
+            message.set('climatologicalRegime', clusterAtt[jstep, icl])
+            updatedTarget.write(message)
+            message.set_array('values', anom[jstep, icl])
+            anomTarget.write(message)
+
+
 def main(sysArgs: List = sys.argv[1:]) -> int:
 
     parser = get_parser()
@@ -433,6 +445,23 @@ def main(sysArgs: List = sys.argv[1:]) -> int:
         anom = np.clip(anom, -config.anMax, config.anMax)
         
         cluster_att, min_dist = attribution(anom, eof, clim_ind, weights)
+
+        # write anomalies and updated cluster scenarios
+        updatedTarget = FileTarget(
+            pjoin(config.output_root, f'{config.stepStart}_{config.stepEnd}{scenario}.grib')
+        )
+        anomTarget = FileTarget(
+            pjoin(config.output_root, f'{config.stepStart}_{config.stepEnd}{scenario}_anom.grib')
+        )
+        write_grib_outputs(
+            fname,
+            config.stepStart,
+            config.stepDel,
+            anom,
+            cluster_att,
+            updatedTarget,
+            anomTarget,
+        )
 
         # write report output
         # table: attribution cluster index all fc clusters, step 
