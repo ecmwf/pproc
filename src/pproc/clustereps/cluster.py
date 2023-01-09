@@ -255,14 +255,14 @@ def compute_partition(pc, indexes, max_iter=100):
         if n_changed == 0:
             break
 
-        n_fields[:] = 0
         centroids[:, :] = 0
 
-        for jfld in range(nfld):
-            jcl = ind_cl[jfld]
-            n_fields[jcl] += 1
-            centroids[jcl, :] += pc[:, jfld]
-
+        n_fields = np.bincount(ind_cl, minlength=ncl)
+        centroids = np.apply_along_axis(
+            lambda x: np.bincount(ind_cl, weights=x, minlength=ncl),
+            1,
+            pc,
+        )
         centroids /= n_fields[:, np.newaxis]
 
     var = np.sum(np.square(pc.T - centroids[ind_cl, :]))
@@ -301,11 +301,7 @@ def compute_partition_skl(pc, indexes, max_iter=100):
     init = pc.T[indexes, :]
     centroids, ind_cl, var = k_means(pc.T, ncl, init=init, n_init=1, max_iter=max_iter)
 
-    n_fields = np.zeros(ncl, dtype=int)
-    nfld = ind_cl.shape[0]
-    for jfld in range(nfld):
-        jcl = ind_cl[jfld]
-        n_fields[jcl] += 1
+    n_fields = np.bincount(ind_cl, minlength=ncl)
 
     return ind_cl, n_fields, var, centroids
 
@@ -421,10 +417,7 @@ def full_clustering_skl(ncl, npass, pc, rand, max_iter=100, rseed=1.5, dseed=0.5
 
     centroids, ind_cl, var = k_means(pc.T, ncl, n_init=npass, max_iter=max_iter, random_state=rand)
 
-    n_fields = np.zeros(ncl, dtype=int)
-    for jfld in range(nfld):
-        jcl = ind_cl[jfld]
-        n_fields[jcl] += 1
+    n_fields = np.bincount(ind_cl, minlength=ncl)
 
     var_cen = np.sum(n_fields * np.sum(np.square(centroids), axis=1))
     var_ratio = var_cen / var
