@@ -195,30 +195,30 @@ def main(args=None):
     base_request['date'] = date.strftime("%Y%m%d")
     base_request['time'] = date.strftime("%H")+'00'
 
-    # Sort steps and create instantaneous windows
-    windows = []
-    unique_steps = []
-    for steps in config.get("steps"):
-        start_step = steps['start_step']
-        end_step = steps['end_step']
-        interval = steps['interval']
-        write = steps.get('write', False)
-        for step in range(start_step, end_step+1, interval):
-            if step not in unique_steps:
-                unique_steps.append(step)
-                if write:
-                    windows.append(InstantaneousWindow(step))
-
-    # Create windows from periods 
-    for periods in config['periods']: 
-        windows.append(Window(periods['start_step'], periods['end_step'], 
-            periods['operation']))
-
     thresholds = config["thresholds"]
     for threshold in thresholds:
 
         paramid = threshold["in_paramid"]
         
+        # Sort steps and create instantaneous windows
+        windows = []
+        unique_steps = []
+        for steps in config.get("steps"):
+            start_step = steps['start_step']
+            end_step = steps['end_step']
+            interval = steps['interval']
+            write = steps.get('write', False)
+            for step in range(start_step, end_step+1, interval):
+                if step not in unique_steps:
+                    unique_steps.append(step)
+                    if write:
+                        windows.append(InstantaneousWindow(step))
+
+        # Create windows from periods 
+        for periods in config['periods']: 
+            windows.append(Window(periods['start_step'], periods['end_step'], 
+                periods['operation']))
+
         for step in sorted(unique_steps):
             messages = read_gribs(base_request, fdb, step, paramid)
             data = np.asarray([message.get_array('values') for message in messages])
