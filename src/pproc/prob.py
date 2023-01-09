@@ -63,7 +63,6 @@ def write_instantaneous_grib(fdb, template_grib, step, threshold, data) -> None:
         "upperThreshold": threshold["value"]
     }
     grib_set(out_grib, key_values)
-    grib_check(out_grib, key_values)
 
     # Set GRIB data and write to FDB
     out_grib.set_array("values", data)
@@ -88,7 +87,6 @@ def write_period_grib(fdb, template_grib, leg, start_step, end_step, threshold, 
         key_values["unitOfTimeRange"] = 11
 
     grib_set(out_grib, key_values)
-    grib_check(out_grib, key_values)
 
     # Set GRIB data and write to FDB
     out_grib.set_array("values", data)
