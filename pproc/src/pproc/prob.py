@@ -95,9 +95,9 @@ def write_period_grib(fdb, template_grib, leg, start_step, end_step, threshold, 
     fdb.archive(out_grib.get_buffer())
 
 
-def instantaneous_probability(data: np.array, threshold) -> np.array:
+def ensemble_probability(data: np.array, threshold) -> np.array:
 
-    """ Instantaneous Probabilities:
+    """ Ensemble Probabilities:
 
         Computes the probability of a given parameter crossing a given threshold,
         by checking how many times it occurs across all ensembles.
@@ -112,6 +112,66 @@ def instantaneous_probability(data: np.array, threshold) -> np.array:
 
     return probability
 
+class Window:
+
+    """ 
+    Class for collating data for all ensembles over an step interval for computing
+    time-averaged probabilities
+    """
+
+    def __init__(self, start_step: int, end_step:int, operation: str):
+
+        """
+        :param start_step: start step of interval, not inclusive
+        :param end_step: end_step of interval, inclusive
+        :param operation: string for name of reduction operation e.g. min, max, sum
+        """
+        self.start_step = start_step
+        self.end_step = end_step
+        self.operation = operation
+        self.step_values = []
+
+    def in_window(self, step: int) -> bool:
+
+        """
+        Returns if step is in window interval
+        """
+        return step > self.start_step and step <= self.end_step
+
+    def add_step_values(self, step: int, step_values: np.array):
+
+        """
+        Adds contribution of data values for specified step by computing
+        reduction operation on existing step values and new step values - 
+        saves on memory as only the reduction operation on processed steps
+        is stored
+        """
+        if not self.in_window(step):
+            return
+        if len(self.step_values) == 0:
+            self.step_values = step_values
+        else:
+            self.step_values = numexpr.evaluate(f'{self.operation}(data, axis=0)', 
+                local_dict={"data": [self.step_values, step_values]})
+
+    def reached_end_step(self, step: int) -> bool:
+        
+        """
+        Returns if end step has been reached
+        """
+        return step == self.end_step
+
+    def size(self) -> int:
+
+        """
+        Returns size of window interval
+        """
+        return self.end_step - self.start_step
+
+class InstantaneousWindow(Window):
+
+    def __init__(self, step: int):
+        super().__init__(step - 1, step, 'min')
 
 def main(args=None):
 
@@ -137,58 +197,51 @@ def main(args=None):
     base_request['date'] = date.strftime("%Y%m%d")
     base_request['time'] = date.strftime("%H")+'00'
 
+    # Sort steps and create instantaneous windows
+    windows = []
+    unique_steps = []
+    for steps in config.get("steps"):
+        start_step = steps['start_step']
+        end_step = steps['end_step']
+        interval = steps['interval']
+        write = steps.get('write', False)
+        for step in range(start_step, end_step+1, interval):
+            if step not in unique_steps:
+                unique_steps.append(step)
+                if write:
+                    windows.append(InstantaneousWindow(step))
+
+    # Create windows from periods 
+    for periods in config['periods']: 
+        windows.append(Window(periods['start_step'], periods['end_step'], 
+            periods['operation']))
+
     thresholds = config["thresholds"]
     for threshold in thresholds:
 
         paramid = threshold["in_paramid"]
         
-        # Instantaneous probabilities
-        # - Reads all ensembles for every given step and computes the probability of a threshold being reached
-        probabilities = {}
-        for steps in config.get("steps"):
-            
-            start_step = steps['start_step']
-            end_step = steps['end_step']
-            interval = steps['interval']
-            write = steps.get('write', False)
-            
-            for step in range(start_step, end_step+1, interval):
-                if step not in probabilities:
-                    messages = read_gribs(base_request, fdb, step, paramid)
-                    data = np.asarray([message.get_array('values') for message in messages])
-                    probability = instantaneous_probability(data, threshold)
-                    probabilities[step] = probability
-                if write:
-                    print(f"Writing instantaneous probability for param {paramid} at step {step}")
-                    write_instantaneous_grib(fdb, messages[0], step, threshold, probabilities[step])
-        
-        all_steps = sorted(probabilities.keys())
-        print(f'Total number of steps available:\n {all_steps}')
+        for step in sorted(unique_steps):
+            messages = read_gribs(base_request, fdb, step, paramid)
+            data = np.asarray([message.get_array('values') for message in messages])
+                        
+            new_windows = []
+            for window in windows:
+                window.add_step_values(step, data)
 
-        # Time-averaged probabilities
-        # - Takes the instantaneous probabilities computes the time average window
-        for periods in config['periods']: 
-            start_step = periods['start_step']
-            end_step = periods['end_step']
+                # Write out probabilites if end of window has been reached
+                if window.reached_end_step(step):
+                    window_probability = ensemble_probability(window.step_values, threshold)
 
-            mean_probability = 0
-            period_size = 0
-            for i, step in enumerate(all_steps):
-                if step > start_step and step <= end_step:
-                    print(step)
-                    if i == 0:
-                        dt = step
+                    if window.size() == 1:
+                        print(f"Writing instantaneous probability for param {paramid} at step {step}")
+                        write_instantaneous_grib(fdb, messages[0], step, threshold, window_probability)
                     else:
-                        dt = step - all_steps[i-1]
-                    mean_probability += probabilities[step]/dt
-                    period_size += dt
-            mean_probability *= period_size
-
-            if period_size != (end_step - start_step):
-                raise Exception(f'Period size {period_size} does not match window from config')
-
-            print(f"Writing time-averaged {start_step}-{end_step} probability for {paramid}")
-            write_period_grib(fdb, messages[0], leg, start_step, end_step, threshold, mean_probability)
+                        print(f"Writing time-averaged {window.start_step}-{window.end_step} probability for {paramid}")
+                        write_period_grib(fdb, messages[0], leg, window.start_step, window.end_step, threshold, window_probability)
+                else:
+                    new_windows.append(window)
+            windows = new_windows
 
     fdb.flush()
 
