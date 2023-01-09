@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import numpy as np
 import numexpr
-from typing import List
+from typing import List, Dict
 import yaml
 import sys
 import argparse
@@ -23,18 +23,47 @@ def read_gribs(request, fdb, step, paramId) -> List[eccodes.GRIBMessage]:
     assert len(messages) == len(request["number"])
     return messages
 
+def grib_set(grib_file, key_values: Dict) -> None:
+
+    """
+    Sets the dictionary of keys and values into the grib file
+    """
+    for key, value in key_values.items():
+        grib_file.set(key, value)
+
+def grib_check(grib_file, key_values: Dict) -> None:
+
+    """
+    Checks the values of the specified keys have been set correctly in 
+    the grib file. Otherwise throws a ValueError.
+    """
+    for key, value in key_values.items():
+        grib_value = grib_file.get(key)
+        cast_value = value
+        if type(value) != type(grib_value):
+            # int values are returned as strings and floats as integers
+            if isinstance(value, int): 
+                cast_value = str(value)
+            elif isinstance(value, float):
+                cast_value = int(value)
+        if  grib_value != cast_value:
+            raise ValueError(f"GribCheck: key {key} expected value {cast_value}. Got {grib_value}.")
 
 def write_instantaneous_grib(fdb, template_grib, step, threshold, data) -> None:
 
     # Copy an input GRIB message and modify headers for writing probability field
     out_grib = template_grib.copy()
-    out_grib.set("step", step)
-    out_grib.set("type", "ep")
-    out_grib.set("paramId", threshold["out_paramid"])
-    out_grib.set("localDefinitionNumber", 5)
-    out_grib.set("localDecimalScaleFactor", 2)
-    out_grib.set("thresholdIndicator", 2)
-    out_grib.set("upperThreshold", threshold["value"])
+    key_values = {
+        "step": step, 
+        "type": "ep", 
+        "paramId": threshold["out_paramid"], 
+        "localDefinitionNumber": 5, 
+        "localDecimalScaleFactor": 2, 
+        "thresholdIndicator": 2, 
+        "upperThreshold": threshold["value"]
+    }
+    grib_set(out_grib, key_values)
+    grib_check(out_grib, key_values)
 
     # Set GRIB data and write to FDB
     out_grib.set_array("values", data)
@@ -45,17 +74,21 @@ def write_period_grib(fdb, template_grib, leg, start_step, end_step, threshold, 
 
     # Copy an input GRIB message and modify headers for writing probability field
     out_grib = template_grib.copy()
-    out_grib.set("stepRange", f"{start_step}-{end_step}")
-    out_grib.set("type", "ep")
-    out_grib.set("paramId", threshold["out_paramid"])
-    out_grib.set("stepType", "max")
-    out_grib.set("localDefinitionNumber", 5)
-    out_grib.set("localDecimalScaleFactor", 2)
-    out_grib.set("thresholdIndicator", 2)
-    out_grib.set("upperThreshold", threshold["value"])
-
+    key_values = {
+        "type": "ep", 
+        "paramId": threshold["out_paramid"],
+        "localDefinitionNumber": 5,
+        "localDecimalScaleFactor": 2, 
+        "thresholdIndicator": 2,
+        "upperThreshold": threshold["value"],
+        "stepType": "max",
+        "stepRange": f"{start_step}-{end_step}", 
+    }
     if leg == 2:
-        out_grib.set("unitOfTimeRange", 11)
+        key_values["unitOfTimeRange"] = 11
+
+    grib_set(out_grib, key_values)
+    grib_check(out_grib, key_values)
 
     # Set GRIB data and write to FDB
     out_grib.set_array("values", data)
@@ -134,7 +167,7 @@ def main(args=None):
 
         # Time-averaged probabilities
         # - Takes the instantaneous probabilities computes the time average window
-        for periods in config['periods']:
+        for periods in config['periods']: 
             start_step = periods['start_step']
             end_step = periods['end_step']
 
