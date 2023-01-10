@@ -1,6 +1,8 @@
 
-import sys
 import argparse
+import concurrent.futures as fut
+import functools
+import sys
 
 import numpy as np
 import numpy.random as npr
@@ -553,6 +555,116 @@ def gauss_series_np(n, avg, sd, ac, ndis, rand):
     return xs
 
 
+def red_noise_cluster_iteration(ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand):
+    """Perform clustering on a red noise sample
+
+    Parameters
+    ----------
+    ncl_max: int
+        Maximum number of clusters
+    npass: int
+        Number of clustering passes
+    npc: int
+        Number of generated principal components
+    nfld: int
+        Dimension of the sample space
+    pc_sd: numpy array (npc)
+        Expected standard deviation of the PCs
+    pc_ac: numpy array (npc)
+        Expected autocorrelation of the PCs
+    rand: `numpy.random.RandomState`
+        Random number generator
+
+    Returns
+    -------
+    numpy array (ncl_max - 1)
+        Variance ratio of the partitions, index is number of clusters - 1
+    """
+    ndis = 1
+    pc_red = np.empty((npc, nfld))
+    for j in range(npc):
+        ts = gauss_series_np(nfld, 0., pc_sd[j], pc_ac[j], ndis, rand)
+        tsm = np.mean(ts)
+        pc_red[j, :] = ts - tsm
+
+    noise_var = np.zeros(ncl_max - 1)
+    for ncl in range(2, ncl_max + 1):
+        _, _, var, _, _ = full_clustering_skl(ncl, npass, pc_red, rand)
+        noise_var[ncl-2] = var[2]
+    return noise_var
+
+
+def red_noise_cluster(n_samples, ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand):
+    """Perform clustering on red noise samples
+
+    Parameters
+    ----------
+    n_samples: int
+        Number of red noise samples to generate
+    ncl_max: int
+        Maximum number of clusters
+    npass: int
+        Number of clustering passes
+    npc: int
+        Number of generated principal components
+    nfld: int
+        Dimension of the sample space
+    pc_sd: numpy array (npc)
+        Expected standard deviation of the PCs
+    pc_ac: numpy array (npc)
+        Expected autocorrelation of the PCs
+    rand: `numpy.random.RandomState`
+        Random number generator
+
+    Returns
+    -------
+    numpy array (n_samples, ncl_max - 1)
+        Variance ratio of the partitions, second index is number of clusters - 1
+    """
+    noise_var = np.zeros((n_samples, ncl_max - 1))
+    for i in range(n_samples):
+        print(f"DBG: Red noise sample {i}")
+        noise_var[i, :] = red_noise_cluster_iteration(ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand)
+    return noise_var
+
+
+def red_noise_cluster_par(n_par, n_samples, ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand):
+    """Perform clustering on red noise samples -- parallel implementation
+
+    Parameters
+    ----------
+    n_par: int
+        Number of parallel processes
+    n_samples: int
+        Number of red noise samples to generate
+    ncl_max: int
+        Maximum number of clusters
+    npass: int
+        Number of clustering passes
+    npc: int
+        Number of generated principal components
+    nfld: int
+        Dimension of the sample space
+    pc_sd: numpy array (npc)
+        Expected standard deviation of the PCs
+    pc_ac: numpy array (npc)
+        Expected autocorrelation of the PCs
+    rand: `numpy.random.RandomState`
+        Random number generator
+
+    Returns
+    -------
+    numpy array (n_samples, ncl_max - 1)
+        Variance ratio of the partitions, second index is number of clusters - 1
+    """
+    sample = functools.partial(red_noise_cluster_iteration, ncl_max, npass, npc, nfld, pc_sd, pc_ac)
+    seed = rand.randint((1 << 32) - n_samples)
+    with fut.ProcessPoolExecutor(max_workers=n_par) as executor:
+        rands = (npr.RandomState(seed + i) for i in range(n_samples))
+        noise_var = list(executor.map(sample, rands))
+    return np.array(noise_var)
+
+
 class FileTarget:
     def __init__(self, path, mode="wb"):
         self.file = open(path, mode)
@@ -650,6 +762,8 @@ class ClusterConfig(Config):
         self.step_start = self.options['step_start']
         self.step_end = self.options['step_end']
         self.step_del = self.options['step_del']
+        # Parallel red-noise sampling
+        self.n_par = self.options.get('n_par', 1)
 
 
 def get_parser() -> argparse.ArgumentParser:
@@ -810,19 +924,10 @@ def main(args=sys.argv[1:]):
     np.savez_compressed(args.indexes, **{'ind_cl': np.asarray(ind_cl)})
 
     # Perform a clustering on red noise
-    pc_red = np.empty_like(pc)
-    noise_var = np.zeros((config.nrsamples, config.ncl_max - 1))
-    for i in range(config.nrsamples):
-        for j in range(npc):
-            ts = gauss_series_np(nfld, 0., pc_sd[j], pc_ac[j], ndis, rand_np)
-            tsm = np.mean(ts)
-            pc_red[j, :] = ts - tsm
-
-        print(f"DBG: Red noise sample {i}")
-        for ncl in range(2, config.ncl_max + 1):
-            _, _, var, _, _ = full_clustering_skl(ncl, config.npass, pc_red, rand_np)
-            noise_var[i, ncl-2] = var[2]
-            print(f"DBG: Partition: {ncl}, variance: {var[1]}")
+    if config.n_par == 1:
+        noise_var = red_noise_cluster(config.nrsamples, config.ncl_max, config.npass, npc, nfld, pc_sd, pc_ac, rand_np)
+    else:
+        noise_var = red_noise_cluster_par(config.n_par, config.nrsamples, config.ncl_max, config.npass, npc, nfld, pc_sd, pc_ac, rand_np)
 
     # Compute significance
     sig = np.zeros(config.ncl_max - 1)
