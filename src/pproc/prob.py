@@ -169,6 +169,10 @@ class Window:
 
 class InstantaneousWindow(Window):
 
+    """
+    Window of size 1, consisting of a single step
+    """
+
     def __init__(self, step: int):
         super().__init__(step - 1, step, 'min')
 
