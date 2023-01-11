@@ -2,7 +2,7 @@ import sys
 import argparse
 from datetime import datetime, timedelta
 from calendar import isleap
-from typing import List, Tuple
+from typing import Iterator, List, Tuple
 import os
 from os.path import join as pjoin
 
@@ -11,6 +11,7 @@ from scipy.io import FortranFile
 
 from eccodes import FileReader
 
+from pproc.clustereps.cluster import FileTarget
 from pproc.clustereps.utils import region_weights, lat_weights, normalise_angles
 from pproc.common import Config, default_parser
 
@@ -56,8 +57,28 @@ class Season:
     def __len__(self) -> int:
         return len(self.months)
 
+    def __contains__(self, date: datetime) -> bool:
+        return self.start.date() <= date.date() <= self.end.date()
+
     def __repr__(self) -> str:
         return f"Season ({self.name}) - {self.start:%d/%m/%Y}: {self.end:%d/%m/%Y} ({self.ndays} days)"
+
+
+class SeasonConfig:
+    def __init__(self, months: List[Tuple[int]]):
+        self.months = months
+
+    def get_season(self, date: datetime) -> Season:
+        month = date.month
+        for start, end in self.months:
+            if start <= month <= end:
+                return Season(start, end, date.year)
+            if end < start:
+                if month <= end:
+                    return Season(start, end, date.year)
+                if start <= month:
+                    return Season(start, end, date.year + 1)
+        raise ValueError(f"No season containing month {month}")
 
 
 class AttributionConfig(Config):
@@ -95,36 +116,20 @@ class AttributionConfig(Config):
         self.date = args.date
         self.year = self.date.year
         self.month = self.date.month
-        self.fcDoy = self.date.timetuple().tm_yday
 
-        # adjust indexes to ignore leap years
-        if isleap(self.date.year) and self.dateDoy > 59:
-            self.fcDoy -= 1
-            self.monEndDoy -= 1
-            self.monStartDoy -= 1
-
-        self.stepDay = self.stepStart // 24
         self.nSteps = 1 + (self.stepEnd - self.stepStart) // self.stepDel
-        refDayIndex = self.fcDoy + self.stepDay - 1
-        if refDayIndex > 364:
-            refDayIndex = refDayIndex - 364
-        self.stepDoy = refDayIndex
+        self.stepDate = self.date + timedelta(hours=self.stepStart)
 
         # out directory
         self.output_root = args.output_root
 
         # seasons parsing
-        _seasons = []
-        for startMonth, endMonth in self._seasons:
-            _seasons.append(Season(startMonth, endMonth, self.year))
-        self.seasons = _seasons
+        seasonConfig = SeasonConfig(self._seasons)
+        self.seasons = seasonConfig
 
-        for sea in self.seasons:
-            if self.fcDoy in sea.doys:
-                self.thisSeason = sea
-                break
-        self.monStartDoy = self.thisSeason.dos(datetime(self.year, self.month, 1))
-        self.monEndDoy = self.thisSeason.dos(datetime(self.year, self.month, MONTH_DAYS[self.month - 1]))
+        self.thisSeason = seasonConfig.get_season(self.date)
+        self.monStartDoS = self.thisSeason.dos(datetime(self.year, self.month, 1))
+        self.monEndDoS = self.thisSeason.dos(datetime(self.year, self.month, MONTH_DAYS[self.month - 1]))
 
         # parse clim file if template
         for attr in ['climPCs', 'climSdv', 'climEOFs', 'climClusterIndex', 'climClusterCentroidsEOF']:
@@ -205,14 +210,14 @@ def read_grib_cluster(inFile: str, stepStart: int, stepDelta: int, nSteps: int, 
             if imes == 0:
                 nclusters = message.get('totalNumberOfClusters')
                 npoints = message.get_size('values')
-                cents = np.empty((nclusters, nSteps, npoints)).astype('float64')
+                cents = np.empty((nSteps, nclusters, npoints)).astype('float64')
                 ens_numbers = np.empty((nclusters, nEns)).astype('int16')
                 lat = message.get('latitudes')
                 lon = message.get('longitudes')
             icl = message.get('clusterNumber') - 1
             jstep = (message.get('step') - stepStart) // stepDelta
             # get field values
-            cents[icl, jstep, :] = message.get_array('values')
+            cents[jstep, icl, :] = message.get_array('values')
             # get ensemble number in cluster
             nFcsts = message.get('numberOfForecastsInCluster')
             ens_numbers[icl, :nFcsts] = message.get_array('ensembleForecastNumbers')
@@ -229,28 +234,26 @@ def read_clim_file(filePath: str, nRecords: int, dtype: str ='>f4'):
     return np.vstack(arr) if len(arr) > 1 else np.array(arr[0])
 
 
-def get_climatology_fields(fname_template: str, nPoints: int, seasons: List[Season], dayIndex: int):
-    """_summary_
+def get_climatology_fields(fname_template: str, seasons: SeasonConfig, date: datetime):
+    """Read the climatological field associated to the date according to its season
 
     Parameters
     ----------
-    nPoints : int
-        total number of grid points
-    seasons : List[Season]
-        list of season definitions
+    fname_template : str
+        format string for the data file, {season} is replaced by the season name
+    seasons : SeasonConfig
+        season definitions
+    date : datetime
+        requested date
 
     Returns
     -------
     np.Array (nPoints)
         field array values from GRIB
     """
-    # read all seasons and merge to one year climatology file (365, npoints)
-    year_clim = np.empty((365, nPoints))
-    for sea in seasons:
-        sea_clim = read_clim_file(fname_template.format(season=sea.name), sea.ndays)
-        year_clim[sea.doys, :] = sea_clim
-    
-    return year_clim[dayIndex, :]
+    sea = seasons.get_season(date)
+    sea_clim = read_clim_file(fname_template.format(season=sea.name), sea.ndays)
+    return sea_clim[sea.dos(date), :]
 
 
 def get_climatology_eof(
@@ -280,15 +283,15 @@ def get_climatology_eof(
     nClusters : int
         Number of clusters used in the climatological clustering.
     monStart : int
-        Start of month in day of year.
+        Start of month in day of season.
     monEnd : int
-        End of month in day of year.
+        End of month in day of season.
 
     Returns
     -------
     np.Array (nEOF, nPoints)
         Climatological EOFs
-    np.ndarray (nClusterClim, nEOF)
+    np.ndarray (nClusters, nEOF)
         Mean monthly principal components for each cluster and EOF
     """
 
@@ -297,11 +300,12 @@ def get_climatology_eof(
 
     #assert ndays == season.ndays, "climatology file must match season definition"
 
-    eof = read_clim_file(climEOFs, neof)
+    eof = read_clim_file(climEOFs, neof+1)
+    eof = eof[1:, :]  # drop mask
 
     pcs = read_clim_file(climPCs, nyrs*ndays)
     pcs = pcs[:, :neof]
-    pcs = pcs.reshape(ndays, nyrs, neof)
+    pcs = pcs.reshape(nyrs, ndays, neof)
 
     sdv = read_clim_file(climSdv, 1)[:neof]
 
@@ -310,12 +314,12 @@ def get_climatology_eof(
     pcs = np.moveaxis(pcs, -1, 0)
 
     clus_index = read_clim_file(climIndex, ndays*nyrs)
-    clus_index = clus_index[:, nClusters-1]
-    clus_index = clus_index.reshape(ndays, nyrs)
+    clus_index = clus_index[:, nClusters-2]
+    clus_index = clus_index.reshape(nyrs, ndays)
 
     # compute cluster centroids in EOF space for the corresponding month.
     # ? output?
-    month_ind = (clus_index[monStart: monEnd + 1, :]).flatten().astype(np.int16)
+    month_ind = (clus_index[:, monStart: monEnd + 1]).flatten().astype(np.int16)
     clcases = np.bincount(
         month_ind,
         weights=np.ones_like(month_ind).astype(np.int8),
@@ -324,7 +328,7 @@ def get_climatology_eof(
     clcases = clcases[1:]  # drop cluster 0
 
     monDays = monEnd - monStart + 1
-    mon_pcs = pcs[:, monStart: monEnd + 1, :]
+    mon_pcs = pcs[:, :, monStart: monEnd + 1]
     mon_pcs = mon_pcs.reshape(neof, monDays*nyrs)
     mon_pcs = np.apply_along_axis(
         lambda x: np.bincount(month_ind, weights=x, minlength=nClusters),
@@ -346,6 +350,26 @@ def attribution(
     climIndex: np.array,
     weights: np.array,    
 ):
+    """Attribute fields to climatological clusters
+
+    Parameters
+    ----------
+    fcField : np.Array (nSteps, nClusters, nPoints)
+        cluster scenarios in anomaly space
+    climEOF : np.Array (nEOF, nPoints)
+        climatological EOFs
+    climIndex : np.Array (nClusterClim, nEOF)
+        mean monthly principal components for each cluster and EOF
+    weights : np.Array (nPoints)
+        geometry-based weights
+
+    Returns
+    -------
+    np.Array (nSteps, nClusters) [int]
+        closest climatological cluster index (1-based)
+    np.Array (nSteps, nClusters)
+        RMS distance between the projected field and the closest climatological cluster
+    """
 
     # ? Check on clim eof grid? in fortran there is a "change_grid" routine but it's never triggered and ngpeof is forcelly set to ngp in frame_attribute executable
     # 3.3) project anomalies onto climatological eof
@@ -355,12 +379,23 @@ def attribution(
     #del eof
 
     # 3.4) Compute distance between clusters and weather regimes
-    diff = anom_proj[:, :, np.newaxis, :] - climIndex
+    diff = anom_proj[:, :, np.newaxis, :] - climIndex[np.newaxis, np.newaxis, :, :]
     rms = np.sqrt((diff ** 2).mean(axis=-1))
     min_dist = rms.min(axis=-1)
     cluster_index = rms.argmin(axis=-1) + 1
 
     return cluster_index, min_dist
+
+
+def write_grib_outputs(inFile, stepStart, stepDelta, anom, clusterAtt, updatedTarget, anomTarget):
+    with FileReader(inFile) as reader:
+        for message in reader:
+            icl = message.get('clusterNumber') - 1
+            jstep = (message.get('step') - stepStart) // stepDelta
+            message.set('climatologicalRegime', clusterAtt[jstep, icl])
+            updatedTarget.write(message)
+            message.set_array('values', anom[jstep, icl])
+            anomTarget.write(message)
 
 
 def main(sysArgs: List = sys.argv[1:]) -> int:
@@ -378,7 +413,7 @@ def main(sysArgs: List = sys.argv[1:]) -> int:
 
     # read climatology fields
     clim = get_climatology_fields(
-        config.climMeans, config.nPoints, config.seasons, config.stepDoy
+        config.climMeans, config.seasons, config.stepDate
     )
 
     # read climatological EOFs
@@ -389,8 +424,8 @@ def main(sysArgs: List = sys.argv[1:]) -> int:
         config.climSdv,
         config.climClusterIndex,
         config.nClusterClim,
-        config.monStartDoy,
-        config.monEndDoy,
+        config.monStartDoS,
+        config.monEndDoS,
     )
 
     for scenario, fname in clusterFiles.items():
@@ -410,6 +445,23 @@ def main(sysArgs: List = sys.argv[1:]) -> int:
         anom = np.clip(anom, -config.anMax, config.anMax)
         
         cluster_att, min_dist = attribution(anom, eof, clim_ind, weights)
+
+        # write anomalies and updated cluster scenarios
+        updatedTarget = FileTarget(
+            pjoin(config.output_root, f'{config.stepStart}_{config.stepEnd}{scenario}.grib')
+        )
+        anomTarget = FileTarget(
+            pjoin(config.output_root, f'{config.stepStart}_{config.stepEnd}{scenario}_anom.grib')
+        )
+        write_grib_outputs(
+            fname,
+            config.stepStart,
+            config.stepDel,
+            anom,
+            cluster_att,
+            updatedTarget,
+            anomTarget,
+        )
 
         # write report output
         # table: attribution cluster index all fc clusters, step 

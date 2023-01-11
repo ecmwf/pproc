@@ -302,6 +302,7 @@ def compute_partition_skl(pc, indexes, max_iter=100):
     centroids, ind_cl, var = k_means(pc.T, ncl, init=init, n_init=1, max_iter=max_iter)
 
     n_fields = np.zeros(ncl, dtype=int)
+    nfld = ind_cl.shape[0]
     for jfld in range(nfld):
         jcl = ind_cl[jfld]
         n_fields[jcl] += 1
@@ -598,7 +599,7 @@ def write_cluster_grib(steps, ind_cl, rep_members, det_index, data, target, keys
     for key, val in keys.items():
         sample.set(key, val)
     sample.set('totalNumberOfClusters', ncl)
-    sample.set('controlForecastCluster', ind_cl[0])
+    sample.set('controlForecastCluster', ind_cl[0] + 1)
     for icl in range(ncl):
         members = np.nonzero(ind_cl == icl)[0]
 
@@ -673,11 +674,12 @@ def get_parser() -> argparse.ArgumentParser:
     group = parser.add_argument_group('Clustering arguments')
 
     group.add_argument('-d', '--deterministic', default=None, help="Deterministic forecast (GRIB)")
-    group.add_argument('pca', help="PCA data (NPZ)")
-    group.add_argument('template', help="Field to extract keys from (GRIB)")
-    group.add_argument('centroids', help="Cluster centroids output (GRIB)")
-    group.add_argument('representative', help="Cluster representative members output (GRIB)")
-    group.add_argument('indexes', help="Cluster indexes output (NPZ)")
+    group.add_argument('-p', '--pca', required=True, help="PCA data (NPZ)")
+    group.add_argument('-t', '--template', required=True, help="Field to extract keys from (GRIB)")
+    group.add_argument('-C', '--centroids', required=True, help="Cluster centroids output (GRIB)")
+    group.add_argument('-R', '--representative', required=True, help="Cluster representative members output (GRIB)")
+    group.add_argument('-I', '--indexes', required=True, help="Cluster indexes output (NPZ)")
+    group.add_argument('-N', '--ncomp-file', default=None, help="Number of components output (text)")
    
     return parser
 
@@ -700,6 +702,10 @@ def main(args=sys.argv[1:]):
                 npc = i + 1
                 break
         assert npc is not None
+        if args.ncomp_file is not None:
+            with open(args.ncomp_file, 'w') as f:
+                print(npc, file=f)
+
     print(f"Number of PCs used: {npc}, explained variance: {var_cum[npc-1]} %")
 
     # Read PCA data
@@ -808,7 +814,7 @@ def main(args=sys.argv[1:]):
         centroids_gp.append(step_centroids_gp)
         rep_members_gp.append(step_rep_members_gp)
 
-    np.savez_compressed(args.indexes, {'ind_cl': ind_cl})
+    np.savez_compressed(args.indexes, **{'ind_cl': np.asarray(ind_cl)})
 
     # Perform a clustering on red noise
     pc_red = np.empty_like(pc)

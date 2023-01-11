@@ -132,6 +132,30 @@ def ensemble_pca(ens_anom, ncomp, weights=None):
     return eof, pcens.reshape((ncomp,) + orig_sh), comp_ev, sum_ev
 
 
+class PCAConfig(Config):
+    def __init__(self, args):
+        super().__init__(args)
+
+        # Number of members (51)
+        self.num_members = self.options.get('num_members', 51)
+        # Step range
+        self.step_start = self.options['step_start']
+        self.step_end = self.options['step_end']
+        self.step_del = self.options['step_del']
+        # Bounding box
+        self.lat_n = self.options['lat_n']
+        self.lat_s = self.options['lat_s']
+        self.lon_w = self.options['lon_w']
+        self.lon_e = self.options['lon_e']
+        self.bbox = (self.lat_n, self.lat_s, self.lon_w, self.lon_e)
+        # Normalisation factor (1)
+        self.factor = self.options.get('factor', None)
+        # Maximum absolute value of anomalies
+        self.clip = self.options['max_anom']
+        # Number of components to extract
+        self.ncomp = self.options['num_components']
+
+
 def get_parser() -> argparse.ArgumentParser:
     """initialize command line application argument parser.
 
@@ -146,16 +170,10 @@ def get_parser() -> argparse.ArgumentParser:
 
     group = parser.add_argument_group('Principal components analysis arguments')
 
-    group.add_argument('-N', '--num-members', type=int, default=51, help="Number of ensemble members")
-    group.add_argument('-S', '--steps', nargs=3, type=int, required=True, help="Steps (start, stop, delta)")
-    group.add_argument('-b', '--bbox', nargs=4, type=float, default=None, help="Bounding box (N, S, W, E)")
-    group.add_argument('-f', '--factor', default=None, type=float, help="Apply this conversion factor to the input fields")
     group.add_argument('-m', '--mask', default=None, help="Mask file")
     group.add_argument('--spread', required=True, help="Ensemble spread (GRIB)")
-    group.add_argument('--clip', default=None, type=float, help="Clip anomalies to this absolute value")
-    group.add_argument('num_components', type=int, help="Number of components to extract")
-    group.add_argument('ensemble', help="Ensemble data (GRIB)")
-    group.add_argument('output', help="Output file (NPZ)")
+    group.add_argument('-e', '--ensemble', required=True, help="Ensemble data (GRIB)")
+    group.add_argument('-o', '--output', required=True, help="Output file (NPZ)")
    
     return parser
 
@@ -163,8 +181,8 @@ def get_parser() -> argparse.ArgumentParser:
 def main(cmdArgs=sys.argv[1:]):
 
     parser = get_parser()
-    
     args = parser.parse_args(cmdArgs)
+    config = PCAConfig(args)
 
     # Read mask
     mask = None
@@ -173,9 +191,9 @@ def main(cmdArgs=sys.argv[1:]):
         raise NotImplementedError()
 
     # Read ensemble
-    nexp = args.num_members
-    monthly = (args.steps[1] - args.steps[0] > 120) or (args.steps[1] == args.steps[0])
-    steps = gen_steps(args.steps[0], args.steps[1], args.steps[2], monthly=monthly)
+    nexp = config.num_members
+    monthly = (config.step_end - config.step_start > 120) or (config.step_end == config.step_start)
+    steps = gen_steps(config.step_start, config.step_end, config.step_del, monthly=monthly)
     inv_steps = {s: i for i, s in enumerate(steps)}
     nstep = len(steps)
     with eccodes.FileReader(args.ensemble) as reader:
@@ -193,8 +211,8 @@ def main(cmdArgs=sys.argv[1:]):
                 ens[iexp, istep, :] = message.get_array('values')
 
     # Mask off region
-    if args.bbox is not None:
-        lat_n, lat_s, lon_w, lon_e = normalise_angles(args.bbox)
+    if config.bbox is not None:
+        lat_n, lat_s, lon_w, lon_e = normalise_angles(config.bbox)
         mask = region_weights(lat_n, lat_s, lon_w, lon_e, lat, lon, mask)
 
     # Weight by latitude
@@ -207,19 +225,18 @@ def main(cmdArgs=sys.argv[1:]):
         ens_spread = mean_spread(message.get_array('values'), weights=weights)
 
     # Normalise ensemble fields
-    if args.factor is not None:
-        ens *= args.factor
+    if config.factor is not None:
+        ens *= config.factor
 
     # Compute ensemble mean
     ens_mean = ensemble_mean(ens)
 
     # Compute ensemble anomalies
-    ens_anom = ensemble_anomalies(ens, ens_mean=ens_mean, clip=args.clip)
+    ens_anom = ensemble_anomalies(ens, ens_mean=ens_mean, clip=config.clip)
     del ens
 
     # Compute EOF
-    ncomp = args.num_components
-    eof, pc, var, tot_var = ensemble_pca(ens_anom, ncomp, weights)
+    eof, pc, var, tot_var = ensemble_pca(ens_anom, config.ncomp, weights)
 
     # Compute principal component info
     nfld = nexp
