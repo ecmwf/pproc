@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 import numpy as np
 import numexpr
-from typing import List, Dict
+from typing import List
 import yaml
 import sys
 import argparse
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import pyfdb
 import eccodes
+from common import Window
 
 
 def read_gribs(request, fdb, step, paramId) -> List[eccodes.GRIBMessage]:
@@ -22,33 +23,6 @@ def read_gribs(request, fdb, step, paramId) -> List[eccodes.GRIBMessage]:
     messages = list(eccodes_reader)
     assert len(messages) == len(request["number"])
     return messages
-
-
-def grib_set(grib_file, key_values: Dict) -> None:
-    """
-    Sets the dictionary of keys and values into the grib file
-    """
-    for key, value in key_values.items():
-        grib_file.set(key, value)
-
-
-def grib_check(grib_file, key_values: Dict) -> None:
-    """
-    Checks the values of the specified keys have been set correctly in
-    the grib file. Otherwise throws a ValueError.
-    """
-    for key, value in key_values.items():
-        grib_value = grib_file.get(key)
-        cast_value = value
-        if not isinstance(value, type(grib_value)):
-            # int values are returned as strings and floats as integers
-            if isinstance(value, int):
-                cast_value = str(value)
-            elif isinstance(value, float):
-                cast_value = int(value)
-        if grib_value != cast_value:
-            raise ValueError(
-                f"GribCheck: key {key} expected value {cast_value}. Got {grib_value}.")
 
 
 def write_instantaneous_grib(fdb, template_grib, step, threshold, data) -> None:
@@ -65,7 +39,7 @@ def write_instantaneous_grib(fdb, template_grib, step, threshold, data) -> None:
         "thresholdIndicator": 2,
         "upperThreshold": threshold["value"]
     }
-    grib_set(out_grib, key_values)
+    out_grib.set(key_values, check_values=True)
 
     # Set GRIB data and write to FDB
     out_grib.set_array("values", data)
@@ -90,7 +64,7 @@ def write_period_grib(fdb, template_grib, leg, start_step, end_step, threshold, 
     if leg == 2:
         key_values["unitOfTimeRange"] = 11
 
-    grib_set(out_grib, key_values)
+    out_grib.set(key_values, check_values=True)
 
     # Set GRIB data and write to FDB
     out_grib.set_array("values", data)
@@ -114,67 +88,6 @@ def ensemble_probability(data: np.array, threshold) -> np.array:
 
     return probability
 
-
-class Window:
-
-    """
-    Class for collating data for all ensembles over an step interval for computing
-    time-averaged probabilities
-    """
-
-    def __init__(self, start_step: int, end_step: int, operation: str):
-        """
-        :param start_step: start step of interval, not inclusive
-        :param end_step: end_step of interval, inclusive
-        :param operation: string for name of reduction operation e.g. min, max, sum
-        """
-        self.start_step = start_step
-        self.end_step = end_step
-        self.operation = operation
-        self.step_values = []
-
-    def in_window(self, step: int) -> bool:
-        """
-        Returns if step is in window interval
-        """
-        return step > self.start_step and step <= self.end_step
-
-    def add_step_values(self, step: int, step_values: np.array):
-        """
-        Adds contribution of data values for specified step, if inside window, by computing
-        reduction operation on existing step values and new step values -
-        saves on memory as only the reduction operation on processed steps
-        is stored
-        """
-        if not self.in_window(step):
-            return
-        if len(self.step_values) == 0:
-            self.step_values = step_values
-        else:
-            self.step_values = numexpr.evaluate(f'{self.operation}(data, axis=0)',
-                                                local_dict={"data": [self.step_values, step_values]})
-
-    def reached_end_step(self, step: int) -> bool:
-        """
-        Returns if end step has been reached
-        """
-        return step == self.end_step
-
-    def size(self) -> int:
-        """
-        Returns size of window interval
-        """
-        return self.end_step - self.start_step
-
-
-class InstantaneousWindow(Window):
-
-    """
-    Window of size 1, consisting of a single step
-    """
-
-    def __init__(self, step: int):
-        super().__init__(step - 1, step, 'min')
 
 
 def main(args=None):
@@ -218,12 +131,16 @@ def main(args=None):
                 if step not in unique_steps:
                     unique_steps.append(step)
                     if write:
-                        windows.append(InstantaneousWindow(step))
+                        windows.append(Window({'range': [step, step]}, 
+                include_init=True))
 
         # Create windows from periods
         for periods in config['periods']:
-            windows.append(Window(periods['start_step'], periods['end_step'],
-                                  periods['operation']))
+            new_window = Window({'range': [periods['start_step'], periods['end_step']]}, 
+                include_init=False)
+            new_window.set_reduction_operation('min')
+            windows.append(new_window)
+                            
 
         for step in sorted(unique_steps):
             messages = read_gribs(base_request, fdb, step, paramid)
@@ -239,13 +156,13 @@ def main(args=None):
                     window_probability = ensemble_probability(
                         window.step_values, threshold)
 
-                    if window.size() == 1:
+                    if window.size() == 0:
                         print(f"Writing instantaneous probability for param {paramid} at step {step}")
                         write_instantaneous_grib(fdb, messages[0], step, threshold, window_probability)
                     else:
-                        print(f"Writing time-averaged {window.start_step}-{window.end_step} probability for {paramid}")
+                        print(f"Writing time-averaged {window.name} probability for {paramid}")
                         write_period_grib(
-                            fdb, messages[0], leg, window.start_step, window.end_step, threshold, window_probability)
+                            fdb, messages[0], leg, window.start, window.end, threshold, window_probability)
                 else:
                     new_windows.append(window)
             windows = new_windows
