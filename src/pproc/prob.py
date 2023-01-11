@@ -81,7 +81,7 @@ def ensemble_probability(data: np.array, threshold) -> np.array:
     """
 
     # Read threshold configuration and compute probability
-    comparison = threshold['comparison']
+    comparison = threshold["comparison"]
     comp = numexpr.evaluate("data " + comparison + str(threshold["value"]), local_dict={"data": data})
     probability = np.where(comp, 100, 0).mean(axis=0)
 

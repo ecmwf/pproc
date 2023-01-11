@@ -3,7 +3,7 @@ import numpy as np
 
 from common import Window, DiffWindow, SimpleOpWindow, WeightedSumWindow
 
-def create_window(start_step: int, end_step: int, window_operation: str) -> Window:
+def create_window(window_options, window_operation: str) -> Window:
     """
     Create window for specified window operations: min, max, sum, weightedsum and 
     diff. 
@@ -13,7 +13,6 @@ def create_window(start_step: int, end_step: int, window_operation: str) -> Wind
     :return: instance of the derived Window class for window operation
     :raises: ValueError for unsupported window operation string
     """
-    window_options = {'range': [start_step, end_step]}
     if window_operation == 'diff':
         return DiffWindow(window_options)
     elif window_operation in ['min', 'max', 'sum']:
@@ -28,8 +27,14 @@ class WindowManager:
     Class creating and managing active windows
     """
     def __init__(self, parameter):
-        # Sort steps and create instantaneous windows by reading in the config 
-        # for specified parameter
+        """
+        Sort steps and create windows by reading in the config for specified parameter 
+
+        :param parameter: config
+        :raises: ValueError if creation of a window fails on deriving the window operation from
+        the specified threshold comparison
+        :raises: RuntimeError if no window operation was provided, or could be derived 
+        """
         self.windows = []
         self.unique_steps = []
         for steps in parameter["steps"]:
@@ -43,24 +48,27 @@ class WindowManager:
                     if write:
                         self.windows.append(Window({'range': [step, step]}, 
                 include_init=True))
-
-        # Create windows from periods
-        for periods in parameter['periods']:
-            if 'window_operation' in parameter:
-                window_operation = parameter['window_operation']
-            else:
-                # Derive from threshold comparison parameter
-                threshold_comparison = parameter['thresholds'][0]['comparison']
-                if '<' in threshold_comparison:
-                    window_operation = 'min'
-                elif '>' in threshold_comparison:
-                    window_operation = 'max'
-                else:
-                    raise ValueError(f'No window_operation specified in config and unsupported derivation from \
-                        threshold_comparison {threshold_comparison}')
-            self.windows.append(create_window(periods['start_step'], periods['end_step'], window_operation))
-
         self.unique_steps = sorted(self.unique_steps)
+
+        # Get window operation, or if not provided in config, derive from threshold
+        if 'window_operation' in parameter:
+            window_operation = parameter['window_operation']
+        elif 'thresholds' in parameter:
+            # Derive from threshold comparison parameter
+            threshold_comparison = parameter['thresholds'][0]['comparison']
+            if '<' in threshold_comparison:
+                window_operation = 'min'
+            elif '>' in threshold_comparison:
+                window_operation = 'max'
+            else:
+                raise ValueError(f'No window_operation specified in config and unsupported derivation from \
+                    threshold_comparison {threshold_comparison}')
+        else:
+            raise RuntimeError(f'No window operation specified, or could be derived')
+        
+        # Create windows from periods
+        for period in parameter['periods']:
+            self.windows.append(create_window(period, window_operation))
 
     def update_windows(self, step: int, data: np.array) -> List[Window]:
         """

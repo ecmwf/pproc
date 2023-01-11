@@ -14,12 +14,15 @@ parameters:
         start_step: 150
         end_step: 240
     periods:
-      - start_step: 120
-        end_step: 168
-      - start_step: 120
-        end_step: 240
-      - start_step: 168
-        end_step: 240
+      - range: 
+        - 120
+        - 168
+      - range: 
+        - 120
+        - 240
+      - range: 
+        - 168
+        - 240
     thresholds:
       - out_paramid: 131073
         comparison: "<="
