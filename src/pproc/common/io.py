@@ -136,13 +136,40 @@ def read_grib_messages(messages, dims=()):
     return fields
 
 
-def fdb_read(fdb, request, mir_options=None):
-    """Load grib messages from FDB from request and returns Xarray DataArray
+def fdb_retrieve(fdb, request, mir_options=None):
+    """Retrieve grib messages from FDB from request and returns fdb reader object
+    If mir options specified, also performs interpolation
 
     Parameters
     ----------
     messages: grib messages
     dims: tuple of strings
+    mir_options: dict
+
+    Returns
+    -------
+    FDB Reader
+        FDB Reader object, containing the messages requested
+    """
+    fdb_reader = fdb.retrieve(request)
+    if mir_options:
+        job = mir.Job(mir_options)
+        stream = BytesIO()
+        job.execute(fdb_reader, stream)
+        stream.seek(0)
+        fdb_reader = stream
+
+
+
+def fdb_read(fdb, request, mir_options=None):
+    """Load grib messages from FDB from request and returns Xarray DataArray
+    If mir options specified, also performs interpolation
+
+    Parameters
+    ----------
+    messages: grib messages
+    dims: tuple of strings
+    mir_options: dict
 
     Returns
     -------
@@ -151,15 +178,9 @@ def fdb_read(fdb, request, mir_options=None):
         together with a grib template in the attributes
     """
 
-    fdb_reader = fdb.retrieve(request)
-    fields_dims = [key for key in request if isinstance(request[key], (list, range))]
-    if mir_options:
-        job = mir.Job(mir_options)
-        stream = BytesIO()
-        job.execute(fdb_reader, stream)
-        stream.seek(0)
-        fdb_reader = stream
+    fdb_reader = fdb_retrieve(fdb, request, mir_options)
     eccodes_reader = eccodes.StreamReader(fdb_reader)
+    fields_dims = [key for key in request if isinstance(request[key], (list, range))]
     fields = read_grib_messages(eccodes_reader, fields_dims)
     if fields is None:
         raise Exception(f"Could not perform the following retrieve:\n{yaml.dump(request)}")
@@ -167,7 +188,7 @@ def fdb_read(fdb, request, mir_options=None):
     return fields.to_xarray()
 
 
-def fdb_read_to_file(fdb, request, file_out, mir_options=None):
+def fdb_read_to_file(fdb, request, file_out, mir_options=None, mode='wb'):
     """Load grib messages from FDB from request and writes to temporary file
 
     Parameters
@@ -181,6 +202,10 @@ def fdb_read_to_file(fdb, request, file_out, mir_options=None):
         Xarray DataArray object, containing the data and the associated coordinates
         together with a grib template in the attributes
     """
+    fdb_reader = fdb_retrieve(fdb, request, mir_options)
+    outfile = open(file_out, mode)
+    for data in iter((lambda: fdb_reader.read(4096)), b""):
+        outfile.write(data)
 
 
 def fdb_write_ufunc(data, coords, fdb, template):

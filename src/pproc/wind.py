@@ -9,49 +9,19 @@
 # granted to it by virtue of its status as an intergovernmental organisation nor
 # does it submit to any jurisdiction.
 import os
+from io import BytesIO
 from datetime import datetime
 import numpy as np
 import xarray as xr
 
+import eccodes
 import pyfdb
+import mir
 
 from pproc import common
 
 
-def fdb_request_component_ensemble(cfg, levelist, window):
-
-    req = cfg.request.copy()
-    req.pop('stream_det')
-    req['stream'] = req.pop('stream_ens')
-
-    req['levelist'] = levelist
-    req['step'] = window
-
-    req_cf = req.copy()
-    req_cf['type'] = 'cf'
-    fields_cf = common.fdb_read(cfg.fdb, req_cf)
-
-    req_pf = req.copy()
-    req_pf['type'] = 'pf'
-    req_pf['number'] = range(1, cfg.members+1)
-    fields_pf = common.fdb_read(cfg.fdb, req_pf)
-
-    fields = xr.concat([fields_cf, fields_pf], 'member')
-
-    out = BytesIO()
-    inp = mir.MultiDimensionalGribFileInput(target, 2)
-
-    job = mir.Job(vod2uv="1", **pp)
-    job.execute(inp, out)
-
-    out.seek(0)
-    reader = eccodes.StreamReader(out)
-    messages = list(reader)
-
-    return fields
-
-
-def fdb_request_component_deterministic(cfg, levelist, window, component):
+def fdb2cache_request_det(cfg, levelist, window):
 
     req = cfg.request.copy()
     req.pop('stream_ens')
@@ -59,58 +29,86 @@ def fdb_request_component_deterministic(cfg, levelist, window, component):
 
     req['levelist'] = levelist
     req['step'] = window.steps
-    req['param'] = req.pop('param')[component]
     req['type'] = 'fc'
-    fields = common.fdb_read(cfg.fdb, req)
 
-    return fields
+    cached_file = f"{req['param']}_det.grb"
+    common.fdb_read_to_file(cfg.fdb, req, cached_file)
+
+    return cached_file
 
 
-def wind_mean_sd_eps(cfg, levelist, window):
-    """
-    Calculate ensemble (type=cf/pf) mean and standard deviation of wind speed
-    """
+def fdb2cache_request_ens(cfg, levelist, window):
 
-    fields_u = fdb_request_component_ensemble(cfg, levelist, window, 0)
-    fields_v = fdb_request_component_ensemble(cfg, levelist, window, 1)
-    u = fields_u.values
-    v = fields_v.values
+    req = cfg.request.copy()
+    req.pop('stream_det')
+    req['stream'] = req.pop('stream_ens')
 
-    ws = np.sqrt(u * u + v * v)
-    mean = np.mean(ws, axis=0)
-    stddev = np.std(ws, axis=0)
+    req['levelist'] = levelist
+    req['step'] = window.steps
 
-    template = fields_u['grib_template']
+    req_cf = req.copy()
+    req_cf['type'] = 'cf'
 
-    return mean, stddev, template
+    cached_file = f"wind_ens_{levelist}_{window.name}.grb"
+    common.fdb_read_to_file(cfg.fdb, req, cached_file)
 
-    # em = messages[0].copy()
-    # em.set("marsType", "em")
-    # em.set("indicatorOfParameter", "010")  # FIXME check?
-    # em.set("gribTablesVersionNo", 128)
-    # em.set_array("values", mean)
+    req_pf = req.copy()
+    req_pf['type'] = 'pf'
+    req_pf['number'] = range(1, cfg.members+1)
+    common.fdb_read_to_file(cfg.fdb, req, cached_file, mode='ab')
 
-    # es = messages[0].copy()
-    # es.set("marsType", "es")
-    # es.set("indicatorOfParameter", "010")  # FIXME check?
-    # es.set("gribTablesVersionNo", 128)
-    # es.set_array("values", stddev)
+    return cached_file
+
+
+def mir_wind(cached_file):
+
+    
+    out = BytesIO()
+    inp = mir.MultiDimensionalGribFileInput(cached_file, 2)
+
+    job = mir.Job(vod2uv="1")
+    job.execute(inp, out)
+
+    out.seek(0)
+    reader = eccodes.StreamReader(out)
+    messages = list(reader)
+
+    wind_paramids = set([m["paramId"] for m in messages])
+    assert len(wind_paramids) == 2
+    u = np.asarray([m.get_array("values") for m in messages if m["paramId"] == wind_paramids[0]])
+    v = np.asarray([m.get_array("values") for m in messages if m["paramId"] == wind_paramids[1]])
+
+    template = messages[0]
+
+    return u, v, template
 
 
 def wind_norm_det(cfg, levelist, window):
     """
     Calculate deterministic (type=fc) wind speed
     """
+    cached_file = fdb2cache_request_det(cfg, levelist, window)
 
-    fields_u = fdb_request_component_deterministic(cfg, levelist, window, 0)
-    fields_v = fdb_request_component_deterministic(cfg, levelist, window, 1)
-    u = fields_u.values
-    v = fields_v.values
+    u, v, template = mir_wind(cached_file)
 
     wind_speed = np.sqrt(u * u + v * v)
-    template = fields_u['grib_template']
 
     return wind_speed, template
+
+
+def wind_mean_std_eps(cfg, levelist, window):
+    """
+    Calculate ensemble (type=cf/pf) mean and standard deviation of wind speed
+    """
+    cached_file = fdb2cache_request_ens(cfg, levelist, window)
+
+    u, v, template = mir_wind(cached_file)
+
+    ws = np.sqrt(u * u + v * v)
+    mean = np.mean(ws, axis=0)
+    stddev = np.std(ws, axis=0)
+
+    return mean, stddev, template
 
 
 class ConfigExtreme(common.Config):
@@ -142,7 +140,7 @@ def main(args=None):
             window = common.Window(window_options)
 
             # calculate mean/stddev of wind speed for type=pf/cf (eps)
-            mean, std, template_ens = wind_mean_sd_eps(cfg, levelist, window)
+            mean, std, template_ens = wind_mean_std_eps(cfg, levelist, window)
             mean_file = os.path.join(cfg.out_dir, f'mean_{levelist}_{window}.grib')
             target_mean = common.target_factory(cfg.target, out_file=mean_file, fdb=cfg.fdb)
             template_mean = template_ens
