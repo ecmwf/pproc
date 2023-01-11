@@ -41,7 +41,7 @@ class WindowManager:
                 window_operation = parameter['window_operation']
             else:
                 # Derive from threshold comparison parameter
-                threshold_comparison = parameter['threshold_comparison']
+                threshold_comparison = parameter['thresholds'][0]['comparison']
                 if '<' in threshold_comparison:
                     window_operation = 'min'
                 elif '>' in threshold_comparison:

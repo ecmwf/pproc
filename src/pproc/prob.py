@@ -25,7 +25,7 @@ def read_gribs(request, fdb, step, paramId) -> List[eccodes.GRIBMessage]:
     return messages
 
 
-def write_instantaneous_grib(fdb, template_grib, step: int, output_param_id: str, threshold_value: float, data: np.array) -> None:
+def write_instantaneous_grib(fdb, template_grib, step: int, threshold, data: np.array) -> None:
 
     # Copy an input GRIB message and modify headers for writing probability
     # field
@@ -33,11 +33,11 @@ def write_instantaneous_grib(fdb, template_grib, step: int, output_param_id: str
     key_values = {
         "step": step,
         "type": "ep",
-        "paramId": output_param_id,
+        "paramId": threshold["out_paramid"],
         "localDefinitionNumber": 5,
         "localDecimalScaleFactor": 2,
         "thresholdIndicator": 2,
-        "upperThreshold": threshold_value
+        "upperThreshold": threshold['value']
     }
     out_grib.set(key_values, check_values=True)
 
@@ -47,18 +47,18 @@ def write_instantaneous_grib(fdb, template_grib, step: int, output_param_id: str
 
 
 def write_period_grib(fdb, template_grib, leg: int, start_step: int, end_step: int,
-    output_param_id: str, threshold_value: float, data: np.array) -> None:
+    threshold, data: np.array) -> None:
 
     # Copy an input GRIB message and modify headers for writing probability
     # field
     out_grib = template_grib.copy()
     key_values = {
         "type": "ep",
-        "paramId": output_param_id,
+        "paramId": threshold['out_paramid'],
         "localDefinitionNumber": 5,
         "localDecimalScaleFactor": 2,
         "thresholdIndicator": 2,
-        "upperThreshold": threshold_value,
+        "upperThreshold": threshold['value'],
         "stepType": "max",
         "stepRange": f"{start_step}-{end_step}",
     }
@@ -72,7 +72,7 @@ def write_period_grib(fdb, template_grib, leg: int, start_step: int, end_step: i
     fdb.archive(out_grib.get_buffer())
 
 
-def ensemble_probability(data: np.array, comparison: str, threshold_value: float) -> np.array:
+def ensemble_probability(data: np.array, threshold) -> np.array:
     """ Ensemble Probabilities:
 
         Computes the probability of a given parameter crossing a given threshold,
@@ -82,8 +82,8 @@ def ensemble_probability(data: np.array, comparison: str, threshold_value: float
     """
 
     # Read threshold configuration and compute probability
-    comp = numexpr.evaluate("data " + comparison +
-                            str(threshold_value), local_dict={"data": data})
+    comp = numexpr.evaluate("data " + threshold['comparison'] +
+                            str(threshold['value']), local_dict={"data": data})
     probability = np.where(comp, 100, 0).mean(axis=0)
 
     return probability
@@ -116,6 +116,14 @@ def main(args=None):
     for parameter in parameters:
         paramid = parameter["in_paramid"]
 
+        # Check all threshold comparisons are the same 
+        thresholds = parameter['thresholds']
+        for threshold in thresholds[1:]:
+            if threshold['comparison'] != thresholds[0]['comparison']:
+                print(f'Different comparison operations for thresholds is currently not supported. Skipping \
+                parameter id {paramid}')
+                continue
+
         window_manager = WindowManager(parameter)
                             
         for step in sorted(window_manager.unique_steps):
@@ -124,20 +132,19 @@ def main(args=None):
                               for message in messages])
 
             completed_windows = window_manager.update_windows(step, data)
-            comparison = parameter['threshold_comparison']
             for window in completed_windows:
-                for threshold_value in parameter['thresholds']:
+                for threshold in thresholds:
                     window_probability = ensemble_probability(
-                        window.step_values, comparison, threshold_value)
+                        window.step_values, threshold)
 
                     if window.size() == 0:
                         print(f"Writing instantaneous probability for param {paramid} at step {step}")
-                        write_instantaneous_grib(fdb, messages[0], step, parameter["out_paramid"], threshold_value,
+                        write_instantaneous_grib(fdb, messages[0], step, threshold,
                         window_probability)
                     else:
                         print(f"Writing time-averaged {window.name} probability for {paramid}")
                         write_period_grib(
-                            fdb, messages[0], leg, window.start, window.end, parameter["out_paramid"], threshold_value,
+                            fdb, messages[0], leg, window.start, window.end, threshold,
                             window_probability)
 
             if window_manager.windows_completed():
