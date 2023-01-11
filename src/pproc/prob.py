@@ -33,13 +33,13 @@ def write_instantaneous_grib(fdb, template_grib, step, threshold, data) -> None:
     # field
     out_grib = template_grib.copy()
     key_values = {
-        "step": step,
         "type": "ep",
         "paramId": threshold["out_paramid"],
         "localDefinitionNumber": 5,
         "localDecimalScaleFactor": 2,
         "thresholdIndicator": 2,
         "upperThreshold": threshold["value"],
+        "step": step,
     }
     out_grib.set(key_values, check_values=True)
 
@@ -48,9 +48,7 @@ def write_instantaneous_grib(fdb, template_grib, step, threshold, data) -> None:
     fdb.archive(out_grib.get_buffer())
 
 
-def write_period_grib(
-    fdb, template_grib, leg, start_step, end_step, threshold, data
-) -> None:
+def write_period_grib(fdb, template_grib, leg, step_range, threshold, data) -> None:
 
     # Copy an input GRIB message and modify headers for writing probability
     # field
@@ -63,7 +61,7 @@ def write_period_grib(
         "thresholdIndicator": 2,
         "upperThreshold": threshold["value"],
         "stepType": "max",
-        "stepRange": f"{start_step}-{end_step}",
+        "stepRange": step_range,
     }
     if leg == 2:
         key_values["unitOfTimeRange"] = 11
@@ -136,7 +134,7 @@ def main(args=None):
 
         window_manager = WindowManager(parameter)
 
-        for step in sorted(window_manager.unique_steps):
+        for step in window_manager.unique_steps:
             messages = read_gribs(base_request, fdb, step, paramid)
             data = np.asarray([message.get_array("values") for message in messages])
 
@@ -156,19 +154,18 @@ def main(args=None):
                         )
                     else:
                         print(
-                            f"Writing time-averaged {window.name} probability for {paramid}"
+                            f"Writing time-averaged {window.name} probability for param {paramid}"
                         )
                         write_period_grib(
                             fdb,
                             messages[0],
                             leg,
-                            window.start,
-                            window.end,
+                            window.name,
                             threshold,
                             window_probability,
                         )
 
-            if window_manager.windows_completed():
+            if window_manager.completed():
                 break
 
     fdb.flush()

@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Iterator
 
 import numpy as np
 
@@ -79,27 +79,25 @@ class WindowManager:
         for period in parameter["periods"]:
             self.windows.append(create_window(period, window_operation))
 
-    def update_windows(self, step: int, data: np.array) -> List[Window]:
+    def update_windows(self, step: int, data: np.array) -> Iterator[Window]:
         """
         Updates all windows that include step with the step data values
 
         :param step: new step
         :param data: data for step
-        :return: list of windows which have reached their end step
+        :return: generator for completed windows
         """
         new_windows = []
-        completed_windows = []
         for window in self.windows:
             window.add_step_values(step, data)
 
             if window.reached_end_step(step):
-                completed_windows.append(window)
+                yield window
             else:
                 new_windows.append(window)
         self.windows = new_windows
-        return completed_windows
 
-    def windows_completed(self) -> bool:
+    def completed(self) -> bool:
         """
         :return: boolean specifying if all windows have been completed
         """
