@@ -3,7 +3,16 @@ import numpy as np
 
 from common import Window, DiffWindow, SimpleOpWindow, WeightedSumWindow
 
-def create_window(start_step: int, end_step: int, window_operation) -> Window:
+def create_window(start_step: int, end_step: int, window_operation: str) -> Window:
+    """
+    Create window for specified window operations: min, max, sum, weightedsum and 
+    diff. 
+
+    :param start_step: start step of window interval
+    :param end_step: end step of window interval
+    :return: instance of the derived Window class for window operation
+    :raises: ValueError for unsupported window operation string
+    """
     window_options = {'range': [start_step, end_step]}
     if window_operation == 'diff':
         return DiffWindow(window_options)
@@ -16,7 +25,7 @@ def create_window(start_step: int, end_step: int, window_operation) -> Window:
 
 class WindowManager:
     """
-    Class creating and manage lifespan of windows
+    Class creating and managing active windows
     """
     def __init__(self, parameter):
         # Sort steps and create instantaneous windows by reading in the config 
@@ -75,6 +84,6 @@ class WindowManager:
 
     def windows_completed(self) -> bool:
         """
-        Returns if all windows have been completed 
+        :return: boolean specifying if all windows have been completed 
         """
         return len(self.windows) == 0

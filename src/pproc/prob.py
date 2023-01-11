@@ -25,7 +25,7 @@ def read_gribs(request, fdb, step, paramId) -> List[eccodes.GRIBMessage]:
     return messages
 
 
-def write_instantaneous_grib(fdb, template_grib, step: int, threshold, data: np.array) -> None:
+def write_instantaneous_grib(fdb, template_grib, step, threshold, data) -> None:
 
     # Copy an input GRIB message and modify headers for writing probability
     # field
@@ -46,8 +46,7 @@ def write_instantaneous_grib(fdb, template_grib, step: int, threshold, data: np.
     fdb.archive(out_grib.get_buffer())
 
 
-def write_period_grib(fdb, template_grib, leg: int, start_step: int, end_step: int,
-    threshold, data: np.array) -> None:
+def write_period_grib(fdb, template_grib, leg, start_step, end_step, threshold, data) -> None:
 
     # Copy an input GRIB message and modify headers for writing probability
     # field
@@ -82,8 +81,8 @@ def ensemble_probability(data: np.array, threshold) -> np.array:
     """
 
     # Read threshold configuration and compute probability
-    comp = numexpr.evaluate("data " + threshold['comparison'] +
-                            str(threshold['value']), local_dict={"data": data})
+    comparison = threshold['comparison']
+    comp = numexpr.evaluate("data " + comparison + str(threshold["value"]), local_dict={"data": data})
     probability = np.where(comp, 100, 0).mean(axis=0)
 
     return probability

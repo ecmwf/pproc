@@ -24,15 +24,16 @@ class Window:
     def set_operation(self, operation):
         """
         Sets reduction operation, if none, on existing step data values and new step data values. 
-        Accepts lambda function of the form:
-        f(current_step_values, new_step_values) -> reduced_step_values
+        
+        :param operation: function of the form f(current_step_values, new_step_values) -> reduced_step_values
         """
         if self.operation is None:
             self.operation = operation
 
     def in_window(self, step: int) -> bool:
         """
-        Returns if step is in window interval
+        :param step: current step
+        :return: boolean specifying if step is in window interval
         """
         if self.include_init:
             return step >= self.start and step <= self.end
@@ -44,6 +45,9 @@ class Window:
         reduction operation on existing step values and new step values -
         saves on memory as only the reduction operation on processed steps
         is stored
+
+        :param step: step to update window with 
+        :param step_values: data values for step
         """
         if not self.in_window(step):
             return
@@ -54,19 +58,20 @@ class Window:
 
     def reached_end_step(self, step: int) -> bool:
         """
-        Returns if end step has been reached
+        :param step: current step
+        :return: boolean specifying if current step is equal to window end step
         """
         return step == self.end
 
     def size(self) -> int:
         """
-        Returns size of window interval
+        :return: size of window interval
         """
         return self.end - self.start
 
 class DiffWindow(Window):
     """
-    Window operation takes difference between the end and start step. Only accepts data 
+    Window with operation that takes difference between the end and start step. Only accepts data 
     from these two steps
     """
     def __init__(self, window_options):
@@ -75,18 +80,35 @@ class DiffWindow(Window):
 
     def in_window(self, step: int) -> bool:
         """
-        Returns if step is equal to start or end of window
+        :param step: current step
+        :return: boolean specifying if step is in window interval
         """
         return step == self.start or step == self.end
 
 class SimpleOpWindow(Window):
+    """
+    Window with operation min, max or sum - reduction operations supported by numexpr
+    """
     def __init__(self, window_options, window_operation: str, include_init: bool = False):
+        """
+        :param window_options: config specifying start and end of window
+        :param window_operation: name of reduction operation out of min, max, sum
+        :param include_init: boolean specifying whether to include start step
+        """
         super().__init__(window_options, include_init)
         self.set_operation(lambda current_step_values, new_step_values: numexpr.evaluate(f'{window_operation}(data, axis=0)',
                 local_dict={"data": [current_step_values, new_step_values]}))
 
 class WeightedSumWindow(Window):
+    """
+    Window with weighted sum operation. Weighted sums is computed by weighting the 
+    data for each step by the step duration, and then dividing by the total duration of the 
+    window. 
+    """
     def __init__(self, window_options):
+        """
+        :param window_options: config specifying start and end of window
+        """
         super().__init__(window_options, include_init=False)
         self.set_operation(lambda current_step_values, new_step_values: numexpr.evaluate(f'sum(data, axis=0)',
                 local_dict={"data": [current_step_values, new_step_values]}))
@@ -94,10 +116,12 @@ class WeightedSumWindow(Window):
 
     def add_step_values(self, step: int, step_values: np.array):
         """
-        Adds contribution of data values for specified step, if inside window, by computing
-        reduction operation on existing step values and new step values -
-        saves on memory as only the reduction operation on processed steps
-        is stored
+        Adds the contributions data_i * dt_i where data_i and dt_i is the data and step duration for step i, 
+        if step i is in the window. When final step has been reached, divides sum by the total duration of 
+        window.
+
+        :param step: step to update window with 
+        :param step_values: data values for step
         """
         if not self.in_window(step):
             return
