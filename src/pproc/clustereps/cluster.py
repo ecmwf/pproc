@@ -837,7 +837,7 @@ def main(args=sys.argv[1:]):
     ind_cl = [None]  # [ncl-1]
     n_fields = []  # [ncl-2]
     var_opt = []  # [ncl-2]
-    centroids = []  # [ncl-2]
+    centroids = [None]  # [ncl-1]
     rep_members = [None]  # [ncl-1][jcl]
     centroids_gp = []  # [step][ncl-1][jcl]
     rep_members_gp = []  # [step][ncl-1][jcl]
@@ -872,7 +872,7 @@ def main(args=sys.argv[1:]):
                     rms = 0.
                     if ind_cl[ncl-1][jfld] == jcl:
                         centgp += (ens_anom[jfld, i, :] + ens_mean[i, :]) * rn
-                        rms = np.sqrt(np.mean(np.square(pc[:, jfld] - centroids[ncl-2][jcl, :])))
+                        rms = np.sqrt(np.mean(np.square(pc[:, jfld] - centroids[ncl-1][jcl, :])))
                         if first or rms < rmmin:
                             first = False
                             rmmin = rms
@@ -951,6 +951,7 @@ def main(args=sys.argv[1:]):
         ifld = np.argmin(rms)
         rep_members[0] = [ifld]
         ind_cl[0] = np.zeros(nfld, dtype=int)
+        centroids[0] = np.mean(pc, axis=1)[np.newaxis, :]
         for i in range(nstep):
             centroids_gp[i][0] = [ens_mean[i, :]]
             rep_members_gp[i][0] = [ens_anom[ifld, i, :] + ens_mean[i, :]]
@@ -981,7 +982,7 @@ def main(args=sys.argv[1:]):
         norm = np.sqrt(np.einsum('ijk,ijk,k->i', eof, eof, weights))
         det_proj = np.einsum('jk,ijk,k->i', det, eof, weights) / norm
 
-        rms = np.sqrt(np.mean(np.square(det_proj[np.newaxis, :] - centroids[best_ncl-2]), axis=1))
+        rms = np.sqrt(np.mean(np.square(det_proj[np.newaxis, :] - centroids[best_ncl-1]), axis=1))
         det_index = np.argmin(rms)
     else:
         det_index = 0
