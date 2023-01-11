@@ -862,7 +862,7 @@ def main(args=sys.argv[1:]):
 
     # Perform the clustering
     nfld = ens_anom.shape[0]
-    ind_cl = []  # [ncl-2]
+    ind_cl = [None]  # [ncl-1]
     n_fields = []  # [ncl-2]
     var_opt = []  # [ncl-2]
     centroids = []  # [ncl-2]
@@ -898,7 +898,7 @@ def main(args=sys.argv[1:]):
                 ifld = None
                 for jfld in range(nfld):
                     rms = 0.
-                    if ind_cl[ncl-2][jfld] == jcl:
+                    if ind_cl[ncl-1][jfld] == jcl:
                         centgp += (ens_anom[jfld, i, :] + ens_mean[i, :]) * rn
                         rms = np.sqrt(np.mean(np.square(pc[:, jfld] - centroids[ncl-2][jcl, :])))
                         if first or rms < rmmin:
@@ -921,6 +921,7 @@ def main(args=sys.argv[1:]):
         centroids_gp.append(step_centroids_gp)
         rep_members_gp.append(step_rep_members_gp)
 
+    ind_cl[0] = np.zeros(nfld, dtype=int)
     np.savez_compressed(args.indexes, **{'ind_cl': np.asarray(ind_cl)})
 
     # Perform a clustering on red noise
@@ -977,13 +978,13 @@ def main(args=sys.argv[1:]):
 
     if best_ncl == 1:
         # No better partition than no partition at all
-        statcl = np.ones(nfld)
         rms = np.sqrt(np.mean(np.square(pc), axis=0))
         ifld = np.argmin(rms)
         rep_members[0] = [ifld]
+        ind_cl[0] = np.zeros(nfld, dtype=int)
         for i in range(nstep):
-            centroids_gp[i][0] = ens_mean[i, :]
-            rep_members_gp[i][0] = ens_anom[ifld, i, :] + ens_mean[i, :]
+            centroids_gp[i][0] = [ens_mean[i, :]]
+            rep_members_gp[i][0] = [ens_anom[ifld, i, :] + ens_mean[i, :]]
 
     # Find the deterministic forecast
     if args.deterministic is not None:
@@ -1049,12 +1050,12 @@ def main(args=sys.argv[1:]):
     target = FileTarget(args.centroids)
     keys['type'] = 'cm'
     wr_centroids = [centroids_gp[i][best_ncl-1] for i in range(nstep)]
-    write_cluster_grib(steps, ind_cl[best_ncl-2], rep_members[best_ncl-1], det_index, wr_centroids, target, keys)
+    write_cluster_grib(steps, ind_cl[best_ncl-1], rep_members[best_ncl-1], det_index, wr_centroids, target, keys)
 
     target = FileTarget(args.representative)
     keys['type'] = 'cr'
     wr_rep_members = [rep_members_gp[i][best_ncl-1] for i in range(nstep)]
-    write_cluster_grib(steps, ind_cl[best_ncl-2], rep_members[best_ncl-1], det_index, wr_rep_members, target, keys)
+    write_cluster_grib(steps, ind_cl[best_ncl-1], rep_members[best_ncl-1], det_index, wr_rep_members, target, keys)
 
     return 0
 
