@@ -1,7 +1,8 @@
 from typing import List
 
 import numpy as np
-from common import DiffWindow, SimpleOpWindow, WeightedSumWindow, Window
+
+from pproc.common import DiffWindow, SimpleOpWindow, WeightedSumWindow, Window
 
 
 def create_window(window_options, window_operation: str) -> Window:

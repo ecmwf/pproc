@@ -4,12 +4,14 @@ import sys
 from datetime import datetime
 from typing import List
 
-import eccodes
 import numexpr
 import numpy as np
-import pyfdb
 import yaml
-from common import WindowManager
+
+import eccodes
+import pyfdb
+
+from pproc.common import WindowManager
 
 
 def read_gribs(request, fdb, step, paramId) -> List[eccodes.GRIBMessage]:
