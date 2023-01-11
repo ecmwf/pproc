@@ -53,10 +53,7 @@ class Window:
         if len(self.step_values) == 0:
             self.step_values = step_values
         else:
-            try:
-                self.step_values = self.operation(self.step_values, step_values)
-            except:
-                raise TypeError(self.start, self.end)
+            self.step_values = self.operation(self.step_values, step_values)
 
     def reached_end_step(self, step: int) -> bool:
         """
