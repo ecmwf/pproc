@@ -158,7 +158,7 @@ def fdb_retrieve(fdb, request, mir_options=None):
         job.execute(fdb_reader, stream)
         stream.seek(0)
         fdb_reader = stream
-
+    return fdb_reader
 
 
 def fdb_read(fdb, request, mir_options=None):
@@ -308,7 +308,7 @@ def write_grib(target, template, data, missing=-9999):
         data[np.isnan(data)] = missing
         message.set('missingValue', missing)
         message.set('bitmapPresent', 1)
-        
+    
     message.set_array('values', data)
 
     if is_missing:
