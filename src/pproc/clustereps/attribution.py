@@ -11,9 +11,10 @@ from scipy.io import FortranFile
 
 from eccodes import FileReader
 
+from pproc.clustereps.config import ClusterConfigBase
 from pproc.clustereps.cluster import FileTarget
 from pproc.clustereps.utils import region_weights, lat_weights, normalise_angles
-from pproc.common import Config, default_parser
+from pproc.common import default_parser
 
 
 MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
@@ -81,35 +82,20 @@ class SeasonConfig:
         raise ValueError(f"No season containing month {month}")
 
 
-class AttributionConfig(Config):
-    def __init__(self, args: argparse.ArgumentParser) -> None:
+class AttributionConfig(ClusterConfigBase):
+    def __init__(self, args: argparse.Namespace) -> None:
 
         super().__init__(args)
 
-        # yaml config file
-        self.stepStart = self.options.get('stepStart', 0)
-        self.stepEnd = self.options.get('stepEnd', 120)
-        self.stepDel = self.options.get('stepDel', 12)
-        # main grid specs
-        self.nLat = self.options['nLat']
-        self.nLon = self.options['nLon']
-        # EOF grid dimensions
-        self.rLatN = self.options.get('rLatN', 90.)
-        self.rLatS = self.options.get('rLatS', -90.)
-        self.rLonW = self.options.get('rLonW', 0.)
-        self.rLonE = self.options.get('rLonE', 360.)
-        # forecast options
-        self.nEns = self.options.get('nEns', 51)
         # Climatological data options
-        self.nClusterClim = self.options.get('nClusterClim', 6)
-        self.climMeans = pjoin(args.clim_dir, self.options['climMeans'])
-        self.climPCs = pjoin(args.clim_dir, self.options['climPCs'])
-        self.climSdv = pjoin(args.clim_dir, self.options['climSdv'])
-        self.climEOFs = pjoin(args.clim_dir, self.options['climEOFs'])
-        self.climClusterIndex = pjoin(args.clim_dir, self.options['climClusterIndex'])
-        self.climClusterCentroidsEOF = pjoin(args.clim_dir, self.options['climClusterCentroidsEOF'])
+        self.nClusterClim = self.options.get('ncl_clim', 6)
+        self.climMeans = pjoin(args.clim_dir, self.options['clim_means'])
+        self.climPCs = pjoin(args.clim_dir, self.options['clim_pcs'])
+        self.climSdv = pjoin(args.clim_dir, self.options['clim_sdv'])
+        self.climEOFs = pjoin(args.clim_dir, self.options['clim_eof'])
+        self.climClusterIndex = pjoin(args.clim_dir, self.options['clim_cluster_index'])
+        self.climClusterCentroidsEOF = pjoin(args.clim_dir, self.options['clim_cluster_centroids_eof'])
         # pca options
-        self.anMax = self.options.get('anMax', 10000.)
         self._seasons = self.options.get('seasons', [(1, 12)])
         
         # forecast date
@@ -117,8 +103,8 @@ class AttributionConfig(Config):
         self.year = self.date.year
         self.month = self.date.month
 
-        self.nSteps = 1 + (self.stepEnd - self.stepStart) // self.stepDel
-        self.stepDate = self.date + timedelta(hours=self.stepStart)
+        self.nSteps = 1 + (self.step_end - self.step_start) // self.step_del
+        self.stepDate = self.date + timedelta(hours=self.step_start)
 
         # out directory
         self.output_root = args.output_root
@@ -136,12 +122,6 @@ class AttributionConfig(Config):
             val = getattr(self, attr)
             newVal = val.format(season=self.thisSeason.name)
             setattr(self, attr, newVal)
-        
-        # config file derived parameters
-        # grid specs
-        self.nPoints = self.nLon * self.nLat
-
-        self.bbox = (self.rLatN, self.rLatS, self.rLonW, self.rLonE)
 
 
     def __repr__(self) -> str:
@@ -431,7 +411,7 @@ def main(sysArgs: List = sys.argv[1:]) -> int:
     for scenario, fname in clusterFiles.items():
         # read grib cluster
         cents, ens_numbers, lat, lon = read_grib_cluster(
-            fname, config.stepStart, config.stepDel, config.nSteps, config.nEns
+            fname, config.step_start, config.step_del, config.nSteps, config.num_members
         )
         # ? outout ens_numbers?
 
@@ -442,21 +422,21 @@ def main(sysArgs: List = sys.argv[1:]) -> int:
 
         # compute anomalies
         anom = cents - clim
-        anom = np.clip(anom, -config.anMax, config.anMax)
+        anom = np.clip(anom, -config.clip, config.clip)
         
         cluster_att, min_dist = attribution(anom, eof, clim_ind, weights)
 
         # write anomalies and updated cluster scenarios
         updatedTarget = FileTarget(
-            pjoin(config.output_root, f'{config.stepStart}_{config.stepEnd}{scenario}.grib')
+            pjoin(config.output_root, f'{config.step_start}_{config.step_end}{scenario}.grib')
         )
         anomTarget = FileTarget(
-            pjoin(config.output_root, f'{config.stepStart}_{config.stepEnd}{scenario}_anom.grib')
+            pjoin(config.output_root, f'{config.step_start}_{config.step_end}{scenario}_anom.grib')
         )
         write_grib_outputs(
             fname,
-            config.stepStart,
-            config.stepDel,
+            config.step_start,
+            config.step_del,
             anom,
             cluster_att,
             updatedTarget,
@@ -466,13 +446,13 @@ def main(sysArgs: List = sys.argv[1:]) -> int:
         # write report output
         # table: attribution cluster index all fc clusters, step 
         np.savetxt(
-            pjoin(config.output_root, f'{config.stepStart}_{config.stepEnd}dist_index_{scenario}.txt'), min_dist,
+            pjoin(config.output_root, f'{config.step_start}_{config.step_end}dist_index_{scenario}.txt'), min_dist,
             fmt='%-10.5f', delimiter=3*' '
         )
 
         # table: distance measure for all fc clusters, step
         np.savetxt(
-            pjoin(config.output_root, f'{config.stepStart}_{config.stepEnd}att_index_{scenario}.txt'), cluster_att,
+            pjoin(config.output_root, f'{config.step_start}_{config.step_end}att_index_{scenario}.txt'), cluster_att,
             fmt='%-3d', delimiter=3*' '
         )
     

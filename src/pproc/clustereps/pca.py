@@ -5,7 +5,8 @@ import sys
 import numpy as np
 import eccodes
 
-from pproc.common import Config, default_parser
+from pproc.common import default_parser
+from pproc.clustereps.config import ClusterConfigBase
 from pproc.clustereps.utils import gen_steps, normalise_angles, lat_weights, region_weights
 
 
@@ -132,26 +133,12 @@ def ensemble_pca(ens_anom, ncomp, weights=None):
     return eof, pcens.reshape((ncomp,) + orig_sh), comp_ev, sum_ev
 
 
-class PCAConfig(Config):
+class PCAConfig(ClusterConfigBase):
     def __init__(self, args):
         super().__init__(args)
 
-        # Number of members (51)
-        self.num_members = self.options.get('num_members', 51)
-        # Step range
-        self.step_start = self.options['step_start']
-        self.step_end = self.options['step_end']
-        self.step_del = self.options['step_del']
-        # Bounding box
-        self.lat_n = self.options['lat_n']
-        self.lat_s = self.options['lat_s']
-        self.lon_w = self.options['lon_w']
-        self.lon_e = self.options['lon_e']
-        self.bbox = (self.lat_n, self.lat_s, self.lon_w, self.lon_e)
         # Normalisation factor (1)
-        self.factor = self.options.get('factor', None)
-        # Maximum absolute value of anomalies
-        self.clip = self.options['max_anom']
+        self.factor = self.options.get('pca_factor', None)
         # Number of components to extract
         self.ncomp = self.options['num_components']
 

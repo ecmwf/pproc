@@ -10,6 +10,7 @@ import numpy.random as npr
 from eccodes import FileReader, GRIBMessage
 
 from pproc.common import Config, default_parser
+from pproc.clustereps.config import ClusterConfigBase
 from pproc.clustereps.utils import gen_steps, lat_weights, region_weights
 
 
@@ -700,7 +701,7 @@ def write_cluster_grib(steps, ind_cl, rep_members, det_index, data, target, keys
             target.write(message)
 
 
-class ClusterConfig(Config):
+class ClusterConfig(ClusterConfigBase):
     def __init__(self, args):
 
         super().__init__(args)
@@ -710,7 +711,7 @@ class ClusterConfig(Config):
         # Number of PCs to use, optional
         self.npc = self.options.get('npc')
         # Normalisation factor (2/5)
-        self.factor = self.options.get('factor', 0.4)
+        self.factor = self.options.get('cluster_factor', 0.4)
         # Max number of clusters
         self.ncl_max = self.options['ncl_max']
         # Number of clustering passes
@@ -725,15 +726,6 @@ class ClusterConfig(Config):
         self.min_sig = self.options['min_sig']
         # Significance tolerance
         self.sig_tol = self.options['sig_tol']
-        # Bounding box
-        self.lat_n = self.options['lat_n']
-        self.lat_s = self.options['lat_s']
-        self.lon_w = self.options['lon_w']
-        self.lon_e = self.options['lon_e']
-        # Step range
-        self.step_start = self.options['step_start']
-        self.step_end = self.options['step_end']
-        self.step_del = self.options['step_del']
         # Parallel red-noise sampling
         self.n_par = self.options.get('n_par', 1)
 
