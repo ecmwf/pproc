@@ -1,7 +1,18 @@
 from typing import List
 import numpy as np 
 
-from common import Window
+from common import Window, DiffWindow, SimpleOpWindow, WeightedSumWindow
+
+def create_window(start_step: int, end_step: int, window_operation) -> Window:
+    window_options = {'range': [start_step, end_step]}
+    if window_operation == 'diff':
+        return DiffWindow(window_options)
+    elif window_operation in ['min', 'max', 'sum']:
+        return SimpleOpWindow(window_options, window_operation)
+    elif window_operation == 'weightedsum':
+        return WeightedSumWindow(window_options)
+    raise ValueError(f'Unsupported window operation {window_operation}. Supported \
+        types: diff, min, max, sum')
 
 class WindowManager:
     """
@@ -26,21 +37,19 @@ class WindowManager:
 
         # Create windows from periods
         for periods in parameter['periods']:
-            new_window = Window({'range': [periods['start_step'], periods['end_step']]}, 
-                include_init=False)
             if 'window_operation' in parameter:
-                new_window.set_reduction_operation(parameter['window_operation'])
+                window_operation = parameter['window_operation']
             else:
                 # Derive from threshold comparison parameter
                 threshold_comparison = parameter['threshold_comparison']
                 if '<' in threshold_comparison:
-                    new_window.set_reduction_operation('min')
+                    window_operation = 'min'
                 elif '>' in threshold_comparison:
-                    new_window.set_reduction_operation('max')
+                    window_operation = 'max'
                 else:
                     raise ValueError(f'No window_operation specified in config and unsupported derivation from \
                         threshold_comparison {threshold_comparison}')
-            self.windows.append(new_window)
+            self.windows.append(create_window(periods['start_step'], periods['end_step'], window_operation))
 
         self.unique_steps = sorted(self.unique_steps)
 

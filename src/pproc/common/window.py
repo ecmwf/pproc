@@ -21,16 +21,13 @@ class Window:
         self.operation = None
         self.step_values = []
 
-    def set_reduction_operation(self, operation):
+    def set_operation(self, operation):
         """
-        Sets reduction operation on existing step data values and new step data values. 
-        Accepts string arguments min, max, sum or a lambda function of the form
+        Sets reduction operation, if none, on existing step data values and new step data values. 
+        Accepts lambda function of the form:
         f(current_step_values, new_step_values) -> reduced_step_values
         """
-        if isinstance(operation, str) and operation in ['min', 'max', 'sum']:
-            self.operation = lambda current_step_values, new_step_values: numexpr.evaluate(f'{operation}(data, axis=0)',
-                                                local_dict={"data": [current_step_values, new_step_values]})
-        else:
+        if self.operation is None:
             self.operation = operation
 
     def in_window(self, step: int) -> bool:
@@ -66,3 +63,51 @@ class Window:
         Returns size of window interval
         """
         return self.end - self.start
+
+class DiffWindow(Window):
+    """
+    Window operation takes difference between the end and start step. Only accepts data 
+    from these two steps
+    """
+    def __init__(self, window_options):
+        super().__init__(window_options, include_init=True)
+        self.set_operation(lambda current_step_values, new_step_values: new_step_values - current_step_values)
+
+    def in_window(self, step: int) -> bool:
+        """
+        Returns if step is equal to start or end of window
+        """
+        return step == self.start or step == self.end
+
+class SimpleOpWindow(Window):
+    def __init__(self, window_options, window_operation: str, include_init: bool = False):
+        super().__init__(window_options, include_init)
+        self.set_operation(lambda current_step_values, new_step_values: numexpr.evaluate(f'{window_operation}(data, axis=0)',
+                local_dict={"data": [current_step_values, new_step_values]}))
+
+class WeightedSumWindow(Window):
+    def __init__(self, window_options):
+        super().__init__(window_options, include_init=False)
+        self.set_operation(lambda current_step_values, new_step_values: numexpr.evaluate(f'sum(data, axis=0)',
+                local_dict={"data": [current_step_values, new_step_values]}))
+        self.previous_step = 0
+
+    def add_step_values(self, step: int, step_values: np.array):
+        """
+        Adds contribution of data values for specified step, if inside window, by computing
+        reduction operation on existing step values and new step values -
+        saves on memory as only the reduction operation on processed steps
+        is stored
+        """
+        if not self.in_window(step):
+            return
+        if len(self.step_values) == 0:
+            step_duration = step - self.start
+            self.step_values = step_values * step_duration
+        else:
+            step_duration = step - self.previous_step
+            self.step_values = self.operation(self.step_values, step_values*step_duration)
+
+        self.previous_step = step
+        if self.reached_end_step(step):
+            self.step_values = self.step_values/(self.end-self.start)
