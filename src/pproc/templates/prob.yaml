@@ -3,7 +3,6 @@ leg: 1
 parameters:
   - in_paramid: 167
     out_paramid: 131073
-    window_operation: 'min'
     threshold_comparison: "<="
     steps:
       - interval: 12

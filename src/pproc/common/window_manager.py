@@ -28,7 +28,18 @@ class WindowManager:
         for periods in parameter['periods']:
             new_window = Window({'range': [periods['start_step'], periods['end_step']]}, 
                 include_init=False)
-            new_window.set_reduction_operation(parameter['window_operation'])
+            if 'window_operation' in parameter:
+                new_window.set_reduction_operation(parameter['window_operation'])
+            else:
+                # Derive from threshold comparison parameter
+                threshold_comparison = parameter['threshold_comparison']
+                if '<' in threshold_comparison:
+                    new_window.set_reduction_operation('min')
+                elif '>' in threshold_comparison:
+                    new_window.set_reduction_operation('max')
+                else:
+                    raise ValueError(f'No window_operation specified in config and unsupported derivation from \
+                        threshold_comparison {threshold_comparison}')
             self.windows.append(new_window)
 
         self.unique_steps = sorted(self.unique_steps)
