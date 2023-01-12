@@ -38,7 +38,8 @@ def write_grib(fdb, template_grib, leg, window_name, threshold, data) -> None:
         "localDefinitionNumber": 5,
         "localDecimalScaleFactor": 2,
         "thresholdIndicator": 2,
-        "upperThreshold": threshold["value"],
+        "upperThreshold": round(threshold["value"] * 100, 0),
+        "bitsPerValue": 8,  # Set equal to accuracy used in mars compute
     }
     if isinstance(window_name, int):
         key_values["step"] = window_name
