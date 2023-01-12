@@ -51,7 +51,7 @@ class Window:
         :param step: step to update window with
         :param step_values: data values for step
         """
-        if not self.__contains__(step):
+        if step not in self:
             return
         if len(self.step_values) == 0:
             self.step_values = step_values
@@ -150,7 +150,7 @@ class WeightedSumWindow(SimpleOpWindow):
         :param step: step to update window with
         :param step_values: data values for step
         """
-        if not self.__contains__(step):
+        if step not in self:
             return
         step_duration = step - self.previous_step
         if len(self.step_values) == 0:
