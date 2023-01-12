@@ -110,11 +110,10 @@ def main(args=None):
             for threshold in thresholds
         ]
         if not np.all(threshold_check):
-            print(
-                f"Different comparison operations for thresholds is currently not supported. "
-                + f"Skipping parameter {paramid}"
+            raise ValueError(
+                f"Parameter {paramid} has different comparison operations for "
+                + "thresholds, which is currently not supported."
             )
-            continue
 
         window_manager = WindowManager(parameter)
 
