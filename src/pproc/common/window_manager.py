@@ -1,4 +1,5 @@
-from typing import List, Iterator
+import os
+from typing import Iterator
 
 import numpy as np
 
@@ -22,23 +23,21 @@ def create_window(window_options, window_operation: str) -> Window:
     elif window_operation == "weightedsum":
         return WeightedSumWindow(window_options)
     raise ValueError(
-        f"Unsupported window operation {window_operation}. Supported \
-        types: diff, min, max, sum"
+        f"Unsupported window operation {window_operation}. "
+        + "Supported types: diff, min, max, sum, weightedsum"
     )
 
 
 class WindowManager:
     """
-    Class creating and managing active windows
+    Class for creating and managing active windows
     """
 
     def __init__(self, parameter):
         """
         Sort steps and create windows by reading in the config for specified parameter
 
-        :param parameter: config
-        :raises: ValueError if creation of a window fails on deriving the window operation from
-        the specified threshold comparison
+        :param parameter: parameter config
         :raises: RuntimeError if no window operation was provided, or could be derived
         """
         self.windows = []
@@ -58,6 +57,7 @@ class WindowManager:
         self.unique_steps = sorted(self.unique_steps)
 
         # Get window operation, or if not provided in config, derive from threshold
+        window_operation = None
         if "window_operation" in parameter:
             window_operation = parameter["window_operation"]
         elif "thresholds" in parameter:
@@ -67,12 +67,8 @@ class WindowManager:
                 window_operation = "min"
             elif ">" in threshold_comparison:
                 window_operation = "max"
-            else:
-                raise ValueError(
-                    f"No window_operation specified in config and unsupported derivation from \
-                    threshold_comparison {threshold_comparison}"
-                )
-        else:
+
+        if not window_operation:
             raise RuntimeError("No window operation specified, or could be derived")
 
         # Create windows from periods
@@ -96,9 +92,3 @@ class WindowManager:
             else:
                 new_windows.append(window)
         self.windows = new_windows
-
-    def completed(self) -> bool:
-        """
-        :return: boolean specifying if all windows have been completed
-        """
-        return len(self.windows) == 0

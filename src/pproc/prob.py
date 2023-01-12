@@ -27,7 +27,7 @@ def read_gribs(request, fdb, step, paramId) -> List[eccodes.GRIBMessage]:
     return messages
 
 
-def write_instantaneous_grib(fdb, template_grib, step, threshold, data) -> None:
+def write_grib(fdb, template_grib, leg, window_name, threshold, data) -> None:
 
     # Copy an input GRIB message and modify headers for writing probability
     # field
@@ -39,32 +39,13 @@ def write_instantaneous_grib(fdb, template_grib, step, threshold, data) -> None:
         "localDecimalScaleFactor": 2,
         "thresholdIndicator": 2,
         "upperThreshold": threshold["value"],
-        "step": step,
     }
-    out_grib.set(key_values, check_values=True)
-
-    # Set GRIB data and write to FDB
-    out_grib.set_array("values", data)
-    fdb.archive(out_grib.get_buffer())
-
-
-def write_period_grib(fdb, template_grib, leg, step_range, threshold, data) -> None:
-
-    # Copy an input GRIB message and modify headers for writing probability
-    # field
-    out_grib = template_grib.copy()
-    key_values = {
-        "type": "ep",
-        "paramId": threshold["out_paramid"],
-        "localDefinitionNumber": 5,
-        "localDecimalScaleFactor": 2,
-        "thresholdIndicator": 2,
-        "upperThreshold": threshold["value"],
-        "stepType": "max",
-        "stepRange": step_range,
-    }
-    if leg == 2:
-        key_values["unitOfTimeRange"] = 11
+    if isinstance(window_name, int):
+        key_values["step"] = window_name
+    else:
+        key_values.update({"stepType": "max", "stepRange": window_name})
+        if leg == 2:
+            key_values["unitOfTimeRange"] = 11
 
     out_grib.set(key_values, check_values=True)
 
@@ -124,13 +105,16 @@ def main(args=None):
 
         # Check all threshold comparisons are the same
         thresholds = parameter["thresholds"]
-        for threshold in thresholds[1:]:
-            if threshold["comparison"] != thresholds[0]["comparison"]:
-                print(
-                    f"Different comparison operations for thresholds is currently not supported. Skipping \
-                parameter id {paramid}"
-                )
-                continue
+        threshold_check = [
+            threshold["comparison"] == thresholds[0]["comparison"]
+            for threshold in thresholds
+        ]
+        if not np.all(threshold_check):
+            print(
+                f"Different comparison operations for thresholds is currently not supported. "
+                + f"Skipping parameter {paramid}"
+            )
+            continue
 
         window_manager = WindowManager(parameter)
 
@@ -145,28 +129,18 @@ def main(args=None):
                         window.step_values, threshold
                     )
 
-                    if window.size() == 0:
-                        print(
-                            f"Writing instantaneous probability for param {paramid} at step {step}"
-                        )
-                        write_instantaneous_grib(
-                            fdb, messages[0], step, threshold, window_probability
-                        )
-                    else:
-                        print(
-                            f"Writing time-averaged {window.name} probability for param {paramid}"
-                        )
-                        write_period_grib(
-                            fdb,
-                            messages[0],
-                            leg,
-                            window.name,
-                            threshold,
-                            window_probability,
-                        )
-
-            if window_manager.completed():
-                break
+                    print(
+                        f"Writing probability for input param {paramid} and output "
+                        + f"param {threshold['out_paramid']} for step(s) {window.name}"
+                    )
+                    write_grib(
+                        fdb,
+                        messages[0],
+                        leg,
+                        window.name,
+                        threshold,
+                        window_probability,
+                    )
 
     fdb.flush()
 

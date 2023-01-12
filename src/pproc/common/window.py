@@ -4,8 +4,7 @@ import numpy as np
 
 class Window:
     """
-    Class for collating data for all ensembles over an step interval for computing
-    time-averaged probabilities
+    Class for collating data for all ensembles over an step interval
     """
 
     def __init__(self, window_options, include_init: bool = True):
@@ -19,7 +18,10 @@ class Window:
         self.include_init = include_init
         window_size = self.end - self.start
         self.suffix = f"{window_size:0>3}_{self.start:0>3}h_{self.end:0>3}h"
-        self.name = f"{self.start}-{self.end}"
+        if window_size == 0:
+            self.name = self.end
+        else:
+            self.name = f"{self.start}-{self.end}"
         self.operation = None
         self.step_values = []
 
@@ -44,9 +46,8 @@ class Window:
     def add_step_values(self, step: int, step_values: np.array):
         """
         Adds contribution of data values for specified step, if inside window, by computing
-        reduction operation on existing step values and new step values -
-        saves on memory as only the reduction operation on processed steps
-        is stored
+        reduction operation on existing step values and new step values - only the reduction
+        operation on processed steps is stored
 
         :param step: step to update window with
         :param step_values: data values for step
@@ -115,10 +116,10 @@ class SimpleOpWindow(Window):
         )
 
 
-class WeightedSumWindow(Window):
+class WeightedSumWindow(SimpleOpWindow):
     """
-    Window with weighted sum operation. Weighted sums is computed by weighting the
-    data for each step by the step duration, and then dividing by the total duration of the
+    Window with weighted sum operation. Weighted sum is computed by weighting the
+    data for each step by the step duration, and then dividing the sum by the total duration of the
     window.
     """
 
@@ -126,14 +127,8 @@ class WeightedSumWindow(Window):
         """
         :param window_options: config specifying start and end of window
         """
-        super().__init__(window_options, include_init=False)
-        self.set_operation(
-            lambda current_step_values, new_step_values: numexpr.evaluate(
-                "sum(data, axis=0)",
-                local_dict={"data": [current_step_values, new_step_values]},
-            )
-        )
-        self.previous_step = 0
+        super().__init__(window_options, "sum")
+        self.previous_step = self.start
 
     def add_step_values(self, step: int, step_values: np.array):
         """
@@ -146,15 +141,14 @@ class WeightedSumWindow(Window):
         """
         if not self.in_window(step):
             return
+        step_duration = step - self.previous_step
         if len(self.step_values) == 0:
-            step_duration = step - self.start
             self.step_values = step_values * step_duration
         else:
-            step_duration = step - self.previous_step
             self.step_values = self.operation(
                 self.step_values, step_values * step_duration
             )
 
         self.previous_step = step
         if self.reached_end_step(step):
-            self.step_values = self.step_values / (self.end - self.start)
+            self.step_values = self.step_values / self.size()
