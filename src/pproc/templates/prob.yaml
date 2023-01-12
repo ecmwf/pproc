@@ -27,10 +27,10 @@ parameters:
       - out_paramid: 131073
         comparison: "<="
         value: 273.15
-base_request:
-  class: od
-  stream: enfo
-  expver: '0001'
-  type: pf
-  levtype: sfc
-  domain: g
+    base_request:
+      class: od
+      stream: enfo
+      expver: '0001'
+      type: pf
+      levtype: sfc
+      domain: g
