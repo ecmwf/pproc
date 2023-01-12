@@ -22,19 +22,18 @@ class Window:
             self.name = self.end
         else:
             self.name = f"{self.start}-{self.end}"
-        self.operation = None
         self.step_values = []
 
-    def set_operation(self, operation):
+    def operation(self, new_step_values: np.array):
         """
-        Sets reduction operation, if none, on existing step data values and new step data values.
+        Combines data from unprocessed steps with existing step data values,
+        and updates step data values
 
-        :param operation: function of the form f(current_step_values, new_step_values) -> reduced_step_values
+        :param new_step_values: data from new step
         """
-        if self.operation is None:
-            self.operation = operation
+        raise NotImplementedError
 
-    def in_window(self, step: int) -> bool:
+    def __contains__(self, step: int) -> bool:
         """
         :param step: current step
         :return: boolean specifying if step is in window interval
@@ -52,12 +51,12 @@ class Window:
         :param step: step to update window with
         :param step_values: data values for step
         """
-        if not self.in_window(step):
+        if not self.__contains__(step):
             return
         if len(self.step_values) == 0:
             self.step_values = step_values
         else:
-            self.step_values = self.operation(self.step_values, step_values)
+            self.operation(step_values)
 
     def reached_end_step(self, step: int) -> bool:
         """
@@ -81,12 +80,17 @@ class DiffWindow(Window):
 
     def __init__(self, window_options):
         super().__init__(window_options, include_init=True)
-        self.set_operation(
-            lambda current_step_values, new_step_values: new_step_values
-            - current_step_values
-        )
 
-    def in_window(self, step: int) -> bool:
+    def operation(self, new_step_values: np.array):
+        """
+        Combines data from unprocessed steps with existing step data values,
+        and updates step data values
+
+        :param new_step_values: data from new step
+        """
+        self.step_values = new_step_values - self.step_values
+
+    def __contains__(self, step: int) -> bool:
         """
         :param step: current step
         :return: boolean specifying if step is in window interval
@@ -108,11 +112,18 @@ class SimpleOpWindow(Window):
         :param include_init: boolean specifying whether to include start step
         """
         super().__init__(window_options, include_init)
-        self.set_operation(
-            lambda current_step_values, new_step_values: numexpr.evaluate(
-                f"{window_operation}(data, axis=0)",
-                local_dict={"data": [current_step_values, new_step_values]},
-            )
+        self.operation_str = window_operation
+
+    def operation(self, new_step_values: np.array):
+        """
+        Combines data from unprocessed steps with existing step data values,
+        and updates step data values
+
+        :param new_step_values: data from new step
+        """
+        self.step_values = numexpr.evaluate(
+            f"{self.operation_str}(data, axis=0)",
+            local_dict={"data": [self.step_values, new_step_values]},
         )
 
 
@@ -139,15 +150,13 @@ class WeightedSumWindow(SimpleOpWindow):
         :param step: step to update window with
         :param step_values: data values for step
         """
-        if not self.in_window(step):
+        if not self.__contains__(step):
             return
         step_duration = step - self.previous_step
         if len(self.step_values) == 0:
             self.step_values = step_values * step_duration
         else:
-            self.step_values = self.operation(
-                self.step_values, step_values * step_duration
-            )
+            self.operation(step_values * step_duration)
 
         self.previous_step = step
         if self.reached_end_step(step):

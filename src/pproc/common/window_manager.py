@@ -41,7 +41,7 @@ class WindowManager:
         :raises: RuntimeError if no window operation was provided, or could be derived
         """
         self.windows = []
-        self.unique_steps = []
+        self.unique_steps = set()
         for steps in parameter["steps"]:
             start_step = steps["start_step"]
             end_step = steps["end_step"]
@@ -49,7 +49,7 @@ class WindowManager:
             write = steps.get("write", False)
             for step in range(start_step, end_step + 1, interval):
                 if step not in self.unique_steps:
-                    self.unique_steps.append(step)
+                    self.unique_steps.add(step)
                     if write:
                         self.windows.append(
                             Window({"range": [step, step]}, include_init=True)
