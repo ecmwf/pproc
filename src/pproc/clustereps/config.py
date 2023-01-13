@@ -1,5 +1,8 @@
 
+from typing import List
+
 from pproc.common import Config
+from pproc.clustereps.utils import gen_steps
 
 
 class ClusterConfigBase(Config):
@@ -23,3 +26,11 @@ class ClusterConfigBase(Config):
 
         # Maximum absolute value of anomalies
         self.clip = self.options.get('max_anom', 10000.)
+
+    @property
+    def monthly(self) -> bool:
+        return (self.step_end - self.step_start > 120) or (self.step_end == self.step_start)
+
+    @property
+    def steps(self) -> List[int]:
+        return gen_steps(self.step_start, self.step_end, self.step_del, monthly=self.monthly)
