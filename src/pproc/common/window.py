@@ -29,7 +29,8 @@ class Window:
     def operation(self, new_step_values: np.array):
         """
         Combines data from unprocessed steps with existing step data values,
-        and updates step data values
+        and updates step data values. Any processing involving NaN values 
+        must return NaN to be compatible with MARS compute
 
         :param new_step_values: data from new step
         """
@@ -104,7 +105,8 @@ class DiffWindow(Window):
     def operation(self, new_step_values: np.array):
         """
         Combines data from unprocessed steps with existing step data values,
-        and updates step data values
+        and updates step data values. Any processing involving NaN values 
+        must return NaN to be compatible with MARS compute
 
         :param new_step_values: data from new step
         """
@@ -137,15 +139,18 @@ class SimpleOpWindow(Window):
     def operation(self, new_step_values: np.array):
         """
         Combines data from unprocessed steps with existing step data values,
-        and updates step data values
+        and updates step data values. Any processing involving NaN values 
+        must return NaN to be compatible with MARS compute
 
         :param new_step_values: data from new step
         """
         self.step_values = numexpr.evaluate(
             f"{self.operation_str}(data, axis=0)",
-            local_dict={"data": [self.step_values, new_step_values]},
+            local_dict={"data": [
+                np.where(np.isnan(new_step_values), np.nan, self.step_values), 
+                np.where(np.isnan(self.step_values), np.nan, new_step_values)
+            ]},
         )
-
 
 class WeightedSumWindow(SimpleOpWindow):
     """
