@@ -110,7 +110,7 @@ class DiffWindow(Window):
 
         :param new_step_values: data from new step
         """
-        self.step_values = new_step_values - self.step_values
+        self.step_values = np.subtract(new_step_values, self.step_values)
 
     def __contains__(self, step: int) -> bool:
         """
