@@ -3,7 +3,14 @@ from typing import Iterator
 
 import numpy as np
 
-from pproc.common import DiffWindow, SimpleOpWindow, WeightedSumWindow, Window
+from pproc.common import (
+    DiffWindow,
+    MinWindow,
+    MaxWindow,
+    SumWindow,
+    WeightedSumWindow,
+    Window,
+)
 
 
 def create_window(window_options, window_operation: str) -> Window:
@@ -18,9 +25,13 @@ def create_window(window_options, window_operation: str) -> Window:
     """
     if window_operation == "diff":
         return DiffWindow(window_options)
-    elif window_operation in ["min", "max", "sum"]:
-        return SimpleOpWindow(window_options, window_operation)
-    elif window_operation == "weightedsum":
+    if window_operation == "min":
+        return MinWindow(window_options, include_init=False)
+    if window_operation == "max":
+        return MaxWindow(window_options, include_init=False)
+    if window_operation == "sum":
+        return SumWindow(window_options, include_init=False)
+    if window_operation == "weightedsum":
         return WeightedSumWindow(window_options)
     raise ValueError(
         f"Unsupported window operation {window_operation}. "

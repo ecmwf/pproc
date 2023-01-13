@@ -1,4 +1,3 @@
-import numexpr
 import numpy as np
 from typing import Dict
 
@@ -29,7 +28,7 @@ class Window:
     def operation(self, new_step_values: np.array):
         """
         Combines data from unprocessed steps with existing step data values,
-        and updates step data values. Any processing involving NaN values 
+        and updates step data values. Any processing involving NaN values
         must return NaN to be compatible with MARS compute
 
         :param new_step_values: data from new step
@@ -103,56 +102,40 @@ class DiffWindow(Window):
         super().__init__(window_options, include_init=True)
 
     def operation(self, new_step_values: np.array):
-        """
-        Combines data from unprocessed steps with existing step data values,
-        and updates step data values. Any processing involving NaN values 
-        must return NaN to be compatible with MARS compute
-
-        :param new_step_values: data from new step
-        """
         self.step_values = np.subtract(new_step_values, self.step_values)
 
     def __contains__(self, step: int) -> bool:
-        """
-        :param step: current step
-        :return: boolean specifying if step is in window interval
-        """
         return step == self.start or step == self.end
 
 
-class SimpleOpWindow(Window):
+class MaxWindow(Window):
     """
-    Window with operation min, max or sum - reduction operations supported by numexpr
+    Window with operation max over data values from different steps
     """
-
-    def __init__(
-        self, window_options, window_operation: str, include_init: bool = False
-    ):
-        """
-        :param window_options: config specifying start and end of window
-        :param window_operation: name of reduction operation out of min, max, sum
-        :param include_init: boolean specifying whether to include start step
-        """
-        super().__init__(window_options, include_init)
-        self.operation_str = window_operation
 
     def operation(self, new_step_values: np.array):
-        """
-        Combines data from unprocessed steps with existing step data values,
-        and updates step data values. Any processing involving NaN values 
-        must return NaN to be compatible with MARS compute
+        self.step_values = np.max([self.step_values, new_step_values], axis=0)
 
-        :param new_step_values: data from new step
-        """
-        self.step_values = numexpr.evaluate(
-            f"{self.operation_str}(data, axis=0)",
-            local_dict={"data": [
-                np.where(np.isnan(new_step_values), np.nan, self.step_values), 
-                np.where(np.isnan(self.step_values), np.nan, new_step_values)
-            ]},
-        )
 
-class WeightedSumWindow(SimpleOpWindow):
+class MinWindow(Window):
+    """
+    Window with operation min over data values from different steps
+    """
+
+    def operation(self, new_step_values: np.array):
+        self.step_values = np.min([self.step_values, new_step_values], axis=0)
+
+
+class SumWindow(Window):
+    """
+    Window with operation sum over data values from different steps
+    """
+
+    def operation(self, new_step_values: np.array):
+        self.step_values = np.sum([self.step_values, new_step_values], axis=0)
+
+
+class WeightedSumWindow(SumWindow):
     """
     Window with weighted sum operation. Weighted sum is computed by weighting the
     data for each step by the step duration, and then dividing the sum by the total duration of the
@@ -160,10 +143,7 @@ class WeightedSumWindow(SimpleOpWindow):
     """
 
     def __init__(self, window_options):
-        """
-        :param window_options: config specifying start and end of window
-        """
-        super().__init__(window_options, "sum")
+        super().__init__(window_options, include_init=False)
         self.previous_step = self.start
 
     def add_step_values(self, step: int, step_values: np.array):
