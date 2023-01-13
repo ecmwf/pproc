@@ -1,5 +1,6 @@
 import numexpr
 import numpy as np
+from typing import Dict
 
 
 class Window:
@@ -23,6 +24,7 @@ class Window:
         else:
             self.name = f"{self.start}-{self.end}"
         self.step_values = []
+        self.config_grib_header = {}
 
     def operation(self, new_step_values: np.array):
         """
@@ -70,6 +72,24 @@ class Window:
         :return: size of window interval
         """
         return self.end - self.start
+
+    def grib_header(self, leg: int) -> Dict:
+        """
+        Returns window specific grib headers, including headers defined in
+        config file
+
+        :param leg: model leg
+        :return: dictionary of header keys and values
+        """
+        header = self.config_grib_header
+        if isinstance(self.name, int):
+            header["step"] = self.name
+        else:
+            header.update({"stepType": "max", "stepRange": self.name})
+            if leg == 2:
+                header["unitOfTimeRange"] = 11
+
+        return header
 
 
 class DiffWindow(Window):

@@ -47,13 +47,16 @@ class WindowManager:
             end_step = steps["end_step"]
             interval = steps["interval"]
             write = steps.get("write", False)
+
+            config_grib_header = steps.get("grib_header", {})
             for step in range(start_step, end_step + 1, interval):
                 if step not in self.unique_steps:
                     self.unique_steps.add(step)
                     if write:
-                        self.windows.append(
-                            Window({"range": [step, step]}, include_init=True)
-                        )
+                        inst_window = Window({"range": [step, step]}, include_init=True)
+                        inst_window.config_grib_header = config_grib_header
+                        self.windows.append(inst_window)
+
         self.unique_steps = sorted(self.unique_steps)
 
         # Get window operation, or if not provided in config, derive from threshold

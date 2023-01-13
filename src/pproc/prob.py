@@ -50,7 +50,7 @@ def threshold_grib_headers(threshold) -> Dict:
     return threshold_dict
 
 
-def write_grib(fdb, template_grib, leg, window_name, threshold, data) -> None:
+def write_grib(fdb, template_grib, window_grib_headers, threshold, data) -> None:
 
     # Copy an input GRIB message and modify headers for writing probability
     # field
@@ -62,14 +62,7 @@ def write_grib(fdb, template_grib, leg, window_name, threshold, data) -> None:
         "bitsPerValue": 8,  # Set equal to accuracy used in mars compute
     }
     key_values.update(threshold_grib_headers(threshold))
-
-    if isinstance(window_name, int):
-        key_values["timeRangeIndicator"] = 0
-        key_values["step"] = window_name
-    else:
-        key_values.update({"stepType": "max", "stepRange": window_name})
-        if leg == 2:
-            key_values["unitOfTimeRange"] = 11
+    key_values.update(window_grib_headers)
 
     out_grib.set(key_values, check_values=True)
 
@@ -167,8 +160,7 @@ def main(args=None):
                     write_grib(
                         fdb,
                         messages[0],
-                        leg,
-                        window.name,
+                        window.grib_header(leg),
                         threshold,
                         window_probability,
                     )
