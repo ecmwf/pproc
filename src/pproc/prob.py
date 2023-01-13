@@ -2,7 +2,7 @@
 import argparse
 import sys
 from datetime import datetime
-from typing import List
+from typing import List, Dict
 
 import numexpr
 import numpy as np
@@ -12,6 +12,8 @@ import eccodes
 import pyfdb
 
 from pproc.common import WindowManager
+
+MISSING_VALUE = 9999
 
 
 def read_gribs(request, fdb, step, paramId) -> List[eccodes.GRIBMessage]:
@@ -27,6 +29,27 @@ def read_gribs(request, fdb, step, paramId) -> List[eccodes.GRIBMessage]:
     return messages
 
 
+def threshold_grib_headers(threshold) -> Dict:
+    threshold_dict = {}
+    threshold_value = threshold["value"]
+    if isinstance(threshold_value, float):
+        # Assume non-integer thresholds use localDecimalScaleFator = 2, which
+        # is the case for 2t
+        threshold_dict["localDecimalScaleFactor"] = 2
+        threshold_value = round(threshold["value"] * 100, 0)
+
+    comparison = threshold["comparison"]
+    if "<" in comparison:
+        threshold_dict.update(
+            {"thresholdIndicator": 2, "upperThreshold": threshold_value}
+        )
+    elif ">" in comparison:
+        threshold_dict.update(
+            {"thresholdIndicator": 1, "lowerThreshold": threshold_value}
+        )
+    return threshold_dict
+
+
 def write_grib(fdb, template_grib, leg, window_name, threshold, data) -> None:
 
     # Copy an input GRIB message and modify headers for writing probability
@@ -36,12 +59,12 @@ def write_grib(fdb, template_grib, leg, window_name, threshold, data) -> None:
         "type": "ep",
         "paramId": threshold["out_paramid"],
         "localDefinitionNumber": 5,
-        "localDecimalScaleFactor": 2,
-        "thresholdIndicator": 2,
-        "upperThreshold": round(threshold["value"] * 100, 0),
         "bitsPerValue": 8,  # Set equal to accuracy used in mars compute
     }
+    key_values.update(threshold_grib_headers(threshold))
+
     if isinstance(window_name, int):
+        key_values["timeRangeIndicator"] = 0
         key_values["step"] = window_name
     else:
         key_values.update({"stepType": "max", "stepRange": window_name})
@@ -64,12 +87,18 @@ def ensemble_probability(data: np.array, threshold) -> np.array:
 
     """
 
+    # Find all locations where np.nan appears as an ensemble value
+    is_nan = np.isnan(np.sum(data, axis=0))
+
     # Read threshold configuration and compute probability
     comparison = threshold["comparison"]
     comp = numexpr.evaluate(
         "data " + comparison + str(threshold["value"]), local_dict={"data": data}
     )
     probability = np.where(comp, 100, 0).mean(axis=0)
+
+    # Put in missing values
+    probability = np.where(is_nan, MISSING_VALUE, probability)
 
     return probability
 
@@ -121,6 +150,8 @@ def main(args=None):
         for step in window_manager.unique_steps:
             messages = read_gribs(base_request, fdb, step, paramid)
             data = np.asarray([message.get_array("values") for message in messages])
+            # Replace missing values with nan
+            data = np.where(data == MISSING_VALUE, np.nan, data)
 
             completed_windows = window_manager.update_windows(step, data)
             for window in completed_windows:
