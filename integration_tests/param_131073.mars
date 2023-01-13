@@ -1,0 +1,11 @@
+retrieve,
+    class=od,
+    expver=0001,
+    stream=enfo,
+    date=20230101,
+    time=1200,
+    domain=g,
+    type=ep,
+    levtype=sfc,
+    step=12/24/36/120-168/120-240/168-240,
+    param=131073
