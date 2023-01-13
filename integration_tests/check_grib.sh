@@ -12,9 +12,9 @@ echo ",target=forecast.grib" >> temp_request.mars
 mars temp_request.mars
 if [ -z $2 ]
 then 
-    OUTPUT=$(pproc-bundle/install/bin/grib_compare -b values,codedValues -2 test.grib forecast.grib)
+    OUTPUT=$(pproc-bundle/install/bin/grib_compare -b values,codedValues test.grib forecast.grib)
 else
-    OUTPUT=$(pproc-bundle/install/bin/grib_compare test.grib -2 forecast.grib)
+    OUTPUT=$(pproc-bundle/install/bin/grib_compare test.grib forecast.grib)
 fi 
 
 # Tidy 

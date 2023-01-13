@@ -1,6 +1,50 @@
 number_of_ensembles: 50
 leg: 1
 parameters:
+  - in_paramid: 140229
+    steps:
+      - interval: 12
+        start_step: 12
+        end_step: 240
+        write: True
+        grib_header:
+          timeRangeIndicator: 0
+      - interval: 3
+        start_step: 123
+        end_step: 144
+      - interval: 6
+        start_step: 150
+        end_step: 240
+    periods:
+      - range: 
+        - 120
+        - 168
+      - range: 
+        - 120
+        - 240
+      - range: 
+        - 168
+        - 240
+    thresholds:
+      - out_paramid: 131074
+        comparison: ">="
+        value: 2
+      - out_paramid: 131075
+        comparison: ">="
+        value: 4
+      - out_paramid: 131076
+        comparison: ">="
+        value: 6
+      - out_paramid: 131077
+        comparison: ">="
+        value: 8
+    base_request:
+      class: od
+      stream: waef
+      expver: '0001'
+      type: pf
+      levtype: sfc
+      domain: g
   - in_paramid: 140232
     steps:
       - interval: 12
