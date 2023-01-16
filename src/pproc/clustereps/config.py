@@ -6,8 +6,8 @@ from pproc.clustereps.utils import gen_steps
 
 
 class ClusterConfigBase(Config):
-    def __init__(self, args):
-        super().__init__(args)
+    def __init__(self, args, verbose=True):
+        super().__init__(args, verbose=verbose)
 
         # Step range
         self.step_start = self.options['step_start']

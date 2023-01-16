@@ -801,9 +801,9 @@ def write_cluster_grib(steps, ind_cl, rep_members, det_index, data, target, keys
 
 
 class ClusterConfig(ClusterConfigBase):
-    def __init__(self, args):
+    def __init__(self, args, verbose=True):
 
-        super().__init__(args)
+        super().__init__(args, verbose=verbose)
 
         # Variance threshold
         self.var_th = self.options['var_th']

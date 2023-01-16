@@ -133,7 +133,7 @@ def main(sys_args=None):
 
     # Clustering
 
-    cluster_config = cluster.ClusterConfig(args)
+    cluster_config = cluster.ClusterConfig(args, verbose=False)
 
     ## Compute number of PCs based on the variance threshold
     var_cum = pca_data['var_cum']
@@ -170,7 +170,7 @@ def main(sys_args=None):
 
     # Attribution
 
-    attr_config = attribution.AttributionConfig(args)
+    attr_config = attribution.AttributionConfig(args, verbose=False)
 
     cluster_data = {
         'centroids': centroids_gp,

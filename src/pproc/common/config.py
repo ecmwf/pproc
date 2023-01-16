@@ -41,7 +41,7 @@ def nested_set(dic, keys, value):
 
 
 class Config():
-    def __init__(self, args):
+    def __init__(self, args, verbose=True):
 
         with open(args.config, 'r') as f:
             self.options = yaml.safe_load(f)
@@ -51,4 +51,5 @@ class Config():
             for key, value in values_to_set.items():
                 nested_set(self.options, key.split('.'), value)
 
-        print(yaml.dump(self.options))
+        if verbose:
+            print(yaml.dump(self.options))

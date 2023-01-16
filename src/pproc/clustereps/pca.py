@@ -178,8 +178,8 @@ def ensemble_pca(ens_anom, ncomp, weights=None):
 
 
 class PCAConfig(ClusterConfigBase):
-    def __init__(self, args):
-        super().__init__(args)
+    def __init__(self, args, verbose=True):
+        super().__init__(args, verbose=verbose)
 
         # Normalisation factor (1)
         self.factor = self.options.get('pca_factor', None)
