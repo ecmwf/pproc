@@ -31,11 +31,15 @@ def read_ensemble_grib(path, steps, nexp):
         Longitudes in [0, 360) deg
     numpy array (nexp, nstep, npoints)
         Ensemble data
+    eccodes.Message
+        Template message
     """
     inv_steps = {s: i for i, s in enumerate(steps)}
     nstep = len(steps)
+    template = None
     with eccodes.FileReader(path) as reader:
         message = reader.peek()
+        template = message
         npoints = message.get('numberOfDataPoints')
         lat = message.get_array('latitudes')
         lon = normalise_angles(message.get_array('longitudes'))
@@ -47,7 +51,7 @@ def read_ensemble_grib(path, steps, nexp):
             istep = inv_steps.get(step, None)
             if istep is not None:
                 ens[iexp, istep, :] = message.get_array('values')
-    return lat, lon, ens
+    return lat, lon, ens, template
 
 
 def mean_spread(stddev, weights=None):
@@ -312,7 +316,7 @@ def main(cmdArgs=sys.argv[1:]):
 
     # Read ensemble
     nexp = config.num_members
-    lat, lon, ens = read_ensemble_grib(args.ensemble, config.steps, nexp)
+    lat, lon, ens, template = read_ensemble_grib(args.ensemble, config.steps, nexp)
 
     # Read ensemble stddev
     with eccodes.FileReader(args.spread) as reader:
