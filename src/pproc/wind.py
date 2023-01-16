@@ -37,6 +37,7 @@ def fdb2cache_request_det(cfg, levelist, window):
     req['type'] = 'fc'
 
     cached_file = f"wind_det_{levelist}_{window.name}.grb"
+    print(req)
     common.fdb_read_to_file(cfg.fdb, req, cached_file)
 
     return cached_file
@@ -71,16 +72,19 @@ def fdb2cache_request_ens(cfg, levelist, window):
     return cached_file
 
 
-def mir_wind(cached_file):
+def mir_wind(cfg, cached_file):
     """
     Compute wind components from cached grib file
     The grib file contains the vorticity and the divergence
+    returns a list of messages containing the two components of velocity
     """
+
+    interp_keys = cfg.interpolation_keys
 
     out = BytesIO()
     inp = mir.MultiDimensionalGribFileInput(cached_file, 2)
 
-    job = mir.Job(vod2uv="1")
+    job = mir.Job(vod2uv="1", **interp_keys)
     job.execute(inp, out)
 
     out.seek(0)
@@ -96,7 +100,7 @@ def wind_norm_det(cfg, levelist, window):
     """
     cached_file = fdb2cache_request_det(cfg, levelist, window)
 
-    messages = mir_wind(cached_file)
+    messages = mir_wind(cfg, cached_file)
 
     template = messages[0]
 
@@ -118,12 +122,11 @@ def wind_mean_std_eps(cfg, levelist, window):
     """
     cached_file = fdb2cache_request_ens(cfg, levelist, window)
 
-    messages = mir_wind(cached_file)
+    messages = mir_wind(cfg, cached_file)
 
     template = messages[0]
 
     steps = list(set([m["step"] for m in messages]))
-    print(steps)
     wind_paramids = list(set([m["paramId"] for m in messages]))
     assert len(wind_paramids) == 2
     u = np.asarray([m.get_array("values") for m in messages if m["paramId"] == wind_paramids[0]])
@@ -143,18 +146,22 @@ def wind_mean_std_eps(cfg, levelist, window):
 
     u = np.asarray(list(u.values()))
     v = np.asarray(list(v.values()))
-    print(u)
-    print(v)
 
     ws = np.sqrt(u * u + v * v)
     mean = np.mean(ws, axis=0)
     mean = dict(zip(steps, mean))
     stddev = np.std(ws, axis=0)
     stddev = dict(zip(steps, stddev))
-    print(mean)
-    print(stddev)
 
     return mean, stddev, template
+
+
+def template_ensemble(cfg, template, marstype):
+    template_ens = template.copy()
+    template_ens.set("marsType", marstype)
+    template_ens.set("indicatorOfParameter", 10)
+    template_ens.set("gribTablesVersionNo", 128)
+    return template_ens
 
 
 class ConfigExtreme(common.Config):
@@ -165,13 +172,14 @@ class ConfigExtreme(common.Config):
         self.date = datetime.strptime(str(self.options['fc_date']), "%Y%m%d%H")
         self.root_dir = self.options['root_dir']
         self.target = self.options['target']
-        self.out_dir = os.path.join(self.root_dir, 'wind_test', self.date.strftime("%Y%m%d%H"))
+        self.out_dir = os.path.join(self.root_dir, self.date.strftime("%Y%m%d%H"))
 
         self.fdb = pyfdb.FDB()
 
         self.request = self.options['request']
         self.windows = self.options['windows']
         self.levelist = self.options['levelist']
+        self.interpolation_keys = self.options['interpolation_keys']
 
 
 def main(args=None):
@@ -198,11 +206,11 @@ def main(args=None):
             for step in window.steps:
                 mean_file = os.path.join(cfg.out_dir, f'mean_{levelist}_{window.name}_{step}.grib')
                 target_mean = common.target_factory(cfg.target, out_file=mean_file, fdb=cfg.fdb)
-                template_mean = template_ens
+                template_mean = template_ensemble(cfg, template_ens, 'em')
                 common.write_grib(target_mean, template_mean, mean[step])
                 std_file = os.path.join(cfg.out_dir, f'std_{levelist}_{window.name}_{step}.grib')
                 target_std = common.target_factory(cfg.target, out_file=std_file, fdb=cfg.fdb)
-                template_std = template_ens
+                template_std = template_ensemble(cfg, template_ens, 'es')
                 common.write_grib(target_std, template_std, std[step])
 
 

@@ -153,7 +153,7 @@ def fdb_retrieve(fdb, request, mir_options=None):
     """
     fdb_reader = fdb.retrieve(request)
     if mir_options:
-        job = mir.Job(mir_options)
+        job = mir.Job(**mir_options)
         stream = BytesIO()
         job.execute(fdb_reader, stream)
         stream.seek(0)
