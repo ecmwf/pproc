@@ -120,7 +120,7 @@ def main(args=None):
     parameters = config["parameters"]
     for parameter in parameters:
         base_request = parameter["base_request"]
-        base_request["number"] = range(1, nensembles)
+        base_request["number"] = range(1, nensembles + 1)
         base_request["date"] = date.strftime("%Y%m%d")
         base_request["time"] = date.strftime("%H") + "00"
 
