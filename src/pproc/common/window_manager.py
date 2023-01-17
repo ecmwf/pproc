@@ -9,6 +9,7 @@ from pproc.common import (
     MaxWindow,
     SumWindow,
     WeightedSumWindow,
+    DiffDailyRateWindow,
     Window,
 )
 
@@ -23,6 +24,8 @@ def create_window(window_options, window_operation: str) -> Window:
     :return: instance of the derived Window class for window operation
     :raises: ValueError for unsupported window operation string
     """
+    if window_options['range'][0] == window_options['range'][1]:
+        return Window(window_options, include_init=True)
     if window_operation == "diff":
         return DiffWindow(window_options)
     if window_operation == "min":
@@ -33,6 +36,8 @@ def create_window(window_options, window_operation: str) -> Window:
         return SumWindow(window_options, include_init=False)
     if window_operation == "weightedsum":
         return WeightedSumWindow(window_options)
+    if window_operation == "diffdailyrate":
+        return DiffDailyRateWindow(window_options)
     raise ValueError(
         f"Unsupported window operation {window_operation}. "
         + "Supported types: diff, min, max, sum, weightedsum"
@@ -57,37 +62,42 @@ class WindowManager:
             start_step = steps["start_step"]
             end_step = steps["end_step"]
             interval = steps["interval"]
-            write = steps.get("write", False)
 
-            config_grib_header = steps.get("grib_set", {})
             for step in range(start_step, end_step + 1, interval):
                 if step not in self.unique_steps:
                     self.unique_steps.add(step)
-                    if write:
-                        inst_window = Window({"range": [step, step]}, include_init=True)
-                        inst_window.config_grib_header = config_grib_header
-                        self.windows.append(inst_window)
-
+                    
         self.unique_steps = sorted(self.unique_steps)
 
-        # Get window operation, or if not provided in config, derive from threshold
-        window_operation = None
-        if "window_operation" in parameter:
-            window_operation = parameter["window_operation"]
-        elif "thresholds" in parameter:
-            # Derive from threshold comparison parameter
-            threshold_comparison = parameter["thresholds"][0]["comparison"]
-            if "<" in threshold_comparison:
-                window_operation = "min"
-            elif ">" in threshold_comparison:
-                window_operation = "max"
+        # Create windows for each periods
+        for window_config in parameter["windows"]:
+            # Get window operation, or if not provided in config, derive from threshold
+            window_operation = None
+            if "window_operation" in window_config:
+                window_operation = window_config["window_operation"]
+            elif "thresholds" in window_config:
+                # Derive from threshold comparison parameter, as long as all threshold comparisons are the same
+                thresholds = window_config["thresholds"]
+                threshold_check = [
+                    threshold["comparison"] == thresholds[0]["comparison"]
+                    for threshold in thresholds
+                ]
+                if np.all(threshold_check):
+                    threshold_comparison = thresholds[0]["comparison"]
+                    if "<" in threshold_comparison:
+                        window_operation = "min"
+                    elif ">" in threshold_comparison:
+                        window_operation = "max"
 
-        if not window_operation:
-            raise RuntimeError("No window operation specified, or could be derived")
+            if not window_operation:
+                raise RuntimeError(f"Parameter {parameter['in_paramid']} has window  with no operation specified, or none could be derived")
+                
+            for period in window_config["periods"]:
+                new_window = create_window(period, window_operation)
+                new_window.config_grib_header = window_config.get("grib_set", {})
+                new_window.thresholds = window_config['thresholds']
+                self.windows.append(new_window)
 
-        # Create windows from periods
-        for period in parameter["periods"]:
-            self.windows.append(create_window(period, window_operation))
 
     def update_windows(self, step: int, data: np.array) -> Iterator[Window]:
         """

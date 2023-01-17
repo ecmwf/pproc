@@ -24,6 +24,7 @@ class Window:
             self.name = f"{self.start}-{self.end}"
         self.step_values = []
         self.config_grib_header = {}
+        self.thresholds = []
 
     def operation(self, new_step_values: np.array):
         """
@@ -81,13 +82,14 @@ class Window:
         :param leg: model leg
         :return: dictionary of header keys and values
         """
-        header = self.config_grib_header
+        header = {}
         if isinstance(self.name, int):
             header["step"] = self.name
         else:
             header.update({"stepType": "max", "stepRange": self.name})
             if leg == 2:
                 header["unitOfTimeRange"] = 11
+        header.update(self.config_grib_header)
 
         return header
 
@@ -106,6 +108,16 @@ class DiffWindow(Window):
 
     def __contains__(self, step: int) -> bool:
         return step == self.start or step == self.end
+
+class DiffDailyRateWindow(DiffWindow):
+    """
+    Window with operation that takes difference between end and start step and then divides difference
+    by the total number of days in the window. Only accepts data for start and end step
+    """
+
+    def operation(self, new_step_values: np.array):
+        num_days = (self.end - self.start)/24
+        self.step_values = np.subtract(new_step_values, self.step_values)/num_days
 
 
 class MaxWindow(Window):

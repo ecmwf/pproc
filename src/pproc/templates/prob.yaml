@@ -1,102 +1,48 @@
 number_of_ensembles: 50
 leg: 1
 parameters:
-  - in_paramid: 142 # rain
-    other_parameter:
-      - paramid: 143
-        combine_operation: 'sum'
-    window_operation: 'diff'
-    steps:
-      - interval: 24
-        start_step: 12
-        end_step: 228
-    periods:
-      - range: [12, 36]
-      - range: [36, 60]
-      - range: [60, 84]
-      - range: [84, 108]
-      - range: [108, 132]
-      - range: [132, 156]
-      - range: [156, 180]
-      - range: [180, 204]
-      - range: [204, 228]
-    thresholds:
-      - out_paramid: 131060
-        comparison: ">="
-        value: 0.001
-        localDecimalScaleFactor: 3
-      - out_paramid: 131061
-        comparison: ">="
-        value: 0.005
-        localDecimalScaleFactor: 3
-      - out_paramid: 131062
-        comparison: ">="
-        value: 0.01
-        localDecimalScaleFactor: 3
-      - out_paramid: 131063
-        comparison: ">="
-        value: 0.02
-        localDecimalScaleFactor: 3
-      # - out_paramid: 131098 Note: needs grib edition 2
-      #   comparison: ">="
-      #   value: 0.025
-      # - out_paramid: 131099
-      #   comparison: ">="
-      #   value: 0.05
-      # - out_paramid: 131085
-      #   comparison: ">="
-      #   value: 0.1
-    base_request:
-      class: od
-      stream: enfo
-      expver: '0001'
-      type: pf
-      levtype: sfc
-      domain: g
-    grib_set:
-      timeRangeIndicator: 5
-      stepType: diff # Override default value of 'max' for step ranges
   - in_paramid: 123 # 10fg
     steps:
       - interval: 6
         start_step: 6
         end_step: 240
-    periods:
-      - range: [0, 24]
-      - range: [12, 36]
-      - range: [24, 48]
-      - range: [36, 60]
-      - range: [48, 72]
-      - range: [60, 84]
-      - range: [72, 96]
-      - range: [84, 108]
-      - range: [96, 120]
-      - range: [108, 132]
-      - range: [120, 144]
-      - range: [132, 156]
-      - range: [144, 168]
-      - range: [156, 180]
-      - range: [168, 192]
-      - range: [180, 204]
-      - range: [192, 216]
-      - range: [204, 228]
-      - range: [216, 240]
-      - range: [120, 168]
-      - range: [120, 240]
-      - range: [168, 240]
-    thresholds:
-      # - out_paramid: 131100 Note: needs grib edition 2
-      #   comparison: ">="
-      #   value: 10
-      - out_paramid: 131070
-        comparison: ">="
-        value: 15
-      - out_paramid: 131071
-        comparison: ">="
-        value: 20
-      - out_paramid: 131072
-        comparison: ">="
-        value: 25
+    windows:
+      - periods:
+          - range: [0, 24]
+          - range: [12, 36]
+          - range: [24, 48]
+          - range: [36, 60]
+          - range: [48, 72]
+          - range: [60, 84]
+          - range: [72, 96]
+          - range: [84, 108]
+          - range: [96, 120]
+          - range: [108, 132]
+          - range: [120, 144]
+          - range: [132, 156]
+          - range: [144, 168]
+          - range: [156, 180]
+          - range: [168, 192]
+          - range: [180, 204]
+          - range: [192, 216]
+          - range: [204, 228]
+          - range: [216, 240]
+          - range: [120, 168]
+          - range: [120, 240]
+          - range: [168, 240]
+        thresholds:
+          # - out_paramid: 131100 Note: needs grib edition 2
+          #   comparison: ">="
+          #   value: 10
+          - out_paramid: 131070
+            comparison: ">="
+            value: 15
+          - out_paramid: 131071
+            comparison: ">="
+            value: 20
+          - out_paramid: 131072
+            comparison: ">="
+            value: 25
     base_request:
       class: od
       stream: enfo
@@ -109,38 +55,66 @@ parameters:
       - interval: 12
         start_step: 12
         end_step: 240
-        write: True
-        grib_header:
-          timeRangeIndicator: 0
       - interval: 3
         start_step: 123
         end_step: 144
       - interval: 6
         start_step: 150
         end_step: 240
-    periods:
-      - range: 
-        - 120
-        - 168
-      - range: 
-        - 120
-        - 240
-      - range: 
-        - 168
-        - 240
-    thresholds:
-      - out_paramid: 131074
-        comparison: ">="
-        value: 2
-      - out_paramid: 131075
-        comparison: ">="
-        value: 4
-      - out_paramid: 131076
-        comparison: ">="
-        value: 6
-      - out_paramid: 131077
-        comparison: ">="
-        value: 8
+    windows:
+      - periods:
+          - range: [12, 12]
+          - range: [24, 24]
+          - range: [36, 36]
+          - range: [48, 48]
+          - range: [60, 60]
+          - range: [72, 72]
+          - range: [84, 84]
+          - range: [96, 96]
+          - range: [108, 108]
+          - range: [120, 120]
+          - range: [132, 132]
+          - range: [144, 144]
+          - range: [156, 156]
+          - range: [168, 168]
+          - range: [180, 180]
+          - range: [192, 192]
+          - range: [204, 204]
+          - range: [216, 216]
+          - range: [228, 228]
+          - range: [240, 240]
+        thresholds:
+          - out_paramid: 131074
+            comparison: ">="
+            value: 2
+          - out_paramid: 131075
+            comparison: ">="
+            value: 4
+          - out_paramid: 131076
+            comparison: ">="
+            value: 6
+          - out_paramid: 131077
+            comparison: ">="
+            value: 8
+        grib_set:
+          timeRangeIndicator: 0
+      - periods:
+          - range: [120, 168]
+          - range: [120, 240]
+          - range: [168, 240]
+        thresholds:
+          - out_paramid: 131074
+            comparison: ">="
+            value: 2
+          - out_paramid: 131075
+            comparison: ">="
+            value: 4
+          - out_paramid: 131076
+            comparison: ">="
+            value: 6
+          - out_paramid: 131077
+            comparison: ">="
+            value: 8
     base_request:
       class: od
       stream: waef
@@ -153,38 +127,66 @@ parameters:
       - interval: 12
         start_step: 12
         end_step: 240
-        write: True
-        grib_header:
-          timeRangeIndicator: 0
       - interval: 3
         start_step: 123
         end_step: 144
       - interval: 6
         start_step: 150
         end_step: 240
-    periods:
-      - range: 
-        - 120
-        - 168
-      - range: 
-        - 120
-        - 240
-      - range: 
-        - 168
-        - 240
-    thresholds:
-      - out_paramid: 131078
-        comparison: ">="
-        value: 8
-      - out_paramid: 131079
-        comparison: ">="
-        value: 10
-      - out_paramid: 131080
-        comparison: ">="
-        value: 12
-      - out_paramid: 131081
-        comparison: ">="
-        value: 15
+    windows:
+      - periods:
+          - range: [12, 12]
+          - range: [24, 24]
+          - range: [36, 36]
+          - range: [48, 48]
+          - range: [60, 60]
+          - range: [72, 72]
+          - range: [84, 84]
+          - range: [96, 96]
+          - range: [108, 108]
+          - range: [120, 120]
+          - range: [132, 132]
+          - range: [144, 144]
+          - range: [156, 156]
+          - range: [168, 168]
+          - range: [180, 180]
+          - range: [192, 192]
+          - range: [204, 204]
+          - range: [216, 216]
+          - range: [228, 228]
+          - range: [240, 240]
+        thresholds:
+          - out_paramid: 131078
+            comparison: ">="
+            value: 8
+          - out_paramid: 131079
+            comparison: ">="
+            value: 10
+          - out_paramid: 131080
+            comparison: ">="
+            value: 12
+          - out_paramid: 131081
+            comparison: ">="
+            value: 15
+        grib_set:
+          timeRangeIndicator: 0
+      - periods:
+          - range: [120, 168]
+          - range: [120, 240]
+          - range: [168, 240]
+        thresholds:
+          - out_paramid: 131078
+            comparison: ">="
+            value: 8
+          - out_paramid: 131079
+            comparison: ">="
+            value: 10
+          - out_paramid: 131080
+            comparison: ">="
+            value: 12
+          - out_paramid: 131081
+            comparison: ">="
+            value: 15
     base_request:
       class: od
       stream: waef
@@ -197,28 +199,42 @@ parameters:
       - interval: 12
         start_step: 12
         end_step: 240
-        write: True
       - interval: 3
         start_step: 123
         end_step: 144
       - interval: 6
         start_step: 150
         end_step: 240
-    periods:
-      - range: 
-        - 120
-        - 168
-      - range: 
-        - 120
-        - 240
-      - range: 
-        - 168
-        - 240
-    thresholds:
-      - out_paramid: 131073
-        comparison: "<="
-        value: 273.15
-        localDecimalScaleFactor: 2
+    windows:
+      - periods:
+          - range: [12, 12]
+          - range: [24, 24]
+          - range: [36, 36]
+          - range: [48, 48]
+          - range: [60, 60]
+          - range: [72, 72]
+          - range: [84, 84]
+          - range: [96, 96]
+          - range: [108, 108]
+          - range: [120, 120]
+          - range: [132, 132]
+          - range: [144, 144]
+          - range: [156, 156]
+          - range: [168, 168]
+          - range: [180, 180]
+          - range: [192, 192]
+          - range: [204, 204]
+          - range: [216, 216]
+          - range: [228, 228]
+          - range: [240, 240]
+          - range: [120, 168]
+          - range: [120, 240]
+          - range: [168, 240]
+        thresholds:
+          - out_paramid: 131073
+            comparison: "<="
+            value: 273.15
+            localDecimalScaleFactor: 2
     base_request:
       class: od
       stream: enfo

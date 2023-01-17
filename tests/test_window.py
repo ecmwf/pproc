@@ -6,6 +6,7 @@ from pproc.common import (
     MaxWindow,
     SumWindow,
     WeightedSumWindow,
+    DiffDailyRateWindow,
     Window,
 )
 
@@ -59,3 +60,12 @@ def test_period_weighted_sum():
     window.add_step_values(1, step_values)
     window.add_step_values(2, step_values * 2)
     assert np.all(window.step_values == (step_values + step_values * 2) / 2)
+
+
+def test_period_diff_daily_rate():
+    window = DiffDailyRateWindow({"range": [0, 240]})
+    step_values = np.array([[1, 2, 3], [2, 4, 6]])
+    window.add_step_values(0, step_values)
+    window.add_step_values(120, step_values)
+    window.add_step_values(240, step_values * 2)
+    assert np.all(window.step_values == (step_values/10))

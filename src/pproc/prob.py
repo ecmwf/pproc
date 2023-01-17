@@ -30,7 +30,7 @@ def read_gribs(request, fdb, step, paramId) -> List[eccodes.GRIBMessage]:
 
 
 def threshold_grib_headers(threshold) -> Dict:
-    threshold_dict = {}
+    threshold_dict = {"paramId": threshold["out_paramid"]}
     threshold_value = threshold["value"]
     if 'localDecimalScaleFactor' in threshold:
         scale_factor = threshold['localDecimalScaleFactor']
@@ -56,7 +56,6 @@ def write_grib(fdb, template_grib, window_grib_headers, threshold, data) -> None
     out_grib = template_grib.copy()
     key_values = {
         "type": "ep",
-        "paramId": threshold["out_paramid"],
         "localDefinitionNumber": 5,
         "bitsPerValue": 8,  # Set equal to accuracy used in mars compute
     }
@@ -124,19 +123,6 @@ def main(args=None):
         base_request["time"] = date.strftime("%H") + "00"
 
         paramid = parameter["in_paramid"]
-        base_grib_set = parameter.get("grib_set", {})
-
-        # Check all threshold comparisons are the same
-        thresholds = parameter["thresholds"]
-        threshold_check = [
-            threshold["comparison"] == thresholds[0]["comparison"]
-            for threshold in thresholds
-        ]
-        if not np.all(threshold_check):
-            raise ValueError(
-                f"Parameter {paramid} has different comparison operations for "
-                + "thresholds, which is currently not supported."
-            )
 
         window_manager = WindowManager(parameter)
 
@@ -156,7 +142,7 @@ def main(args=None):
 
             completed_windows = window_manager.update_windows(step, data)
             for window in completed_windows:
-                for threshold in thresholds:
+                for threshold in window.thresholds:
                     window_probability = ensemble_probability(
                         window.step_values, threshold
                     )
@@ -165,12 +151,10 @@ def main(args=None):
                         f"Writing probability for input param {paramid} and output "
                         + f"param {threshold['out_paramid']} for step(s) {window.name}"
                     )
-                    additional_grib_headers = window.grib_header(leg)
-                    additional_grib_headers.update(base_grib_set)
                     write_grib(
                         fdb,
                         messages[0],
-                        additional_grib_headers,
+                        window.grib_header(leg),
                         threshold,
                         window_probability,
                     )

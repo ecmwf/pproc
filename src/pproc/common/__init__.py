@@ -7,5 +7,6 @@ from .window import (
     MaxWindow,
     SumWindow,
     WeightedSumWindow,
+    DiffDailyRateWindow
 )
 from .window_manager import WindowManager
