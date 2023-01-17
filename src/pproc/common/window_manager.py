@@ -59,7 +59,7 @@ class WindowManager:
             interval = steps["interval"]
             write = steps.get("write", False)
 
-            config_grib_header = steps.get("grib_header", {})
+            config_grib_header = steps.get("grib_set", {})
             for step in range(start_step, end_step + 1, interval):
                 if step not in self.unique_steps:
                     self.unique_steps.add(step)

@@ -1,7 +1,62 @@
 number_of_ensembles: 50
 leg: 1
 parameters:
-  - in_paramid: 123
+  - in_paramid: 142 # rain
+    other_parameter:
+      - paramid: 143
+        combine_operation: 'sum'
+    window_operation: 'diff'
+    steps:
+      - interval: 24
+        start_step: 12
+        end_step: 228
+    periods:
+      - range: [12, 36]
+      - range: [36, 60]
+      - range: [60, 84]
+      - range: [84, 108]
+      - range: [108, 132]
+      - range: [132, 156]
+      - range: [156, 180]
+      - range: [180, 204]
+      - range: [204, 228]
+    thresholds:
+      - out_paramid: 131060
+        comparison: ">="
+        value: 0.001
+        localDecimalScaleFactor: 3
+      - out_paramid: 131061
+        comparison: ">="
+        value: 0.005
+        localDecimalScaleFactor: 3
+      - out_paramid: 131062
+        comparison: ">="
+        value: 0.01
+        localDecimalScaleFactor: 3
+      - out_paramid: 131063
+        comparison: ">="
+        value: 0.02
+        localDecimalScaleFactor: 3
+      # - out_paramid: 131098 Note: needs grib edition 2
+      #   comparison: ">="
+      #   value: 0.025
+      # - out_paramid: 131099
+      #   comparison: ">="
+      #   value: 0.05
+      # - out_paramid: 131085
+      #   comparison: ">="
+      #   value: 0.1
+    base_request:
+      class: od
+      stream: enfo
+      expver: '0001'
+      type: pf
+      levtype: sfc
+      domain: g
+    grib_set:
+      timeRangeIndicator: 5
+      stepType: diff # Override default value of 'max' for step ranges
+  - in_paramid: 123 # 10fg
     steps:
       - interval: 6
         start_step: 6
@@ -49,7 +104,7 @@ parameters:
       type: pf
       levtype: sfc
       domain: g
-  - in_paramid: 140229
+  - in_paramid: 140229 #swh
     steps:
       - interval: 12
         start_step: 12
@@ -93,7 +148,7 @@ parameters:
       type: pf
       levtype: sfc
       domain: g
-  - in_paramid: 140232
+  - in_paramid: 140232 # mwp
     steps:
       - interval: 12
         start_step: 12
@@ -137,7 +192,7 @@ parameters:
       type: pf
       levtype: sfc
       domain: g
-  - in_paramid: 167
+  - in_paramid: 167 # 2t
     steps:
       - interval: 12
         start_step: 12
@@ -163,6 +218,7 @@ parameters:
       - out_paramid: 131073
         comparison: "<="
         value: 273.15
+        localDecimalScaleFactor: 2
     base_request:
       class: od
       stream: enfo

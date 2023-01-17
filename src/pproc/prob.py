@@ -32,11 +32,10 @@ def read_gribs(request, fdb, step, paramId) -> List[eccodes.GRIBMessage]:
 def threshold_grib_headers(threshold) -> Dict:
     threshold_dict = {}
     threshold_value = threshold["value"]
-    if isinstance(threshold_value, float):
-        # Assume non-integer thresholds use localDecimalScaleFator = 2, which
-        # is the case for 2t
-        threshold_dict["localDecimalScaleFactor"] = 2
-        threshold_value = round(threshold["value"] * 100, 0)
+    if 'localDecimalScaleFactor' in threshold:
+        scale_factor = threshold['localDecimalScaleFactor']
+        threshold_dict["localDecimalScaleFactor"] = scale_factor
+        threshold_value = round(threshold["value"] * 10**scale_factor, 0)
 
     comparison = threshold["comparison"]
     if "<" in comparison:
@@ -61,8 +60,8 @@ def write_grib(fdb, template_grib, window_grib_headers, threshold, data) -> None
         "localDefinitionNumber": 5,
         "bitsPerValue": 8,  # Set equal to accuracy used in mars compute
     }
-    key_values.update(threshold_grib_headers(threshold))
     key_values.update(window_grib_headers)
+    key_values.update(threshold_grib_headers(threshold))
 
     out_grib.set(key_values, check_values=True)
 
@@ -125,6 +124,7 @@ def main(args=None):
         base_request["time"] = date.strftime("%H") + "00"
 
         paramid = parameter["in_paramid"]
+        base_grib_set = parameter.get("grib_set", {})
 
         # Check all threshold comparisons are the same
         thresholds = parameter["thresholds"]
@@ -146,6 +146,14 @@ def main(args=None):
             # Replace missing values with nan
             data = np.where(data == MISSING_VALUE, np.nan, data)
 
+            if 'other_parameter' in parameter:
+                for second_param in parameter['other_parameter']:
+                    messages2 = read_gribs(base_request, fdb, step, second_param['paramid'])
+                    data2 = np.asarray([message.get_array("values") for message in messages2])
+                    # Replace missing values with nan
+                    data2 = np.where(data2 == MISSING_VALUE, np.nan, data2)
+                    data = numexpr.evaluate(f"{second_param['combine_operation']}(data, axis=0)", local_dict={"data": [data, data2]})
+
             completed_windows = window_manager.update_windows(step, data)
             for window in completed_windows:
                 for threshold in thresholds:
@@ -157,10 +165,12 @@ def main(args=None):
                         f"Writing probability for input param {paramid} and output "
                         + f"param {threshold['out_paramid']} for step(s) {window.name}"
                     )
+                    additional_grib_headers = window.grib_header(leg)
+                    additional_grib_headers.update(base_grib_set)
                     write_grib(
                         fdb,
                         messages[0],
-                        window.grib_header(leg),
+                        additional_grib_headers,
                         threshold,
                         window_probability,
                     )
