@@ -138,7 +138,10 @@ def main(args=None):
                     data2 = np.asarray([message.get_array("values") for message in messages2])
                     # Replace missing values with nan
                     data2 = np.where(data2 == MISSING_VALUE, np.nan, data2)
-                    data = numexpr.evaluate(f"{second_param['combine_operation']}(data, axis=0)", local_dict={"data": [data, data2]})
+                    if second_param['combine_operation'] == 'norm':
+                        data = np.linalg.norm([data, data2], axis=0)
+                    else:
+                        data = getattr(np, second_param['combine_operation'])([data, data2], axis=0)
 
             completed_windows = window_manager.update_windows(step, data)
             for window in completed_windows:
