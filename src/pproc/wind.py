@@ -129,8 +129,6 @@ def wind_mean_std_eps(cfg, levelist, window):
     steps = list(set([m["step"] for m in messages]))
     wind_paramids = list(set([m["paramId"] for m in messages]))
     assert len(wind_paramids) == 2
-    u = np.asarray([m.get_array("values") for m in messages if m["paramId"] == wind_paramids[0]])
-    v = np.asarray([m.get_array("values") for m in messages if m["paramId"] == wind_paramids[1]])
 
     u = {step:[] for step in steps}
     v = {step:[] for step in steps}
@@ -159,8 +157,8 @@ def wind_mean_std_eps(cfg, levelist, window):
 def template_ensemble(cfg, template, marstype):
     template_ens = template.copy()
     template_ens.set("marsType", marstype)
-    template_ens.set("indicatorOfParameter", 10)
-    template_ens.set("gribTablesVersionNo", 128)
+    for key, value in cfg.options['grib_set'].items():
+        template_ens.set(key, value)
     return template_ens
 
 
@@ -191,7 +189,7 @@ def main(args=None):
     for levelist in cfg.levelist:
         for window_options in cfg.windows:
 
-            window = common.Window(window_options)
+            window = common.Window(window_options, include_init=True)
 
             # calculate wind speed for type=fc (deterministic)
             det, template_det = wind_norm_det(cfg, levelist, window)

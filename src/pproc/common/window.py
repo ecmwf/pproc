@@ -15,6 +15,7 @@ class Window:
         """
         self.start = int(window_options["range"][0])
         self.end = int(window_options["range"][1])
+        self.step =  int(window_options["range"][2])
         self.include_init = include_init
         window_size = self.end - self.start
         self.suffix = f"{window_size:0>3}_{self.start:0>3}h_{self.end:0>3}h"
@@ -22,6 +23,11 @@ class Window:
             self.name = self.end
         else:
             self.name = f"{self.start}-{self.end}"
+        if include_init:
+            self.steps = list(range(self.start, self.end+self.step, self.step))
+        else:
+            self.steps = list(range(self.start+self.step, self.end+self.step, self.step))
+
         self.step_values = []
 
     def operation(self, new_step_values: np.array):
