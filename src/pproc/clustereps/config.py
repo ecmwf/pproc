@@ -27,6 +27,8 @@ class ClusterConfigBase(Config):
         # Maximum absolute value of anomalies
         self.clip = self.options.get('max_anom', 10000.)
 
+        self.sources = self.options.get('sources', {})
+
     @property
     def monthly(self) -> bool:
         return (self.step_end - self.step_start > 120) or (self.step_end == self.step_start)

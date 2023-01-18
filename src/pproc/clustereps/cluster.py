@@ -11,37 +11,7 @@ from eccodes import FileReader, GRIBMessage
 
 from pproc.common import default_parser
 from pproc.clustereps.config import ClusterConfigBase
-from pproc.clustereps.utils import lat_weights, region_weights
-
-
-def read_steps_grib(path, steps):
-    """Read multi-step data from a GRIB file
-
-    Parameters
-    ----------
-    path: path-like
-        Path to the GRIB file
-    steps: list[int]
-        List of steps
-
-    Returns
-    -------
-    numpy array (nstep, npoints)
-        Read data
-    """
-    inv_steps = {s: i for i, s in enumerate(steps)}
-    nstep = len(steps)
-    with FileReader(path) as reader:
-        message = reader.peek()
-        npoints = message.get('numberOfDataPoints')
-        data = np.empty((nstep, npoints))
-        for message in reader:
-            step = message.get('step')
-            # TODO: check param and level
-            istep = inv_steps.get(step, None)
-            if istep is not None:
-                data[istep, :] = message.get_array('values')
-    return data
+from pproc.clustereps.io import read_steps_grib
 
 
 def disc_stat(xs, ndis):
@@ -1199,7 +1169,7 @@ def main(args=sys.argv[1:]):
 
     # Find the deterministic forecast
     if args.deterministic is not None:
-        det = read_steps_grib(args.deterministic, config.steps)
+        det = read_steps_grib(config.sources, args.deterministic, config.steps)
         det_index = find_cluster(det, ens_mean, data['eof'][:npc, ...], data['weights'], centroids)
     else:
         det_index = 0

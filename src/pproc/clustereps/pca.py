@@ -8,50 +8,8 @@ import eccodes
 
 from pproc.common import default_parser
 from pproc.clustereps.config import ClusterConfigBase
+from pproc.clustereps.io import read_ensemble_grib
 from pproc.clustereps.utils import normalise_angles, lat_weights, region_weights
-
-
-def read_ensemble_grib(path, steps, nexp):
-    """Read ensemble data from a GRIB file
-
-    Parameters
-    ----------
-    path: path-like
-        Path to the GRIB file
-    steps: list[int]
-        List of steps
-    nexp: int
-        Number of ensemble members
-
-    Returns
-    -------
-    numpy array (npoints)
-        Latitudes in deg
-    numpy array (npoints)
-        Longitudes in [0, 360) deg
-    numpy array (nexp, nstep, npoints)
-        Ensemble data
-    eccodes.Message
-        Template message
-    """
-    inv_steps = {s: i for i, s in enumerate(steps)}
-    nstep = len(steps)
-    template = None
-    with eccodes.FileReader(path) as reader:
-        message = reader.peek()
-        template = message
-        npoints = message.get('numberOfDataPoints')
-        lat = message.get_array('latitudes')
-        lon = normalise_angles(message.get_array('longitudes'))
-        ens = np.empty((nexp, nstep, npoints))
-        for message in reader:
-            iexp = message.get('perturbationNumber')
-            step = message.get('step')
-            # TODO: check param and level
-            istep = inv_steps.get(step, None)
-            if istep is not None:
-                ens[iexp, istep, :] = message.get_array('values')
-    return lat, lon, ens, template
 
 
 def mean_spread(stddev, weights=None):
@@ -316,7 +274,7 @@ def main(cmdArgs=sys.argv[1:]):
 
     # Read ensemble
     nexp = config.num_members
-    lat, lon, ens, template = read_ensemble_grib(args.ensemble, config.steps, nexp)
+    lat, lon, ens, template = read_ensemble_grib(config.sources, args.ensemble, config.steps, nexp)
 
     # Read ensemble stddev
     with eccodes.FileReader(args.spread) as reader:

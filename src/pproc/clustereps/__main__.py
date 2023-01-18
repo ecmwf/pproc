@@ -9,6 +9,7 @@ import numpy as np
 import eccodes
 
 from pproc.clustereps import attribution, cluster, pca
+from pproc.clustereps.io import read_ensemble_grib, read_steps_grib
 from pproc.common import default_parser
 
 
@@ -116,7 +117,7 @@ def main(sys_args=None):
 
     ## Read ensemble
     nexp = pca_config.num_members
-    lat, lon, ens, grib_template = pca.read_ensemble_grib(args.ensemble, pca_config.steps, nexp)
+    lat, lon, ens, grib_template = read_ensemble_grib(pca_config.sources, args.ensemble, pca_config.steps, nexp)
 
     ## Read ensemble stddev
     with eccodes.FileReader(args.spread) as reader:
@@ -150,7 +151,7 @@ def main(sys_args=None):
 
     ## Find the deterministic forecast
     if args.deterministic is not None:
-        det = cluster.read_steps_grib(args.deterministic, cluster_config.steps)
+        det = read_steps_grib(cluster_config.sources, args.deterministic, cluster_config.steps)
         det_index = cluster.find_cluster(det, ens_mean, pca_data['eof'][:npc, ...], pca_data['weights'], centroids)
     else:
         det_index = 0
