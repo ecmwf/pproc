@@ -109,6 +109,7 @@ class DiffWindow(Window):
     def __contains__(self, step: int) -> bool:
         return step == self.start or step == self.end
 
+
 class DiffDailyRateWindow(DiffWindow):
     """
     Window with operation that takes difference between end and start step and then divides difference
@@ -116,8 +117,8 @@ class DiffDailyRateWindow(DiffWindow):
     """
 
     def operation(self, new_step_values: np.array):
-        num_days = (self.end - self.start)/24
-        self.step_values = np.subtract(new_step_values, self.step_values)/num_days
+        num_days = (self.end - self.start) / 24
+        self.step_values = np.subtract(new_step_values, self.step_values) / num_days
 
 
 class MaxWindow(Window):

@@ -24,7 +24,7 @@ def create_window(window_options, window_operation: str) -> Window:
     :return: instance of the derived Window class for window operation
     :raises: ValueError for unsupported window operation string
     """
-    if window_options['range'][0] == window_options['range'][1]:
+    if window_options["range"][0] == window_options["range"][1]:
         return Window(window_options, include_init=True)
     if window_operation == "diff":
         return DiffWindow(window_options)
@@ -66,7 +66,7 @@ class WindowManager:
             for step in range(start_step, end_step + 1, interval):
                 if step not in self.unique_steps:
                     self.unique_steps.add(step)
-                    
+
         self.unique_steps = sorted(self.unique_steps)
 
         # Create windows for each periods
@@ -90,14 +90,15 @@ class WindowManager:
                         window_operation = "max"
 
             if not window_operation:
-                raise RuntimeError(f"Parameter {parameter['in_paramid']} has window  with no operation specified, or none could be derived")
-                
+                raise RuntimeError(
+                    f"Parameter {parameter['in_paramid']} has window  with no operation specified, or none could be derived"
+                )
+
             for period in window_config["periods"]:
                 new_window = create_window(period, window_operation)
                 new_window.config_grib_header = window_config.get("grib_set", {})
-                new_window.thresholds = window_config['thresholds']
+                new_window.thresholds = window_config["thresholds"]
                 self.windows.append(new_window)
-
 
     def update_windows(self, step: int, data: np.array) -> Iterator[Window]:
         """

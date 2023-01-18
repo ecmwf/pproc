@@ -68,4 +68,4 @@ def test_period_diff_daily_rate():
     window.add_step_values(0, step_values)
     window.add_step_values(120, step_values)
     window.add_step_values(240, step_values * 2)
-    assert np.all(window.step_values == (step_values/10))
+    assert np.all(window.step_values == (step_values / 10))

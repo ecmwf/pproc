@@ -37,8 +37,8 @@ def read_gribs(request, fdb, step, paramId) -> Tuple[eccodes.GRIBMessage, np.arr
 def threshold_grib_headers(threshold) -> Dict:
     threshold_dict = {"paramId": threshold["out_paramid"]}
     threshold_value = threshold["value"]
-    if 'localDecimalScaleFactor' in threshold:
-        scale_factor = threshold['localDecimalScaleFactor']
+    if "localDecimalScaleFactor" in threshold:
+        scale_factor = threshold["localDecimalScaleFactor"]
         threshold_dict["localDecimalScaleFactor"] = scale_factor
         threshold_value = round(threshold["value"] * 10**scale_factor, 0)
 
@@ -133,14 +133,18 @@ def main(args=None):
 
         for step in window_manager.unique_steps:
             message_template, data = read_gribs(base_request, fdb, step, paramid)
-            
-            if 'other_parameter' in parameter:
-                for second_param in parameter['other_parameter']:
-                    _, data2 = read_gribs(base_request, fdb, step, second_param['paramid'])
-                    if second_param['combine_operation'] == 'norm':
+
+            if "other_parameter" in parameter:
+                for second_param in parameter["other_parameter"]:
+                    _, data2 = read_gribs(
+                        base_request, fdb, step, second_param["paramid"]
+                    )
+                    if second_param["combine_operation"] == "norm":
                         data = np.linalg.norm([data, data2], axis=0)
                     else:
-                        data = getattr(np, second_param['combine_operation'])([data, data2], axis=0)
+                        data = getattr(np, second_param["combine_operation"])(
+                            [data, data2], axis=0
+                        )
 
             completed_windows = window_manager.update_windows(step, data)
             for window in completed_windows:
