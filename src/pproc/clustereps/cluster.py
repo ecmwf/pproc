@@ -778,7 +778,7 @@ class ClusterConfig(ClusterConfigBase):
         # Variance threshold
         self.var_th = self.options['var_th']
         # Number of PCs to use, optional
-        self.npc = self.options.get('npc')
+        self.npc = self.options.get('npc', -1)
         # Normalisation factor (2/5)
         self.factor = self.options.get('cluster_factor', 0.4)
         # Max number of clusters
@@ -1157,7 +1157,7 @@ def main(args=sys.argv[1:]):
     # Compute number of PCs based on the variance threshold
     var_cum = data['var_cum']
     npc = config.npc
-    if npc is None:
+    if npc <= 0:
         npc = select_npc(config.var_th, var_cum)
         if args.ncomp_file is not None:
             with open(args.ncomp_file, 'w') as f:
