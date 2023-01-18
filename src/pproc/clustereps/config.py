@@ -6,8 +6,8 @@ from pproc.clustereps.utils import gen_steps
 
 
 class ClusterConfigBase(Config):
-    def __init__(self, args):
-        super().__init__(args)
+    def __init__(self, args, verbose=True):
+        super().__init__(args, verbose=verbose)
 
         # Step range
         self.step_start = self.options['step_start']
@@ -26,6 +26,8 @@ class ClusterConfigBase(Config):
 
         # Maximum absolute value of anomalies
         self.clip = self.options.get('max_anom', 10000.)
+
+        self.sources = self.options.get('sources', {})
 
     @property
     def monthly(self) -> bool:

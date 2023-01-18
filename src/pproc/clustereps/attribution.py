@@ -83,9 +83,9 @@ class SeasonConfig:
 
 
 class AttributionConfig(ClusterConfigBase):
-    def __init__(self, args: argparse.Namespace) -> None:
+    def __init__(self, args: argparse.Namespace, verbose: bool = True) -> None:
 
-        super().__init__(args)
+        super().__init__(args, verbose=verbose)
 
         # Climatological data options
         self.nClusterClim = self.options.get('ncl_clim', 6)

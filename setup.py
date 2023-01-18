@@ -23,6 +23,7 @@ setup(
             "pproc-ensms=pproc.ensms:main",
             "pproc-wind=pproc.wind:main",
             "pproc-spectrum=pproc.spectrum:main",
+            "pproc-clustereps=pproc.clustereps.__main__:main",
             "pproc-clustereps-pca=pproc.clustereps.pca:main",
             "pproc-clustereps-cluster=pproc.clustereps.cluster:main",
             "pproc-clustereps-attr=pproc.clustereps.attribution:main",
