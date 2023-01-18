@@ -2,7 +2,7 @@
 import argparse
 import sys
 from datetime import datetime
-from typing import List, Dict
+from typing import Dict, Tuple
 
 import numexpr
 import numpy as np
@@ -16,7 +16,7 @@ from pproc.common import WindowManager
 MISSING_VALUE = 9999
 
 
-def read_gribs(request, fdb, step, paramId) -> List[eccodes.GRIBMessage]:
+def read_gribs(request, fdb, step, paramId) -> Tuple[eccodes.GRIBMessage, np.array]:
 
     # Modify FDB request and read input data
     request["param"] = paramId
@@ -26,7 +26,12 @@ def read_gribs(request, fdb, step, paramId) -> List[eccodes.GRIBMessage]:
     eccodes_reader = eccodes.StreamReader(fdb_reader)
     messages = list(eccodes_reader)
     assert len(messages) == len(request["number"])
-    return messages
+
+    data = np.asarray([message.get_array("values") for message in messages])
+    # Replace missing values with nan
+    data = np.where(data == MISSING_VALUE, np.nan, data)
+
+    return messages[0], data
 
 
 def threshold_grib_headers(threshold) -> Dict:
@@ -127,17 +132,11 @@ def main(args=None):
         window_manager = WindowManager(parameter)
 
         for step in window_manager.unique_steps:
-            messages = read_gribs(base_request, fdb, step, paramid)
-            data = np.asarray([message.get_array("values") for message in messages])
-            # Replace missing values with nan
-            data = np.where(data == MISSING_VALUE, np.nan, data)
-
+            message_template, data = read_gribs(base_request, fdb, step, paramid)
+            
             if 'other_parameter' in parameter:
                 for second_param in parameter['other_parameter']:
-                    messages2 = read_gribs(base_request, fdb, step, second_param['paramid'])
-                    data2 = np.asarray([message.get_array("values") for message in messages2])
-                    # Replace missing values with nan
-                    data2 = np.where(data2 == MISSING_VALUE, np.nan, data2)
+                    _, data2 = read_gribs(base_request, fdb, step, second_param['paramid'])
                     if second_param['combine_operation'] == 'norm':
                         data = np.linalg.norm([data, data2], axis=0)
                     else:
@@ -156,7 +155,7 @@ def main(args=None):
                     )
                     write_grib(
                         fdb,
-                        messages[0],
+                        message_template,
                         window.grib_header(leg),
                         threshold,
                         window_probability,
