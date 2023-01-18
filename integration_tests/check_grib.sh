@@ -4,13 +4,16 @@
 # first argument. By default, the script does not check data values. If second argument is provided then 
 # checking of data values is turned on.
 
-MARS_REQUEST_FILE=$1
+DATE=$1
+TIME=$2
+MARS_REQUEST_FILE=$3
 
-pproc-bundle/install/bin/fdb read $MARS_REQUEST_FILE test.grib
 cp $MARS_REQUEST_FILE temp_request.mars
+echo ",date=$DATE,time=$TIME" >> temp_request.mars
+pproc-bundle/install/bin/fdb read temp_request.mars test.grib
 echo ",target=forecast.grib" >> temp_request.mars
 mars temp_request.mars
-if [ -z $2 ]
+if [ -z $4 ]
 then 
     OUTPUT=$(pproc-bundle/install/bin/grib_compare -b values,codedValues test.grib forecast.grib)
 else

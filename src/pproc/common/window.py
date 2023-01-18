@@ -82,73 +82,47 @@ class Window:
         :param leg: model leg
         :return: dictionary of header keys and values
         """
-        header = {}
+        header = self.config_grib_header
         if isinstance(self.name, int):
             header["step"] = self.name
         else:
-            header.update({"stepType": "max", "stepRange": self.name})
+            header.setdefault("stepType", "max") # Don't override if set in config
+            header["stepRange"] = self.name
             if leg == 2:
                 header["unitOfTimeRange"] = 11
-        header.update(self.config_grib_header)
 
         return header
 
 
-class DiffWindow(Window):
+class SimpleOpWindow(Window):
     """
-    Window with operation that takes difference between the end and start step. Only accepts data
-    from these two steps
+    Window with operation min, max, sum - reduction operations supported by numpy
     """
 
-    def __init__(self, window_options):
-        super().__init__(window_options, include_init=True)
+    def __init__(
+        self, window_options, window_operation: str, include_init: bool = False
+    ):
+        """
+        :param window_options: config specifying start and end of window
+        :param window_operation: name of reduction operation out of min, max, sum
+        :param include_init: boolean specifying whether to include start step
+        """
+        super().__init__(window_options, include_init)
+        self.operation_str = window_operation
 
     def operation(self, new_step_values: np.array):
-        self.step_values = np.subtract(new_step_values, self.step_values)
+        """
+        Combines data from unprocessed steps with existing step data values,
+        and updates step data values
 
-    def __contains__(self, step: int) -> bool:
-        return step == self.start or step == self.end
-
-
-class DiffDailyRateWindow(DiffWindow):
-    """
-    Window with operation that takes difference between end and start step and then divides difference
-    by the total number of days in the window. Only accepts data for start and end step
-    """
-
-    def operation(self, new_step_values: np.array):
-        num_days = (self.end - self.start) / 24
-        self.step_values = np.subtract(new_step_values, self.step_values) / num_days
+        :param new_step_values: data from new step
+        """
+        self.step_values = getattr(np, self.operation_str)(
+            [self.step_values, new_step_values], axis=0
+        )
 
 
-class MaxWindow(Window):
-    """
-    Window with operation max over data values from different steps
-    """
-
-    def operation(self, new_step_values: np.array):
-        self.step_values = np.max([self.step_values, new_step_values], axis=0)
-
-
-class MinWindow(Window):
-    """
-    Window with operation min over data values from different steps
-    """
-
-    def operation(self, new_step_values: np.array):
-        self.step_values = np.min([self.step_values, new_step_values], axis=0)
-
-
-class SumWindow(Window):
-    """
-    Window with operation sum over data values from different steps
-    """
-
-    def operation(self, new_step_values: np.array):
-        self.step_values = np.sum([self.step_values, new_step_values], axis=0)
-
-
-class WeightedSumWindow(SumWindow):
+class WeightedSumWindow(SimpleOpWindow):
     """
     Window with weighted sum operation. Weighted sum is computed by weighting the
     data for each step by the step duration, and then dividing the sum by the total duration of the
@@ -156,7 +130,7 @@ class WeightedSumWindow(SumWindow):
     """
 
     def __init__(self, window_options):
-        super().__init__(window_options, include_init=False)
+        super().__init__(window_options, "sum", include_init=False)
         self.previous_step = self.start
 
     def add_step_values(self, step: int, step_values: np.array):
@@ -179,3 +153,36 @@ class WeightedSumWindow(SumWindow):
         self.previous_step = step
         if self.reached_end_step(step):
             self.step_values = self.step_values / self.size()
+
+
+class DiffWindow(Window):
+    """
+    Window with operation that takes difference between the end and start step. Only accepts data
+    from these two steps
+    """
+
+    def __init__(self, window_options):
+        super().__init__(window_options, include_init=True)
+
+    def operation(self, new_step_values: np.array):
+        """
+        Combines data from unprocessed steps with existing step data values,
+        and updates step data values
+
+        :param new_step_values: data from new step
+        """
+        self.step_values = new_step_values - self.step_values
+
+    def __contains__(self, step: int) -> bool:
+        return step == self.start or step == self.end
+
+
+class DiffDailyRateWindow(DiffWindow):
+    """
+    Window with operation that takes difference between end and start step and then divides difference
+    by the total number of days in the window. Only accepts data for start and end step
+    """
+
+    def operation(self, new_step_values: np.array):
+        num_days = (self.end - self.start) / 24
+        self.step_values = np.subtract(new_step_values, self.step_values) / num_days

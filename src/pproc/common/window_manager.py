@@ -4,13 +4,11 @@ from typing import Iterator
 import numpy as np
 
 from pproc.common import (
-    DiffWindow,
-    MinWindow,
-    MaxWindow,
-    SumWindow,
-    WeightedSumWindow,
-    DiffDailyRateWindow,
     Window,
+    SimpleOpWindow,
+    WeightedSumWindow,
+    DiffWindow,
+    DiffDailyRateWindow,
 )
 
 
@@ -28,19 +26,15 @@ def create_window(window_options, window_operation: str) -> Window:
         return Window(window_options, include_init=True)
     if window_operation == "diff":
         return DiffWindow(window_options)
-    if window_operation == "min":
-        return MinWindow(window_options, include_init=False)
-    if window_operation == "max":
-        return MaxWindow(window_options, include_init=False)
-    if window_operation == "sum":
-        return SumWindow(window_options, include_init=False)
+    if window_operation in ["min", "max", "sum"]:
+        return SimpleOpWindow(window_options, window_operation, include_init=False)
     if window_operation == "weightedsum":
         return WeightedSumWindow(window_options)
     if window_operation == "diffdailyrate":
         return DiffDailyRateWindow(window_options)
     raise ValueError(
         f"Unsupported window operation {window_operation}. "
-        + "Supported types: diff, min, max, sum, weightedsum"
+        + "Supported types: diff, min, max, sum, weightedsum, diffdailyrate"
     )
 
 

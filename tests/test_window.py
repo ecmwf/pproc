@@ -2,9 +2,7 @@ import numpy as np
 
 from pproc.common import (
     DiffWindow,
-    MinWindow,
-    MaxWindow,
-    SumWindow,
+    SimpleOpWindow,
     WeightedSumWindow,
     DiffDailyRateWindow,
     Window,
@@ -21,7 +19,7 @@ def test_instantaneous_window():
 
 
 def test_period_min():
-    window = MinWindow({"range": [0, 2]}, False)
+    window = SimpleOpWindow({"range": [0, 2]}, "min", False)
     step_values = np.array([[1, 2, 3], [2, 4, 6]])
     window.add_step_values(0, step_values)
     window.add_step_values(1, step_values)
@@ -30,7 +28,7 @@ def test_period_min():
 
 
 def test_period_max():
-    window = MaxWindow({"range": [0, 2]}, False)
+    window = SimpleOpWindow({"range": [0, 2]}, "max", False)
     step_values = np.array([[1, 2, 3], [2, 4, 6]])
     window.add_step_values(1, step_values)
     window.add_step_values(2, [[2, 4, 6], [1, 2, 3]])
@@ -38,7 +36,7 @@ def test_period_max():
 
 
 def test_period_sum():
-    window = SumWindow({"range": [0, 2]}, False)
+    window = SimpleOpWindow({"range": [0, 2]}, "sum", False)
     step_values = np.array([[1, 2, 3], [2, 4, 6]])
     window.add_step_values(1, step_values)
     window.add_step_values(2, step_values * 2)

@@ -83,7 +83,7 @@ parameters:
           #   value: 0.1
         grib_set:
           timeRangeIndicator: 5
-          stepType: diff # Override default value of 'max' for step ranges
+          stepType: diff
     base_request:
       class: od
       stream: enfo
