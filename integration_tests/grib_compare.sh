@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-# Assumes existence of data in fdb for comparison. Takes in mars request for data to be checked as 
-# first argument. By default, the script does not check data values. If second argument is provided then 
+# Assumes existence of data in fdb for comparison. Takes in date, time and mars request for data to be checked as 
+# first three arguments. By default, the script does not check data values. If fourth argument is provided then 
 # checking of data values is turned on.
 
 DATE=$1
