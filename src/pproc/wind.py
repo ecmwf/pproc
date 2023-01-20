@@ -154,9 +154,14 @@ def wind_mean_std_eps(cfg, levelist, window):
     return mean, stddev, template
 
 
-def template_ensemble(cfg, template, marstype):
+def template_ensemble(cfg, template, step, marstype):
     template_ens = template.copy()
+    template_ens.set('bitsPerValue', 24)
     template_ens.set("marsType", marstype)
+    if step == 0:
+        template_ens.set('timeRangeIndicator', 1)
+    else:
+        template_ens.set('timeRangeIndicator', 0)
     for key, value in cfg.options['grib_set'].items():
         template_ens.set(key, value)
     return template_ens
@@ -192,23 +197,24 @@ def main(args=None):
             window = common.Window(window_options, include_init=True)
 
             # calculate wind speed for type=fc (deterministic)
-            det, template_det = wind_norm_det(cfg, levelist, window)
-            for step in window.steps:
-                det_file = os.path.join(cfg.out_dir, f'det_{levelist}_{window.name}_{step}.grib')
-                target_det = common.target_factory(cfg.target, out_file=det_file, fdb=cfg.fdb)
-                template_det = template_det
-                common.write_grib(target_det, template_det, det[step])
+            # det, template_det = wind_norm_det(cfg, levelist, window)
+            # for step in window.steps:
+            #     det_file = os.path.join(cfg.out_dir, f'det_{levelist}_{window.name}_{step}.grib')
+            #     target_det = common.target_factory(cfg.target, out_file=det_file, fdb=cfg.fdb)
+            #     template_det = template_det
+            #     common.write_grib(target_det, template_det, det[step])
 
             # calculate mean/stddev of wind speed for type=pf/cf (eps)
             mean, std, template_ens = wind_mean_std_eps(cfg, levelist, window)
             for step in window.steps:
+                print(step)
                 mean_file = os.path.join(cfg.out_dir, f'mean_{levelist}_{window.name}_{step}.grib')
                 target_mean = common.target_factory(cfg.target, out_file=mean_file, fdb=cfg.fdb)
-                template_mean = template_ensemble(cfg, template_ens, 'em')
+                template_mean = template_ensemble(cfg, template_ens, step, 'em')
                 common.write_grib(target_mean, template_mean, mean[step])
                 std_file = os.path.join(cfg.out_dir, f'std_{levelist}_{window.name}_{step}.grib')
                 target_std = common.target_factory(cfg.target, out_file=std_file, fdb=cfg.fdb)
-                template_std = template_ensemble(cfg, template_ens, 'es')
+                template_std = template_ensemble(cfg, template_ens, step, 'es')
                 common.write_grib(target_std, template_std, std[step])
 
 
