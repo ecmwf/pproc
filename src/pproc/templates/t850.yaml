@@ -1,0 +1,90 @@
+number_of_ensembles: 50
+leg: 1
+parameters:
+  - in_paramid: 130 #t
+    steps:
+      - interval: 12
+        start_step: 0
+        end_step: 240
+    windows:
+      - periods:
+          - range: [12, 12]
+          - range: [24, 24]
+          - range: [36, 36]
+        thresholds:
+          - out_paramid: 131022
+            comparison: "<"
+            value: -8
+          - out_paramid: 131023
+            comparison: "<"
+            value: -4
+      - periods:
+          - range: [12, 12]
+          - range: [24, 24]
+          - range: [36, 36]
+        thresholds:
+          - out_paramid: 131024
+            comparison: ">="
+            value: 4
+          - out_paramid: 131025
+            comparison: ">="
+            value: 8
+      - periods:
+          - range: [120, 240]
+          - range: [168, 240]
+          - range: [120, 168]
+        thresholds:
+          - out_paramid: 131020
+            comparison: "<"
+            value: -2
+      - periods:
+          - range: [120, 240]
+          - range: [168, 240]
+          - range: [120, 168]
+        thresholds:
+          - out_paramid: 131021
+            comparison: ">="
+            value: 2
+    std_anomaly_windows:
+      - periods:
+          - range: [0, 0]
+          - range: [12, 12]
+          - range: [24, 24]
+          - range: [36, 36]
+        thresholds:
+          - out_paramid: 133093
+            comparison: '>'
+            value: 1
+          - out_paramid: 133094
+            comparison: '>'
+            value: 1.5
+          - out_paramid: 133095
+            comparison: '>'
+            value: 2
+      - periods:
+          - range: [0, 0]
+          - range: [12, 12]
+          - range: [24, 24]
+          - range: [36, 36]
+        thresholds:
+          - out_paramid: 133096
+            comparison: '<'
+            value: -1
+          - out_paramid: 133097
+            comparison: '<'
+            value: -1.5
+          - out_paramid: 133098
+            comparison: '<'
+            value: -2
+    base_request:
+      class: 'od'
+      expver: '0001'
+      stream: 'enfo'
+      levelist: 850
+      levtype: 'pl'  
+      type: 'pf'   
+      domain: g 
+    interpolation_keys:
+      grid: 'O640'
+    climatology:
+      stream: 'efhs'

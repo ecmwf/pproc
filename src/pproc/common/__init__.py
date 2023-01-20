@@ -1,4 +1,4 @@
-from .io import fdb_read, write_grib, target_factory
+from .io import fdb_read, write_grib, target_factory, fdb_retrieve, FDBTarget, fdb_read_with_template
 from .config import default_parser, Config
 from .window import (
     Window,
@@ -7,4 +7,4 @@ from .window import (
     WeightedSumWindow,
     DiffDailyRateWindow
 )
-from .window_manager import WindowManager
+from .window_manager import WindowManager, create_window

@@ -2,9 +2,9 @@ number_of_ensembles: 50
 leg: 1
 parameters:
   - in_paramid: 165 # ff  
-    other_parameter:
-      - paramid: 166
-        combine_operation: 'norm'
+    second_parameter:
+      paramid: 166
+      combine_operation: 'norm'
     steps:
       - interval: 24
         start_step: 24
@@ -36,9 +36,9 @@ parameters:
       levtype: sfc
       domain: g
   - in_paramid: 142 # rain
-    other_parameter:
-      - paramid: 143
-        combine_operation: 'sum'
+    second_parameter:
+      paramid: 143
+      combine_operation: 'sum'
     steps:
       - interval: 24
         start_step: 0
