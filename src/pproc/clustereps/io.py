@@ -138,6 +138,8 @@ def read_ensemble_grib(sources: dict, loc: str, steps: List[int], nexp: int) -> 
         with reader:
             if first:
                 message = reader.peek()
+                if message is None:
+                    raise EOFError(f"No data in {loc!r} for steps [{', '.join(str(step) for step in steps)}] (expected {nexp} members)")
                 template = message
                 npoints = message.get('numberOfDataPoints')
                 lat = message.get_array('latitudes')
@@ -175,6 +177,8 @@ def read_steps_grib(sources: dict, loc: str, steps: List[int]) -> np.ndarray:
     nstep = len(steps)
     with open_dataset(sources, loc, step=steps) as reader:
         message = reader.peek()
+        if message is None:
+            raise EOFError(f"No data in {loc!r} for steps [{', '.join(str(step) for step in steps)}]")
         npoints = message.get('numberOfDataPoints')
         data = np.empty((nstep, npoints))
         for message in reader:
