@@ -1,8 +1,9 @@
 
 import argparse
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 from os.path import join as pjoin
+from typing import List
 
 import numpy as np
 
@@ -11,6 +12,52 @@ import eccodes
 from pproc.clustereps import attribution, cluster, pca
 from pproc.clustereps.io import open_dataset, read_ensemble_grib, read_steps_grib
 from pproc.common import default_parser
+
+
+def get_mean_spread(sources: dict, locs: List[str], date: datetime, steps: List[int], ndays: int = 31) -> np.ndarray:
+    """Compute mean spread over the last days
+
+    Parameters
+    ----------
+    sources: dict
+        Sources configuration
+    locs: list[str]
+        Locations of the data (file path, named fdb request, ...)
+    date: datetime
+        Reference date (not included in the timespan)
+    steps: list[int]
+        Time steps to accumulate
+    ndays: int
+        Number of days to accumulate (date - ndays, ..., date - 1)
+
+    Returns
+    -------
+    numpy array (npoints)
+        Mean spread over all dates and steps
+    """
+    spread = None
+    nfields = 0
+    for diff in range(ndays, 0, -1):
+        ret_date = date - timedelta(days=diff)
+        found = False
+        for loc in locs:
+            try:
+                data = read_steps_grib(sources, loc, steps, date=ret_date.strftime("%Y%m%d"))
+            except EOFError:
+                continue
+            print(f"{ret_date:%Y%m%d} {loc:20s} {data.shape!s:20s} {data.min():15g} {data.max():15g}")
+            nfields += data.shape[0]
+            if spread is None:
+                spread = np.sum(data, axis=0)
+            else:
+                spread += np.sum(data, axis=0)
+            found = True
+            break
+        if not found:
+            raise ValueError(f"Could not find data for date {ret_date:%Y%m%d}")
+    assert spread is not None
+    spread /= nfields
+    return spread
 
 
 def get_parser() -> argparse.ArgumentParser:
@@ -29,7 +76,11 @@ def get_parser() -> argparse.ArgumentParser:
 
     group = parser.add_argument_group('Principal component analysis arguments')
     group.add_argument('-m', '--mask', default=None, help="Mask file")
-    group.add_argument('--spread', required=True, help="Ensemble spread (GRIB)")
+
+    sgroup = group.add_mutually_exclusive_group(required=True)
+    sgroup.add_argument('--spread', default=None, help="Ensemble spread (GRIB)")
+    sgroup.add_argument('--spread-compute', action="append", help="Source for ensemble spread computation (GRIB)")
+
     group.add_argument('-e', '--ensemble', required=True, help="Ensemble data (GRIB)")
     group.add_argument('-P', '--pca', default=None, help="Output file (NPZ)")
 
@@ -121,11 +172,14 @@ def main(sys_args=None):
     nexp = pca_config.num_members
     lat, lon, ens, grib_template = read_ensemble_grib(pca_config.sources, args.ensemble, pca_config.steps, nexp)
 
-    ## Read ensemble stddev
-    with open_dataset(pca_config.sources, args.spread) as reader:
-        message = next(reader)
-        # TODO: check param and level
-        spread = message.get_array('values')
+    ## Read or compute ensemble stddev
+    if args.spread is not None:
+        with open_dataset(pca_config.sources, args.spread) as reader:
+            message = next(reader)
+            # TODO: check param and level
+            spread = message.get_array('values')
+    else:
+        spread = get_mean_spread(pca_config.sources, args.spread_compute, args.date, pca_config.steps)
 
     ## Compute PCA
     pca_data = pca.do_pca(pca_config, lat, lon, ens, spread, args.mask)
