@@ -1,0 +1,93 @@
+number_of_ensembles: 50
+leg: 1
+parameters:
+  - in_paramid: 165 # ff  
+    second_parameter:
+      paramid: 166
+      combine_operation: 'norm'
+    steps:
+      - interval: 24
+        start_step: 12
+        end_step: 228
+    windows:
+      - periods:
+          - range: [12, 12]
+          - range: [36, 36]
+          - range: [60, 60]
+          - range: [84, 84]
+          - range: [108, 108]
+          - range: [132, 132]
+          - range: [156, 156]
+          - range: [180, 180]
+          - range: [204, 204]
+          - range: [228, 228]
+        thresholds:
+          - out_paramid: 131068
+            comparison: ">="
+            value: 10
+          - out_paramid: 131069
+            comparison: ">="
+            value: 15
+    base_request:
+      class: od
+      stream: enfo
+      expver: '0001'
+      type: pf
+      levtype: sfc
+      domain: g
+  - in_paramid: 142 # rain
+    second_parameter:
+      paramid: 143
+      combine_operation: 'sum'
+    steps:
+      - interval: 24
+        start_step: 12
+        end_step: 228
+    windows:
+      - window_operation: 'diff'
+        periods:
+          - range: [12, 36]
+          - range: [36, 60]
+          - range: [60, 84]
+          - range: [84, 108]
+          - range: [108, 132]
+          - range: [132, 156]
+          - range: [156, 180]
+          - range: [180, 204]
+          - range: [204, 228]
+        thresholds:
+          - out_paramid: 131060
+            comparison: ">="
+            value: 0.001
+            localDecimalScaleFactor: 3
+          - out_paramid: 131061
+            comparison: ">="
+            value: 0.005
+            localDecimalScaleFactor: 3
+          - out_paramid: 131062
+            comparison: ">="
+            value: 0.01
+            localDecimalScaleFactor: 3
+          - out_paramid: 131063
+            comparison: ">="
+            value: 0.02
+            localDecimalScaleFactor: 3
+          # - out_paramid: 131098 Note: needs grib edition 2
+          #   comparison: ">="
+          #   value: 0.025
+          # - out_paramid: 131099
+          #   comparison: ">="
+          #   value: 0.05
+          # - out_paramid: 131085
+          #   comparison: ">="
+          #   value: 0.1
+        grib_set:
+          timeRangeIndicator: 5
+          stepType: diff
+    base_request:
+      class: od
+      stream: enfo
+      expver: '0001'
+      type: pf
+      levtype: sfc
+      domain: g

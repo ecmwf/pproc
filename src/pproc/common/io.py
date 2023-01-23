@@ -191,6 +191,31 @@ def fdb_read(fdb, request, mir_options=None):
     return fields.to_xarray()
 
 
+def fdb_read_with_template(fdb, request, mir_options=None):
+    """Load grib messages from FDB from request and returns Numpy Array
+    If mir options specified, also performs interpolation
+
+    Parameters
+    ----------
+    messages: grib messages
+    dims: tuple of strings
+    mir_options: dict
+
+    Returns
+    -------
+    GribMessage
+        GribMessage object, containing data from first grib message for use as template
+    Numpy Array
+        Numpy Array object, containing the data 
+    """
+
+    fdb_reader = fdb_retrieve(fdb, request, mir_options)
+    eccodes_reader = eccodes.StreamReader(fdb_reader)
+    messages = list(eccodes_reader)
+
+    return messages[0], np.asarray([missing_to_nan(message) for message in messages])
+
+
 def fdb_read_to_file(fdb, request, file_out, mir_options=None, mode='wb'):
     """Load grib messages from FDB from request and writes to temporary file
 
@@ -300,6 +325,7 @@ def target_factory(target_option, out_file=None, fdb=None):
         raise ValueError(f"Target {target_option} not supported, accepted values are 'fdb' and 'file' ")
     return target
 
+    
 
 def write_grib(target, template, data, missing=-9999):
 

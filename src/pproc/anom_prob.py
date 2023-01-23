@@ -1,0 +1,176 @@
+import sys
+import datetime
+from typing import Dict, Iterator
+import numpy as np
+
+import pyfdb
+from pproc import common
+from pproc.prob.grib_helpers import construct_message
+from pproc.prob.math import ensemble_probability
+from pproc.prob.parameter import Parameter
+
+LAST_MODEL_STEP = 360
+CLIM_STEP_INTERVAL = 12
+
+
+class CombinedForecasts(Parameter):
+    def retrieve_data(self, fdb, step: int):
+        new_request = self.base_request.copy()
+        new_request["step"] = step
+
+        # pf
+        new_request["type"] = "pf"
+        message_temp, pf_data = common.fdb_read_with_template(
+            fdb, new_request, self.interpolation_keys
+        )
+
+        # cf
+        new_request["type"] = "cf"
+        new_request.pop("number")
+        _, cf_data = common.fdb_read_with_template(
+            fdb, new_request, self.interpolation_keys
+        )
+
+        return message_temp, np.concatenate((pf_data, cf_data), axis=0)
+
+
+class Climatology(Parameter):
+    def __init__(self, dt: datetime.datetime, param_id: int, cfg: Dict):
+        Parameter.__init__(self, dt, param_id, cfg, 0)
+        self.base_request.pop("number")
+        self.base_request["date"] = self.get_climatology_date(dt.date())
+        self.base_request["time"] = "00"
+        self.base_request["stream"] = cfg["climatology"]["stream"]
+        self.base_request["type"] = "em/es"  # Order of these is important
+        self.time = dt.time()
+        self.steps = cfg["steps"]
+
+    def clim_step(self, step: int):
+        if self.time == datetime.time(0):
+            return step
+        if self.time == datetime.time(12):
+            if step == LAST_MODEL_STEP:
+                return step - CLIM_STEP_INTERVAL  # Bug? Should be step_index?
+            return step + CLIM_STEP_INTERVAL
+
+    @classmethod
+    def get_climatology_date(cls, date: datetime.date) -> str:
+        """
+        Assumes climatology run on Monday and Thursday and retrieves most recent
+        date climatology is available
+        """
+        dow = date.weekday()
+        if dow >= 0 and dow < 3:
+            return (date - datetime.timedelta(days=dow)).strftime("%Y%m%d")
+        return (date - datetime.timedelta(days=(dow - 3))).strftime("%Y%m%d")
+
+    def retrieve_data(self, fdb, step: int):
+        new_request = self.base_request.copy()
+        new_request["step"] = step
+        ret = []
+        for type in self.base_request["type"].split("/"):
+            new_request["type"] = type
+            ret.append(
+                common.fdb_read_with_template(
+                    fdb, new_request, self.interpolation_keys
+                )[1]
+            )
+        return ret
+
+
+class AnomalyWindowManager(common.WindowManager):
+    def __init__(self, parameter):
+        super().__init__(parameter)
+        self.standardised_anomaly_windows = []
+        if "std_anom_windows" in parameter:
+            # Create windows for standard anomaly
+            for window_config in parameter["windows"]:
+                window_operation = self.window_operation_from_config(window_config)
+
+                for period in window_config["periods"]:
+                    new_window = common.create_window(period, window_operation)
+                    new_window.config_grib_header = window_config.get("grib_set", {})
+                    new_window.thresholds = window_config["thresholds"]
+                    self.standardised_anomaly_windows.append(new_window)
+
+    def update_windows(
+        self, step, data: np.array, clim_mean: np.array, clim_std: np.array
+    ) -> Iterator[common.Window]:
+        print(data.shape, clim_mean.shape, clim_std.shape)
+        anomaly = np.subtract(data, clim_mean)
+        std_anomly = np.divide(anomaly, clim_std)
+
+        new_anom_windows = []
+        for window in self.windows:
+            window.add_step_values(step, anomaly)
+
+            if window.reached_end_step(step):
+                yield window
+            else:
+                new_anom_windows.append(window)
+        self.windows = new_anom_windows
+
+        new_std_anom_windows = []
+        for window in self.standardised_anomaly_windows:
+            window.add_step_values(step, std_anomly)
+
+            if window.reached_end_step(step):
+                yield window
+            else:
+                new_std_anom_windows.append(window)
+        self.standardised_anomaly_windows = new_std_anom_windows
+
+
+def main(args=None):
+
+    parser = common.default_parser(
+        "Compute instantaneous and period probabilites for anomalies"
+    )
+    parser.add_argument("-d", "--date", required=True, help="Forecast date")
+    args = parser.parse_args()
+    cfg = common.Config(args)
+
+    date = datetime.datetime.strptime(args.date, "%Y%m%d%H")
+    n_ensembles = cfg.options.get("number_of_ensembles", 50)
+    leg = cfg.options.get("leg")
+
+    fdb = pyfdb.FDB()
+
+    for param_cfg in cfg.options["parameters"]:
+        param_id = param_cfg["in_paramid"]
+        param = CombinedForecasts(date, param_id, param_cfg, n_ensembles)
+        clim = Climatology(date, param_id, param_cfg)
+
+        window_manager = AnomalyWindowManager(param_cfg)
+
+        for step in window_manager.unique_steps:
+            message_template, data = param.retrieve_data(fdb, step)
+            cstep = clim.clim_step(step)
+            clim_data = clim.retrieve_data(fdb, cstep)
+
+            completed_windows = window_manager.update_windows(
+                step, data, clim_data[0], clim_data[1]
+            )
+            for window in completed_windows:
+                for threshold in window.thresholds:
+                    window_probability = ensemble_probability(
+                        window.step_values, threshold
+                    )
+
+                    print(
+                        "Writing probability for  output "
+                        + f"param {threshold['out_paramid']} for step(s) {window.name}"
+                    )
+                    common.write_grib(
+                        common.FDBTarget(fdb),
+                        construct_message(
+                            message_template, window.grib_header(leg), threshold
+                        ),
+                        window_probability,
+                    )
+
+    fdb.flush()
+
+
+if __name__ == "__main__":
+    main(sys.argv)

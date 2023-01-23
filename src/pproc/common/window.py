@@ -1,5 +1,5 @@
-import numexpr
 import numpy as np
+from typing import Dict
 
 
 class Window:
@@ -29,11 +29,14 @@ class Window:
             self.steps = list(range(self.start+self.step, self.end+self.step, self.step))
 
         self.step_values = []
+        self.config_grib_header = {}
+        self.thresholds = []
 
     def operation(self, new_step_values: np.array):
         """
         Combines data from unprocessed steps with existing step data values,
-        and updates step data values
+        and updates step data values. Any processing involving NaN values
+        must return NaN to be compatible with MARS compute
 
         :param new_step_values: data from new step
         """
@@ -77,36 +80,29 @@ class Window:
         """
         return self.end - self.start
 
-
-class DiffWindow(Window):
-    """
-    Window with operation that takes difference between the end and start step. Only accepts data
-    from these two steps
-    """
-
-    def __init__(self, window_options):
-        super().__init__(window_options, include_init=True)
-
-    def operation(self, new_step_values: np.array):
+    def grib_header(self, leg: int) -> Dict:
         """
-        Combines data from unprocessed steps with existing step data values,
-        and updates step data values
+        Returns window specific grib headers, including headers defined in
+        config file
 
-        :param new_step_values: data from new step
+        :param leg: model leg
+        :return: dictionary of header keys and values
         """
-        self.step_values = new_step_values - self.step_values
+        header = self.config_grib_header
+        if isinstance(self.name, int):
+            header["step"] = self.name
+        else:
+            header.setdefault("stepType", "max") # Don't override if set in config
+            header["stepRange"] = self.name
+            if leg == 2:
+                header["unitOfTimeRange"] = 11
 
-    def __contains__(self, step: int) -> bool:
-        """
-        :param step: current step
-        :return: boolean specifying if step is in window interval
-        """
-        return step == self.start or step == self.end
+        return header
 
 
 class SimpleOpWindow(Window):
     """
-    Window with operation min, max or sum - reduction operations supported by numexpr
+    Window with operation min, max, sum - reduction operations supported by numpy
     """
 
     def __init__(
@@ -127,9 +123,8 @@ class SimpleOpWindow(Window):
 
         :param new_step_values: data from new step
         """
-        self.step_values = numexpr.evaluate(
-            f"{self.operation_str}(data, axis=0)",
-            local_dict={"data": [self.step_values, new_step_values]},
+        self.step_values = getattr(np, self.operation_str)(
+            [self.step_values, new_step_values], axis=0
         )
 
 
@@ -141,10 +136,7 @@ class WeightedSumWindow(SimpleOpWindow):
     """
 
     def __init__(self, window_options):
-        """
-        :param window_options: config specifying start and end of window
-        """
-        super().__init__(window_options, "sum")
+        super().__init__(window_options, "sum", include_init=False)
         self.previous_step = self.start
 
     def add_step_values(self, step: int, step_values: np.array):
@@ -167,3 +159,36 @@ class WeightedSumWindow(SimpleOpWindow):
         self.previous_step = step
         if self.reached_end_step(step):
             self.step_values = self.step_values / self.size()
+
+
+class DiffWindow(Window):
+    """
+    Window with operation that takes difference between the end and start step. Only accepts data
+    from these two steps
+    """
+
+    def __init__(self, window_options):
+        super().__init__(window_options, include_init=True)
+
+    def operation(self, new_step_values: np.array):
+        """
+        Combines data from unprocessed steps with existing step data values,
+        and updates step data values
+
+        :param new_step_values: data from new step
+        """
+        self.step_values = new_step_values - self.step_values
+
+    def __contains__(self, step: int) -> bool:
+        return step == self.start or step == self.end
+
+
+class DiffDailyRateWindow(DiffWindow):
+    """
+    Window with operation that takes difference between end and start step and then divides difference
+    by the total number of days in the window. Only accepts data for start and end step
+    """
+
+    def operation(self, new_step_values: np.array):
+        num_days = (self.end - self.start) / 24
+        self.step_values = np.subtract(new_step_values, self.step_values) / num_days
