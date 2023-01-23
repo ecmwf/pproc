@@ -143,13 +143,13 @@ def main(args=None):
             for step in window.steps:
                 for level in param_type.levels:
                     mean_slice = param_type.slice_dataset(mean, level, step)
-                    mean_file = os.path.join(cfg.out_dir, f'mean_{param}_{level}_{step}.grib')
+                    mean_file = os.path.join(cfg.out_dir, window.name, f'mean_{param}_{level}_{step}.grib')
                     target_mean = common.target_factory(cfg.target, out_file=mean_file, fdb=cfg.fdb)
                     template_mean = template_ensemble(cfg, param_type, template_ens, step, level, 'em')
                     common.write_grib(target_mean, template_mean, mean_slice)
 
                     std_slice = param_type.slice_dataset(std, level, step)
-                    std_file = os.path.join(cfg.out_dir, f'std_{param}_{level}_{step}.grib')
+                    std_file = os.path.join(cfg.out_dir, window.name, f'std_{param}_{level}_{step}.grib')
                     target_std = common.target_factory(cfg.target, out_file=std_file, fdb=cfg.fdb)
                     template_std = template_ensemble(cfg, param_type, template_ens, step, level, 'es')
                     common.write_grib(target_std, template_std, std_slice)
