@@ -1,5 +1,6 @@
 
 import argparse
+from typing import List, Optional
 import sys
 
 import numpy as np
@@ -7,7 +8,8 @@ import eccodes
 
 from pproc.common import default_parser
 from pproc.clustereps.config import ClusterConfigBase
-from pproc.clustereps.utils import gen_steps, normalise_angles, lat_weights, region_weights
+from pproc.clustereps.io import read_ensemble_grib
+from pproc.clustereps.utils import normalise_angles, lat_weights, region_weights
 
 
 def mean_spread(stddev, weights=None):
@@ -98,7 +100,7 @@ def ensemble_pca(ens_anom, ncomp, weights=None):
     numpy array (ncomp, nstep, npoints)
         Empirical Orthogonal Functions computed from the PCA
     numpy array (ncomp, ..., nexp)
-        Principal components
+        Ensemble anomalies in PC space
     numpy array (ncomp)
         Variance associated with each component (descending order)
     float
@@ -134,13 +136,107 @@ def ensemble_pca(ens_anom, ncomp, weights=None):
 
 
 class PCAConfig(ClusterConfigBase):
-    def __init__(self, args):
-        super().__init__(args)
+    def __init__(self, args, verbose=True):
+        super().__init__(args, verbose=verbose)
 
         # Normalisation factor (1)
         self.factor = self.options.get('pca_factor', None)
         # Number of components to extract
         self.ncomp = self.options['num_components']
+
+
+def do_pca(config: PCAConfig, lat: np.ndarray, lon: np.ndarray, ens: np.ndarray, spread: np.ndarray, mask: Optional[np.ndarray] = None) -> dict:
+    """Run the ensemble PCA
+
+    Parameters
+    ----------
+    config: PCAConfig
+        PCA configuration
+    lat: numpy array (npoints)
+        Latitudes
+    lon: numpy array (npoints)
+        Longitudes
+    ens: numpy array (..., nexp, nstep, npoints)
+        Ensemble data
+    spread: numpy array (npoints)
+        Ensemble spread
+    mask: numpy array (npoints), optional
+        Initial mask
+
+    Returns
+    -------
+    dict
+        PCA data
+        * lat: numpy array (npoints)
+            Latitudes
+        * lon: numpy array (npoints)
+            Longitudes
+        * mask: numpy array (npoints)
+            Applied mask
+        * ens_mean: numpy array (..., nstep, npoints)
+            Ensemble mean
+        * ens_anom: numpy array (..., nexp, nstep, npoints)
+            Ensemble in anomaly space
+        * eof: numpy array (ncomp, nstep, npoints)
+            Empirical orthogonal functions
+        * pc: numpy array (ncomp, ..., nexp)
+            Principal components of the ensemble
+        * eof_sd: numpy array (ncomp)
+            EOF standard deviation
+        * var_pct: numpy array (ncomp)
+            Percentage of variance explained by PCs
+        * var_cum: numpy array (ncomp)
+            Cumulative percentage of variance explained by PCs
+        * ens_spread: float
+            Mean ensemble spread
+        * weights: numpy array (npoints)
+            Applied weights
+    """
+    # Mask off region
+    if config.bbox is not None:
+        lat_n, lat_s, lon_w, lon_e = normalise_angles(config.bbox)
+        mask = region_weights(lat_n, lat_s, lon_w, lon_e, lat, lon, mask)
+
+    # Weight by latitude
+    weights = lat_weights(lat, mask)
+
+    # Compute mean spread
+    ens_spread = mean_spread(spread, weights=weights)
+
+    # Normalise ensemble fields
+    if config.factor is not None:
+        ens *= config.factor
+
+    # Compute ensemble mean
+    ens_mean = ensemble_mean(ens)
+
+    # Compute ensemble anomalies
+    ens_anom = ensemble_anomalies(ens, ens_mean=ens_mean, clip=config.clip)
+    del ens
+
+    # Compute EOF
+    eof, pc, var, tot_var = ensemble_pca(ens_anom, config.ncomp, weights)
+
+    # Compute principal component info
+    nfld = np.prod(pc.shape[1:])
+    eof_sd = np.sqrt(var / nfld)
+    var_pct = 100. * var / tot_var
+    var_cum = np.cumsum(var_pct)
+
+    return {
+        'lat': lat,
+        'lon': lon,
+        'mask': mask,              # EOF
+        'ens_mean': ens_mean,      # EM, per ensemble then step
+        'ens_anom': ens_anom,      # AN, per ensemble then member then step
+        'eof': eof,                # EOF, per component then step
+        'pc': pc,                  # PC, per ensemble then member then component
+        'eof_sd': eof_sd,          # SD
+        'var_pct': var_pct,        # SD
+        'var_cum': var_cum,        # SD
+        'ens_spread': ens_spread,  # SD
+        'weights': weights,        # EOF
+    }
 
 
 def get_parser() -> argparse.ArgumentParser:
@@ -172,79 +268,22 @@ def main(cmdArgs=sys.argv[1:]):
     config = PCAConfig(args)
 
     # Read mask
-    mask = None
     if args.mask is not None:
         # format?
         raise NotImplementedError()
 
     # Read ensemble
     nexp = config.num_members
-    monthly = (config.step_end - config.step_start > 120) or (config.step_end == config.step_start)
-    steps = gen_steps(config.step_start, config.step_end, config.step_del, monthly=monthly)
-    inv_steps = {s: i for i, s in enumerate(steps)}
-    nstep = len(steps)
-    with eccodes.FileReader(args.ensemble) as reader:
-        message = reader.peek()
-        npoints = message.get('numberOfDataPoints')
-        lat = message.get_array('latitudes')
-        lon = normalise_angles(message.get_array('longitudes'))
-        ens = np.empty((nexp, nstep, npoints))
-        for message in reader:
-            iexp = message.get('perturbationNumber')
-            step = message.get('step')
-            # TODO: check param and level
-            istep = inv_steps.get(step, None)
-            if istep is not None:
-                ens[iexp, istep, :] = message.get_array('values')
+    lat, lon, ens, template = read_ensemble_grib(config.sources, args.ensemble, config.steps, nexp)
 
-    # Mask off region
-    if config.bbox is not None:
-        lat_n, lat_s, lon_w, lon_e = normalise_angles(config.bbox)
-        mask = region_weights(lat_n, lat_s, lon_w, lon_e, lat, lon, mask)
-
-    # Weight by latitude
-    weights = lat_weights(lat, mask)
-
-    # Read ensemble stddev, compute mean spread
+    # Read ensemble stddev
     with eccodes.FileReader(args.spread) as reader:
         message = next(reader)
         # TODO: check param and level
-        ens_spread = mean_spread(message.get_array('values'), weights=weights)
+        spread = message.get_array('values')
 
-    # Normalise ensemble fields
-    if config.factor is not None:
-        ens *= config.factor
+    data = do_pca(config, lat, lon, ens, spread, args.mask)
 
-    # Compute ensemble mean
-    ens_mean = ensemble_mean(ens)
-
-    # Compute ensemble anomalies
-    ens_anom = ensemble_anomalies(ens, ens_mean=ens_mean, clip=config.clip)
-    del ens
-
-    # Compute EOF
-    eof, pc, var, tot_var = ensemble_pca(ens_anom, config.ncomp, weights)
-
-    # Compute principal component info
-    nfld = nexp
-    eof_sd = np.sqrt(var / nfld)
-    var_pct = 100. * var / tot_var
-    var_cum = np.cumsum(var_pct)
-
-    data = {
-        'lat': lat,
-        'lon': lon,
-        'mask': mask,              # EOF
-        'ens_mean': ens_mean,      # EM, per ensemble then step
-        'ens_anom': ens_anom,      # AN, per ensemble then member then step
-        'eof': eof,                # EOF, per component then step
-        'pc': pc,                  # PC, per ensemble then member then component
-        'eof_sd': eof_sd,          # SD
-        'var_pct': var_pct,        # SD
-        'var_cum': var_cum,        # SD
-        'ens_spread': ens_spread,  # SD
-        'weights': weights,        # EOF
-    }
     np.savez_compressed(args.output, **data)
 
     return 0

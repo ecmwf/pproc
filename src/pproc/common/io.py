@@ -20,11 +20,13 @@ class GRIBFields:
     def to_xarray(self):
         coords = {}
         dim_sizes = {}
-        for i, dim in enumerate(self.dims):
-            coords[dim] = []
-            for key_tuple in self.data.keys():
-                coords[dim].append(key_tuple[i])
-            dim_sizes[dim] = len(coords[dim])
+        for dim in self.dims:
+            set_coords = set()
+            for key in self.data.keys():
+                key_dict = eval(key)
+                set_coords.add(key_dict[dim])
+            dim_sizes[dim] = len(set_coords)
+            coords[dim] = sorted(list(set_coords))
         
         # add values dimensions, no coords
         ndata = self.template.get_size('values')
@@ -33,10 +35,11 @@ class GRIBFields:
         dims.append('data')
         
         data_np = np.empty(tuple(dim_sizes.values()))
-        for key_tuple, value in self.data.items():
-            indexes = [coords[self.dims[i]].index(key) for i, key in enumerate(key_tuple)]
-            data_np[indexes] = value
-        da = xr.DataArray(data_np, coords=coords, dims=dims, attrs={'grib_template': self.template})
+        for key, value in self.data.items():
+            key_dict = eval(key)
+            indexes = [coords[dim].index(coord) for dim, coord in key_dict.items()]
+            data_np[tuple(indexes)] = value
+        da = xr.DataArray(data_np, name=self.template['shortName'], coords=coords, dims=dims, attrs={'grib_template': self.template})
 
         return da
 
@@ -54,14 +57,14 @@ def extract(keys, message):
     -------
     tuple
         Values of the extracted keys"""
-    res = []
+    res = {}
     for key in keys:
         if isinstance(key, str):
-            res.append(message.get(key))
+            res[key] = message.get(key)
         else:
             raise ValueError(f'Key format {type(key)} for {key} not supported, on support strings')
             # res.append(key(message))
-    return tuple(res)
+    return str(res)
 
 
 def missing_to_nan(message, data=None):
@@ -159,7 +162,6 @@ def fdb_retrieve(fdb, request, mir_options=None):
         stream.seek(0)
         fdb_reader = stream
     return fdb_reader
-
 
 
 def fdb_read(fdb, request, mir_options=None):
@@ -335,7 +337,7 @@ def write_grib(target, template, data, missing=-9999):
         data[np.isnan(data)] = missing
         message.set('missingValue', missing)
         message.set('bitmapPresent', 1)
-        
+    
     message.set_array('values', data)
 
     if is_missing:
