@@ -144,7 +144,7 @@ def read_ensemble_grib(sources: dict, loc: str, steps: List[int], nexp: int) -> 
                 first = False
             for message in reader:
                 iexp = message.get('perturbationNumber')
-                step = message.get('step')
+                step = message.get('step:int')
                 # TODO: check param and level
                 istep = inv_steps.get(step, None)
                 if istep is not None:
@@ -176,7 +176,7 @@ def read_steps_grib(sources: dict, loc: str, steps: List[int]) -> np.ndarray:
         npoints = message.get('numberOfDataPoints')
         data = np.empty((nstep, npoints))
         for message in reader:
-            step = message.get('step')
+            step = message.get('step:int')
             # TODO: check param and level
             istep = inv_steps.get(step, None)
             if istep is not None:
