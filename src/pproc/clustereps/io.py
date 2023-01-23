@@ -156,7 +156,7 @@ def read_ensemble_grib(sources: dict, loc: str, steps: List[int], nexp: int) -> 
     return lat, lon, ens, template
 
 
-def read_steps_grib(sources: dict, loc: str, steps: List[int]) -> np.ndarray:
+def read_steps_grib(sources: dict, loc: str, steps: List[int], **kwargs) -> np.ndarray:
     """Read multi-step data from a GRIB file
 
     Parameters
@@ -167,6 +167,8 @@ def read_steps_grib(sources: dict, loc: str, steps: List[int]) -> np.ndarray:
         Location of the data (file path, named fdb request, ...)
     steps: list[int]
         List of steps
+    kwargs: any
+        Exta arguments for source backends
 
     Returns
     -------
@@ -175,7 +177,7 @@ def read_steps_grib(sources: dict, loc: str, steps: List[int]) -> np.ndarray:
     """
     inv_steps = {s: i for i, s in enumerate(steps)}
     nstep = len(steps)
-    with open_dataset(sources, loc, step=steps) as reader:
+    with open_dataset(sources, loc, step=steps, **kwargs) as reader:
         message = reader.peek()
         if message is None:
             raise EOFError(f"No data in {loc!r} for steps [{', '.join(str(step) for step in steps)}]")
