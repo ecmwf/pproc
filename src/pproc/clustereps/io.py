@@ -1,4 +1,5 @@
 
+import copy
 import pprint
 import re
 from typing import Any, Iterable, Iterator, List, Optional, Tuple, Union
@@ -30,6 +31,7 @@ def _open_dataset_fdb(reqs: Union[dict, Iterable[dict]], **kwargs: Any) -> Itera
     update_func = kwargs.pop('update', None)
     interp_extra = kwargs.pop('interpolate', {})
     for req in reqs:
+        req = copy.deepcopy(req)
         req.update(kwargs)
         if update_func is not None:
             update_func(req)
