@@ -24,6 +24,9 @@ def get_parser() -> argparse.ArgumentParser:
     _description='K-Means clustering of ensemble data'
     parser = default_parser(description=_description)
 
+    group = parser.add_argument_group('General arguments')
+    group.add_argument('--date', help='forecast date (YYMMDD)', type=lambda x: datetime.strptime(x, '%Y%m%d'), metavar='YMD')
+
     group = parser.add_argument_group('Principal component analysis arguments')
     group.add_argument('-m', '--mask', default=None, help="Mask file")
     group.add_argument('--spread', required=True, help="Ensemble spread (GRIB)")
@@ -38,7 +41,6 @@ def get_parser() -> argparse.ArgumentParser:
     group.add_argument('-N', '--ncomp-file', default=None, help="Number of components output (text)")
 
     group = parser.add_argument_group('Attribution arguments')
-    group.add_argument('--date', help='forecast date (YYMMDD)', type=lambda x: datetime.strptime(x, '%Y%m%d'), metavar='YMD')
     group.add_argument('--clim-dir', help='climatological data root directory', metavar='DIR')
     group.add_argument('-o', '--output-root', default=os.getcwd(), help='output base directory', metavar='DIR')
 
