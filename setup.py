@@ -19,7 +19,7 @@ setup(
             "pproc-extreme=pproc.extreme:main",
             "pproc-interpol=pproc.interpol:main",
             "pproc-pts=pproc.pts:main",
-            "pproc-prob=pproc.prob:main",
+            "pproc-probabilities=pproc.probabilities:main",
             "pproc-ensms=pproc.ensms:main",
             "pproc-wind=pproc.wind:main",
             "pproc-spectrum=pproc.spectrum:main",

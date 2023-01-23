@@ -9,6 +9,7 @@
 # granted to it by virtue of its status as an intergovernmental organisation nor
 # does it submit to any jurisdiction.
 import os
+import sys
 from datetime import datetime
 import numpy as np
 import xarray as xr
@@ -156,6 +157,4 @@ def main(args=None):
 
 
 if __name__ == "__main__":
-    import sys
-
     main(sys.argv)
