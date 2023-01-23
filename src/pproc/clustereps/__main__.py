@@ -139,7 +139,7 @@ def main(sys_args=None):
     ## Compute number of PCs based on the variance threshold
     var_cum = pca_data['var_cum']
     npc = cluster_config.npc
-    if npc is None:
+    if npc <= 0:
         npc = cluster.select_npc(cluster_config.var_th, var_cum)
         if args.ncomp_file is not None:
             with open(args.ncomp_file, 'w') as f:
