@@ -1,6 +1,6 @@
 import sys
 import datetime
-from typing import Tuple, List, Dict, Iterator
+from typing import Tuple, Dict, Iterator
 import numpy as np
 
 import pyfdb
@@ -14,10 +14,9 @@ CLIM_STEP_INTERVAL = 12
 
 
 class CombinedForecasts(Parameter):
-
     def retrieve_data(self, fdb, step: int):
         """
-        Retrieves data at step for perturbed and control forecast and 
+        Retrieves data at step for perturbed and control forecast and
         concatenates them together into one array
         """
         new_request = self.base_request.copy()
@@ -43,6 +42,7 @@ class Climatology(Parameter):
     """
     Retrieves data for mean and standard deviation of climatology
     """
+
     def __init__(self, dt: datetime.datetime, param_id: int, cfg: Dict):
         Parameter.__init__(self, dt, param_id, cfg, 0)
         self.base_request.pop("number")
@@ -55,16 +55,16 @@ class Climatology(Parameter):
 
     def clim_step(self, step: int):
         """
-        Nearest step with climatology data to step, 
-        taking into account diurnal variation in climatology 
-        which requires climatology step time to be same 
+        Nearest step with climatology data to step,
+        taking into account diurnal variation in climatology
+        which requires climatology step time to be same
         as step
         """
         if self.time == datetime.time(0):
             return step
         if self.time == datetime.time(12):
             if step == LAST_MODEL_STEP:
-                return step - CLIM_STEP_INTERVAL 
+                return step - CLIM_STEP_INTERVAL
             return step + CLIM_STEP_INTERVAL
 
     @classmethod
@@ -78,29 +78,27 @@ class Climatology(Parameter):
             return (date - datetime.timedelta(days=dow)).strftime("%Y%m%d")
         return (date - datetime.timedelta(days=(dow - 3))).strftime("%Y%m%d")
 
-
     @classmethod
     def grib_header(cls, grib_msg):
         """
         Get climatology period from grib message
         """
         return {
-            'climateDateFrom': grib_msg.get('climateDateFrom'),
-            'climateDateTo': grib_msg.get('climateDateTo'),
-            'referenceDate': grib_msg.get('referenceDate'),
+            "climateDateFrom": grib_msg.get("climateDateFrom"),
+            "climateDateTo": grib_msg.get("climateDateTo"),
+            "referenceDate": grib_msg.get("referenceDate"),
         }
-
 
     def retrieve_data(self, fdb, step: int) -> Tuple[Dict, Tuple[np.array, np.array]]:
         """
-        Retrieves data for climatology mean and standard deviation, 
-        taking into account possible shift required between data and 
+        Retrieves data for climatology mean and standard deviation,
+        taking into account possible shift required between data and
         nearest climatology step
 
-        :param fdb: 
+        :param fdb:
         :param step: model step
         :return: tuple containing climatology period dates as Dict
-        and 
+        and
         """
         cstep = self.clim_step(step)
         new_request = self.base_request.copy()
@@ -109,8 +107,8 @@ class Climatology(Parameter):
         for type in self.base_request["type"].split("/"):
             new_request["type"] = type
             temp_message, data = common.fdb_read_with_template(
-                    fdb, new_request, self.interpolation_keys
-                )
+                fdb, new_request, self.interpolation_keys
+            )
             ret.append(data)
         return self.grib_header(temp_message), ret
 
@@ -134,7 +132,7 @@ class AnomalyWindowManager(common.WindowManager):
         self, step, data: np.array, clim_mean: np.array, clim_std: np.array
     ) -> Iterator[common.Window]:
         """
-        Updates all windows that include step with either the anomaly with clim_mean 
+        Updates all windows that include step with either the anomaly with clim_mean
         or standardised anomaly including clim_std. Function modifies input data array.
 
         :param step: new step
@@ -208,9 +206,12 @@ def main(args=None):
                     common.write_grib(
                         common.FDBTarget(fdb),
                         construct_message(
-                            message_template, window.grib_header(leg), threshold,
-                            clim_grib_header),
-                        window_probability
+                            message_template,
+                            window.grib_header(leg),
+                            threshold,
+                            clim_grib_header,
+                        ),
+                        window_probability,
                     )
 
     fdb.flush()

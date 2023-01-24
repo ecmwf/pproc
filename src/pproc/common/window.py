@@ -24,11 +24,13 @@ class Window:
             self.name = f"{self.start}-{self.end}"
 
         if len(window_options["range"]) > 2:
-            self.step =  int(window_options["range"][2])
+            self.step = int(window_options["range"][2])
             if include_init:
-                self.steps = list(range(self.start, self.end+self.step, self.step))
+                self.steps = list(range(self.start, self.end + self.step, self.step))
             else:
-                self.steps = list(range(self.start+self.step, self.end+self.step, self.step))
+                self.steps = list(
+                    range(self.start + self.step, self.end + self.step, self.step)
+                )
 
         self.step_values = []
         self.config_grib_header = {}
@@ -94,7 +96,7 @@ class Window:
         if isinstance(self.name, int):
             header["step"] = self.name
         else:
-            header.setdefault("stepType", "max") # Don't override if set in config
+            header.setdefault("stepType", "max")  # Don't override if set in config
             header["stepRange"] = self.name
             if leg == 2:
                 header["unitOfTimeRange"] = 11
@@ -126,8 +128,7 @@ class SimpleOpWindow(Window):
         :param new_step_values: data from new step
         """
         getattr(np, self.operation_str)(
-            [self.step_values, new_step_values], axis=0,
-            out = self.step_values
+            [self.step_values, new_step_values], axis=0, out=self.step_values
         )
 
 

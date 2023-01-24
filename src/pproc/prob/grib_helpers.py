@@ -24,8 +24,9 @@ def threshold_grib_headers(threshold) -> Dict:
     return threshold_dict
 
 
-def construct_message(template_grib, window_grib_headers, threshold, 
-    climatology_headers: Dict = None):
+def construct_message(
+    template_grib, window_grib_headers, threshold, climatology_headers: Dict = None
+):
     """
     Sets grib headers into template message using headers specified in
     config, from the threshold and climatology date period
@@ -39,11 +40,13 @@ def construct_message(template_grib, window_grib_headers, threshold,
         "bitsPerValue": 8,  # Set equal to accuracy used in mars compute
     }
     key_values.update(window_grib_headers)
-    set_missing = [key for key, value in window_grib_headers.items() if value == 'MISSING']
+    set_missing = [
+        key for key, value in window_grib_headers.items() if value == "MISSING"
+    ]
     for missing_key in set_missing:
         key_values.pop(missing_key)
 
-    if key_values.get('edition', 1) == 2:
+    if key_values.get("edition", 1) == 2:
         key_values.update({"paramId": threshold["out_paramid"]})
         if climatology_headers:
             key_values.update(climatology_headers)
