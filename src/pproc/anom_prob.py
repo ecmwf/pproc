@@ -64,27 +64,37 @@ class Climatology(Parameter):
             return (date - datetime.timedelta(days=dow)).strftime("%Y%m%d")
         return (date - datetime.timedelta(days=(dow - 3))).strftime("%Y%m%d")
 
+
+    @classmethod
+    def grib_header(cls, grib_msg):
+        return {
+            'climateDateFrom': grib_msg.get('climateDateFrom'),
+            'climateDateTo': grib_msg.get('climateDateTo'),
+            'referenceDate': grib_msg.get('referenceDate'),
+        }
+
+
     def retrieve_data(self, fdb, step: int):
+        cstep = self.clim_step(step)
         new_request = self.base_request.copy()
-        new_request["step"] = step
+        new_request["step"] = cstep
         ret = []
         for type in self.base_request["type"].split("/"):
             new_request["type"] = type
-            ret.append(
-                common.fdb_read_with_template(
+            temp_message, data = common.fdb_read_with_template(
                     fdb, new_request, self.interpolation_keys
-                )[1]
-            )
-        return ret
+                )
+            ret.append(data)
+        return self.grib_header(temp_message), ret
 
 
 class AnomalyWindowManager(common.WindowManager):
     def __init__(self, parameter):
         super().__init__(parameter)
         self.standardised_anomaly_windows = []
-        if "std_anom_windows" in parameter:
+        if "std_anomaly_windows" in parameter:
             # Create windows for standard anomaly
-            for window_config in parameter["windows"]:
+            for window_config in parameter["std_anomaly_windows"]:
                 window_operation = self.window_operation_from_config(window_config)
 
                 for period in window_config["periods"]:
@@ -92,11 +102,11 @@ class AnomalyWindowManager(common.WindowManager):
                     new_window.config_grib_header = window_config.get("grib_set", {})
                     new_window.thresholds = window_config["thresholds"]
                     self.standardised_anomaly_windows.append(new_window)
+        print("Anomaly windows", {len(self.windows)}, 'Std Anomaly windows', {len(self.standardised_anomaly_windows)})
 
     def update_windows(
         self, step, data: np.array, clim_mean: np.array, clim_std: np.array
     ) -> Iterator[common.Window]:
-        print(data.shape, clim_mean.shape, clim_std.shape)
         anomaly = np.subtract(data, clim_mean)
         std_anomly = np.divide(anomaly, clim_std)
 
@@ -145,8 +155,7 @@ def main(args=None):
 
         for step in window_manager.unique_steps:
             message_template, data = param.retrieve_data(fdb, step)
-            cstep = clim.clim_step(step)
-            clim_data = clim.retrieve_data(fdb, cstep)
+            clim_grib_header, clim_data = clim.retrieve_data(fdb, step)
 
             completed_windows = window_manager.update_windows(
                 step, data, clim_data[0], clim_data[1]
@@ -164,9 +173,9 @@ def main(args=None):
                     common.write_grib(
                         common.FDBTarget(fdb),
                         construct_message(
-                            message_template, window.grib_header(leg), threshold
-                        ),
-                        window_probability,
+                            message_template, window.grib_header(leg), threshold,
+                            clim_grib_header),
+                        window_probability
                     )
 
     fdb.flush()

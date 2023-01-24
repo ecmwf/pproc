@@ -61,6 +61,19 @@ parameters:
           - out_paramid: 133095
             comparison: '>'
             value: 2
+        grib_set:
+          localDefinitionNumber: 30
+          bitsPerValue: 24
+          edition: 2
+          tablesVersion: 21
+          typeOfGeneratingProcess: 5
+          paramId: 0 # Placeholder so that it is set before edition, set to correct value when run
+          timeIncrement: 12
+          indicatorOfUnitForTimeIncrement: 1
+          typeOfStatisticalProcessing: 10
+          grib2LocalSectionNumber: 30
+          scaleFactorOfUpperLimit: 'MISSING'
+          scaledValueOfUpperLimit: 'MISSING'
       - periods:
           - range: [0, 0]
           - range: [12, 12]
@@ -76,6 +89,19 @@ parameters:
           - out_paramid: 133098
             comparison: '<'
             value: -2
+        grib_set:
+          localDefinitionNumber: 30
+          bitsPerValue: 24
+          edition: 2
+          tablesVersion: 21
+          typeOfGeneratingProcess: 5
+          paramId: 0
+          timeIncrement: 12
+          indicatorOfUnitForTimeIncrement: 1
+          typeOfStatisticalProcessing: 10
+          grib2LocalSectionNumber: 30
+          scaleFactorOfUpperLimit: 'MISSING'
+          scaledValueOfUpperLimit: 'MISSING'
     base_request:
       class: 'od'
       expver: '0001'

@@ -31,9 +31,6 @@ parameters:
           - range: [120, 240]
           - range: [168, 240]
         thresholds:
-          # - out_paramid: 131100 Note: needs grib edition 2
-          #   comparison: ">="
-          #   value: 10
           - out_paramid: 131070
             comparison: ">="
             value: 15
@@ -43,6 +40,41 @@ parameters:
           - out_paramid: 131072
             comparison: ">="
             value: 25
+      - periods:
+          - range: [0, 24]
+          - range: [12, 36]
+          - range: [24, 48]
+          - range: [36, 60]
+          - range: [48, 72]
+          - range: [60, 84]
+          - range: [72, 96]
+          - range: [84, 108]
+          - range: [96, 120]
+          - range: [108, 132]
+          - range: [120, 144]
+          - range: [132, 156]
+          - range: [144, 168]
+          - range: [156, 180]
+          - range: [168, 192]
+          - range: [180, 204]
+          - range: [192, 216]
+          - range: [204, 228]
+          - range: [216, 240]
+          - range: [120, 168]
+          - range: [120, 240]
+          - range: [168, 240]
+        thresholds:
+          - out_paramid: 131100
+            comparison: ">="
+            value: 10
+        grib_set:
+          edition: 2
+          productDefinitionTemplateNumber: 9
+          typeOfGeneratingProcess: 5
+          indicatorOfUnitForTimeIncrement: 1
+          timeIncrement: 12
+          scaleFactorOfUpperLimit: 'MISSING'
+          scaledValueOfUpperLimit: 'MISSING'
     base_request:
       class: od
       stream: enfo

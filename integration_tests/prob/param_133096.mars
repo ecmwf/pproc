@@ -1,0 +1,10 @@
+retrieve,
+    class=od,
+    expver=0001,
+    stream=enfo,
+    domain=g,
+    type=ep,
+    levelist=850,
+    levtype='pl', 
+    step=120,
+    param=133096

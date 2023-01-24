@@ -1,0 +1,9 @@
+retrieve,
+    class=od,
+    expver=0001,
+    stream=enfo,
+    domain=g,
+    type=ep,
+    levtype=sfc,
+    step=12-36,
+    param=131085
