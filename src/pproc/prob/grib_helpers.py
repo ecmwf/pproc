@@ -25,7 +25,6 @@ def construct_message(template_grib, window_grib_headers, threshold,
     climatology_headers: Dict = None):
     # Copy an input GRIB message and modify headers for writing probability
     # field
-    print('Clim headers', climatology_headers)
     out_grib = template_grib.copy()
     key_values = {
         "type": "ep",

@@ -102,7 +102,6 @@ class AnomalyWindowManager(common.WindowManager):
                     new_window.config_grib_header = window_config.get("grib_set", {})
                     new_window.thresholds = window_config["thresholds"]
                     self.standardised_anomaly_windows.append(new_window)
-        print("Anomaly windows", {len(self.windows)}, 'Std Anomaly windows', {len(self.standardised_anomaly_windows)})
 
     def update_windows(
         self, step, data: np.array, clim_mean: np.array, clim_std: np.array
