@@ -1,6 +1,6 @@
 import sys
 import datetime
-from typing import Dict, Iterator
+from typing import Tuple, List, Dict, Iterator
 import numpy as np
 
 import pyfdb
@@ -14,7 +14,12 @@ CLIM_STEP_INTERVAL = 12
 
 
 class CombinedForecasts(Parameter):
+
     def retrieve_data(self, fdb, step: int):
+        """
+        Retrieves data at step for perturbed and control forecast and 
+        concatenates them together into one array
+        """
         new_request = self.base_request.copy()
         new_request["step"] = step
 
@@ -35,6 +40,9 @@ class CombinedForecasts(Parameter):
 
 
 class Climatology(Parameter):
+    """
+    Retrieves data for mean and standard deviation of climatology
+    """
     def __init__(self, dt: datetime.datetime, param_id: int, cfg: Dict):
         Parameter.__init__(self, dt, param_id, cfg, 0)
         self.base_request.pop("number")
@@ -46,11 +54,17 @@ class Climatology(Parameter):
         self.steps = cfg["steps"]
 
     def clim_step(self, step: int):
+        """
+        Nearest step with climatology data to step, 
+        taking into account diurnal variation in climatology 
+        which requires climatology step time to be same 
+        as step
+        """
         if self.time == datetime.time(0):
             return step
         if self.time == datetime.time(12):
             if step == LAST_MODEL_STEP:
-                return step - CLIM_STEP_INTERVAL  # Bug? Should be step_index?
+                return step - CLIM_STEP_INTERVAL 
             return step + CLIM_STEP_INTERVAL
 
     @classmethod
@@ -67,6 +81,9 @@ class Climatology(Parameter):
 
     @classmethod
     def grib_header(cls, grib_msg):
+        """
+        Get climatology period from grib message
+        """
         return {
             'climateDateFrom': grib_msg.get('climateDateFrom'),
             'climateDateTo': grib_msg.get('climateDateTo'),
@@ -74,7 +91,17 @@ class Climatology(Parameter):
         }
 
 
-    def retrieve_data(self, fdb, step: int):
+    def retrieve_data(self, fdb, step: int) -> Tuple[Dict, Tuple[np.array, np.array]]:
+        """
+        Retrieves data for climatology mean and standard deviation, 
+        taking into account possible shift required between data and 
+        nearest climatology step
+
+        :param fdb: 
+        :param step: model step
+        :return: tuple containing climatology period dates as Dict
+        and 
+        """
         cstep = self.clim_step(step)
         new_request = self.base_request.copy()
         new_request["step"] = cstep
@@ -106,12 +133,20 @@ class AnomalyWindowManager(common.WindowManager):
     def update_windows(
         self, step, data: np.array, clim_mean: np.array, clim_std: np.array
     ) -> Iterator[common.Window]:
-        anomaly = np.subtract(data, clim_mean)
-        std_anomly = np.divide(anomaly, clim_std)
+        """
+        Updates all windows that include step with either the anomaly with clim_mean 
+        or standardised anomaly including clim_std. Function modifies input data array.
 
+        :param step: new step
+        :param data: data for step
+        :param clim_mean: mean from climatology
+        :param clim_std: standard deviation from climatology
+        :return: generator for completed windows
+        """
+        np.subtract(data, clim_mean, out=data)
         new_anom_windows = []
         for window in self.windows:
-            window.add_step_values(step, anomaly)
+            window.add_step_values(step, data)
 
             if window.reached_end_step(step):
                 yield window
@@ -120,8 +155,9 @@ class AnomalyWindowManager(common.WindowManager):
         self.windows = new_anom_windows
 
         new_std_anom_windows = []
+        np.divide(data, clim_std, out=data)
         for window in self.standardised_anomaly_windows:
-            window.add_step_values(step, std_anomly)
+            window.add_step_values(step, data)
 
             if window.reached_end_step(step):
                 yield window
@@ -166,7 +202,7 @@ def main(args=None):
                     )
 
                     print(
-                        "Writing probability for  output "
+                        f"Writing probability for {param_id} output "
                         + f"param {threshold['out_paramid']} for step(s) {window.name}"
                     )
                     common.write_grib(

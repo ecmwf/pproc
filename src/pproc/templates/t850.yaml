@@ -18,6 +18,8 @@ parameters:
           - out_paramid: 131023
             comparison: "<"
             value: -4
+        grib_set:
+          bitsPerValue: 24
       - periods:
           - range: [12, 12]
           - range: [24, 24]
@@ -29,6 +31,8 @@ parameters:
           - out_paramid: 131025
             comparison: ">="
             value: 8
+        grib_set:
+          bitsPerValue: 24
       - periods:
           - range: [120, 240]
           - range: [168, 240]
@@ -37,6 +41,8 @@ parameters:
           - out_paramid: 131020
             comparison: "<"
             value: -2
+        grib_set:
+          bitsPerValue: 24
       - periods:
           - range: [120, 240]
           - range: [168, 240]
@@ -45,6 +51,8 @@ parameters:
           - out_paramid: 131021
             comparison: ">="
             value: 2
+        grib_set:
+          bitsPerValue: 24
     std_anomaly_windows:
       - periods:
           - range: [0, 0]
@@ -62,18 +70,18 @@ parameters:
             comparison: '>'
             value: 2
         grib_set:
-          localDefinitionNumber: 30
-          bitsPerValue: 24
+          localDefinitionNumber: 30 # Overwrite default value
+          bitsPerValue: 24 # Overwrite default value
           edition: 2
           tablesVersion: 21
           typeOfGeneratingProcess: 5
-          paramId: 0 # Placeholder so that it is set before edition, set to correct value when run
+          paramId: 0 # Placeholder so that it is set before edition, correct value replaces this when run
           timeIncrement: 12
           indicatorOfUnitForTimeIncrement: 1
           typeOfStatisticalProcessing: 10
           grib2LocalSectionNumber: 30
-          scaleFactorOfUpperLimit: 'MISSING'
-          scaledValueOfUpperLimit: 'MISSING'
+          # scaleFactorOfUpperLimit: 'MISSING' - Set to missing in script but not in mars
+          # scaledValueOfUpperLimit: 'MISSING'
       - periods:
           - range: [0, 0]
           - range: [12, 12]
@@ -100,8 +108,8 @@ parameters:
           indicatorOfUnitForTimeIncrement: 1
           typeOfStatisticalProcessing: 10
           grib2LocalSectionNumber: 30
-          scaleFactorOfUpperLimit: 'MISSING'
-          scaledValueOfUpperLimit: 'MISSING'
+          # scaleFactorOfUpperLimit: 'MISSING'
+          # scaledValueOfUpperLimit: 'MISSING'
     base_request:
       class: 'od'
       expver: '0001'

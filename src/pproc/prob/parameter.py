@@ -5,6 +5,9 @@ from pproc import common
 
 
 class Parameter:
+    """
+    Class for digesting parameter related config and retrieving parameter data
+    """
     def __init__(
         self, dt: datetime.datetime, param_id: int, cfg: Dict, n_ensembles: int
     ):
