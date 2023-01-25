@@ -44,7 +44,7 @@ def get_mean_spread(sources: dict, locs: List[str], date: datetime, steps: List[
         for loc in locs:
             try:
                 data = read_steps_grib(sources, loc, steps, date=ret_date.strftime("%Y%m%d"))
-            except EOFError:
+            except (EOFError, eccodes.IOProblemError, FileNotFoundError):
                 continue
             print(f"{ret_date:%Y%m%d} {loc:20s} {data.shape!s:20s} {data.min():15g} {data.max():15g}")
             nfields += data.shape[0]
