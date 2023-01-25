@@ -164,15 +164,6 @@ def main(sys_args=None):
 
     pca_config = pca.PCAConfig(args)
 
-    ## Read mask
-    if args.mask is not None:
-        # format?
-        raise NotImplementedError()
-
-    ## Read ensemble
-    nexp = pca_config.num_members
-    lat, lon, ens, grib_template = read_ensemble_grib(pca_config.sources, args.ensemble, pca_config.steps, nexp)
-
     ## Read or compute ensemble stddev
     if args.spread is not None:
         with open_dataset(pca_config.sources, args.spread) as reader:
@@ -181,6 +172,15 @@ def main(sys_args=None):
             spread = message.get_array('values')
     else:
         spread = get_mean_spread(pca_config.sources, args.spread_compute, args.date, pca_config.steps)
+
+    ## Read mask
+    if args.mask is not None:
+        # format?
+        raise NotImplementedError()
+
+    ## Read ensemble
+    nexp = pca_config.num_members
+    lat, lon, ens, grib_template = read_ensemble_grib(pca_config.sources, args.ensemble, pca_config.steps, nexp)
 
     ## Compute PCA
     pca_data = pca.do_pca(pca_config, lat, lon, ens, spread, args.mask)
