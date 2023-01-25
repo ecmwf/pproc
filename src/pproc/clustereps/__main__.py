@@ -12,6 +12,7 @@ import eccodes
 from pproc.clustereps import attribution, cluster, pca
 from pproc.clustereps.io import open_dataset, read_ensemble_grib, read_steps_grib
 from pproc.common import default_parser
+from pproc.common.io import FileTarget
 
 
 def get_mean_spread(sources: dict, locs: List[str], date: datetime, steps: List[int], ndays: int = 31) -> np.ndarray:
@@ -216,12 +217,12 @@ def main(sys_args=None):
     keys, steps = cluster.get_output_keys(cluster_config, grib_template)
 
     if args.centroids is not None:
-        target = cluster.FileTarget(args.centroids)
+        target = FileTarget(args.centroids)
         keys['type'] = 'cm'
         cluster.write_cluster_grib(steps, ind_cl, rep_members, det_index, centroids_gp, target, keys)
 
     if args.representative is not None:
-        target = cluster.FileTarget(args.representative)
+        target = FileTarget(args.representative)
         keys['type'] = 'cr'
         cluster.write_cluster_grib(steps, ind_cl, rep_members, det_index, rep_members_gp, target, keys)
 
@@ -266,10 +267,10 @@ def main(sys_args=None):
         cluster_att, min_dist = attribution.attribution(anom, clim_eof, clim_ind, weights)
 
         ## Write anomalies and cluster scenarios
-        target = cluster.FileTarget(
+        target = FileTarget(
             pjoin(attr_config.output_root, f'{attr_config.step_start}_{attr_config.step_end}{scenario}.grib')
         )
-        anom_target = cluster.FileTarget(
+        anom_target = FileTarget(
             pjoin(attr_config.output_root, f'{attr_config.step_start}_{attr_config.step_end}{scenario}_anom.grib')
         )
         keys['type'] = cluster_types[scenario]

@@ -9,9 +9,10 @@ import numpy.random as npr
 
 from eccodes import FileReader, GRIBMessage
 
-from pproc.common import default_parser
 from pproc.clustereps.config import ClusterConfigBase
 from pproc.clustereps.io import read_steps_grib
+from pproc.common import default_parser
+from pproc.common.io import FileTarget
 
 
 def disc_stat(xs, ndis):
@@ -705,20 +706,6 @@ def red_noise_cluster(n_samples, ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand, 
             rands = (npr.RandomState(seed + i) for i in range(n_samples))
             noise_var = list(executor.map(sample, rands))
         return np.array(noise_var)
-
-
-class FileTarget:
-    def __init__(self, path, mode="wb"):
-        self.file = open(path, mode)
-
-    def __enter__(self):
-        return self.file.__enter__()
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        return self.file.__exit__(exc_type, exc_value, traceback)
-
-    def write(self, message):
-        message.write_to(self.file)
 
 
 def write_cluster_grib(steps, ind_cl, rep_members, det_index, data, target, keys):

@@ -12,9 +12,9 @@ from scipy.io import FortranFile
 from eccodes import FileReader
 
 from pproc.clustereps.config import ClusterConfigBase
-from pproc.clustereps.cluster import FileTarget
 from pproc.clustereps.utils import region_weights, lat_weights, normalise_angles
 from pproc.common import default_parser
+from pproc.common.io import FileTarget
 
 
 MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
