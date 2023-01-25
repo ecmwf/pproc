@@ -1,3 +1,4 @@
+from contextlib import ExitStack
 from io import BytesIO
 import yaml
 import itertools
@@ -292,7 +293,12 @@ class Target:
         return
 
 
-class FileTarget:
+class NullTarget(Target):
+    def write(self, message):
+        pass
+
+
+class FileTarget(Target):
     def __init__(self, path, mode="wb"):
         self.file = open(path, mode)
 
@@ -306,7 +312,28 @@ class FileTarget:
         message.write_to(self.file)
 
 
-class FDBTarget:
+class FileSetTarget(Target):
+    def __init__(self, location, mode="wb"):
+        self.location = location
+        self.mode = mode
+        self.stack = ExitStack()
+        self.files = {}
+
+    def __enter__(self):
+        self.stack.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        return self.stack.__exit__(exc_type, exc_value, traceback)
+
+    def write(self, message):
+        path = self.location.format_map(message)
+        if path not in self.files:
+            self.files[path] = self.stack.enter_context(open(path, self.mode))
+        message.write_to(self.files[path])
+
+
+class FDBTarget(Target):
     def __init__(self, fdb):
         self.fdb = fdb
 
@@ -321,6 +348,11 @@ def target_factory(target_option, out_file=None, fdb=None):
     elif target_option == 'file':
         assert out_file is not None
         target = FileTarget(out_file)
+    elif target_option == 'fileset':
+        assert out_file is not None
+        target = FileSetTarget(out_file)
+    elif target_option == 'null' or target_option is None:
+        target = NullTarget()
     else:
         raise ValueError(f"Target {target_option} not supported, accepted values are 'fdb' and 'file' ")
     return target
