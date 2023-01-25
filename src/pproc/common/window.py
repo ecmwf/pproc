@@ -1,6 +1,8 @@
 import numpy as np
 from typing import Dict
 
+from pproc.prob.model_constants import LEG1_END
+
 
 class Window:
     """
@@ -98,7 +100,7 @@ class Window:
         else:
             header.setdefault("stepType", "max")  # Don't override if set in config
             header["stepRange"] = self.name
-            if leg == 2:
+            if leg == 2 and self.start >= LEG1_END:
                 header["unitOfTimeRange"] = 11
 
         return header
