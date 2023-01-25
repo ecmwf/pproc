@@ -72,18 +72,43 @@ parameters:
             comparison: ">="
             value: 0.02
             localDecimalScaleFactor: 3
-          # - out_paramid: 131098 Note: needs grib edition 2
-          #   comparison: ">="
-          #   value: 0.025
-          # - out_paramid: 131099
-          #   comparison: ">="
-          #   value: 0.05
-          # - out_paramid: 131085
-          #   comparison: ">="
-          #   value: 0.1
         grib_set:
           timeRangeIndicator: 5
           stepType: diff
+      - window_operation: 'diff'
+        periods:
+          - range: [12, 36]
+          - range: [36, 60]
+          - range: [60, 84]
+          - range: [84, 108]
+          - range: [108, 132]
+          - range: [132, 156]
+          - range: [156, 180]
+          - range: [180, 204]
+          - range: [204, 228]
+        thresholds:
+          - out_paramid: 131098 
+            comparison: ">="
+            value: 0.025
+          - out_paramid: 131099
+            comparison: ">="
+            value: 0.05
+          - out_paramid: 131085
+            comparison: ">="
+            value: 0.1
+        grib_set:
+          timeRangeIndicator: 0 # Should be 5?
+          stepType: 'accum'
+          stepRange: '0-0' # Placeholder so that it is set before edition, it will be filled in with correct values when run
+          edition: 2
+          scaleFactorOfLowerLimit: 0 # Should be 3?
+          probabilityType: 3
+          typeOfGeneratingProcess: 5
+          indicatorOfUnitForTimeIncrement: 1
+          timeIncrement: 12
+          localTablesVersion: 0
+          scaleFactorOfUpperLimit: 'MISSING'
+          scaledValueOfUpperLimit: 'MISSING'
     base_request:
       class: od
       stream: enfo

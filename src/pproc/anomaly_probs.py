@@ -1,6 +1,6 @@
 import sys
 import datetime
-from typing import Dict, Iterator
+from typing import Tuple, Dict, Iterator
 import numpy as np
 
 import pyfdb
@@ -15,6 +15,10 @@ CLIM_STEP_INTERVAL = 12
 
 class CombinedForecasts(Parameter):
     def retrieve_data(self, fdb, step: int):
+        """
+        Retrieves data at step for perturbed and control forecast and
+        concatenates them together into one array
+        """
         new_request = self.base_request.copy()
         new_request["step"] = step
 
@@ -35,6 +39,10 @@ class CombinedForecasts(Parameter):
 
 
 class Climatology(Parameter):
+    """
+    Retrieves data for mean and standard deviation of climatology
+    """
+
     def __init__(self, dt: datetime.datetime, param_id: int, cfg: Dict):
         Parameter.__init__(self, dt, param_id, cfg, 0)
         self.base_request.pop("number")
@@ -46,11 +54,17 @@ class Climatology(Parameter):
         self.steps = cfg["steps"]
 
     def clim_step(self, step: int):
+        """
+        Nearest step with climatology data to step,
+        taking into account diurnal variation in climatology
+        which requires climatology step time to be same
+        as step
+        """
         if self.time == datetime.time(0):
             return step
         if self.time == datetime.time(12):
             if step == LAST_MODEL_STEP:
-                return step - CLIM_STEP_INTERVAL  # Bug? Should be step_index?
+                return step - CLIM_STEP_INTERVAL
             return step + CLIM_STEP_INTERVAL
 
     @classmethod
@@ -64,27 +78,48 @@ class Climatology(Parameter):
             return (date - datetime.timedelta(days=dow)).strftime("%Y%m%d")
         return (date - datetime.timedelta(days=(dow - 3))).strftime("%Y%m%d")
 
-    def retrieve_data(self, fdb, step: int):
+    @classmethod
+    def grib_header(cls, grib_msg):
+        """
+        Get climatology period from grib message
+        """
+        return {
+            "climateDateFrom": grib_msg.get("climateDateFrom"),
+            "climateDateTo": grib_msg.get("climateDateTo"),
+            "referenceDate": grib_msg.get("referenceDate"),
+        }
+
+    def retrieve_data(self, fdb, step: int) -> Tuple[Dict, Tuple[np.array, np.array]]:
+        """
+        Retrieves data for climatology mean and standard deviation,
+        taking into account possible shift required between data and
+        nearest climatology step
+
+        :param fdb:
+        :param step: model step
+        :return: tuple containing climatology period dates as Dict
+        and
+        """
+        cstep = self.clim_step(step)
         new_request = self.base_request.copy()
-        new_request["step"] = step
+        new_request["step"] = cstep
         ret = []
         for type in self.base_request["type"].split("/"):
             new_request["type"] = type
-            ret.append(
-                common.fdb_read_with_template(
-                    fdb, new_request, self.interpolation_keys
-                )[1]
+            temp_message, data = common.fdb_read_with_template(
+                fdb, new_request, self.interpolation_keys
             )
-        return ret
+            ret.append(data)
+        return self.grib_header(temp_message), ret
 
 
 class AnomalyWindowManager(common.WindowManager):
     def __init__(self, parameter):
         super().__init__(parameter)
         self.standardised_anomaly_windows = []
-        if "std_anom_windows" in parameter:
+        if "std_anomaly_windows" in parameter:
             # Create windows for standard anomaly
-            for window_config in parameter["windows"]:
+            for window_config in parameter["std_anomaly_windows"]:
                 window_operation = self.window_operation_from_config(window_config)
 
                 for period in window_config["periods"]:
@@ -96,13 +131,20 @@ class AnomalyWindowManager(common.WindowManager):
     def update_windows(
         self, step, data: np.array, clim_mean: np.array, clim_std: np.array
     ) -> Iterator[common.Window]:
-        print(data.shape, clim_mean.shape, clim_std.shape)
-        anomaly = np.subtract(data, clim_mean)
-        std_anomly = np.divide(anomaly, clim_std)
+        """
+        Updates all windows that include step with either the anomaly with clim_mean
+        or standardised anomaly including clim_std. Function modifies input data array.
 
+        :param step: new step
+        :param data: data for step
+        :param clim_mean: mean from climatology
+        :param clim_std: standard deviation from climatology
+        :return: generator for completed windows
+        """
+        np.subtract(data, clim_mean, out=data)
         new_anom_windows = []
         for window in self.windows:
-            window.add_step_values(step, anomaly)
+            window.add_step_values(step, data)
 
             if window.reached_end_step(step):
                 yield window
@@ -111,8 +153,9 @@ class AnomalyWindowManager(common.WindowManager):
         self.windows = new_anom_windows
 
         new_std_anom_windows = []
+        np.divide(data, clim_std, out=data)
         for window in self.standardised_anomaly_windows:
-            window.add_step_values(step, std_anomly)
+            window.add_step_values(step, data)
 
             if window.reached_end_step(step):
                 yield window
@@ -145,8 +188,7 @@ def main(args=None):
 
         for step in window_manager.unique_steps:
             message_template, data = param.retrieve_data(fdb, step)
-            cstep = clim.clim_step(step)
-            clim_data = clim.retrieve_data(fdb, cstep)
+            clim_grib_header, clim_data = clim.retrieve_data(fdb, step)
 
             completed_windows = window_manager.update_windows(
                 step, data, clim_data[0], clim_data[1]
@@ -158,13 +200,16 @@ def main(args=None):
                     )
 
                     print(
-                        "Writing probability for  output "
+                        f"Writing probability for {param_id} output "
                         + f"param {threshold['out_paramid']} for step(s) {window.name}"
                     )
                     common.write_grib(
                         common.FDBTarget(fdb),
                         construct_message(
-                            message_template, window.grib_header(leg), threshold
+                            message_template,
+                            window.grib_header(leg),
+                            threshold,
+                            clim_grib_header,
                         ),
                         window_probability,
                     )

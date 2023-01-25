@@ -24,11 +24,13 @@ class Window:
             self.name = f"{self.start}-{self.end}"
 
         if len(window_options["range"]) > 2:
-            self.step =  int(window_options["range"][2])
+            self.step = int(window_options["range"][2])
             if include_init:
-                self.steps = list(range(self.start, self.end+self.step, self.step))
+                self.steps = list(range(self.start, self.end + self.step, self.step))
             else:
-                self.steps = list(range(self.start+self.step, self.end+self.step, self.step))
+                self.steps = list(
+                    range(self.start + self.step, self.end + self.step, self.step)
+                )
 
         self.step_values = []
         self.config_grib_header = {}
@@ -94,7 +96,7 @@ class Window:
         if isinstance(self.name, int):
             header["step"] = self.name
         else:
-            header.setdefault("stepType", "max") # Don't override if set in config
+            header.setdefault("stepType", "max")  # Don't override if set in config
             header["stepRange"] = self.name
             if leg == 2:
                 header["unitOfTimeRange"] = 11
@@ -125,8 +127,8 @@ class SimpleOpWindow(Window):
 
         :param new_step_values: data from new step
         """
-        self.step_values = getattr(np, self.operation_str)(
-            [self.step_values, new_step_values], axis=0
+        getattr(np, self.operation_str)(
+            [self.step_values, new_step_values], axis=0, out=self.step_values
         )
 
 
@@ -154,13 +156,13 @@ class WeightedSumWindow(SimpleOpWindow):
             return
         step_duration = step - self.previous_step
         if len(self.step_values) == 0:
-            self.step_values = step_values * step_duration
+            step_values *= step_duration
         else:
             self.operation(step_values * step_duration)
 
         self.previous_step = step
         if self.reached_end_step(step):
-            self.step_values = self.step_values / self.size()
+            self.step_values /= self.size()
 
 
 class DiffWindow(Window):
@@ -179,7 +181,7 @@ class DiffWindow(Window):
 
         :param new_step_values: data from new step
         """
-        self.step_values = new_step_values - self.step_values
+        np.subtract(new_step_values, self.step_values, out=self.step_values)
 
     def __contains__(self, step: int) -> bool:
         return step == self.start or step == self.end
@@ -193,4 +195,5 @@ class DiffDailyRateWindow(DiffWindow):
 
     def operation(self, new_step_values: np.array):
         num_days = (self.end - self.start) / 24
-        self.step_values = np.subtract(new_step_values, self.step_values) / num_days
+        np.subtract(new_step_values, self.step_values, out=self.step_values)
+        self.step_values /= num_days
