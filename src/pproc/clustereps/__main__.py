@@ -73,9 +73,9 @@ def get_parser() -> argparse.ArgumentParser:
     parser = default_parser(description=_description)
 
     group = parser.add_argument_group('General arguments')
-    group.add_argument('--date', help='forecast date (YYMMDD)', type=lambda x: datetime.strptime(x, '%Y%m%d'), metavar='YMD')
+    group.add_argument('--date', help="Forecast date (YYMMDD)", type=lambda x: datetime.strptime(x, '%Y%m%d'), metavar='YMD')
 
-    group = parser.add_argument_group('Principal component analysis arguments')
+    group = parser.add_argument_group('Inputs')
     group.add_argument('-m', '--mask', default=None, help="Mask file")
 
     sgroup = group.add_mutually_exclusive_group(required=True)
@@ -83,20 +83,18 @@ def get_parser() -> argparse.ArgumentParser:
     sgroup.add_argument('--spread-compute', action="append", help="Source for ensemble spread computation (GRIB)")
 
     group.add_argument('-e', '--ensemble', required=True, help="Ensemble data (GRIB)")
-    group.add_argument('-P', '--pca', default=None, help="Output file (NPZ)")
-
-    group = parser.add_argument_group('Clustering arguments')
     group.add_argument('-d', '--deterministic', default=None, help="Deterministic forecast (GRIB)")
+    group.add_argument('--clim-dir', help="Climatological data root directory", metavar='DIR')
+
+    group = parser.add_argument_group('Outputs')
+    group.add_argument('-P', '--pca', default=None, help="PCA outputs (NPZ)")
     group.add_argument('-C', '--centroids', default=None, help="Cluster centroids output (GRIB)")
     group.add_argument('-R', '--representative', default=None, help="Cluster representative members output (GRIB)")
     group.add_argument('-CA', '--cen-anomalies', default=None, help="Cluster centroids output in anomaly space (GRIB)")
     group.add_argument('-RA', '--rep-anomalies', default=None, help="Cluster representative members output in anomaly space (GRIB)")
     group.add_argument('-I', '--indexes', default=None, help="Cluster indexes output (NPZ)")
     group.add_argument('-N', '--ncomp-file', default=None, help="Number of components output (text)")
-
-    group = parser.add_argument_group('Attribution arguments')
-    group.add_argument('--clim-dir', help='climatological data root directory', metavar='DIR')
-    group.add_argument('-o', '--output-root', default=os.getcwd(), help='output base directory', metavar='DIR')
+    group.add_argument('-o', '--output-root', default=os.getcwd(), help="Output directory for reports", metavar='DIR')
 
     return parser
 
