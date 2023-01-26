@@ -73,13 +73,11 @@ parameters:
           localDefinitionNumber: 30 # Overwrite default value
           bitsPerValue: 24 # Overwrite default value
           edition: 2
-          tablesVersion: 21
           typeOfGeneratingProcess: 5
           paramId: 0 # Placeholder so that it is set before edition, correct value replaces this when run
           timeIncrement: 12
           indicatorOfUnitForTimeIncrement: 1
           typeOfStatisticalProcessing: 10
-          grib2LocalSectionNumber: 30
           # scaleFactorOfUpperLimit: 'MISSING' - Set to missing in script but not in mars
           # scaledValueOfUpperLimit: 'MISSING'
       - periods:
@@ -101,13 +99,11 @@ parameters:
           localDefinitionNumber: 30
           bitsPerValue: 24
           edition: 2
-          tablesVersion: 21
           typeOfGeneratingProcess: 5
           paramId: 0
           timeIncrement: 12
           indicatorOfUnitForTimeIncrement: 1
           typeOfStatisticalProcessing: 10
-          grib2LocalSectionNumber: 30
           # scaleFactorOfUpperLimit: 'MISSING'
           # scaledValueOfUpperLimit: 'MISSING'
     base_request:
