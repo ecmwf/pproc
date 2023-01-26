@@ -1032,6 +1032,7 @@ def do_clustering(config: ClusterConfig, data: dict, npc: int, verbose: bool = F
         Ensemble mean
     """
     pc, eof_sd, ens_spread, ens_anom, ens_mean, pc_sd, pc_ac = prepare_data(data, npc, config.cluster_factor, verbose=verbose)
+    nfld = ens_anom.shape[0]
 
     # Compute thresholds for cluster significance
     sig_thr = compute_variance_thresholds(config.ncl_max, npc, eof_sd, verbose=True)
@@ -1044,7 +1045,6 @@ def do_clustering(config: ClusterConfig, data: dict, npc: int, verbose: bool = F
 
     # Write out the indexes
     if dump_indexes is not None:
-        nfld = ens_anom.shape[0]
         ind_cl[1] = np.zeros(nfld, dtype=int)
         np.savez_compressed(dump_indexes, **{'ind_cl': np.asarray(ind_cl[1:])})
 
