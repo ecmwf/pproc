@@ -106,7 +106,6 @@ parameters:
           typeOfGeneratingProcess: 5
           indicatorOfUnitForTimeIncrement: 1
           timeIncrement: 12
-          localTablesVersion: 0
           scaleFactorOfUpperLimit: 'MISSING'
           scaledValueOfUpperLimit: 'MISSING'
     base_request:
