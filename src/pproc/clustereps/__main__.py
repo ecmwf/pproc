@@ -100,7 +100,7 @@ def get_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def write_cluster_attr_grib(steps, ind_cl, rep_members, det_index, data, anom_data, cluster_att, target, anom_target, keys):
+def write_cluster_attr_grib(steps, ind_cl, rep_members, det_index, data, anom_data, cluster_att, target, anom_target, keys, ncl_dummy=None):
     """Write attributed clustering data to a GRIB output
 
     Parameters
@@ -123,6 +123,8 @@ def write_cluster_attr_grib(steps, ind_cl, rep_members, det_index, data, anom_da
         Write target for anomalies
     keys: dict-like
         GRIB keys to set
+    ncl_dummy: int, optional
+        If set, generate placeholders for clusters ncl+1, ..., dummy_clusters
     """
     ncl = len(rep_members)
     sample = eccodes.GRIBMessage.from_samples("clusters_grib1").copy()
@@ -154,6 +156,32 @@ def write_cluster_attr_grib(steps, ind_cl, rep_members, det_index, data, anom_da
             target.write(message)
 
             message.set_array('values', anom_data[i, icl])
+            anom_target.write(message)
+
+    if ncl_dummy is None:
+        return
+
+    sample.set('clusteringMethod', 0)
+    sample.set('numberOfForecastsInCluster', 0)
+    sample.set('operationalForecastCluster', 0)
+    sample.set('representativeMember', 0)
+    sample.set('climatologicalRegime', 0)
+    sample.set('controlForecastCluster', 0)
+    dummy_data = np.zeros_like(data[0, 0])
+    sample.set_array('values', dummy_data)
+    for icl in range(ncl, ncl_dummy):
+        message = sample.copy()
+        message.set('clusterNumber', icl + 1)
+
+        for i, (start, end) in enumerate(steps):
+            if end is None:
+                message.set('step', start)
+            else:
+                message.set('startStep', start)
+                message.set('endStep', end)
+                message.set('stepRange', f"{start}-{end}")
+
+            target.write(message)
             anom_target.write(message)
 
 
@@ -271,7 +299,7 @@ def main(sys_args=None):
             pjoin(config.output_root, f'{config.step_start}_{config.step_end}{scenario}_anom.grib')
         )
         keys['type'] = cluster_types[scenario]
-        write_cluster_attr_grib(steps, ind_cl, rep_members, det_index, scdata, anom, cluster_att, target, anom_target, keys)
+        write_cluster_attr_grib(steps, ind_cl, rep_members, det_index, scdata, anom, cluster_att, target, anom_target, keys, ncl_dummy=config.ncl_dummy)
 
         ## Write report output
         # table: attribution cluster index for all fc clusters, step

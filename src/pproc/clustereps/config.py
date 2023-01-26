@@ -128,4 +128,8 @@ class AttributionConfig(ClusterConfigBase):
 
 
 class FullClusterConfig(AttributionConfig, ClusterConfig, PCAConfig):
-    pass
+    def __init__(self, args: argparse.Namespace, verbose: bool = True):
+        super().__init__(args, verbose=verbose)
+
+        self.dummy = self.options.get("generate_dummy", False)
+        self.ncl_dummy = self.ncl_max if self.dummy else None
