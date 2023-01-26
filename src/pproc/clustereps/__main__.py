@@ -11,9 +11,8 @@ import eccodes
 
 from pproc.clustereps import attribution, cluster, pca
 from pproc.clustereps.config import FullClusterConfig
-from pproc.clustereps.io import open_dataset, read_ensemble_grib, read_steps_grib
+from pproc.clustereps.io import open_dataset, read_ensemble_grib, read_steps_grib, target_from_location
 from pproc.common import default_parser
-from pproc.common.io import FileTarget
 
 
 def get_mean_spread(sources: dict, locs: List[str], date: datetime, steps: List[int], ndays: int = 31) -> np.ndarray:
@@ -90,6 +89,8 @@ def get_parser() -> argparse.ArgumentParser:
     group.add_argument('-d', '--deterministic', default=None, help="Deterministic forecast (GRIB)")
     group.add_argument('-C', '--centroids', default=None, help="Cluster centroids output (GRIB)")
     group.add_argument('-R', '--representative', default=None, help="Cluster representative members output (GRIB)")
+    group.add_argument('-CA', '--cen-anomalies', default=None, help="Cluster centroids output in anomaly space (GRIB)")
+    group.add_argument('-RA', '--rep-anomalies', default=None, help="Cluster representative members output in anomaly space (GRIB)")
     group.add_argument('-I', '--indexes', default=None, help="Cluster indexes output (NPZ)")
     group.add_argument('-N', '--ncomp-file', default=None, help="Number of components output (text)")
 
@@ -240,19 +241,6 @@ def main(sys_args=None):
     else:
         det_index = 0
 
-    ## Write output
-    keys, steps = cluster.get_output_keys(config, grib_template)
-
-    if args.centroids is not None:
-        target = FileTarget(args.centroids)
-        keys['type'] = 'cm'
-        cluster.write_cluster_grib(steps, ind_cl, rep_members, det_index, centroids_gp, target, keys)
-
-    if args.representative is not None:
-        target = FileTarget(args.representative)
-        keys['type'] = 'cr'
-        cluster.write_cluster_grib(steps, ind_cl, rep_members, det_index, rep_members_gp, target, keys)
-
     # Attribution
 
     cluster_data = {
@@ -262,6 +250,10 @@ def main(sys_args=None):
     cluster_types = {
         'centroids': 'cm',
         'representative': 'cr',
+    }
+    cluster_dests = {
+        'centroids': (args.centroids, args.cen_anomalies),
+        'representative': (args.representative, args.rep_anomalies),
     }
 
     ## Read climatology fields
@@ -281,6 +273,8 @@ def main(sys_args=None):
         config.monEndDoS,
     )
 
+    keys, steps = cluster.get_output_keys(config, grib_template)
+
     for scenario, scdata in cluster_data.items():
         scdata = np.array(scdata)
         weights = pca_data['weights']
@@ -292,12 +286,9 @@ def main(sys_args=None):
         cluster_att, min_dist = attribution.attribution(anom, clim_eof, clim_ind, weights)
 
         ## Write anomalies and cluster scenarios
-        target = FileTarget(
-            pjoin(config.output_root, f'{config.step_start}_{config.step_end}{scenario}.grib')
-        )
-        anom_target = FileTarget(
-            pjoin(config.output_root, f'{config.step_start}_{config.step_end}{scenario}_anom.grib')
-        )
+        dest, adest = cluster_dests[scenario]
+        target = target_from_location(dest)
+        anom_target = target_from_location(adest)
         keys['type'] = cluster_types[scenario]
         write_cluster_attr_grib(steps, ind_cl, rep_members, det_index, scdata, anom, cluster_att, target, anom_target, keys, ncl_dummy=config.ncl_dummy)
 

@@ -13,17 +13,25 @@ import mir
 import pyfdb
 
 from pproc.clustereps.utils import normalise_angles
-from pproc.common.io import FileTarget, NullTarget, fdb_retrieve
+from pproc.common.io import FileTarget, NullTarget, fdb_retrieve, target_factory
 from pproc.common.mars import mars_retrieve
+
+
+def fdb():
+    instance = getattr(fdb, '_instance', None)
+    if instance is None:
+        instance = pyfdb.FDB()
+        fdb._instance = instance
+    return instance
 
 
 _LOCATION_RE = re.compile('^([a-z](?:[a-z0-9+-.])*):(.*)$', re.I)
 
 
-def _split_location(loc: str) -> Tuple[Optional[str], str]:
+def _split_location(loc: str, default: Optional[str] = None) -> Tuple[Optional[str], str]:
     m = _LOCATION_RE.fullmatch(loc)
     if m is None:
-        return (None, loc)
+        return (default, loc)
     return m.groups()
 
 
@@ -51,13 +59,11 @@ def _open_dataset_marslike(name: str, retrieve_func: Callable[[dict, dict], ecco
 
 
 def _fdb_retrieve_interp(request: dict, mir_options: dict) -> eccodes.reader.ReaderBase:
-    fdb = pyfdb.FDB()
-    fdb_reader = fdb_retrieve(fdb, request, mir_options)
+    fdb_reader = fdb_retrieve(fdb(), request, mir_options)
     return eccodes.StreamReader(fdb_reader)
 
 
 def _open_dataset_fdb(reqs: Union[dict, Iterable[dict]], **kwargs: Any) -> Iterator[eccodes.reader.ReaderBase]:
-    fdb = pyfdb.FDB()
     return _open_dataset_marslike("FDB", _fdb_retrieve_interp, reqs, **kwargs)
 
 
@@ -161,8 +167,8 @@ def open_multi_dataset(config: dict, loc: str, **kwargs) -> Iterable[eccodes.rea
     list[eccodes.reader.ReaderBase]
         GRIB readers
     """
-    type_, ident = _split_location(loc)
-    if type_ is None or type_ == 'file':
+    type_, ident = _split_location(loc, default='file')
+    if type_ == 'file':
         return [eccodes.FileReader(ident)]
     reqs = config.get(type_, {}).get(ident, None)
     open_func = _DATASET_BACKENDS.get(type_, None)
@@ -262,3 +268,12 @@ def read_steps_grib(sources: dict, loc: str, steps: List[int], **kwargs) -> np.n
             if istep is not None:
                 data[istep, :] = message.get_array('values')
     return data
+
+
+def target_from_location(loc: Optional[str]):
+    type_ = 'null'
+    ident = ''
+    if loc is not None:
+        type_, ident = _split_location(loc, default='file')
+    fdb_ = fdb() if type_ == 'fdb' else None
+    return target_factory(type_, out_file=ident, fdb=fdb_)
