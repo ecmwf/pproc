@@ -9,7 +9,7 @@ import numpy.random as npr
 
 from eccodes import FileReader, GRIBMessage
 
-from pproc.clustereps.config import ClusterConfigBase
+from pproc.clustereps.config import ClusterConfig
 from pproc.clustereps.io import read_steps_grib
 from pproc.common import default_parser
 from pproc.common.io import FileTarget
@@ -757,35 +757,6 @@ def write_cluster_grib(steps, ind_cl, rep_members, det_index, data, target, keys
             target.write(message)
 
 
-class ClusterConfig(ClusterConfigBase):
-    def __init__(self, args, verbose=True):
-
-        super().__init__(args, verbose=verbose)
-
-        # Variance threshold
-        self.var_th = self.options['var_th']
-        # Number of PCs to use, optional
-        self.npc = self.options.get('npc', -1)
-        # Normalisation factor (2/5)
-        self.factor = self.options.get('cluster_factor', 0.4)
-        # Max number of clusters
-        self.ncl_max = self.options['ncl_max']
-        # Number of clustering passes
-        self.npass = self.options['npass']
-        # Number of red-noise samples for significance computation
-        self.nrsamples = self.options['nrsamples']
-        # Maximum significance threshold
-        self.max_sig = self.options['max_sig']
-        # Medium significance threshold
-        self.med_sig = self.options['med_sig']
-        # Minimum significance threshold
-        self.min_sig = self.options['min_sig']
-        # Significance tolerance
-        self.sig_tol = self.options['sig_tol']
-        # Parallel red-noise sampling
-        self.n_par = self.options.get('n_par', 1)
-
-
 def select_npc(var_th, var_cum) -> int:
     """Select the number of PCs according to config"""
     for i, var in enumerate(var_cum):
@@ -1060,7 +1031,7 @@ def do_clustering(config: ClusterConfig, data: dict, npc: int, verbose: bool = F
     numpy array (nsteps, npoints)
         Ensemble mean
     """
-    pc, eof_sd, ens_spread, ens_anom, ens_mean, pc_sd, pc_ac = prepare_data(data, npc, config.factor, verbose=verbose)
+    pc, eof_sd, ens_spread, ens_anom, ens_mean, pc_sd, pc_ac = prepare_data(data, npc, config.cluster_factor, verbose=verbose)
 
     # Compute thresholds for cluster significance
     sig_thr = compute_variance_thresholds(config.ncl_max, npc, eof_sd, verbose=True)

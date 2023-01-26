@@ -1,8 +1,7 @@
 import sys
 import argparse
-from datetime import datetime, timedelta
-from calendar import isleap
-from typing import Iterator, List, Tuple
+from datetime import datetime
+from typing import List, Tuple
 import os
 from os.path import join as pjoin
 
@@ -11,121 +10,11 @@ from scipy.io import FortranFile
 
 from eccodes import FileReader
 
-from pproc.clustereps.config import ClusterConfigBase
+from pproc.clustereps.config import AttributionConfig
+from pproc.clustereps.season import MONTH_DAYS, SeasonConfig
 from pproc.clustereps.utils import region_weights, lat_weights, normalise_angles
 from pproc.common import default_parser
 from pproc.common.io import FileTarget
-
-
-MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-
-
-class Season:
-
-    def __init__(self, startMonth, endMonth, baseYear):
-        
-        self.baseYear = baseYear
-        jumpYear = 0
-        if startMonth > endMonth:
-            startYear = self.baseYear - 1
-            jumpYear = 1
-        else:
-            startYear = self.baseYear
-        first_day = datetime.strptime(f"{startYear:04d}{startMonth:02d}01", "%Y%m%d")
-        end_day = datetime.strptime(f"{self.baseYear:04d}{endMonth:02d}{MONTH_DAYS[endMonth-1]}", "%Y%m%d")
-        
-        self.start = first_day
-        self.end = end_day
-
-        all_months = list(range(1, 13)) * 2
-        self.months = all_months[startMonth - 1 : (endMonth + jumpYear*12)]
-
-        self.name = ''.join([
-            datetime.strptime(f"1970{mon:02d}01", "%Y%m%d").strftime("%b").lower()[0] for mon in self.months
-        ])
-
-    @property
-    def ndays(self) -> int:
-        return (self.end - self.start).days + 1
-
-    @property
-    def doys(self) -> List[int]:
-        return [(self.start + timedelta(days=i)).timetuple().tm_yday - 1 for i in range(self.ndays)]
-
-    def dos(self, date: datetime) -> int:
-        return (date - self.start).days
-
-    def __len__(self) -> int:
-        return len(self.months)
-
-    def __contains__(self, date: datetime) -> bool:
-        return self.start.date() <= date.date() <= self.end.date()
-
-    def __repr__(self) -> str:
-        return f"Season ({self.name}) - {self.start:%d/%m/%Y}: {self.end:%d/%m/%Y} ({self.ndays} days)"
-
-
-class SeasonConfig:
-    def __init__(self, months: List[Tuple[int]]):
-        self.months = months
-
-    def get_season(self, date: datetime) -> Season:
-        month = date.month
-        for start, end in self.months:
-            if start <= month <= end:
-                return Season(start, end, date.year)
-            if end < start:
-                if month <= end:
-                    return Season(start, end, date.year)
-                if start <= month:
-                    return Season(start, end, date.year + 1)
-        raise ValueError(f"No season containing month {month}")
-
-
-class AttributionConfig(ClusterConfigBase):
-    def __init__(self, args: argparse.Namespace, verbose: bool = True) -> None:
-
-        super().__init__(args, verbose=verbose)
-
-        # Climatological data options
-        self.nClusterClim = self.options.get('ncl_clim', 6)
-        self.climMeans = pjoin(args.clim_dir, self.options['clim_means'])
-        self.climPCs = pjoin(args.clim_dir, self.options['clim_pcs'])
-        self.climSdv = pjoin(args.clim_dir, self.options['clim_sdv'])
-        self.climEOFs = pjoin(args.clim_dir, self.options['clim_eof'])
-        self.climClusterIndex = pjoin(args.clim_dir, self.options['clim_cluster_index'])
-        self.climClusterCentroidsEOF = pjoin(args.clim_dir, self.options['clim_cluster_centroids_eof'])
-        # pca options
-        self._seasons = self.options.get('seasons', [(1, 12)])
-        
-        # forecast date
-        self.date = args.date
-        self.year = self.date.year
-        self.month = self.date.month
-
-        self.nSteps = 1 + (self.step_end - self.step_start) // self.step_del
-        self.stepDate = self.date + timedelta(hours=self.step_start)
-
-        # out directory
-        self.output_root = args.output_root
-
-        # seasons parsing
-        seasonConfig = SeasonConfig(self._seasons)
-        self.seasons = seasonConfig
-
-        self.thisSeason = seasonConfig.get_season(self.date)
-        self.monStartDoS = self.thisSeason.dos(datetime(self.year, self.month, 1))
-        self.monEndDoS = self.thisSeason.dos(datetime(self.year, self.month, MONTH_DAYS[self.month - 1]))
-
-        # parse clim file if template
-        for attr in ['climPCs', 'climSdv', 'climEOFs', 'climClusterIndex', 'climClusterCentroidsEOF']:
-            val = getattr(self, attr)
-            newVal = val.format(season=self.thisSeason.name)
-            setattr(self, attr, newVal)
-
-
-    def __repr__(self) -> str:
-        return self.__dict__.__repr__()
 
 
 def get_parser() -> argparse.ArgumentParser:

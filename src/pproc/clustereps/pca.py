@@ -1,13 +1,13 @@
 
 import argparse
-from typing import List, Optional
+from typing import Optional
 import sys
 
 import numpy as np
 import eccodes
 
 from pproc.common import default_parser
-from pproc.clustereps.config import ClusterConfigBase
+from pproc.clustereps.config import PCAConfig
 from pproc.clustereps.io import read_ensemble_grib
 from pproc.clustereps.utils import normalise_angles, lat_weights, region_weights
 
@@ -135,16 +135,6 @@ def ensemble_pca(ens_anom, ncomp, weights=None):
     return eof, pcens.reshape((ncomp,) + orig_sh), comp_ev, sum_ev
 
 
-class PCAConfig(ClusterConfigBase):
-    def __init__(self, args, verbose=True):
-        super().__init__(args, verbose=verbose)
-
-        # Normalisation factor (1)
-        self.factor = self.options.get('pca_factor', None)
-        # Number of components to extract
-        self.ncomp = self.options['num_components']
-
-
 def do_pca(config: PCAConfig, lat: np.ndarray, lon: np.ndarray, ens: np.ndarray, spread: np.ndarray, mask: Optional[np.ndarray] = None) -> dict:
     """Run the ensemble PCA
 
@@ -204,8 +194,8 @@ def do_pca(config: PCAConfig, lat: np.ndarray, lon: np.ndarray, ens: np.ndarray,
     ens_spread = mean_spread(spread, weights=weights)
 
     # Normalise ensemble fields
-    if config.factor is not None:
-        ens *= config.factor
+    if config.pca_factor is not None:
+        ens *= config.pca_factor
 
     # Compute ensemble mean
     ens_mean = ensemble_mean(ens)

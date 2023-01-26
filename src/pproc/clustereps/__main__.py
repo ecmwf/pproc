@@ -10,6 +10,7 @@ import numpy as np
 import eccodes
 
 from pproc.clustereps import attribution, cluster, pca
+from pproc.clustereps.config import FullClusterConfig
 from pproc.clustereps.io import open_dataset, read_ensemble_grib, read_steps_grib
 from pproc.common import default_parser
 from pproc.common.io import FileTarget
@@ -160,18 +161,18 @@ def main(sys_args=None):
     parser = get_parser()
     args = parser.parse_args(sys_args)
 
-    # PCA
+    config = FullClusterConfig(args)
 
-    pca_config = pca.PCAConfig(args)
+    # PCA
 
     ## Read or compute ensemble stddev
     if args.spread is not None:
-        with open_dataset(pca_config.sources, args.spread) as reader:
+        with open_dataset(config.sources, args.spread) as reader:
             message = next(reader)
             # TODO: check param and level
             spread = message.get_array('values')
     else:
-        spread = get_mean_spread(pca_config.sources, args.spread_compute, args.date, pca_config.steps)
+        spread = get_mean_spread(config.sources, args.spread_compute, args.date, config.steps)
 
     ## Read mask
     if args.mask is not None:
@@ -179,11 +180,11 @@ def main(sys_args=None):
         raise NotImplementedError()
 
     ## Read ensemble
-    nexp = pca_config.num_members
-    lat, lon, ens, grib_template = read_ensemble_grib(pca_config.sources, args.ensemble, pca_config.steps, nexp)
+    nexp = config.num_members
+    lat, lon, ens, grib_template = read_ensemble_grib(config.sources, args.ensemble, config.steps, nexp)
 
     ## Compute PCA
-    pca_data = pca.do_pca(pca_config, lat, lon, ens, spread, args.mask)
+    pca_data = pca.do_pca(config, lat, lon, ens, spread, args.mask)
 
     ## Save data
     if args.pca is not None:
@@ -191,30 +192,28 @@ def main(sys_args=None):
 
     # Clustering
 
-    cluster_config = cluster.ClusterConfig(args, verbose=False)
-
     ## Compute number of PCs based on the variance threshold
     var_cum = pca_data['var_cum']
-    npc = cluster_config.npc
+    npc = config.npc
     if npc <= 0:
-        npc = cluster.select_npc(cluster_config.var_th, var_cum)
+        npc = cluster.select_npc(config.var_th, var_cum)
         if args.ncomp_file is not None:
             with open(args.ncomp_file, 'w') as f:
                 print(npc, file=f)
 
     print(f"Number of PCs used: {npc}, explained variance: {var_cum[npc-1]} %")
 
-    ind_cl, centroids, rep_members, centroids_gp, rep_members_gp, ens_mean = cluster.do_clustering(cluster_config, pca_data, npc, verbose=True, dump_indexes=args.indexes)
+    ind_cl, centroids, rep_members, centroids_gp, rep_members_gp, ens_mean = cluster.do_clustering(config, pca_data, npc, verbose=True, dump_indexes=args.indexes)
 
     ## Find the deterministic forecast
     if args.deterministic is not None:
-        det = read_steps_grib(cluster_config.sources, args.deterministic, cluster_config.steps)
+        det = read_steps_grib(config.sources, args.deterministic, config.steps)
         det_index = cluster.find_cluster(det, ens_mean, pca_data['eof'][:npc, ...], pca_data['weights'], centroids)
     else:
         det_index = 0
 
     ## Write output
-    keys, steps = cluster.get_output_keys(cluster_config, grib_template)
+    keys, steps = cluster.get_output_keys(config, grib_template)
 
     if args.centroids is not None:
         target = FileTarget(args.centroids)
@@ -228,8 +227,6 @@ def main(sys_args=None):
 
     # Attribution
 
-    attr_config = attribution.AttributionConfig(args, verbose=False)
-
     cluster_data = {
         'centroids': centroids_gp,
         'representative': rep_members_gp,
@@ -241,19 +238,19 @@ def main(sys_args=None):
 
     ## Read climatology fields
     clim = attribution.get_climatology_fields(
-        attr_config.climMeans, attr_config.seasons, attr_config.stepDate
+        config.climMeans, config.seasons, config.stepDate
     )
 
     ## Read climatological EOFs
     clim_eof, clim_ind = attribution.get_climatology_eof(
-        attr_config.climClusterCentroidsEOF,
-        attr_config.climEOFs,
-        attr_config.climPCs,
-        attr_config.climSdv,
-        attr_config.climClusterIndex,
-        attr_config.nClusterClim,
-        attr_config.monStartDoS,
-        attr_config.monEndDoS,
+        config.climClusterCentroidsEOF,
+        config.climEOFs,
+        config.climPCs,
+        config.climSdv,
+        config.climClusterIndex,
+        config.nClusterClim,
+        config.monStartDoS,
+        config.monEndDoS,
     )
 
     for scenario, scdata in cluster_data.items():
@@ -262,16 +259,16 @@ def main(sys_args=None):
 
         ## Compute anomalies
         anom = scdata - clim
-        anom = np.clip(anom, -attr_config.clip, attr_config.clip)
+        anom = np.clip(anom, -config.clip, config.clip)
 
         cluster_att, min_dist = attribution.attribution(anom, clim_eof, clim_ind, weights)
 
         ## Write anomalies and cluster scenarios
         target = FileTarget(
-            pjoin(attr_config.output_root, f'{attr_config.step_start}_{attr_config.step_end}{scenario}.grib')
+            pjoin(config.output_root, f'{config.step_start}_{config.step_end}{scenario}.grib')
         )
         anom_target = FileTarget(
-            pjoin(attr_config.output_root, f'{attr_config.step_start}_{attr_config.step_end}{scenario}_anom.grib')
+            pjoin(config.output_root, f'{config.step_start}_{config.step_end}{scenario}_anom.grib')
         )
         keys['type'] = cluster_types[scenario]
         write_cluster_attr_grib(steps, ind_cl, rep_members, det_index, scdata, anom, cluster_att, target, anom_target, keys)
@@ -279,13 +276,13 @@ def main(sys_args=None):
         ## Write report output
         # table: attribution cluster index for all fc clusters, step
         np.savetxt(
-            pjoin(attr_config.output_root, f'{attr_config.step_start}_{attr_config.step_end}dist_index_{scenario}.txt'), min_dist,
+            pjoin(config.output_root, f'{config.step_start}_{config.step_end}dist_index_{scenario}.txt'), min_dist,
             fmt='%-10.5f', delimiter=3*' '
         )
 
         # table: distance measure for all fc clusters, step
         np.savetxt(
-            pjoin(attr_config.output_root, f'{attr_config.step_start}_{attr_config.step_end}att_index_{scenario}.txt'), cluster_att,
+            pjoin(config.output_root, f'{config.step_start}_{config.step_end}att_index_{scenario}.txt'), cluster_att,
             fmt='%-3d', delimiter=3*' '
         )
 
