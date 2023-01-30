@@ -27,6 +27,7 @@ setup(
             "pproc-clustereps-pca=pproc.clustereps.pca:main",
             "pproc-clustereps-cluster=pproc.clustereps.cluster:main",
             "pproc-clustereps-attr=pproc.clustereps.attribution:main",
+            "pproc-anomaly-probabilities=pproc.anomaly_probs:main",
         ],
     },
 )
