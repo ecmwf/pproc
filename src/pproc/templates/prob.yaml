@@ -74,11 +74,10 @@ parameters:
             comparison: ">="
             value: 0.1
         grib_set:
-          timeRangeIndicator: 0 # Should be 5?
           stepType: 'accum'
           stepRange: '0-0' # Placeholder so that it is set before edition, it will be filled in with correct values when run
           edition: 2
-          scaleFactorOfLowerLimit: 0 # Should be 3?
+          scaleFactorOfLowerLimit: 0
           probabilityType: 3
           typeOfGeneratingProcess: 5
           indicatorOfUnitForTimeIncrement: 1
