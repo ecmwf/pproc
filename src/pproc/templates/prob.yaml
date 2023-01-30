@@ -6,7 +6,7 @@ parameters:
       paramid: 143
       combine_operation: 'sum'
     steps:
-      - interval: 24
+      - interval: 12
         start_step: 0
         end_step: 240
     windows:
