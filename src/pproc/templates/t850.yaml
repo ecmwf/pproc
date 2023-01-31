@@ -78,8 +78,8 @@ parameters:
           timeIncrement: 12
           indicatorOfUnitForTimeIncrement: 1
           typeOfStatisticalProcessing: 10
-          # scaleFactorOfUpperLimit: 'MISSING' - Set to missing in script but not in mars
-          # scaledValueOfUpperLimit: 'MISSING'
+          scaleFactorOfUpperLimit: 'MISSING'
+          scaledValueOfUpperLimit: 'MISSING'
       - periods:
           - range: [0, 0]
           - range: [12, 12]
@@ -104,8 +104,8 @@ parameters:
           timeIncrement: 12
           indicatorOfUnitForTimeIncrement: 1
           typeOfStatisticalProcessing: 10
-          # scaleFactorOfUpperLimit: 'MISSING'
-          # scaledValueOfUpperLimit: 'MISSING'
+          scaleFactorOfUpperLimit: 'MISSING'
+          scaledValueOfUpperLimit: 'MISSING'
     base_request:
       class: 'od'
       expver: '0001'
