@@ -62,10 +62,10 @@ parameters:
           - range: [240, 240]
         thresholds:
           - out_paramid: 131024
-            comparison: ">="
+            comparison: ">"
             value: 4
           - out_paramid: 131025
-            comparison: ">="
+            comparison: ">"
             value: 8
         grib_set:
           bitsPerValue: 24
