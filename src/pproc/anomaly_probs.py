@@ -8,9 +8,7 @@ from pproc import common
 from pproc.prob.grib_helpers import construct_message
 from pproc.prob.math import ensemble_probability
 from pproc.prob.parameter import Parameter
-
-LAST_MODEL_STEP = 360
-CLIM_STEP_INTERVAL = 12
+from pproc.prob.model_constants import LAST_MODEL_STEP, CLIM_INTERVAL
 
 
 class CombinedForecasts(Parameter):
@@ -64,8 +62,8 @@ class Climatology(Parameter):
             return step
         if self.time == datetime.time(12):
             if step == LAST_MODEL_STEP:
-                return step - CLIM_STEP_INTERVAL
-            return step + CLIM_STEP_INTERVAL
+                return step - CLIM_INTERVAL
+            return step + CLIM_INTERVAL
 
     @classmethod
     def get_climatology_date(cls, date: datetime.date) -> str:
@@ -141,7 +139,7 @@ class AnomalyWindowManager(common.WindowManager):
         :param clim_std: standard deviation from climatology
         :return: generator for completed windows
         """
-        np.subtract(data, clim_mean, out=data)
+        data = data - clim_mean
         new_anom_windows = []
         for window in self.windows:
             window.add_step_values(step, data)
@@ -153,7 +151,7 @@ class AnomalyWindowManager(common.WindowManager):
         self.windows = new_anom_windows
 
         new_std_anom_windows = []
-        np.divide(data, clim_std, out=data)
+        data = data / clim_std
         for window in self.standardised_anomaly_windows:
             window.add_step_values(step, data)
 

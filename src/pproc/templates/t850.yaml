@@ -8,9 +8,27 @@ parameters:
         end_step: 240
     windows:
       - periods:
+          - range: [0, 0]
           - range: [12, 12]
           - range: [24, 24]
           - range: [36, 36]
+          - range: [48, 48]
+          - range: [60, 60]
+          - range: [72, 72]
+          - range: [84, 84]
+          - range: [96, 96]
+          - range: [108, 108]
+          - range: [120, 120]
+          - range: [132, 132]
+          - range: [144, 144]
+          - range: [156, 156]
+          - range: [168, 168]
+          - range: [180, 180]
+          - range: [192, 192]
+          - range: [204, 204]
+          - range: [216, 216]
+          - range: [228, 228]
+          - range: [240, 240]
         thresholds:
           - out_paramid: 131022
             comparison: "<"
@@ -21,9 +39,27 @@ parameters:
         grib_set:
           bitsPerValue: 24
       - periods:
+          - range: [0, 0]
           - range: [12, 12]
           - range: [24, 24]
           - range: [36, 36]
+          - range: [48, 48]
+          - range: [60, 60]
+          - range: [72, 72]
+          - range: [84, 84]
+          - range: [96, 96]
+          - range: [108, 108]
+          - range: [120, 120]
+          - range: [132, 132]
+          - range: [144, 144]
+          - range: [156, 156]
+          - range: [168, 168]
+          - range: [180, 180]
+          - range: [192, 192]
+          - range: [204, 204]
+          - range: [216, 216]
+          - range: [228, 228]
+          - range: [240, 240]
         thresholds:
           - out_paramid: 131024
             comparison: ">="
@@ -59,6 +95,23 @@ parameters:
           - range: [12, 12]
           - range: [24, 24]
           - range: [36, 36]
+          - range: [48, 48]
+          - range: [60, 60]
+          - range: [72, 72]
+          - range: [84, 84]
+          - range: [96, 96]
+          - range: [108, 108]
+          - range: [120, 120]
+          - range: [132, 132]
+          - range: [144, 144]
+          - range: [156, 156]
+          - range: [168, 168]
+          - range: [180, 180]
+          - range: [192, 192]
+          - range: [204, 204]
+          - range: [216, 216]
+          - range: [228, 228]
+          - range: [240, 240]
         thresholds:
           - out_paramid: 133093
             comparison: '>'
@@ -73,20 +126,35 @@ parameters:
           localDefinitionNumber: 30 # Overwrite default value
           bitsPerValue: 24 # Overwrite default value
           edition: 2
-          tablesVersion: 21
           typeOfGeneratingProcess: 5
           paramId: 0 # Placeholder so that it is set before edition, correct value replaces this when run
           timeIncrement: 12
           indicatorOfUnitForTimeIncrement: 1
           typeOfStatisticalProcessing: 10
-          grib2LocalSectionNumber: 30
-          # scaleFactorOfUpperLimit: 'MISSING' - Set to missing in script but not in mars
-          # scaledValueOfUpperLimit: 'MISSING'
+          scaleFactorOfUpperLimit: 'MISSING'
+          scaledValueOfUpperLimit: 'MISSING'
       - periods:
           - range: [0, 0]
           - range: [12, 12]
           - range: [24, 24]
           - range: [36, 36]
+          - range: [48, 48]
+          - range: [60, 60]
+          - range: [72, 72]
+          - range: [84, 84]
+          - range: [96, 96]
+          - range: [108, 108]
+          - range: [120, 120]
+          - range: [132, 132]
+          - range: [144, 144]
+          - range: [156, 156]
+          - range: [168, 168]
+          - range: [180, 180]
+          - range: [192, 192]
+          - range: [204, 204]
+          - range: [216, 216]
+          - range: [228, 228]
+          - range: [240, 240]
         thresholds:
           - out_paramid: 133096
             comparison: '<'
@@ -101,15 +169,13 @@ parameters:
           localDefinitionNumber: 30
           bitsPerValue: 24
           edition: 2
-          tablesVersion: 21
           typeOfGeneratingProcess: 5
           paramId: 0
           timeIncrement: 12
           indicatorOfUnitForTimeIncrement: 1
           typeOfStatisticalProcessing: 10
-          grib2LocalSectionNumber: 30
-          # scaleFactorOfUpperLimit: 'MISSING'
-          # scaledValueOfUpperLimit: 'MISSING'
+          scaleFactorOfUpperLimit: 'MISSING'
+          scaledValueOfUpperLimit: 'MISSING'
     base_request:
       class: 'od'
       expver: '0001'
