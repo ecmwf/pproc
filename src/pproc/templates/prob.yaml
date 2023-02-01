@@ -7,7 +7,7 @@ parameters:
       combine_operation: 'sum'
     steps:
       - interval: 12
-        start_step: 0
+        start_step: 12
         end_step: 240
     windows:
       - window_operation: 'diff'
@@ -54,14 +54,23 @@ parameters:
       - window_operation: 'diff'
         periods:
           - range: [0, 24]
+          - range: [12, 36]
           - range: [24, 48]
+          - range: [36, 60]
           - range: [48, 72]
+          - range: [60, 84]
           - range: [72, 96]
+          - range: [84, 108]
           - range: [96, 120]
+          - range: [108, 132]
           - range: [120, 144]
+          - range: [132, 156]
           - range: [144, 168]
+          - range: [156, 180]
           - range: [168, 192]
+          - range: [180, 204]
           - range: [192, 216]
+          - range: [204, 228]
           - range: [216, 240]
         thresholds:
           - out_paramid: 131098 
@@ -84,7 +93,7 @@ parameters:
           timeIncrement: 12
           scaleFactorOfUpperLimit: 'MISSING'
           scaledValueOfUpperLimit: 'MISSING'
-      - window_operation: 'diffdailyrate'
+      - window_operation: 'diff'
         periods: 
           - range: [120, 240]
           - range: [120, 168]
@@ -94,6 +103,15 @@ parameters:
             comparison: '<'
             value: 0.0001
             localDecimalScaleFactor: 4
+        grib_set:
+          timeRangeIndicator: 5
+          stepType: diff 
+      - window_operation: 'diffdailyrate'
+        periods: 
+          - range: [120, 240]
+          - range: [120, 168]
+          - range: [168, 240]
+        thresholds:
           - out_paramid: 131065
             comparison: '<'
             value: 0.001
