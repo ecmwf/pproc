@@ -160,13 +160,13 @@ class WeightedSumWindow(SimpleOpWindow):
             return
         step_duration = step - self.previous_step
         if len(self.step_values) == 0:
-            step_values *= step_duration
+            step_values = step_values * step_duration
         else:
             self.operation(step_values * step_duration)
 
         self.previous_step = step
         if self.reached_end_step(step):
-            self.step_values /= self.size()
+            self.step_values = self.step_values / self.size()
 
 
 class DiffWindow(Window):
@@ -185,7 +185,7 @@ class DiffWindow(Window):
 
         :param new_step_values: data from new step
         """
-        np.subtract(new_step_values, self.step_values, out=self.step_values)
+        self.step_values = new_step_values - self.step_values
 
     def __contains__(self, step: int) -> bool:
         return step == self.start or step == self.end
@@ -199,5 +199,5 @@ class DiffDailyRateWindow(DiffWindow):
 
     def operation(self, new_step_values: np.array):
         num_days = (self.end - self.start) / 24
-        np.subtract(new_step_values, self.step_values, out=self.step_values)
-        self.step_values /= num_days
+        self.step_values = new_step_values - self.step_values
+        self.step_values = self.step_values / num_days

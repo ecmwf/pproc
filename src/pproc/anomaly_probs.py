@@ -139,7 +139,7 @@ class AnomalyWindowManager(common.WindowManager):
         :param clim_std: standard deviation from climatology
         :return: generator for completed windows
         """
-        np.subtract(data, clim_mean, out=data)
+        data = data - clim_mean
         new_anom_windows = []
         for window in self.windows:
             window.add_step_values(step, data)
@@ -151,7 +151,7 @@ class AnomalyWindowManager(common.WindowManager):
         self.windows = new_anom_windows
 
         new_std_anom_windows = []
-        np.divide(data, clim_std, out=data)
+        data = data / clim_std
         for window in self.standardised_anomaly_windows:
             window.add_step_values(step, data)
 
