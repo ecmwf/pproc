@@ -8,6 +8,7 @@ from pproc import common
 from pproc.prob.grib_helpers import construct_message
 from pproc.prob.math import ensemble_probability
 from pproc.prob.parameter import Parameter
+from pproc.prob.window_manager import ThresholdWindowManager
 from pproc.prob.model_constants import LAST_MODEL_STEP, CLIM_INTERVAL
 
 
@@ -111,20 +112,24 @@ class Climatology(Parameter):
         return self.grib_header(temp_message), ret
 
 
-class AnomalyWindowManager(common.WindowManager):
+class AnomalyWindowManager(ThresholdWindowManager):
     def __init__(self, parameter):
-        super().__init__(parameter)
         self.standardised_anomaly_windows = []
+        ThresholdWindowManager.__init__(self, parameter)
+
+    def create_windows(self, parameter):
+        super().create_windows(parameter)
         if "std_anomaly_windows" in parameter:
             # Create windows for standard anomaly
             for window_config in parameter["std_anomaly_windows"]:
-                window_operation = self.window_operation_from_config(window_config)
+                window_operations = self.window_operation_from_config(window_config)
 
-                for period in window_config["periods"]:
-                    new_window = common.create_window(period, window_operation)
-                    new_window.config_grib_header = window_config.get("grib_set", {})
-                    new_window.thresholds = window_config["thresholds"]
-                    self.standardised_anomaly_windows.append(new_window)
+                for operation, thresholds in window_operations.items():
+                    for period in window_config["periods"]:
+                        new_window = common.create_window(period, operation)
+                        new_window.config_grib_header = window_config.get("grib_set", {})
+                        self.standardised_anomaly_windows.append(new_window)
+                        self.window_thresholds[new_window] = thresholds
 
     def update_windows(
         self, step, data: np.array, clim_mean: np.array, clim_std: np.array
@@ -192,7 +197,7 @@ def main(args=None):
                 step, data, clim_data[0], clim_data[1]
             )
             for window in completed_windows:
-                for threshold in window.thresholds:
+                for threshold in window_manager.thresholds(window):
                     window_probability = ensemble_probability(
                         window.step_values, threshold
                     )

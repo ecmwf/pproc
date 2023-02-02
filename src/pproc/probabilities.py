@@ -10,6 +10,7 @@ from pproc import common
 from pproc.prob.grib_helpers import construct_message
 from pproc.prob.math import ensemble_probability
 from pproc.prob.parameter import Parameter
+from pproc.prob.window_manager import ThresholdWindowManager
 
 MISSING_VALUE = 9999
 
@@ -37,11 +38,10 @@ def main(args=None):
                 date, second_param_cfg["paramid"], param_cfg, nensembles
             )
 
-        window_manager = common.WindowManager(param_cfg)
+        window_manager = ThresholdWindowManager(param_cfg)
 
         for step in window_manager.unique_steps:
             message_template, data = param.retrieve_data(fdb, step)
-            assert message_template is not None
 
             if second_param:
                 _, data2 = second_param.retrieve_data(fdb, step)
@@ -54,7 +54,7 @@ def main(args=None):
 
             completed_windows = window_manager.update_windows(step, data)
             for window in completed_windows:
-                for threshold in window.thresholds:
+                for threshold in window_manager.thresholds(window):
                     window_probability = ensemble_probability(
                         window.step_values, threshold
                     )

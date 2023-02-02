@@ -36,7 +36,6 @@ class Window:
 
         self.step_values = []
         self.config_grib_header = {}
-        self.thresholds = []
 
     def operation(self, new_step_values: np.array):
         """
