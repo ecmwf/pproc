@@ -54,7 +54,7 @@ def construct_message(
     else:
         key_values.update(threshold_grib_headers(threshold))
 
-        out_grib.set(key_values, check_values=True)
+    out_grib.set(key_values, check_values=True)
     for missing_key in set_missing:
         out_grib.set_missing(missing_key)
     return out_grib
