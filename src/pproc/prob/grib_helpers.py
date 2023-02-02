@@ -38,7 +38,6 @@ def construct_message(
         "type": "ep",
         "localDefinitionNumber": 5,
         "bitsPerValue": 8,  # Set equal to accuracy used in mars compute
-        "unitOfTimeRange": 1
     }
     key_values.update(window_grib_headers)
     set_missing = [
