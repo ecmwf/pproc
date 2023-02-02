@@ -1,13 +1,15 @@
 from pproc.common import WindowManager, create_window
 
+
 class ThresholdWindowManager(WindowManager):
     """
-    Sort steps and create windows by reading in the config for specified parameter. 
+    Sort steps and create windows by reading in the config for specified parameter.
     Also, maintains dictionary of thresholds for each window.
 
     :param parameter: parameter config
     :raises: RuntimeError if no window operation was provided, or could be derived
     """
+
     def __init__(self, parameter):
         self.window_thresholds = {}
         WindowManager.__init__(self, parameter)
@@ -15,7 +17,7 @@ class ThresholdWindowManager(WindowManager):
     @classmethod
     def window_operation_from_config(cls, window_config) -> str:
         """
-        Derives window operation from config. If no window operation is explicitly 
+        Derives window operation from config. If no window operation is explicitly
         specified then attempts to derive it from the thresholds - requires all
         comparison operators in the windows to be the same type.
 
@@ -26,7 +28,9 @@ class ThresholdWindowManager(WindowManager):
         # Get window operation, or if not provided in config, derive from threshold
         window_operations = {}
         if "window_operation" in window_config:
-            window_operations[window_config["window_operation"]] = window_config["thresholds"]
+            window_operations[window_config["window_operation"]] = window_config[
+                "thresholds"
+            ]
         elif "thresholds" in window_config:
             # Derive from threshold comparison parameter
             for threshold in window_config["thresholds"]:
@@ -36,14 +40,12 @@ class ThresholdWindowManager(WindowManager):
                 elif ">" in comparison:
                     operation = "max"
                 else:
-                    raise RuntimeError(
-                        f"Unknown threshold comparison {comparison}"
-                    )
+                    raise RuntimeError(f"Unknown threshold comparison {comparison}")
                 window_operations.setdefault(operation, []).append(threshold)
 
         if len(window_operations) == 0:
             raise RuntimeError(
-                f"Window  with no operation specified, or none could be derived"
+                "Window with no operation specified, or none could be derived"
             )
         return window_operations
 

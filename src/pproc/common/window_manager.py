@@ -1,4 +1,3 @@
-import os
 from typing import Iterator
 
 import numpy as np
@@ -70,7 +69,7 @@ class WindowManager:
         """
         for window_config in parameter["windows"]:
             for period in window_config["periods"]:
-                new_window = create_window(period, window_config['window_operation'])
+                new_window = create_window(period, window_config["window_operation"])
                 new_window.config_grib_header = window_config.get("grib_set", {})
                 self.windows.append(new_window)
 
