@@ -48,7 +48,7 @@ def construct_message(
 
     if key_values.get("edition", 1) == 2:
         key_values.update({"paramId": threshold["out_paramid"]})
-        key_values.pop('unitOfTimeRange') # Not a key in grib edition 2
+        key_values.pop('unitOfTimeRange', None) # Not a key in grib edition 2
         if climatology_headers:
             key_values.update(climatology_headers)
     else:
