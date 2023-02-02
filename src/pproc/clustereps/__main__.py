@@ -11,7 +11,7 @@ import eccodes
 
 from pproc.clustereps import attribution, cluster, pca
 from pproc.clustereps.config import FullClusterConfig
-from pproc.clustereps.io import open_dataset, read_ensemble_grib, read_steps_grib, target_from_location
+from pproc.clustereps.io import FDBNotOpenError, fdb, open_dataset, read_ensemble_grib, read_steps_grib, target_from_location
 from pproc.common import default_parser
 
 
@@ -302,6 +302,11 @@ def main(sys_args=None):
             pjoin(config.output_root, f'{config.step_start}_{config.step_end}att_index_{scenario}.txt'), cluster_att,
             fmt='%-3d', delimiter=3*' '
         )
+
+    try:
+        fdb(create=False).flush()
+    except FDBNotOpenError:
+        pass
 
     return 0
 

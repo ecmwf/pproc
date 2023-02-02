@@ -17,9 +17,15 @@ from pproc.common.io import FileTarget, NullTarget, fdb_retrieve, target_factory
 from pproc.common.mars import mars_retrieve
 
 
-def fdb():
+class FDBNotOpenError(RuntimeError):
+    pass
+
+
+def fdb(create: bool = True) -> pyfdb.FDB:
     instance = getattr(fdb, '_instance', None)
     if instance is None:
+        if not create:
+            raise FDBNotOpenError("FDB not open")
         instance = pyfdb.FDB()
         fdb._instance = instance
     return instance
