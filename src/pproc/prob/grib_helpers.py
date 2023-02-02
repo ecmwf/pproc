@@ -38,6 +38,7 @@ def construct_message(
         "type": "ep",
         "localDefinitionNumber": 5,
         "bitsPerValue": 8,  # Set equal to accuracy used in mars compute
+        "unitOfTimeRange": 1
     }
     key_values.update(window_grib_headers)
     set_missing = [
@@ -48,12 +49,13 @@ def construct_message(
 
     if key_values.get("edition", 1) == 2:
         key_values.update({"paramId": threshold["out_paramid"]})
+        key_values.pop('unitOfTimeRange') # Not a key in grib edition 2
         if climatology_headers:
             key_values.update(climatology_headers)
     else:
         key_values.update(threshold_grib_headers(threshold))
 
-    out_grib.set(key_values, check_values=True)
+        out_grib.set(key_values, check_values=True)
     for missing_key in set_missing:
         out_grib.set_missing(missing_key)
     return out_grib
