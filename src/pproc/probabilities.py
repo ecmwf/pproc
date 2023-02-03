@@ -42,6 +42,7 @@ def main(args=None):
 
         for step in window_manager.unique_steps:
             message_template, data = param.retrieve_data(fdb, step)
+            assert message_template is not None
 
             if second_param:
                 _, data2 = second_param.retrieve_data(fdb, step)
