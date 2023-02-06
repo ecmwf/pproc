@@ -158,6 +158,7 @@ def template_ensemble(cfg, template, step, marstype):
     template_ens = template.copy()
     template_ens.set('bitsPerValue', 24)
     template_ens.set("marsType", marstype)
+    template_ens.set("step", step)
     if step == 0:
         template_ens.set('timeRangeIndicator', 1)
     else:
