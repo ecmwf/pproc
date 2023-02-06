@@ -146,9 +146,9 @@ def wind_mean_std_eps(cfg, levelist, window):
     v = np.asarray(list(v.values()))
 
     ws = np.sqrt(u * u + v * v)
-    mean = np.mean(ws, axis=0)
+    mean = np.mean(ws, axis=1)
     mean = dict(zip(steps, mean))
-    stddev = np.std(ws, axis=0)
+    stddev = np.std(ws, axis=1)
     stddev = dict(zip(steps, stddev))
 
     return mean, stddev, template
@@ -208,7 +208,6 @@ def main(args=None):
             # calculate mean/stddev of wind speed for type=pf/cf (eps)
             mean, std, template_ens = wind_mean_std_eps(cfg, levelist, window)
             for step in window.steps:
-                print(step)
                 mean_file = os.path.join(cfg.out_dir, f'mean_{levelist}_{window.name}_{step}.grib')
                 target_mean = common.target_factory(cfg.target, out_file=mean_file, fdb=cfg.fdb)
                 template_mean = template_ensemble(cfg, template_ens, step, 'em')
