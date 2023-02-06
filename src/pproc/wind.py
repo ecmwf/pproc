@@ -146,9 +146,9 @@ def wind_mean_std_eps(cfg, levelist, window):
     v = np.asarray(list(v.values()))
 
     ws = np.sqrt(u * u + v * v)
-    mean = np.mean(ws, axis=0)
+    mean = np.mean(ws, axis=1)
     mean = dict(zip(steps, mean))
-    stddev = np.std(ws, axis=0)
+    stddev = np.std(ws, axis=1)
     stddev = dict(zip(steps, stddev))
 
     return mean, stddev, template
@@ -158,6 +158,7 @@ def template_ensemble(cfg, template, step, marstype):
     template_ens = template.copy()
     template_ens.set('bitsPerValue', 24)
     template_ens.set("marsType", marstype)
+    template_ens.set("step", step)
     if step == 0:
         template_ens.set('timeRangeIndicator', 1)
     else:
