@@ -208,6 +208,7 @@ def main(args=None):
             # calculate mean/stddev of wind speed for type=pf/cf (eps)
             mean, std, template_ens = wind_mean_std_eps(cfg, levelist, window)
             for step in window.steps:
+                print(step)
                 mean_file = os.path.join(cfg.out_dir, f'mean_{levelist}_{window.name}_{step}.grib')
                 target_mean = common.target_factory(cfg.target, out_file=mean_file, fdb=cfg.fdb)
                 template_mean = template_ensemble(cfg, template_ens, step, 'em')
