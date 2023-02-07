@@ -320,7 +320,7 @@ def main(args=None):
             template_extreme = extreme_template(param, template_fc, template_clim)
 
             print('Computing efi for the control member')
-            efi_control = extreme.efi(clim, fc_avg, param.eps)
+            efi_control = extreme.efi(clim, fc_avg[: 1], param.eps)
             template_efi = efi_template_control(template_extreme)
             
             out_file = os.path.join(cfg.out_dir, f'efi_control_{param.suffix}.grib')
