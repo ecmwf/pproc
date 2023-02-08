@@ -329,6 +329,7 @@ def main(args=None):
             target = common.target_factory(cfg.target, out_file=out_file, fdb=cfg.fdb)
             common.write_grib(target, template_efi, efi_control)
 
+            print('Computing efi')
             efi = extreme.efi(clim, fc_avg, param.eps)
             template_efi = efi_template(template_extreme)
             
