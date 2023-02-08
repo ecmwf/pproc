@@ -207,9 +207,9 @@ def read_clim(cfg, param, n_clim=101):
     req["step"] = f'{param.window.name}'
 
     da_clim = common.fdb_read(cfg.fdb, req)
-    print(da_clim)
-
-    return np.asarray(da_clim.values), da_clim.attrs['grib_template']
+    clim_array = np.asarray(da_clim.values)
+    clim_array.sort(axis=0, kind='quicksort')
+    return clim_array, da_clim.attrs['grib_template']
 
 
 def extreme_template(param, template_fc, template_clim):
@@ -327,7 +327,6 @@ def main(args=None):
             target = common.target_factory(cfg.target, out_file=out_file, fdb=cfg.fdb)
             common.write_grib(target, template_efi, efi_control)
 
-            print('Computing efi')
             efi = extreme.efi(clim, fc_avg, param.eps)
             template_efi = efi_template(template_extreme)
             
