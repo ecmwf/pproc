@@ -207,6 +207,8 @@ def read_clim(cfg, param, n_clim=101):
     req["step"] = f'{param.window.name}'
 
     da_clim = common.fdb_read(cfg.fdb, req)
+    print(da_clim)
+    
     clim_array = np.asarray(da_clim.values)
     clim_array.sort(axis=0, kind='quicksort')
     return clim_array, da_clim.attrs['grib_template']
