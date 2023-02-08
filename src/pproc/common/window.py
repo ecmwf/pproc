@@ -36,7 +36,6 @@ class Window:
 
         self.step_values = []
         self.config_grib_header = {}
-        self.thresholds = []
 
     def operation(self, new_step_values: np.array):
         """
@@ -94,16 +93,18 @@ class Window:
         :param leg: model leg
         :return: dictionary of header keys and values
         """
-        header = self.config_grib_header
+        header = {}
+        if (
+            isinstance(self.name, str) and leg == 2 and self.start >= LEG1_END
+        ):  # Note: can we make this just dependent on self.start?
+            header["unitOfTimeRange"] = 11
+
+        header.update(self.config_grib_header)
         if isinstance(self.name, int):
             header["step"] = self.name
         else:
             header.setdefault("stepType", "max")  # Don't override if set in config
             header["stepRange"] = self.name
-            if (
-                leg == 2 and self.start >= LEG1_END
-            ):  # Note: can we make this just dependent on self.start?
-                header["unitOfTimeRange"] = 11
 
         return header
 

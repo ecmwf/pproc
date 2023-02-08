@@ -1,10 +1,8 @@
 number_of_ensembles: 50
 leg: 1
 parameters:
-  - in_paramid: 142 # rain
-    second_parameter:
-      paramid: 143
-      combine_operation: 'sum'
+  - in_paramid: '142/143' # rain
+    input_combine_operation: 'sum'
     steps:
       - interval: 12
         start_step: 12
@@ -134,10 +132,8 @@ parameters:
       type: pf
       levtype: sfc
       domain: g
-  - in_paramid: 165 # ff  
-    second_parameter:
-      paramid: 166
-      combine_operation: 'norm'
+  - in_paramid: '165/166' # ff  
+    input_combine_operation: 'norm'
     steps:
       - interval: 12
         start_step: 12

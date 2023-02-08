@@ -1,4 +1,3 @@
-import os
 from typing import Iterator
 
 import numpy as np
@@ -62,51 +61,17 @@ class WindowManager:
                     self.unique_steps.add(step)
 
         self.unique_steps = sorted(self.unique_steps)
+        self.create_windows(parameter)
 
-        # Create windows for each periods
+    def create_windows(self, parameter):
+        """
+        Creates windows from parameter config and specified window operation
+        """
         for window_config in parameter["windows"]:
-            window_operation = self.window_operation_from_config(window_config)
-
             for period in window_config["periods"]:
-                new_window = create_window(period, window_operation)
+                new_window = create_window(period, window_config["window_operation"])
                 new_window.config_grib_header = window_config.get("grib_set", {})
-                new_window.thresholds = window_config["thresholds"]
                 self.windows.append(new_window)
-
-    @classmethod
-    def window_operation_from_config(cls, window_config) -> str:
-        """
-        Derives window operation from config. If no window operation is explicitly 
-        specified then attempts to derive it from the thresholds - requires all
-        comparison operators in the windows to be the same type.
-
-        :param window_config: window configuration dictionary
-        :return: string specifying window operation
-        :raises: RuntimeError if no window operation could be derived
-        """
-        # Get window operation, or if not provided in config, derive from threshold
-        window_operation = None
-        if "window_operation" in window_config:
-            window_operation = window_config["window_operation"]
-        elif "thresholds" in window_config:
-            # Derive from threshold comparison parameter, as long as all threshold comparisons are the same
-            thresholds = window_config["thresholds"]
-            threshold_check = [
-                threshold["comparison"] == thresholds[0]["comparison"]
-                for threshold in thresholds
-            ]
-            if np.all(threshold_check):
-                threshold_comparison = thresholds[0]["comparison"]
-                if "<" in threshold_comparison:
-                    window_operation = "min"
-                elif ">" in threshold_comparison:
-                    window_operation = "max"
-
-        if not window_operation:
-            raise RuntimeError(
-                f"Window  with no operation specified, or none could be derived"
-            )
-        return window_operation
 
     def update_windows(self, step: int, data: np.array) -> Iterator[Window]:
         """
