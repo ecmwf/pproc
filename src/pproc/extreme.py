@@ -207,9 +207,10 @@ def read_clim(cfg, param, n_clim=101):
     req["step"] = f'{param.window.name}'
 
     da_clim = common.fdb_read(cfg.fdb, req)
-    print(da_clim)
+    da_clim_sorted = da_clim.reindex(quantile=[f'{x}:100' for x in range(n_clim)])
+    print(da_clim_sorted)
 
-    return np.asarray(da_clim.values), da_clim.attrs['grib_template']
+    return np.asarray(da_clim_sorted.values), da_clim.attrs['grib_template']
 
 
 def extreme_template(param, template_fc, template_clim):
@@ -320,7 +321,7 @@ def main(args=None):
             template_extreme = extreme_template(param, template_fc, template_clim)
 
             print('Computing efi for the control member')
-            efi_control = extreme.efi(clim, fc_avg, param.eps)
+            efi_control = extreme.efi(clim, fc_avg[: 1], param.eps)
             template_efi = efi_template_control(template_extreme)
             
             out_file = os.path.join(cfg.out_dir, f'efi_control_{param.suffix}.grib')
