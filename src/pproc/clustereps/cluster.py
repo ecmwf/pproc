@@ -996,6 +996,7 @@ def get_output_keys(config: ClusterConfig, template: GRIBMessage) -> dict:
     else:
         steps = [(s, None) for s in config.steps]
 
+    keys.update(config.out_keys)
 
     return keys, steps
 

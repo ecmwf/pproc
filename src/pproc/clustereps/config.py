@@ -33,6 +33,8 @@ class ClusterConfigBase(Config):
 
         self.sources = self.options.get('sources', {})
 
+        self.out_keys = self.options.get('out_keys', {})
+
     @property
     def monthly(self) -> bool:
         return (self.step_end - self.step_start > 120) or (self.step_end == self.step_start)
