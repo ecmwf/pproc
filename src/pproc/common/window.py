@@ -68,7 +68,7 @@ class Window:
         if step not in self:
             return
         if len(self.step_values) == 0:
-            self.step_values = step_values
+            self.step_values = step_values.copy()
         else:
             self.operation(step_values)
 
@@ -161,7 +161,7 @@ class WeightedSumWindow(SimpleOpWindow):
             return
         step_duration = step - self.previous_step
         if len(self.step_values) == 0:
-            step_values = step_values * step_duration
+            self.step_values = step_values * step_duration
         else:
             self.operation(step_values * step_duration)
 

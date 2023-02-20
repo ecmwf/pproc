@@ -37,10 +37,15 @@ def test_period_max():
 
 def test_period_sum():
     window = SimpleOpWindow({"range": [0, 2]}, "sum", False)
+    window2 = SimpleOpWindow({"range": [0, 2]}, "sum", False)
     step_values = np.array([[1, 2, 3], [2, 4, 6]])
     window.add_step_values(1, step_values)
+    window2.add_step_values(1, step_values)
+    step_values = np.array([[1, 2, 3], [2, 4, 6]])
     window.add_step_values(2, step_values * 2)
-    assert np.all(window.step_values == (step_values + step_values * 2))
+    assert np.all(window.step_values == np.array([[3, 6, 9], [6, 12, 18]]))
+    window2.add_step_values(2, step_values)
+    assert np.all(window2.step_values == np.array([[2, 4, 6], [4, 8, 12]]))
 
 
 def test_period_diff():
