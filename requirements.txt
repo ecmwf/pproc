@@ -4,5 +4,6 @@ pandas>=1.3.4
 scipy>=1.7.3
 pyyaml
 numexpr
+scikit-learn
 git+ssh://git@git.ecmwf.int/mars/pyfdb.git@develop
 git+ssh://git@git.ecmwf.int/ecsdk/meteokit.git
