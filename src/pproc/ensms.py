@@ -64,16 +64,26 @@ def ensemble_mean_std_eps(cfg, options, window):
     return mean, stddev, template
 
 
-def template_ensemble(cfg, param_type, template, step, level, marstype):
+def template_ensemble(cfg, param_type, template, step, window_step, level, marstype):
     template_ens = template.copy()
     template_ens.set('step', step)
     param_type.set_level_key(template_ens, level)
+    grib_sets = cfg.options['grib_set']
     if step == 0:
         template_ens.set('timeRangeIndicator', 1)
+    elif cfg.options['grib_set'].get('timeRangeIndicator', 0) == 2:
+        # Need to set step range 
+        template_ens.set({
+            'stepType': 'max',
+            'stepRange': f'{step - window_step}-{step}',
+            'timeRangeIndicator': 2
+        })
+        grib_sets = cfg.options['grib_set'].copy()
+        grib_sets.pop('timeRangeIndicator')
     else:
         template_ens.set('timeRangeIndicator', 0)
     template_ens.set("marsType", marstype)
-    for key, value in cfg.options['grib_set'].items():
+    for key, value in grib_sets.items():
         template_ens.set(key, value)
     return template_ens
 
@@ -146,13 +156,13 @@ def main(args=None):
                     mean_slice = param_type.slice_dataset(mean, level, step)
                     mean_file = os.path.join(cfg.out_dir, window.name, f'mean_{param}_{level}_{step}.grib')
                     target_mean = common.target_factory(cfg.target, out_file=mean_file, fdb=cfg.fdb)
-                    template_mean = template_ensemble(cfg, param_type, template_ens, step, level, 'em')
+                    template_mean = template_ensemble(cfg, param_type, template_ens, step, window.step, level, 'em')
                     common.write_grib(target_mean, template_mean, mean_slice)
 
                     std_slice = param_type.slice_dataset(std, level, step)
                     std_file = os.path.join(cfg.out_dir, window.name, f'std_{param}_{level}_{step}.grib')
                     target_std = common.target_factory(cfg.target, out_file=std_file, fdb=cfg.fdb)
-                    template_std = template_ensemble(cfg, param_type, template_ens, step, level, 'es')
+                    template_std = template_ensemble(cfg, param_type, template_ens, step, window.step, level, 'es')
                     common.write_grib(target_std, template_std, std_slice)
 
 
