@@ -5,12 +5,18 @@ import numpy as np
 from pproc import common
 
 
-def create_parameter(date: datetime.datetime, cfg: Dict, n_ensembles: int):
-    if isinstance(cfg["in_paramid"], str) and "/" in cfg["in_paramid"]:
-        param_ids = cfg["in_paramid"].split("/")
+def create_parameter(
+    date: datetime.datetime, global_input_cfg: Dict, param_cfg: Dict, n_ensembles: int
+):
+    if isinstance(param_cfg["in_paramid"], str) and "/" in param_cfg["in_paramid"]:
+        param_ids = param_cfg["in_paramid"].split("/")
         assert len(param_ids) == 2
-        return CombineParameters(date, param_ids, cfg, n_ensembles)
-    return Parameter(date, cfg["in_paramid"], cfg, n_ensembles)
+        return CombineParameters(
+            date, param_ids, global_input_cfg, param_cfg, n_ensembles
+        )
+    return Parameter(
+        date, param_cfg["in_paramid"], global_input_cfg, param_cfg, n_ensembles
+    )
 
 
 class Parameter:
@@ -19,14 +25,20 @@ class Parameter:
     """
 
     def __init__(
-        self, dt: datetime.datetime, param_id: int, cfg: Dict, n_ensembles: int
+        self,
+        dt: datetime.datetime,
+        param_id: int,
+        global_input_cfg,
+        param_cfg: Dict,
+        n_ensembles: int,
     ):
-        self.base_request = cfg["base_request"].copy()
+        self.base_request = global_input_cfg.copy()
+        self.base_request.update(param_cfg["base_request"])
         self.base_request["param"] = param_id
         self.base_request["number"] = range(1, n_ensembles + 1)
         self.base_request["date"] = dt.strftime("%Y%m%d")
         self.base_request["time"] = dt.strftime("%H")
-        self.interpolation_keys = cfg.get("interpolation_keys", None)
+        self.interpolation_keys = param_cfg.get("interpolation_keys", None)
 
     def retrieve_data(self, fdb, step: int):
         new_request = self.base_request
@@ -37,11 +49,16 @@ class Parameter:
 
 class CombineParameters(Parameter):
     def __init__(
-        self, dt: datetime.datetime, param_ids: List[int], cfg: Dict, n_ensembles: int
+        self,
+        dt: datetime.datetime,
+        param_ids: List[int],
+        global_input_cfg: Dict,
+        param_cfg: Dict,
+        n_ensembles: int,
     ):
-        super().__init__(dt, 0, cfg, n_ensembles)
+        super().__init__(dt, 0, global_input_cfg, param_cfg, n_ensembles)
         self.param_ids = param_ids
-        self.combine_operation = cfg["input_combine_operation"]
+        self.combine_operation = param_cfg["input_combine_operation"]
 
     def combine_data(self, data_list):
         if self.combine_operation == "norm":

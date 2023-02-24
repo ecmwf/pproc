@@ -1,7 +1,14 @@
 number_of_ensembles: 50
 leg: 1
+target: fdb
+root_dir: ''
+global_input_keys: 
+  expver: '0001'
+global_output_keys: 
+  expver: '0001'
 parameters:
-  - in_paramid: '142/143' # rain
+  rain:
+    in_paramid: '142/143' 
     input_combine_operation: 'sum'
     steps:
       - interval: 12
@@ -128,11 +135,11 @@ parameters:
     base_request:
       class: od
       stream: enfo
-      expver: '0001'
       type: pf
       levtype: sfc
       domain: g
-  - in_paramid: '165/166' # ff  
+  ff:
+    in_paramid: '165/166'   
     input_combine_operation: 'norm'
     steps:
       - interval: 12
@@ -170,11 +177,11 @@ parameters:
     base_request:
       class: od
       stream: enfo
-      expver: '0001'
       type: pf
       levtype: sfc
       domain: g
-  - in_paramid: 123 # 10fg
+  10fg:
+    in_paramid: 123
     steps:
       - interval: 6
         start_step: 6
@@ -252,11 +259,11 @@ parameters:
     base_request:
       class: od
       stream: enfo
-      expver: '0001'
       type: pf
       levtype: sfc
       domain: g
-  - in_paramid: 140229 #swh
+  swh:
+    in_paramid: 140229 
     steps:
       - interval: 12
         start_step: 12
@@ -324,11 +331,11 @@ parameters:
     base_request:
       class: od
       stream: waef
-      expver: '0001'
       type: pf
       levtype: sfc
       domain: g
-  - in_paramid: 140232 # mwp
+  mwp:
+    in_paramid: 140232 
     steps:
       - interval: 12
         start_step: 12
@@ -396,11 +403,11 @@ parameters:
     base_request:
       class: od
       stream: waef
-      expver: '0001'
       type: pf
       levtype: sfc
       domain: g
-  - in_paramid: 167 # 2t
+  2t:
+    in_paramid: 167 
     steps:
       - interval: 12
         start_step: 12
@@ -444,7 +451,6 @@ parameters:
     base_request:
       class: od
       stream: enfo
-      expver: '0001'
       type: pf
       levtype: sfc
       domain: g

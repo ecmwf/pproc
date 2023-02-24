@@ -1,4 +1,5 @@
 import sys
+import os
 import datetime
 from typing import Tuple, Dict, Iterator
 import numpy as np
@@ -42,15 +43,17 @@ class Climatology(Parameter):
     Retrieves data for mean and standard deviation of climatology
     """
 
-    def __init__(self, dt: datetime.datetime, param_id: int, cfg: Dict):
-        Parameter.__init__(self, dt, param_id, cfg, 0)
+    def __init__(
+        self, dt: datetime.datetime, param_id: int, global_input_cfg, param_cfg: Dict
+    ):
+        Parameter.__init__(self, dt, param_id, global_input_cfg, param_cfg, 0)
         self.base_request.pop("number")
         self.base_request["date"] = self.get_climatology_date(dt.date())
         self.base_request["time"] = "00"
-        self.base_request["stream"] = cfg["climatology"]["stream"]
+        self.base_request["stream"] = param_cfg["climatology"]["stream"]
         self.base_request["type"] = "em/es"  # Order of these is important
         self.time = dt.time()
-        self.steps = cfg["steps"]
+        self.steps = param_cfg["steps"]
 
     def clim_step(self, step: int):
         """
@@ -181,18 +184,23 @@ def main(args=None):
     date = datetime.datetime.strptime(args.date, "%Y%m%d%H")
     n_ensembles = cfg.options.get("number_of_ensembles", 50)
     leg = cfg.options.get("leg")
+    global_input_cfg = cfg.options.get("global_input_keys", {})
+    global_output_cfg = cfg.options.get("global_output_keys", {})
 
     fdb = pyfdb.FDB()
 
-    for param_cfg in cfg.options["parameters"]:
+    for param_name, param_cfg in cfg.options["parameters"].items():
         param_id = param_cfg["in_paramid"]
-        param = CombinedForecasts(date, param_id, param_cfg, n_ensembles)
-        clim = Climatology(date, param_id, param_cfg)
+        param = CombinedForecasts(
+            date, param_id, global_input_cfg, param_cfg, n_ensembles
+        )
+        clim = Climatology(date, param_id, global_input_cfg, param_cfg)
 
         window_manager = AnomalyWindowManager(param_cfg)
 
         for step in window_manager.unique_steps:
             message_template, data = param.retrieve_data(fdb, step)
+            message_template.set(global_output_cfg)
             clim_grib_header, clim_data = clim.retrieve_data(fdb, step)
 
             completed_windows = window_manager.update_windows(
@@ -205,11 +213,18 @@ def main(args=None):
                     )
 
                     print(
-                        f"Writing probability for {param_id} output "
+                        f"Writing probability for {param_name} output "
                         + f"param {threshold['out_paramid']} for step(s) {window.name}"
                     )
+                    output_file = os.path.join(
+                        cfg.options["root_dir"],
+                        f"{param_name}_{threshold['out_paramid']}_{leg}_step{window.name}.grib",
+                    )
+                    target = common.target_factory(
+                        cfg.options["target"], out_file=output_file, fdb=fdb
+                    )
                     common.write_grib(
-                        common.FDBTarget(fdb),
+                        target,
                         construct_message(
                             message_template,
                             window.grib_header(leg),
