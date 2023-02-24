@@ -1,7 +1,14 @@
 number_of_ensembles: 50
 leg: 1
+target: fdb
+root_dir: ''
+global_input_keys: 
+  expver: '0001'
+global_output_keys: 
+  expver: '0001'
 parameters:
-  - in_paramid: 130 #t
+  t850:
+    in_paramid: 130
     steps:
       - interval: 12
         start_step: 0
