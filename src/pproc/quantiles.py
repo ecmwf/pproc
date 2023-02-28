@@ -9,6 +9,7 @@ import eccodes
 
 from pproc.common.config import default_parser
 from pproc.common.io import Target, missing_to_nan, nan_to_missing, target_factory
+from pproc.common.resources import ResourceMeter
 
 
 def read_ensemble(source: str, members: int, dtype=np.float32) -> Tuple[eccodes.GRIBMessage, np.ndarray]:
@@ -134,9 +135,13 @@ def main(args: List[str] = sys.argv[1:]):
     parser = get_parser()
     args = parser.parse_args(args)
 
+    res = ResourceMeter()
+    print(f"Startup: {res!s}")
     template, ens = read_ensemble(args.infile, args.members)
+    print(f"Read ensemble: {res.update()!s}")
     target = target_factory("file", out_file=args.outfile)
     do_quantiles(ens, template, target, args.out_paramid, n=args.number)
+    print(f"Quantiles: {res.update()!s}")
 
 
 if __name__ == '__main__':
