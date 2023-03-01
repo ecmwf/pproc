@@ -3,7 +3,7 @@ from typing import Dict, Tuple
 
 import pytest
 
-from pproc.common.resources import ResourceMeter, ResourceUsage, TimeDecomposition, plural, pretty_bytes
+from pproc.common.resources import ResourceMeter, ResourceUsage, TimeDecomposition, metered, plural, pretty_bytes
 
 
 def is_close(x, y, eps=1e-12):
@@ -126,3 +126,45 @@ def test_resourcemeter():
     assert meter.elapsed == 0.
     assert meter.res.cpu >= 0
     assert meter.res.mem > 0
+
+
+def test_metered(capsys):
+    @metered
+    def myfunc(x):
+        return x + 42
+
+    res = myfunc(1)
+    capture = capsys.readouterr()
+    assert res == 43
+    assert capture.out.startswith("myfunc: wall time:")
+
+    @metered("test")
+    def myfunc2():
+        return True
+
+    res = myfunc2()
+    capture = capsys.readouterr()
+    assert res is True
+    assert capture.out.startswith("test: wall time:")
+
+    outs = []
+    @metered(out=(lambda x: outs.append(x)))
+    def myfunc3(foo=None):
+        return foo
+
+    res = myfunc3(foo="bar")
+    capture = capsys.readouterr()
+    assert res == "bar"
+    assert not capture.out
+    assert len(outs) == 1
+    assert outs[0].startswith("myfunc3: wall time:")
+
+    @metered(return_meter=True)
+    def myfunc4(*args):
+        return len(args)
+
+    meter, res = myfunc4(1, 2, 3)
+    capture = capsys.readouterr()
+    assert res == 3
+    assert isinstance(meter, ResourceMeter)
+    assert capture.out == f"myfunc4: {meter!s}\n"

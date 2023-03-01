@@ -1,8 +1,9 @@
 
 from dataclasses import dataclass
+import functools
 import resource
 import time
-from typing import Optional, Union
+from typing import Callable, Optional, Union
 
 
 def plural(n: Union[int, float], name: str) -> str:
@@ -129,3 +130,23 @@ class ResourceMeter:
 
     def __str__(self):
         return f"wall time: {pretty_time(self.elapsed)}, " + str(self.res)
+
+
+def metered(name_or_func=None, out=print, return_meter=False):
+    name = name_or_func if isinstance(name_or_func, str) else None
+    def decorator(func: Callable) -> Callable:
+        funcname = func.__name__ if name is None else name
+        @functools.wraps(func)
+        def wrapped(*args, **kwargs):
+            meter = ResourceMeter()
+            result = func(*args, **kwargs)
+            meter.update()
+            if out is not None:
+                out(f"{funcname}: {meter!s}")
+            if return_meter:
+                return (meter, result)
+            return result
+        return wrapped
+    if isinstance(name_or_func, str) or name_or_func is None:
+        return decorator
+    return decorator(name_or_func)
