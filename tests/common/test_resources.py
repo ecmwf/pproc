@@ -111,21 +111,24 @@ def test_resourceusage():
 def test_resourcemeter():
     meter = ResourceMeter()
     start = meter.start
+    start_cpu = meter.start_cpu
     assert meter.elapsed == 0.
-    assert meter.res.cpu >= 0
-    assert meter.res.mem > 0
+    assert meter.elapsed_cpu == 0.
+    assert meter.mem > 0
 
     meter.update()
     assert meter.start == start
+    assert meter.start_cpu == start_cpu
     assert meter.elapsed > 0
-    assert meter.res.cpu >= 0
-    assert meter.res.mem > 0
+    assert meter.elapsed_cpu > 0
+    assert meter.mem > 0
 
     meter.update(reset=True)
     assert meter.start > start
+    assert meter.start_cpu > start_cpu
     assert meter.elapsed == 0.
-    assert meter.res.cpu >= 0
-    assert meter.res.mem > 0
+    assert meter.elapsed_cpu == 0.
+    assert meter.mem > 0
 
 
 def test_metered(capsys):

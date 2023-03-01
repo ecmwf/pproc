@@ -143,23 +143,35 @@ class ResourceMeter:
     """
     start: float
     elapsed: float
-    res: ResourceUsage
+    start_cpu: float
+    elapsed_cpu: float
+    mem: int
 
     def __init__(self):
         self.start = time.perf_counter()
         self.elapsed = 0.
-        self.res = ResourceUsage()
+        res = ResourceUsage()
+        self.start_cpu = res.cpu
+        self.elapsed_cpu = 0.
+        self.mem = res.mem
 
     def update(self, reset: bool = False):
         t = time.perf_counter()
-        self.res = ResourceUsage()
+        res = ResourceUsage()
         if reset:
             self.start = t
+            self.start_cpu = res.cpu
         self.elapsed = t - self.start
+        self.elapsed_cpu = res.cpu - self.start_cpu
+        self.mem = res.mem
         return self
 
     def __str__(self):
-        return f"wall time: {pretty_time(self.elapsed)}, " + str(self.res)
+        return ", ".join([
+            f"wall time: {pretty_time(self.elapsed)}",
+            f"CPU time: {pretty_time(self.elapsed_cpu)}",
+            f"memory: {pretty_bytes(self.mem)}",
+        ])
 
 
 def metered(name_or_func=None, out=print, return_meter=False):
