@@ -20,11 +20,21 @@ import mir
 
 from pproc import common
 
+def retrieve_messages(cfg, req, cached_file):
+    if cfg.vod2uv:
+        print(req)
+        common.fdb_read_to_file(cfg.fdb, req, cached_file)
+        messages = mir_wind(cfg, cached_file)
+    else:
+        out =  common.fdb_retrieve(cfg.fdb, req, cfg.interpolation_keys)
+        reader = eccodes.StreamReader(out)
+        messages = list(reader)
+    return messages
+
 
 def fdb_request_det(cfg, levelist, window):
     """
-    Retrieve vorticity and divergence from FDB and dump it to disk
-    Deterministic forecast
+    Retrieve vorticity and divergence or u/v for deterministic forecast
     """
 
     req = cfg.request.copy()
@@ -37,23 +47,13 @@ def fdb_request_det(cfg, levelist, window):
     req['step'] = window.steps
     req['type'] = 'fc'
 
-    if cfg.vod2uv:
-        cached_file = f"wind_det_{levelist}_{window.name}.grb"
-        print(req)
-        common.fdb_read_to_file(cfg.fdb, req, cached_file)
-        messages = mir_wind(cfg, cached_file)
-    else:
-        out =  common.fdb_retrieve(cfg.fdb, req, cfg.interpolation_keys)
-        reader = eccodes.StreamReader(out)
-        messages = list(reader)
-
-    return messages
+    return retrieve_messages(cfg, req, f"wind_det_{levelist}_{window.name}.grb")
 
 
 def fdb_request_ens(cfg, levelist, window):
     """
-    Retrieve vorticity and divergence from FDB and dump it to disk
-    Ensemble forecast (control + perturbed)
+    Retrieve vorticity and divergence or u/v for ensemble forecast 
+    (control + perturbed)
     """
 
     req = cfg.request.copy()
@@ -67,28 +67,12 @@ def fdb_request_ens(cfg, levelist, window):
 
     req_cf = req.copy()
     req_cf['type'] = 'cf'
+    messages = retrieve_messages(cfg, req_cf, f"wind_det_{levelist}_{window.name}.grb")
 
-    if cfg.vod2uv:
-        cached_file = f"wind_ens_{levelist}_{window.name}.grb"
-        print(req)
-        common.fdb_read_to_file(cfg.fdb, req_cf, cached_file)
-
-        req_pf = req.copy()
-        req_pf['type'] = 'pf'
-        req_pf['number'] = range(1, cfg.members+1)
-        common.fdb_read_to_file(cfg.fdb, req_pf, cached_file, mode='ab')
-        messages = mir_wind(cfg, cached_file)
-    else:
-        out =  common.fdb_retrieve(cfg.fdb, req_cf, cfg.interpolation_keys)
-        reader = eccodes.StreamReader(out)
-        messages = list(reader)
-
-        req_pf = req.copy()
-        req_pf['type'] = 'pf'
-        req_pf['number'] = range(1, cfg.members+1)
-        out =  common.fdb_retrieve(cfg.fdb, req_pf, cfg.interpolation_keys)
-        reader = eccodes.StreamReader(out)
-        messages += list(reader)
+    req_pf = req.copy()
+    req_pf['type'] = 'pf'
+    req_pf['number'] = range(1, cfg.members+1)
+    messages += retrieve_messages(cfg, req_pf, f"wind_det_{levelist}_{window.name}.grb")
 
     return messages
 
@@ -115,34 +99,10 @@ def mir_wind(cfg, cached_file):
     return messages
 
 
-def wind_speed_det(cfg, levelist, window):
+def wind_speed(messages):
     """
-    Calculate deterministic (type=fc) wind speed
+    Compute wind speed from grib messages containing u and v
     """
-    messages = fdb_request_det(cfg, levelist, window)
-
-    template = messages[0]
-
-    steps = list(set([m["step"] for m in messages]))
-    wind_paramids = list(set([m["paramId"] for m in messages]))
-    assert len(wind_paramids) == 2
-    u = np.asarray([m.get_array("values") for m in messages if m["paramId"] == wind_paramids[0]])
-    v = np.asarray([m.get_array("values") for m in messages if m["paramId"] == wind_paramids[1]])
-
-    wind_speed = np.sqrt(u * u + v * v)
-    wind_speed = dict(zip(steps, wind_speed))
-
-    return wind_speed, template
-
-
-def wind_speed_eps(cfg, levelist, window):
-    """
-    Calculate ensemble (type=cf/pf) mean and standard deviation of wind speed
-    """
-    messages = fdb_request_ens(cfg, levelist, window)
-
-    template = messages[0]
-
     steps = list(set([m["step"] for m in messages]))
     wind_paramids = list(set([m["paramId"] for m in messages]))
     assert len(wind_paramids) == 2
@@ -164,49 +124,36 @@ def wind_speed_eps(cfg, levelist, window):
 
     ws = np.sqrt(u * u + v * v)
     ws = dict(zip(steps, ws))
+    
+    return ws
 
-    return ws, template
+def basic_template(cfg, template, step, marstype):
+    new_template = template.copy()
+    new_template.set('bitsPerValue', 24)
+    new_template.set("marsType", marstype)
+    new_template.set("step", step)
+    if step == 0:
+        new_template.set('timeRangeIndicator', 1)
+    else:
+        new_template.set('timeRangeIndicator', 0)
+    for key, value in cfg.options['grib_set'].items():
+        new_template.set(key, value)
+    return new_template
 
-def mean_and_std(ws):
-    mean = {}
-    stddev = {}
-    for step, values in ws.items():
-        mean[step] = np.mean(values, axis=0)
-        stddev[step] = np.std(values, axis=0)
-    return mean, stddev
 
-def template_eps_speed(cfg, template, step, number):
-    template_eps = template.copy()
-    template_eps.set('bitsPerValue', 24)
-    template_eps.set("step", step)
+def eps_speed_template(cfg, template, step, number):
     if number == 0:
-        template_eps.set('type', 'cf')
+        eps_template = basic_template(cfg, template, step, 'cf')
     else:
-        template_eps.set({
-            'type': 'pf',
-            'number': number
-        })
-    if step == 0:
-        template_eps.set('timeRangeIndicator', 1)
-    else:
-        template_eps.set('timeRangeIndicator', 0)
-    for key, value in cfg.options['grib_set'].items():
-        template_eps.set(key, value)
-    return template_eps
+        eps_template = basic_template(cfg, template, step, 'pf')
+        eps_template.set('number', number)
+    return eps_template
 
-def template_ensemble(cfg, template, step, marstype):
-    template_ens = template.copy()
-    template_ens.set('bitsPerValue', 24)
-    template_ens.set("marsType", marstype)
-    template_ens.set("step", step)
-    if step == 0:
-        template_ens.set('timeRangeIndicator', 1)
-    else:
-        template_ens.set('timeRangeIndicator', 0)
-    for key, value in cfg.options['grib_set'].items():
-        template_ens.set(key, value)
-    return template_ens
 
+def write_output(cfg, filename, template, data):
+    file = os.path.join(cfg.out_dir, filename)
+    target_det = common.target_factory(cfg.target, out_file=file, fdb=cfg.fdb)
+    common.write_grib(target_det, template, data)
 
 class ConfigExtreme(common.Config):
     def __init__(self, args):
@@ -245,34 +192,34 @@ def main(args=None):
 
             # calculate wind speed for type=fc (deterministic)
             if args.det_ws:
-                det, template_det = wind_speed_det(cfg, levelist, window)
+                messages = fdb_request_det(cfg, levelist, window)
+                det = wind_speed(messages)
                 for step in window.steps:
-                    det_file = os.path.join(cfg.out_dir, f'det_{levelist}_{window.name}_{step}.grib')
-                    target_det = common.target_factory(cfg.target, out_file=det_file, fdb=cfg.fdb)
-                    template_det = template_ensemble(cfg, template_det, step, 'fc')
-                    common.write_grib(target_det, template_det, det[step])
+                    template_det = basic_template(cfg, messages[0], step, 'fc')
+                    write_output(cfg, f'det_{levelist}_{window.name}_{step}.grib', 
+                        template_det, det[step][0])
 
-            # calculate mean/stddev of wind speed for type=pf/cf (eps)
+            # calculate wind speed, mean/stddev of wind speed for type=pf/cf (eps)
             if args.eps_ws or args.eps_mean_std:
-                wind_speed, template_ens = wind_speed_eps(cfg, levelist, window)
-                for step in window.steps: 
+                messages = fdb_request_ens(cfg, levelist, window)
+                eps = wind_speed(messages) 
+                template = messages[0]
+                for step in window.steps:
                     print(step)
                     if args.eps_ws:
                         for number in range(cfg.members + 1):
-                            eps_file = os.path.join(cfg.out_dir, f'eps_{levelist}_{window.name}_{step}_{number}.grib')
-                            target_eps = common.target_factory(cfg.target, out_file=eps_file, fdb=cfg.fdb)
-                            template_eps = template_eps_speed(cfg, template_ens, step, number)
-                            common.write_grib(target_eps, template_eps, wind_speed[step][number])
+                            template_eps = eps_speed_template(cfg, template, step, number)
+                            write_output(cfg, f'eps_{levelist}_{window.name}_{step}_{number}.grib', 
+                                template_eps, eps[step][number])
                     if args.eps_mean_std:
-                        mean, std = mean_and_std(wind_speed)
-                        mean_file = os.path.join(cfg.out_dir, f'mean_{levelist}_{window.name}_{step}.grib')
-                        target_mean = common.target_factory(cfg.target, out_file=mean_file, fdb=cfg.fdb)
-                        template_mean = template_ensemble(cfg, template_ens, step, 'em')
-                        common.write_grib(target_mean, template_mean, mean[step])
-                        std_file = os.path.join(cfg.out_dir, f'std_{levelist}_{window.name}_{step}.grib')
-                        target_std = common.target_factory(cfg.target, out_file=std_file, fdb=cfg.fdb)
-                        template_std = template_ensemble(cfg, template_ens, step, 'es')
-                        common.write_grib(target_std, template_std, std[step])
+                        template_mean = basic_template(cfg, template, step, 'em')
+                        write_output(cfg, f'mean_{levelist}_{window.name}_{step}.grib', 
+                            template_mean, np.mean(eps[step], axis=0))
+
+
+                        template_std = basic_template(cfg, template, step, 'es')
+                        write_output(cfg, f'std_{levelist}_{window.name}_{step}.grib', 
+                            template_std, np.std(eps[step], axis=0))
 
 
 if __name__ == "__main__":
