@@ -3,7 +3,7 @@ from typing import Dict, Tuple
 
 import pytest
 
-from pproc.common.resources import TimeDecomposition, plural, pretty_bytes
+from pproc.common.resources import ResourceMeter, ResourceUsage, TimeDecomposition, plural, pretty_bytes
 
 
 def is_close(x, y, eps=1e-12):
@@ -95,3 +95,34 @@ def test_pretty_bytes(inp: int, exp: str):
 ])
 def test_pretty_bytes_dec(inp: int, exp: str):
     assert pretty_bytes(inp, decimal=True) == exp
+
+
+def test_resourceusage():
+    res = ResourceUsage()
+    assert res.cpu >= 0
+    assert res.mem > 0
+
+    res = ResourceUsage(123., 10 * 1024**2)
+    assert res.cpu == 123.
+    assert res.mem == 10 * 1024**2
+    assert str(res) == "CPU time: 123 s (2 minutes 3 seconds), memory: 10485760 bytes (10 MiB)"
+
+
+def test_resourcemeter():
+    meter = ResourceMeter()
+    start = meter.start
+    assert meter.elapsed == 0.
+    assert meter.res.cpu >= 0
+    assert meter.res.mem > 0
+
+    meter.update()
+    assert meter.start == start
+    assert meter.elapsed > 0
+    assert meter.res.cpu >= 0
+    assert meter.res.mem > 0
+
+    meter.update(reset=True)
+    assert meter.start > start
+    assert meter.elapsed == 0.
+    assert meter.res.cpu >= 0
+    assert meter.res.mem > 0
