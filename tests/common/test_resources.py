@@ -76,6 +76,7 @@ def test_timedecomp_pretty(inp: Dict[str, float], exp: str):
     (21220574416077, "21220574416077 bytes (19.3 TiB)"),
     (88101667710000000, "88101667710000000 bytes (78.25 PiB)"),
     (1152921504606846976, "1152921504606846976 bytes (1 EiB)"),
+    (54648976134660754310568, "54648976134660754310568 bytes (47400.4 EiB)"),
 ])
 def test_pretty_bytes(inp: int, exp: str):
     assert pretty_bytes(inp) == exp
@@ -90,6 +91,7 @@ def test_pretty_bytes(inp: int, exp: str):
     (1546431843514, "1546431843514 bytes (1.54643 TB)"),
     (46546843548643475, "46546843548643475 bytes (46.5468 PB)"),
     (1152921504606846976, "1152921504606846976 bytes (1.15292 EB)"),
+    (31062045663059668406964, "31062045663059668406964 bytes (31062 EB)"),
 ])
 def test_pretty_bytes_dec(inp: int, exp: str):
     assert pretty_bytes(inp, decimal=True) == exp

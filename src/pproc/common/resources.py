@@ -78,10 +78,11 @@ def pretty_bytes(bytes: int, decimal: bool = False) -> str:
         return raw
     scaled = bytes
     prefixes = ["k", "M", "G", "T", "P", "E"]
-    for prefix in prefixes:
+    for i, prefix in enumerate(prefixes):
         scaled /= factor
-        if scaled < factor:
+        if scaled < factor or i == len(prefixes) - 1:
             return raw + f" ({scaled:g} {prefix}{unit})"
+    assert False
 
 
 @dataclass
