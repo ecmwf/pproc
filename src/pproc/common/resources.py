@@ -94,10 +94,10 @@ class ResourceUsage:
         res = None
         if cpu is None or mem is None:
             res = resource.getrusage(resource.RUSAGE_SELF)
-        if cpu is None:
-            cpu = res.ru_utime
-        if mem is None:
-            mem = res.ru_maxrss * 1024
+            if cpu is None:
+                cpu = res.ru_utime
+            if mem is None:
+                mem = res.ru_maxrss * 1024
         self.cpu = cpu
         self.mem = mem
 
