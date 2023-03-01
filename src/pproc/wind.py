@@ -171,8 +171,8 @@ def mean_and_std(ws):
     mean = {}
     stddev = {}
     for step, values in ws.items():
-        mean[step] = np.mean(values, axis=1)
-        stddev[step] = np.std(values, axis=1)
+        mean[step] = np.mean(values, axis=0)
+        stddev[step] = np.std(values, axis=0)
     return mean, stddev
 
 def template_eps_speed(cfg, template, step, number):
