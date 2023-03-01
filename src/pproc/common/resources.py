@@ -68,10 +68,30 @@ class TimeDecomposition:
 
 
 def pretty_time(seconds: float) -> str:
+    """Formats a duration in human-readable units
+
+    The output format is `<raw duration> s (<number> <unit1> [<number2> <unit2>])
+    """
     return TimeDecomposition(seconds=seconds).pretty()
 
 
 def pretty_bytes(bytes: int, decimal: bool = False) -> str:
+    """Format a number of bytes in human-readable units
+
+    The output format is `<raw number> B (<human-readable number> <unit>)`
+
+    Parameters
+    ----------
+    bytes: int
+        Value to format
+    decimal: bool
+        If True, use decimal units (e.g. MB) instead of binary (e.g. MiB)
+
+    Returns
+    -------
+    str
+        Formatted number
+    """
     factor = 1000 if decimal else 1024
     unit = "B" if decimal else "iB"
     raw = f"{bytes} {plural(bytes, 'byte')}"
@@ -111,6 +131,16 @@ class ResourceUsage:
 
 @dataclass
 class ResourceMeter:
+    """Utility to measure resource usage
+
+    Example
+    -------
+    ```python
+    meter = ResourceMeter()
+    do_something()
+    print(meter.update())
+    ```
+    """
     start: float
     elapsed: float
     res: ResourceUsage
@@ -133,6 +163,19 @@ class ResourceMeter:
 
 
 def metered(name_or_func=None, out=print, return_meter=False):
+    """Automatically measure resource usage of a function
+
+    To be used as a decorator
+
+    Parameters
+    ----------
+    name_or_func: callable, str or None
+        If str, use this instead of the function name when reporting
+    out: callable, optional
+        If set, call this function with the report as an `str` (default: `print`)
+    return_meter: bool
+        If True, the function returns a tuple where the first argument is the ResourceMeter
+    """
     name = name_or_func if isinstance(name_or_func, str) else None
     def decorator(func: Callable) -> Callable:
         funcname = func.__name__ if name is None else name
