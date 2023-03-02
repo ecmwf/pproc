@@ -30,6 +30,7 @@ def retrieve_messages(cfg, req, cached_file):
         out = common.fdb_retrieve(cfg.fdb, req, cfg.interpolation_keys)
         reader = eccodes.StreamReader(out)
         messages = list(reader)
+    assert len(messages) != 0
     return messages
 
 
