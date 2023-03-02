@@ -181,8 +181,14 @@ def main(args=None):
     parser = common.default_parser('Calculate wind speed')
     parser.add_argument('--det_ws', action='store_true', default=False, help='Wind speed for type=fc')
     parser.add_argument('--eps_ws', action='store_true', default=False, help='Wind speed for type=pf/cf')
-    parser.add_argument('--eps_mean_std', action='store_true', default=False, help='Wind speed mean/std for type=pf/cf')
-    args = parser.parse_args()
+    parser.add_argument('--eps_mean_std', action='store_true', default=False, help='Wind speed mean/std for type=pf/cf. ' +
+    'Default option if no options are set.')
+    args = parser.parse_args(args)
+
+    # If no arguments are selected then run eps_mean_std by default
+    if not any([args.det_ws, args.eps_ws, args.eps_mean_std]):
+        args.eps_mean_std = True
+
     cfg = ConfigExtreme(args)
 
     for levelist in cfg.levelist:
