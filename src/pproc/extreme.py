@@ -287,7 +287,7 @@ class ConfigExtreme(common.Config):
 
         self.parameters = parameter_factory(self.options['parameters'])
 
-        self.members = self.options['members']
+        self.members = int(self.options['members'])
         self.fdb = pyfdb.FDB()
         
         self.root_dir = self.options['root_dir']
