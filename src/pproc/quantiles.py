@@ -125,22 +125,29 @@ def get_parser() -> argparse.ArgumentParser:
     parser = default_parser(description=description)
     parser.add_argument("--infile", required=True, help="Input ensemble (GRIB)")
     parser.add_argument("--outfile", required=True, help="Output file (GRIB)")
-    parser.add_argument("-m", "--members", type=int, default=51)
-    parser.add_argument("-n", "--number", type=int, default=100, help="Number of quantiles (default 100 = percentiles)")
     parser.add_argument("-o", "--out-paramid", required=True)
     return parser
+
+
+class QuantilesConfig(Config):
+    def __init__(self, args: argparse.Namespace, verbose: bool = True):
+        super().__init__(args, verbose=verbose)
+
+        self.num_members = self.options.get('num_members', 51)
+        self.num_quantiles = self.options.get('num_quantiles', 100)
 
 
 def main(args: List[str] = sys.argv[1:]):
     parser = get_parser()
     args = parser.parse_args(args)
+    config = QuantilesConfig(args)
 
     res = ResourceMeter()
     print(f"Startup: {res!s}")
-    template, ens = read_ensemble(args.infile, args.members)
+    template, ens = read_ensemble(args.infile, config.num_members)
     print(f"Read ensemble: {res.update()!s}")
     target = target_factory("file", out_file=args.outfile)
-    do_quantiles(ens, template, target, args.out_paramid, n=args.number)
+    do_quantiles(ens, template, target, args.out_paramid, n=config.num_quantiles)
     print(f"Quantiles: {res.update()!s}")
 
 
