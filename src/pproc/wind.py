@@ -21,55 +21,62 @@ import mir
 from pproc import common
 
 
-def fdb2cache_request_det(cfg, levelist, window):
+def retrieve_messages(cfg, req, cached_file):
+    if cfg.vod2uv:
+        print(req)
+        common.fdb_read_to_file(cfg.fdb, req, cached_file)
+        messages = mir_wind(cfg, cached_file)
+    else:
+        out = common.fdb_retrieve(cfg.fdb, req, cfg.interpolation_keys)
+        reader = eccodes.StreamReader(out)
+        messages = list(reader)
+    assert len(messages) != 0
+    return messages
+
+
+def fdb_request_det(cfg, levelist, window):
     """
-    Retrieve vorticity and divergence from FDB and dump it to disk
-    Deterministic forecast
-    """
-
-    req = cfg.request.copy()
-    req.pop('stream_ens')
-    req['stream'] = req.pop('stream_det')
-    req["date"] = cfg.date.strftime("%Y%m%d")
-    req["time"] = cfg.date.strftime("%H")+'00'
-    req['levelist'] = levelist
-    req['step'] = window.steps
-    req['type'] = 'fc'
-
-    cached_file = f"wind_det_{levelist}_{window.name}.grb"
-    print(req)
-    common.fdb_read_to_file(cfg.fdb, req, cached_file)
-
-    return cached_file
-
-
-def fdb2cache_request_ens(cfg, levelist, window):
-    """
-    Retrieve vorticity and divergence from FDB and dump it to disk
-    Ensemble forecast (control + perturbed)
+    Retrieve vorticity and divergence or u/v for deterministic forecast
     """
 
     req = cfg.request.copy()
-    req.pop('stream_det')
-    req['stream'] = req.pop('stream_ens')
+    req.pop("stream_ens")
+    req["stream"] = req.pop("stream_det")
     req["date"] = cfg.date.strftime("%Y%m%d")
-    req["time"] = cfg.date.strftime("%H")+'00'
-    req['levelist'] = levelist
-    req['step'] = window.steps
+    req["time"] = cfg.date.strftime("%H") + "00"
+    if req["levtype"] != "sfc":
+        req["levelist"] = levelist
+    req["step"] = window.steps
+    req["type"] = "fc"
+
+    return retrieve_messages(cfg, req, f"wind_det_{levelist}_{window.name}.grb")
+
+
+def fdb_request_ens(cfg, levelist, window):
+    """
+    Retrieve vorticity and divergence or u/v for ensemble forecast
+    (control + perturbed)
+    """
+
+    req = cfg.request.copy()
+    req.pop("stream_det")
+    req["stream"] = req.pop("stream_ens")
+    req["date"] = cfg.date.strftime("%Y%m%d")
+    req["time"] = cfg.date.strftime("%H") + "00"
+    if req["levtype"] != "sfc":
+        req["levelist"] = levelist
+    req["step"] = window.steps
 
     req_cf = req.copy()
-    req_cf['type'] = 'cf'
-
-    cached_file = f"wind_ens_{levelist}_{window.name}.grb"
-    print(req)
-    common.fdb_read_to_file(cfg.fdb, req_cf, cached_file)
+    req_cf["type"] = "cf"
+    messages = retrieve_messages(cfg, req_cf, f"wind_det_{levelist}_{window.name}.grb")
 
     req_pf = req.copy()
-    req_pf['type'] = 'pf'
-    req_pf['number'] = range(1, cfg.members+1)
-    common.fdb_read_to_file(cfg.fdb, req_pf, cached_file, mode='ab')
+    req_pf["type"] = "pf"
+    req_pf["number"] = range(1, cfg.members + 1)
+    messages += retrieve_messages(cfg, req_pf, f"wind_det_{levelist}_{window.name}.grb")
 
-    return cached_file
+    return messages
 
 
 def mir_wind(cfg, cached_file):
@@ -94,46 +101,18 @@ def mir_wind(cfg, cached_file):
     return messages
 
 
-def wind_norm_det(cfg, levelist, window):
+def wind_speed(messages):
     """
-    Calculate deterministic (type=fc) wind speed
+    Compute wind speed from grib messages containing u and v
     """
-    cached_file = fdb2cache_request_det(cfg, levelist, window)
-
-    messages = mir_wind(cfg, cached_file)
-
-    template = messages[0]
-
-    steps = list(set([m["step"] for m in messages]))
-    wind_paramids = list(set([m["paramId"] for m in messages]))
-    assert len(wind_paramids) == 2
-    u = np.asarray([m.get_array("values") for m in messages if m["paramId"] == wind_paramids[0]])
-    v = np.asarray([m.get_array("values") for m in messages if m["paramId"] == wind_paramids[1]])
-
-    wind_speed = np.sqrt(u * u + v * v)
-    wind_speed = dict(zip(steps, wind_speed))
-
-    return wind_speed, template
-
-
-def wind_mean_std_eps(cfg, levelist, window):
-    """
-    Calculate ensemble (type=cf/pf) mean and standard deviation of wind speed
-    """
-    cached_file = fdb2cache_request_ens(cfg, levelist, window)
-
-    messages = mir_wind(cfg, cached_file)
-
-    template = messages[0]
-
     steps = list(set([m["step"] for m in messages]))
     wind_paramids = list(set([m["paramId"] for m in messages]))
     assert len(wind_paramids) == 2
 
-    u = {step:[] for step in steps}
-    v = {step:[] for step in steps}
+    u = {step: [] for step in steps}
+    v = {step: [] for step in steps}
     for m in messages:
-        step = m['step']
+        step = m["step"]
         param = m["paramId"]
         if param == wind_paramids[0]:
             u[step].append(m.get_array("values"))
@@ -146,50 +125,83 @@ def wind_mean_std_eps(cfg, levelist, window):
     v = np.asarray(list(v.values()))
 
     ws = np.sqrt(u * u + v * v)
-    mean = np.mean(ws, axis=1)
-    mean = dict(zip(steps, mean))
-    stddev = np.std(ws, axis=1)
-    stddev = dict(zip(steps, stddev))
+    ws = dict(zip(steps, ws))
 
-    return mean, stddev, template
+    return ws
 
 
-def template_ensemble(cfg, template, step, marstype):
-    template_ens = template.copy()
-    template_ens.set('bitsPerValue', 24)
-    template_ens.set("marsType", marstype)
-    template_ens.set("step", step)
+def basic_template(cfg, template, step, marstype):
+    new_template = template.copy()
+    new_template.set("bitsPerValue", 24)
+    new_template.set("marsType", marstype)
+    new_template.set("step", step)
     if step == 0:
-        template_ens.set('timeRangeIndicator', 1)
+        new_template.set("timeRangeIndicator", 1)
     else:
-        template_ens.set('timeRangeIndicator', 0)
-    for key, value in cfg.options['grib_set'].items():
-        template_ens.set(key, value)
-    return template_ens
+        new_template.set("timeRangeIndicator", 0)
+    for key, value in cfg.options["grib_set"].items():
+        new_template.set(key, value)
+    return new_template
+
+
+def eps_speed_template(cfg, template, step, number):
+    if number == 0:
+        eps_template = basic_template(cfg, template, step, "cf")
+    else:
+        eps_template = basic_template(cfg, template, step, "pf")
+        eps_template.set("number", number)
+    return eps_template
+
+
+def write_output(cfg, filename, template, data):
+    file = os.path.join(cfg.out_dir, filename)
+    target_det = common.target_factory(cfg.target, out_file=file, fdb=cfg.fdb)
+    common.write_grib(target_det, template, data)
 
 
 class ConfigExtreme(common.Config):
     def __init__(self, args):
         super().__init__(args)
 
-        self.members = self.options['members']
-        self.date = datetime.strptime(str(self.options['fc_date']), "%Y%m%d%H")
-        self.root_dir = self.options['root_dir']
-        self.target = self.options['target']
+        self.date = datetime.strptime(str(self.options["fc_date"]), "%Y%m%d%H")
+        self.root_dir = self.options["root_dir"]
+        self.target = self.options["target"]
         self.out_dir = os.path.join(self.root_dir, self.date.strftime("%Y%m%d%H"))
 
         self.fdb = pyfdb.FDB()
 
-        self.request = self.options['request']
-        self.windows = self.options['windows']
-        self.levelist = self.options['levelist']
-        self.interpolation_keys = self.options['interpolation_keys']
+        self.request = self.options["request"]
+        self.windows = self.options["windows"]
+        self.levelist = self.options.get("levelist", [0])
+        self.interpolation_keys = self.options.get("interpolation_keys", None)
+        self.vod2uv = self.options.get("vod2uv", False)
+
+        if args.eps_ws or args.eps_mean_std:
+            self.members = self.options["members"]
 
 
 def main(args=None):
 
-    parser = common.default_parser('Calculate wind speed mean/standard deviation')
+    parser = common.default_parser("Calculate wind speed")
+    parser.add_argument(
+        "--det_ws", action="store_true", default=False, help="Wind speed for type=fc"
+    )
+    parser.add_argument(
+        "--eps_ws", action="store_true", default=False, help="Wind speed for type=pf/cf"
+    )
+    parser.add_argument(
+        "--eps_mean_std",
+        action="store_true",
+        default=False,
+        help="Wind speed mean/std for type=pf/cf. "
+        + "Default option if no options are set.",
+    )
     args = parser.parse_args(args)
+
+    # If no arguments are selected then run eps_mean_std by default
+    if not any([args.det_ws, args.eps_ws, args.eps_mean_std]):
+        args.eps_mean_std = True
+
     cfg = ConfigExtreme(args)
 
     for levelist in cfg.levelist:
@@ -198,25 +210,52 @@ def main(args=None):
             window = common.Window(window_options, include_init=True)
 
             # calculate wind speed for type=fc (deterministic)
-            # det, template_det = wind_norm_det(cfg, levelist, window)
-            # for step in window.steps:
-            #     det_file = os.path.join(cfg.out_dir, f'det_{levelist}_{window.name}_{step}.grib')
-            #     target_det = common.target_factory(cfg.target, out_file=det_file, fdb=cfg.fdb)
-            #     template_det = template_det
-            #     common.write_grib(target_det, template_det, det[step])
+            if args.det_ws:
+                messages = fdb_request_det(cfg, levelist, window)
+                det = wind_speed(messages)
+                for step in window.steps:
+                    template_det = basic_template(cfg, messages[0], step, "fc")
+                    write_output(
+                        cfg,
+                        f"det_{levelist}_{window.name}_{step}.grib",
+                        template_det,
+                        det[step][0],
+                    )
 
-            # calculate mean/stddev of wind speed for type=pf/cf (eps)
-            mean, std, template_ens = wind_mean_std_eps(cfg, levelist, window)
-            for step in window.steps:
-                print(step)
-                mean_file = os.path.join(cfg.out_dir, f'mean_{levelist}_{window.name}_{step}.grib')
-                target_mean = common.target_factory(cfg.target, out_file=mean_file, fdb=cfg.fdb)
-                template_mean = template_ensemble(cfg, template_ens, step, 'em')
-                common.write_grib(target_mean, template_mean, mean[step])
-                std_file = os.path.join(cfg.out_dir, f'std_{levelist}_{window.name}_{step}.grib')
-                target_std = common.target_factory(cfg.target, out_file=std_file, fdb=cfg.fdb)
-                template_std = template_ensemble(cfg, template_ens, step, 'es')
-                common.write_grib(target_std, template_std, std[step])
+            # calculate wind speed, mean/stddev of wind speed for type=pf/cf (eps)
+            if args.eps_ws or args.eps_mean_std:
+                messages = fdb_request_ens(cfg, levelist, window)
+                eps = wind_speed(messages)
+                template = messages[0]
+                for step in window.steps:
+                    print(step)
+                    if args.eps_ws:
+                        for number in range(cfg.members + 1):
+                            template_eps = eps_speed_template(
+                                cfg, template, step, number
+                            )
+                            write_output(
+                                cfg,
+                                f"eps_{levelist}_{window.name}_{step}_{number}.grib",
+                                template_eps,
+                                eps[step][number],
+                            )
+                    if args.eps_mean_std:
+                        template_mean = basic_template(cfg, template, step, "em")
+                        write_output(
+                            cfg,
+                            f"mean_{levelist}_{window.name}_{step}.grib",
+                            template_mean,
+                            np.mean(eps[step], axis=0),
+                        )
+
+                        template_std = basic_template(cfg, template, step, "es")
+                        write_output(
+                            cfg,
+                            f"std_{levelist}_{window.name}_{step}.grib",
+                            template_std,
+                            np.std(eps[step], axis=0),
+                        )
 
 
 if __name__ == "__main__":
