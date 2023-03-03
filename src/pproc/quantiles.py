@@ -9,7 +9,7 @@ import eccodes
 
 from pproc.common.config import Config, default_parser
 from pproc.common.dataset import open_multi_dataset
-from pproc.common.io import Target, missing_to_nan, nan_to_missing, target_factory
+from pproc.common.io import Target, missing_to_nan, nan_to_missing, target_from_location
 from pproc.common.resources import ResourceMeter
 
 
@@ -139,7 +139,7 @@ def get_parser() -> argparse.ArgumentParser:
     description = "Compute quantiles of an ensemble"
     parser = default_parser(description=description)
     parser.add_argument("--in-ens", required=True, help="Input ensemble source")
-    parser.add_argument("--outfile", required=True, help="Output file (GRIB)")
+    parser.add_argument("--out-quantiles", required=True, help="Output target")
     parser.add_argument("-o", "--out-paramid", required=True)
     return parser
 
@@ -163,7 +163,7 @@ def main(args: List[str] = sys.argv[1:]):
     print(f"Startup: {res!s}")
     template, ens = read_ensemble(config.sources, args.in_ens, config.num_members)
     print(f"Read ensemble: {res.update()!s}")
-    target = target_factory("file", out_file=args.outfile)
+    target = target_from_location(args.out_quantiles)
     do_quantiles(ens, template, target, args.out_paramid, n=config.num_quantiles)
     print(f"Quantiles: {res.update()!s}")
 
