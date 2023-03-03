@@ -156,6 +156,12 @@ def fdb_retrieve(fdb, request, mir_options=None):
         FDB Reader object, containing the messages requested
     """
     fdb_reader = fdb.retrieve(request)
+
+    # Try reading a small chunk to check data was retrieved
+    if len(fdb_reader.read(1)) == 0:
+        raise RuntimeError(f'No data retrieved for request {request}')
+    fdb_reader.seek(0)
+
     if mir_options:
         job = mir.Job(**mir_options)
         stream = BytesIO()
