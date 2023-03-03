@@ -105,7 +105,7 @@ def quantiles(ens: np.ndarray, n: int = 100, method: str = 'sort') -> Iterable[n
             x = f - j
             quantile = ens[j, :].copy()
             quantile *= 1 - x
-            tmp = ens[min(j + 1, m - 1), :]
+            tmp = ens[min(j + 1, m - 1), :].copy()
             tmp *= x
             quantile += tmp
             yield quantile
