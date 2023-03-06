@@ -39,6 +39,7 @@ class Parameter:
         self.base_request["date"] = dt.strftime("%Y%m%d")
         self.base_request["time"] = dt.strftime("%H")
         self.interpolation_keys = param_cfg.get("interpolation_keys", None)
+        self.scale_data = float(param_cfg.get("scale", 1))
 
     def retrieve_data(self, fdb, step: int):
         combined_data = []
@@ -56,7 +57,23 @@ class Parameter:
             else:
                 combined_data = np.concatenate((combined_data, new_data), axis=0)
 
-        return message_temp, combined_data
+        return message_temp, combined_data*self.scale_data
+    
+    def type_and_number(self, index: int):
+        """
+        Get data type and ensemble number from concatenated data index
+        """
+        types = self.base_request['type'].split('/')
+        if 'pf' in types:
+            nensembles = len(self.base_request["number"])
+            pf_start_index = types.index('pf')
+            if index < pf_start_index:
+                return types[index], 0
+            if index < pf_start_index + nensembles:
+                return 'pf', index - pf_start_index + 1
+            return types[index - (nensembles - 1)], 0
+        else:
+            return types[index], 0
 
 
 class CombineParameters(Parameter):
