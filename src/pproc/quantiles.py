@@ -37,7 +37,7 @@ def read_ensemble(sources: dict, loc: str, members: int, dtype=np.float32, **kwa
         Read data
     """
     def set_number(keys):
-        if keys['type'] == 'pf':
+        if keys.get('type') == 'pf':
             keys['number'] = range(1, members)
     readers = open_multi_dataset(sources, loc, update=set_number, **kwargs)
     template = None

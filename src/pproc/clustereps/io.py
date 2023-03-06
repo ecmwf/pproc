@@ -36,7 +36,7 @@ def read_ensemble_grib(sources: dict, loc: str, steps: List[int], nexp: int) -> 
         Template message
     """
     def set_number(keys):
-        if keys['type'] == 'pf':
+        if keys.get('type') == 'pf':
             keys['number'] = range(1, nexp)
     inv_steps = {s: i for i, s in enumerate(steps)}
     nstep = len(steps)
