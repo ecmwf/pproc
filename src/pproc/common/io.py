@@ -157,7 +157,6 @@ def fdb_retrieve(fdb, request, mir_options=None):
         FDB Reader object, containing the messages requested
     """
     fdb_reader = fdb.retrieve(request)
-
     if mir_options:
         job = mir.Job(**mir_options)
         stream = BytesIO()
@@ -243,6 +242,7 @@ def fdb_read_to_file(fdb, request, file_out, mir_options=None, mode='wb'):
         outfile.write(data)
     if os.path.getsize(file_out) == 0:
         raise RuntimeError(f'No data retrieved for request {request}')
+    
 
 def fdb_write_ufunc(data, coords, fdb, template):
 
