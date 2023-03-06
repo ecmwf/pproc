@@ -6,6 +6,9 @@ global_input_keys:
   expver: '0001'
 global_output_keys: 
   expver: '0001'
+  type: 'ep'
+  localDefinitionNumber: 5
+  bitsPerValue: 8  # Set equal to accuracy used in mars compute
 parameters:
   t850:
     in_paramid: 130

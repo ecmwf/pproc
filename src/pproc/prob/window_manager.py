@@ -28,9 +28,8 @@ class ThresholdWindowManager(WindowManager):
         # Get window operation, or if not provided in config, derive from threshold
         window_operations = {}
         if "window_operation" in window_config:
-            window_operations[window_config["window_operation"]] = window_config[
-                "thresholds"
-            ]
+            window_operations[window_config["window_operation"]] = window_config.get(
+                "thresholds", [])
         elif "thresholds" in window_config:
             # Derive from threshold comparison parameter
             for threshold in window_config["thresholds"]:

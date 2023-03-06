@@ -25,7 +25,7 @@ def threshold_grib_headers(threshold) -> Dict:
 
 
 def construct_message(
-    template_grib, window_grib_headers, threshold, climatology_headers: Dict = None
+    template_grib, window_grib_headers, threshold=None, climatology_headers: Dict = None
 ):
     """
     Sets grib headers into template message using headers specified in
@@ -34,28 +34,21 @@ def construct_message(
     # Copy an input GRIB message and modify headers for writing probability
     # field
     out_grib = template_grib.copy()
-    key_values = {
-        "type": "ep",
-        "localDefinitionNumber": 5,
-        "bitsPerValue": 8,  # Set equal to accuracy used in mars compute
-    }
-    key_values.update(window_grib_headers)
+    key_values = window_grib_headers.copy()
     set_missing = [
         key for key, value in window_grib_headers.items() if value == "MISSING"
     ]
     for missing_key in set_missing:
         key_values.pop(missing_key)
 
-    if key_values.get("edition", 1) == 2:
-        key_values.update({"paramId": threshold["out_paramid"]})
-        if climatology_headers:
-            key_values.update(climatology_headers)
-    else:
-        key_values.update(threshold_grib_headers(threshold))
-
+    if climatology_headers:
+        key_values.update(climatology_headers)
+        
     # Set grib 1 and grib 2 keys separately as value check can fail when
     # grib 1 keys are removed in the switch to grib 2
     if key_values.get("edition", 1) == 2:
+        if threshold:
+            key_values.update({"paramId": threshold["out_paramid"]})
         keys = list(key_values.keys())
         grib2_start_index = keys.index("edition")
         out_grib.set(
@@ -67,6 +60,8 @@ def construct_message(
             check_values=True,
         )
     else:
+        if threshold:
+            key_values.update(threshold_grib_headers(threshold))
         out_grib.set(key_values, check_values=True)
 
     for missing_key in set_missing:
