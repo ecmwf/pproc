@@ -85,7 +85,7 @@ class Parameter(): # change id to paramid
         params = self.fc_keys.pop('param')
         self.req_paramids = set(params) if isinstance(params, list) else {params}
         self.eps = float(options['eps'])
-        self.sot = options['sot']
+        self.sot = [int(x) for x in options['sot']]
         self.type = options['preprocessing']
         self.suffix = f"{self.name}_{window.suffix}"
         self.steps = window.steps

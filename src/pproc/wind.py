@@ -174,10 +174,10 @@ class ConfigExtreme(common.Config):
         self.windows = self.options["windows"]
         self.levelist = self.options.get("levelist", [0])
         self.interpolation_keys = self.options.get("interpolation_keys", None)
-        self.vod2uv = self.options.get("vod2uv", False)
+        self.vod2uv = bool(self.options.get("vod2uv", False))
 
         if args.eps_ws or args.eps_mean_std:
-            self.members = self.options["members"]
+            self.members = int(self.options["members"])
 
 
 def main(args=None):

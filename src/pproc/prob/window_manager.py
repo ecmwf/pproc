@@ -28,12 +28,17 @@ class ThresholdWindowManager(WindowManager):
         # Get window operation, or if not provided in config, derive from threshold
         window_operations = {}
         if "window_operation" in window_config:
+            for threshold in window_config["thresholds"]:
+                if isinstance(threshold['value'], str):
+                    threshold['value'] = float(threshold['value'])
             window_operations[window_config["window_operation"]] = window_config[
                 "thresholds"
             ]
         elif "thresholds" in window_config:
             # Derive from threshold comparison parameter
             for threshold in window_config["thresholds"]:
+                if isinstance(threshold['value'], str):
+                    threshold['value'] = float(threshold['value'])
                 comparison = threshold["comparison"]
                 if "<" in comparison:
                     operation = "min"

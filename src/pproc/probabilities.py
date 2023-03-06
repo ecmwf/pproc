@@ -24,8 +24,8 @@ def main(args=None):
     cfg = common.Config(args)
 
     date = datetime.strptime(args.date, "%Y%m%d%H")
-    leg = cfg.options.get("leg")
-    nensembles = cfg.options.get("number_of_ensembles", 50)
+    leg = int(cfg.options.get("leg"))
+    nensembles = int(cfg.options.get("number_of_ensembles", 50))
     global_input_cfg = cfg.options.get("global_input_keys", {})
     global_output_cfg = cfg.options.get("global_output_keys", {})
 
