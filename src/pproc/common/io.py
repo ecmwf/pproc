@@ -2,6 +2,7 @@ from contextlib import ExitStack
 from io import BytesIO
 import yaml
 import itertools
+import os
 
 import numpy as np
 import xarray as xr
@@ -157,11 +158,6 @@ def fdb_retrieve(fdb, request, mir_options=None):
     """
     fdb_reader = fdb.retrieve(request)
 
-    # Try reading a small chunk to check data was retrieved
-    if len(fdb_reader.read(1)) == 0:
-        raise RuntimeError(f'No data retrieved for request {request}')
-    fdb_reader.seek(0)
-
     if mir_options:
         job = mir.Job(**mir_options)
         stream = BytesIO()
@@ -190,6 +186,8 @@ def fdb_read(fdb, request, mir_options=None):
 
     fdb_reader = fdb_retrieve(fdb, request, mir_options)
     eccodes_reader = eccodes.StreamReader(fdb_reader)
+    if not eccodes_reader.peek():
+        raise RuntimeError(f'No data retrieved for request {request}')
     fields_dims = [key for key in request if isinstance(request[key], (list, range))]
     fields = read_grib_messages(eccodes_reader, fields_dims)
     if fields is None:
@@ -218,6 +216,8 @@ def fdb_read_with_template(fdb, request, mir_options=None):
 
     fdb_reader = fdb_retrieve(fdb, request, mir_options)
     eccodes_reader = eccodes.StreamReader(fdb_reader)
+    if not eccodes_reader.peek():
+        raise RuntimeError(f'No data retrieved for request {request}')
     messages = list(eccodes_reader)
 
     return messages[0], np.asarray([missing_to_nan(message) for message in messages])
@@ -241,7 +241,8 @@ def fdb_read_to_file(fdb, request, file_out, mir_options=None, mode='wb'):
     outfile = open(file_out, mode)
     for data in iter((lambda: fdb_reader.read(4096)), b""):
         outfile.write(data)
-
+    if os.path.getsize(file_out) == 0:
+        raise RuntimeError(f'No data retrieved for request {request}')
 
 def fdb_write_ufunc(data, coords, fdb, template):
 

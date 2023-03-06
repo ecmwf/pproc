@@ -29,8 +29,9 @@ def retrieve_messages(cfg, req, cached_file):
     else:
         out = common.fdb_retrieve(cfg.fdb, req, cfg.interpolation_keys)
         reader = eccodes.StreamReader(out)
+        if not reader.peek():
+            raise RuntimeError(f'No data retrieved for request {req}')
         messages = list(reader)
-    assert len(messages) != 0
     return messages
 
 
