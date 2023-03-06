@@ -8,34 +8,9 @@ import pyfdb
 from pproc import common
 from pproc.prob.grib_helpers import construct_message
 from pproc.prob.math import ensemble_probability
-from pproc.prob.parameter import Parameter
+from pproc.prob.parameter import create_parameter, Parameter
 from pproc.prob.window_manager import ThresholdWindowManager
 from pproc.prob.model_constants import LAST_MODEL_STEP, CLIM_INTERVAL
-
-
-class CombinedForecasts(Parameter):
-    def retrieve_data(self, fdb, step: int):
-        """
-        Retrieves data at step for perturbed and control forecast and
-        concatenates them together into one array
-        """
-        new_request = self.base_request.copy()
-        new_request["step"] = step
-
-        # pf
-        new_request["type"] = "pf"
-        message_temp, pf_data = common.fdb_read_with_template(
-            fdb, new_request, self.interpolation_keys
-        )
-
-        # cf
-        new_request["type"] = "cf"
-        new_request.pop("number")
-        _, cf_data = common.fdb_read_with_template(
-            fdb, new_request, self.interpolation_keys
-        )
-
-        return message_temp, np.concatenate((pf_data, cf_data), axis=0)
 
 
 class Climatology(Parameter):
@@ -103,15 +78,7 @@ class Climatology(Parameter):
         and
         """
         cstep = self.clim_step(step)
-        new_request = self.base_request.copy()
-        new_request["step"] = cstep
-        ret = []
-        for type in self.base_request["type"].split("/"):
-            new_request["type"] = type
-            temp_message, data = common.fdb_read_with_template(
-                fdb, new_request, self.interpolation_keys
-            )
-            ret.append(data)
+        temp_message, ret = super().retrieve_data(fdb, cstep)
         return self.grib_header(temp_message), ret
 
 
@@ -190,11 +157,10 @@ def main(args=None):
     fdb = pyfdb.FDB()
 
     for param_name, param_cfg in cfg.options["parameters"].items():
-        param_id = param_cfg["in_paramid"]
-        param = CombinedForecasts(
-            date, param_id, global_input_cfg, param_cfg, n_ensembles
+        param = create_parameter(
+            date, global_input_cfg, param_cfg, n_ensembles
         )
-        clim = Climatology(date, param_id, global_input_cfg, param_cfg)
+        clim = Climatology(date, param_cfg["in_paramid"], global_input_cfg, param_cfg)
 
         window_manager = AnomalyWindowManager(param_cfg)
 
