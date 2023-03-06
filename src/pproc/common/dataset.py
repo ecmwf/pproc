@@ -3,7 +3,7 @@ from contextlib import ExitStack
 import copy
 from io import BytesIO
 import pprint
-from typing import Any, Callable, Iterable, Iterator, List, Union
+from typing import Any, Callable, Iterable, Iterator, List, Optional, Union
 
 import eccodes
 import mir
@@ -97,6 +97,34 @@ def _open_dataset_fileset(reqs: Union[dict, Iterable[dict]], **kwargs: Any) -> I
         yield eccodes.FileReader(path)
 
 
+class FilteredReader(eccodes.reader.ReaderBase):
+    def __init__(self, wrapped: eccodes.reader.ReaderBase, **kwargs: Any):
+        super().__init__()
+        self.wrapped = wrapped
+        self.filters = kwargs
+        update_func = self.filters.pop('update', None)
+        if update_func is not None:
+            update_func(self.filters)
+
+    def _next_handle(self) -> Optional[int]:
+        notset = object()  # Should be different to any result of message.get(key)
+        for handle in iter(self.wrapped._next_handle, None):
+            message = eccodes.GRIBMessage(eccodes.codes_clone(handle))
+            matched = all(message.get(key, notset) == val for key, val in self.filters.items())
+            if matched:
+                return handle
+            else:
+                eccodes.codes_release(handle)
+        return None
+
+    def __enter__(self):
+        self.wrapped.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        return self.wrapped.__exit__(exc_type, exc_value, traceback)
+
+
 def open_dataset(config: dict, loc: str, **kwargs) -> eccodes.reader.ReaderBase:
     """Open a GRIB dataset
 
@@ -146,7 +174,7 @@ def open_multi_dataset(config: dict, loc: str, **kwargs) -> Iterable[eccodes.rea
     """
     type_, ident = split_location(loc, default='file')
     if type_ == 'file':
-        return [eccodes.FileReader(ident)]
+        return [FilteredReader(eccodes.FileReader(ident), **kwargs)]
     reqs = config.get(type_, {}).get(ident, None)
     open_func = _DATASET_BACKENDS.get(type_, None)
     if reqs is not None and open_func is not None:
