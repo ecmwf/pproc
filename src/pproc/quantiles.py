@@ -151,6 +151,8 @@ class QuantilesConfig(Config):
         self.num_members = self.options.get('num_members', 51)
         self.num_quantiles = self.options.get('num_quantiles', 100)
 
+        self.steps = self.options.get('steps', [None])
+
         self.sources = self.options.get('sources', {})
 
 
@@ -160,12 +162,16 @@ def main(args: List[str] = sys.argv[1:]):
     config = QuantilesConfig(args)
 
     res = ResourceMeter()
-    print(f"Startup: {res!s}")
-    template, ens = read_ensemble(config.sources, args.in_ens, config.num_members)
-    print(f"Read ensemble: {res.update()!s}")
-    target = target_from_location(args.out_quantiles)
-    do_quantiles(ens, template, target, args.out_paramid, n=config.num_quantiles)
-    print(f"Quantiles: {res.update()!s}")
+    for step in config.steps:
+        label = "" if step is None else f"Step {step}: "
+        kwargs = {} if step is None else {"step": step}
+        print(f"{label}Startup: {res.update()!s}")
+        template, ens = read_ensemble(config.sources, args.in_ens, config.num_members, **kwargs)
+        print(f"{label}Read ensemble: {res.update()!s}")
+        target = target_from_location(args.out_quantiles)
+        do_quantiles(ens, template, target, args.out_paramid, n=config.num_quantiles)
+        print(f"{label}Quantiles: {res.update()!s}")
+        del ens
 
 
 if __name__ == '__main__':
