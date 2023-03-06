@@ -66,7 +66,10 @@ def _open_dataset_marslike(name: str, retrieve_func: Callable[[dict, dict], ecco
 
 def _fdb_retrieve_interp(request: dict, mir_options: dict) -> eccodes.reader.ReaderBase:
     fdb_reader = fdb_retrieve(fdb(), request, mir_options)
-    return eccodes.StreamReader(fdb_reader)
+    reader = eccodes.StreamReader(fdb_reader)
+    if not reader.peek():
+        raise RuntimeError(f'No data retrieved for request {request}')
+    return reader
 
 
 def _open_dataset_fdb(reqs: Union[dict, Iterable[dict]], **kwargs: Any) -> Iterator[eccodes.reader.ReaderBase]:
