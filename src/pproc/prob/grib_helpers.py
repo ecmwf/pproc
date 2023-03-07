@@ -43,7 +43,7 @@ def construct_message(
 
     if climatology_headers:
         key_values.update(climatology_headers)
-        
+
     # Set grib 1 and grib 2 keys separately as value check can fail when
     # grib 1 keys are removed in the switch to grib 2
     if key_values.get("edition", 1) == 2:

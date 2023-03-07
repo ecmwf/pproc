@@ -157,9 +157,7 @@ def main(args=None):
     fdb = pyfdb.FDB()
 
     for param_name, param_cfg in cfg.options["parameters"].items():
-        param = create_parameter(
-            date, global_input_cfg, param_cfg, n_ensembles
-        )
+        param = create_parameter(date, global_input_cfg, param_cfg, n_ensembles)
         clim = Climatology(date, param_cfg["in_paramid"], global_input_cfg, param_cfg)
 
         window_manager = AnomalyWindowManager(param_cfg)

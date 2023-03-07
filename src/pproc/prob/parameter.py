@@ -43,11 +43,11 @@ class Parameter:
 
     def retrieve_data(self, fdb, step: int):
         combined_data = []
-        for type in self.base_request['type'].split('/'):
+        for type in self.base_request["type"].split("/"):
             new_request = self.base_request.copy()
             new_request["step"] = step
             new_request["type"] = type
-            if type == 'cf':
+            if type == "cf":
                 new_request.pop("number")
             message_temp, new_data = common.fdb_read_with_template(
                 fdb, new_request, self.interpolation_keys
@@ -57,20 +57,20 @@ class Parameter:
             else:
                 combined_data = np.concatenate((combined_data, new_data), axis=0)
 
-        return message_temp, combined_data*self.scale_data
-    
+        return message_temp, combined_data * self.scale_data
+
     def type_and_number(self, index: int):
         """
         Get data type and ensemble number from concatenated data index
         """
-        types = self.base_request['type'].split('/')
-        if 'pf' in types:
+        types = self.base_request["type"].split("/")
+        if "pf" in types:
             nensembles = len(self.base_request["number"])
-            pf_start_index = types.index('pf')
+            pf_start_index = types.index("pf")
             if index < pf_start_index:
                 return types[index], 0
             if index < pf_start_index + nensembles:
-                return 'pf', index - pf_start_index + 1
+                return "pf", index - pf_start_index + 1
             return types[index - (nensembles - 1)], 0
         else:
             return types[index], 0

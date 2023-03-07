@@ -3,8 +3,6 @@ import sys
 import os
 from datetime import datetime
 
-import numpy as np
-
 import pyfdb
 
 from pproc import common
@@ -49,7 +47,6 @@ def main(args=None):
 
         for step in window_manager.unique_steps:
             message_template, data = param.retrieve_data(fdb, step)
-            assert message_template is not None
             message_template.set(global_output_cfg)
 
             completed_windows = window_manager.update_windows(step, data)
@@ -57,12 +54,21 @@ def main(args=None):
                 if args.write_ensemble:
                     for index in range(len(window.step_values)):
                         type, number = param.type_and_number(index)
-                        template = construct_message(message_template, window.grib_header(leg))
-                        template.set({'type': type, 'number': number})
-                        print(f"Writing window values for param {param_name} and output "
-                            + f"type {type}, number {number} for step(s) {window.name}")
-                        write_grib(cfg, fdb, f"{param_name}_type{type}_number{number}_step{window.name}",
-                            template, window.step_values[index])
+                        template = construct_message(
+                            message_template, window.grib_header(leg)
+                        )
+                        template.set({"type": type, "number": number})
+                        print(
+                            f"Writing window values for param {param_name} and output "
+                            + f"type {type}, number {number} for step(s) {window.name}"
+                        )
+                        write_grib(
+                            cfg,
+                            fdb,
+                            f"{param_name}_type{type}_number{number}_step{window.name}",
+                            template,
+                            window.step_values[index],
+                        )
                 for threshold in window_manager.thresholds(window):
                     window_probability = ensemble_probability(
                         window.step_values, threshold
