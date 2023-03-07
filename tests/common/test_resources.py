@@ -137,6 +137,13 @@ def test_resourcemeter_named():
     assert str(meter).startswith(f"{name}: ")
 
 
+def test_resourcemeter_contextmgr(capsys):
+    with ResourceMeter() as meter:
+        pass
+    capture = capsys.readouterr()
+    assert capture.out == f"{meter!s}\n"
+
+
 def test_metered(capsys):
     @metered
     def myfunc(x):
