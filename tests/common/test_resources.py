@@ -131,6 +131,19 @@ def test_resourcemeter():
     assert meter.mem > 0
 
 
+def test_resourcemeter_named():
+    name = "MyMeter"
+    meter = ResourceMeter(name)
+    assert str(meter).startswith(f"{name}: ")
+
+
+def test_resourcemeter_contextmgr(capsys):
+    with ResourceMeter() as meter:
+        pass
+    capture = capsys.readouterr()
+    assert capture.out == f"{meter!s}\n"
+
+
 def test_metered(capsys):
     @metered
     def myfunc(x):
@@ -170,4 +183,4 @@ def test_metered(capsys):
     capture = capsys.readouterr()
     assert res == 3
     assert isinstance(meter, ResourceMeter)
-    assert capture.out == f"myfunc4: {meter!s}\n"
+    assert capture.out == f"{meter!s}\n"
