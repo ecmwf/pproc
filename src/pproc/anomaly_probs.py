@@ -83,12 +83,12 @@ class Climatology(Parameter):
 
 
 class AnomalyWindowManager(ThresholdWindowManager):
-    def __init__(self, parameter):
+    def __init__(self, parameter, global_config):
         self.standardised_anomaly_windows = []
-        ThresholdWindowManager.__init__(self, parameter)
+        ThresholdWindowManager.__init__(self, parameter, global_config)
 
-    def create_windows(self, parameter):
-        super().create_windows(parameter)
+    def create_windows(self, parameter, global_config):
+        super().create_windows(parameter, global_config)
         if "std_anomaly_windows" in parameter:
             # Create windows for standard anomaly
             for window_config in parameter["std_anomaly_windows"]:
@@ -97,9 +97,10 @@ class AnomalyWindowManager(ThresholdWindowManager):
                 for operation, thresholds in window_operations.items():
                     for period in window_config["periods"]:
                         new_window = common.create_window(period, operation)
-                        new_window.config_grib_header = window_config.get(
+                        new_window.config_grib_header = global_config.copy()
+                        new_window.config_grib_header.update(window_config.get(
                             "grib_set", {}
-                        )
+                        ))
                         self.standardised_anomaly_windows.append(new_window)
                         self.window_thresholds[new_window] = thresholds
 
@@ -160,11 +161,10 @@ def main(args=None):
         param = create_parameter(date, global_input_cfg, param_cfg, n_ensembles)
         clim = Climatology(date, param_cfg["in_paramid"], global_input_cfg, param_cfg)
 
-        window_manager = AnomalyWindowManager(param_cfg)
+        window_manager = AnomalyWindowManager(param_cfg, global_output_cfg)
 
         for step in window_manager.unique_steps:
             message_template, data = param.retrieve_data(fdb, step)
-            message_template.set(global_output_cfg)
             clim_grib_header, clim_data = clim.retrieve_data(fdb, step)
 
             completed_windows = window_manager.update_windows(

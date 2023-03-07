@@ -43,29 +43,28 @@ def main(args=None):
 
     for param_name, param_cfg in cfg.options["parameters"].items():
         param = create_parameter(date, global_input_cfg, param_cfg, nensembles)
-        window_manager = ThresholdWindowManager(param_cfg)
+        window_manager = ThresholdWindowManager(param_cfg, global_output_cfg)
 
         for step in window_manager.unique_steps:
             message_template, data = param.retrieve_data(fdb, step)
-            message_template.set(global_output_cfg)
 
             completed_windows = window_manager.update_windows(step, data)
             for window in completed_windows:
                 if args.write_ensemble:
                     for index in range(len(window.step_values)):
-                        type, number = param.type_and_number(index)
+                        data_type, number = param.type_and_number(index)
                         print(
                             f"Writing window values for param {param_name} and output "
-                            + f"type {type}, number {number} for step(s) {window.name}"
+                            + f"type {data_type}, number {number} for step(s) {window.name}"
                         )
                         template = construct_message(
                             message_template, window.grib_header(leg)
                         )
-                        template.set({"type": type, "number": number})
+                        template.set({"type": data_type, "number": number})
                         write_grib(
                             cfg,
                             fdb,
-                            f"{param_name}_type{type}_number{number}_step{window.name}",
+                            f"{param_name}_type{data_type}_number{number}_step{window.name}",
                             template,
                             window.step_values[index],
                         )

@@ -10,9 +10,9 @@ class ThresholdWindowManager(WindowManager):
     :raises: RuntimeError if no window operation was provided, or could be derived
     """
 
-    def __init__(self, parameter):
+    def __init__(self, parameter, global_config):
         self.window_thresholds = {}
-        WindowManager.__init__(self, parameter)
+        WindowManager.__init__(self, parameter, global_config)
 
     @classmethod
     def window_operation_from_config(cls, window_config) -> str:
@@ -49,14 +49,17 @@ class ThresholdWindowManager(WindowManager):
             )
         return window_operations
 
-    def create_windows(self, parameter):
+    def create_windows(self, parameter, global_config):
         for window_config in parameter["windows"]:
             window_operations = self.window_operation_from_config(window_config)
 
             for operation, thresholds in window_operations.items():
                 for period in window_config["periods"]:
                     new_window = create_window(period, operation)
-                    new_window.config_grib_header = window_config.get("grib_set", {})
+                    new_window.config_grib_header = global_config.copy()
+                    new_window.config_grib_header.update(window_config.get(
+                        "grib_set", {}
+                    ))
                     self.windows.append(new_window)
                     self.window_thresholds[new_window] = thresholds
 
