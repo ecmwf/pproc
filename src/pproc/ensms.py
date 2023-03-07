@@ -124,7 +124,7 @@ class ConfigExtreme(common.Config):
     def __init__(self, args):
         super().__init__(args)
 
-        self.members = self.options['members']
+        self.members = int(self.options['members'])
         self.date = datetime.strptime(str(self.options['fc_date']), "%Y%m%d%H")
         self.root_dir = self.options['root_dir']
         self.target = self.options['target']

@@ -14,22 +14,22 @@ class ClusterConfigBase(Config):
         super().__init__(args, verbose=verbose)
 
         # Step range
-        self.step_start = self.options['step_start']
-        self.step_end = self.options['step_end']
-        self.step_del = self.options['step_del']
+        self.step_start = int(self.options['step_start'])
+        self.step_end = int(self.options['step_end'])
+        self.step_del = int(self.options['step_del'])
 
         # Bounding box
-        self.lat_n = self.options['lat_n']
-        self.lat_s = self.options['lat_s']
-        self.lon_w = self.options['lon_w']
-        self.lon_e = self.options['lon_e']
+        self.lat_n = float(self.options['lat_n'])
+        self.lat_s = float(self.options['lat_s'])
+        self.lon_w = float(self.options['lon_w'])
+        self.lon_e = float(self.options['lon_e'])
         self.bbox = (self.lat_n, self.lat_s, self.lon_w, self.lon_e)
 
         # Number of members (51)
-        self.num_members = self.options.get('num_members', 51)
+        self.num_members = int(self.options.get('num_members', 51))
 
         # Maximum absolute value of anomalies
-        self.clip = self.options.get('max_anom', 10000.)
+        self.clip = float(self.options.get('max_anom', 10000.))
 
         self.sources = self.options.get('sources', {})
 
@@ -51,7 +51,7 @@ class PCAConfig(ClusterConfigBase):
         # Normalisation factor (1)
         self.pca_factor = self.options.get('pca_factor', None)
         # Number of components to extract
-        self.ncomp = self.options['num_components']
+        self.ncomp = int(self.options['num_components'])
 
 
 class ClusterConfig(ClusterConfigBase):
@@ -60,27 +60,27 @@ class ClusterConfig(ClusterConfigBase):
         super().__init__(args, verbose=verbose)
 
         # Variance threshold
-        self.var_th = self.options['var_th']
+        self.var_th = float(self.options['var_th'])
         # Number of PCs to use, optional
-        self.npc = self.options.get('npc', -1)
+        self.npc = int(self.options.get('npc', -1))
         # Normalisation factor (2/5)
-        self.cluster_factor = self.options.get('cluster_factor', 0.4)
+        self.cluster_factor = float(self.options.get('cluster_factor', 0.4))
         # Max number of clusters
-        self.ncl_max = self.options['ncl_max']
+        self.ncl_max = int(self.options['ncl_max'])
         # Number of clustering passes
-        self.npass = self.options['npass']
+        self.npass = int(self.options['npass'])
         # Number of red-noise samples for significance computation
-        self.nrsamples = self.options['nrsamples']
+        self.nrsamples = int(self.options['nrsamples'])
         # Maximum significance threshold
-        self.max_sig = self.options['max_sig']
+        self.max_sig = float(self.options['max_sig'])
         # Medium significance threshold
-        self.med_sig = self.options['med_sig']
+        self.med_sig = float(self.options['med_sig'])
         # Minimum significance threshold
-        self.min_sig = self.options['min_sig']
+        self.min_sig = float(self.options['min_sig'])
         # Significance tolerance
-        self.sig_tol = self.options['sig_tol']
+        self.sig_tol = float(self.options['sig_tol'])
         # Parallel red-noise sampling
-        self.n_par = self.options.get('n_par', 1)
+        self.n_par = int(self.options.get('n_par', 1))
 
 
 class AttributionConfig(ClusterConfigBase):
@@ -89,7 +89,7 @@ class AttributionConfig(ClusterConfigBase):
         super().__init__(args, verbose=verbose)
 
         # Climatological data options
-        self.nClusterClim = self.options.get('ncl_clim', 6)
+        self.nClusterClim = int(self.options.get('ncl_clim', 6))
         self.climMeans = pjoin(args.clim_dir, self.options['clim_means'])
         self.climPCs = pjoin(args.clim_dir, self.options['clim_pcs'])
         self.climSdv = pjoin(args.clim_dir, self.options['clim_sdv'])
@@ -98,6 +98,7 @@ class AttributionConfig(ClusterConfigBase):
         self.climClusterCentroidsEOF = pjoin(args.clim_dir, self.options['clim_cluster_centroids_eof'])
         # pca options
         self._seasons = self.options.get('seasons', [(1, 12)])
+        self._seasons = [(int(tup[0]), int(tup[1])) for tup in self._seasons]
 
         # forecast date
         self.date = args.date
