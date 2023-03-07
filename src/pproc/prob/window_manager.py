@@ -57,9 +57,9 @@ class ThresholdWindowManager(WindowManager):
                 for period in window_config["periods"]:
                     new_window = create_window(period, operation)
                     new_window.config_grib_header = global_config.copy()
-                    new_window.config_grib_header.update(window_config.get(
-                        "grib_set", {}
-                    ))
+                    new_window.config_grib_header.update(
+                        window_config.get("grib_set", {})
+                    )
                     self.windows.append(new_window)
                     self.window_thresholds[new_window] = thresholds
 

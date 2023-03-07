@@ -72,9 +72,7 @@ class WindowManager:
             for period in window_config["periods"]:
                 new_window = create_window(period, window_config["window_operation"])
                 new_window.config_grib_header = global_config.copy()
-                new_window.config_grib_header.update(window_config.get(
-                    "grib_set", {}
-                ))
+                new_window.config_grib_header.update(window_config.get("grib_set", {}))
                 self.windows.append(new_window)
 
     def update_windows(self, step: int, data: np.array) -> Iterator[Window]:
