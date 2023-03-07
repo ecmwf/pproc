@@ -64,7 +64,7 @@ def main(args=None):
                         write_grib(
                             cfg,
                             fdb,
-                            f"{param_name}_type{data_type}_number{number}_step{window.name}",
+                            f"{param_name}_type{data_type}_number{number}_step{window.name}.grib",
                             template,
                             window.step_values[index],
                         )
