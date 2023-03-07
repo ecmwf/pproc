@@ -41,14 +41,13 @@ def construct_message(
     for missing_key in set_missing:
         key_values.pop(missing_key)
 
-    if climatology_headers:
-        key_values.update(climatology_headers)
-
     # Set grib 1 and grib 2 keys separately as value check can fail when
     # grib 1 keys are removed in the switch to grib 2
     if key_values.get("edition", 1) == 2:
         if threshold:
             key_values.update({"paramId": threshold["out_paramid"]})
+        if climatology_headers:
+            key_values.update(climatology_headers)
         keys = list(key_values.keys())
         grib2_start_index = keys.index("edition")
         out_grib.set(
