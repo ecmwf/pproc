@@ -1,7 +1,7 @@
 
 import argparse
 import sys
-from typing import Iterable, List, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import numpy as np
 
@@ -112,7 +112,7 @@ def quantiles(ens: np.ndarray, n: int = 100, method: str = 'sort') -> Iterable[n
             yield quantile
 
 
-def do_quantiles(ens: np.ndarray, template: eccodes.GRIBMessage, target: Target, out_paramid: str, n: int = 100):
+def do_quantiles(ens: np.ndarray, template: eccodes.GRIBMessage, target: Target, out_paramid: str, n: int = 100, out_keys: Optional[Dict[str, Any]] = None):
     """Compute quantiles
 
     Parameters
@@ -125,9 +125,13 @@ def do_quantiles(ens: np.ndarray, template: eccodes.GRIBMessage, target: Target,
         Target to write to
     n: int
         Number of quantiles (default 100 = percentiles)
+    out_keys: dict, optional
+        Extra GRIB keys to set on the output
     """
     for i, quantile in enumerate(quantiles(ens, n, method='sort')):
         message = template.copy()
+        if out_keys is not None:
+            message.set(out_keys)
         message.set("type", "pb")
         message.set("numberOfForecastsInEnsemble", n)
         message.set("perturbationNumber", i)
@@ -141,8 +145,27 @@ def get_parser() -> argparse.ArgumentParser:
     parser = default_parser(description=description)
     parser.add_argument("--in-ens", required=True, help="Input ensemble source")
     parser.add_argument("--out-quantiles", required=True, help="Output target")
-    parser.add_argument("-o", "--out-paramid", required=True)
     return parser
+
+
+class ParamConfig:
+    def __init__(self, name, options: Dict[str, Any]):
+        self.name = name
+        self.in_paramid = options['in']
+        self.out_paramid = options['out']
+        self._in_keys = options.get('in_keys', {})
+        self._out_keys = options.get('out_keys', {})
+
+    def in_keys(self, base: Optional[Dict[str, Any]] = None, **kwargs):
+        keys = base.copy() if base is not None else {}
+        keys.update(self._in_keys)
+        keys.update(kwargs)
+        keys["param"] = self.in_paramid
+
+    def out_keys(self, base: Optional[Dict[str, Any]] = None, **kwargs):
+        keys = base.copy() if base is not None else {}
+        keys.update(self._out_keys)
+        keys.update(kwargs)
 
 
 class QuantilesConfig(Config):
@@ -152,7 +175,10 @@ class QuantilesConfig(Config):
         self.num_members = self.options.get('num_members', 51)
         self.num_quantiles = self.options.get('num_quantiles', 100)
 
-        self.windows = self.options.get('windows', [{'range': [-1, -1, 0]}])
+        self.out_keys = self.options.get('out_keys', {})
+
+        self.params = [ParamConfig(pname, popt) for pname, popt in self.options['params'].items()]
+        self.windows = self.options['windows']
 
         self.sources = self.options.get('sources', {})
 
@@ -163,18 +189,20 @@ def main(args: List[str] = sys.argv[1:]):
     config = QuantilesConfig(args)
 
     res = ResourceMeter()
-    for win_params in config.windows:
-        window = Window(win_params)
-        for step in window.steps:
-            label = "" if step == -1 else f"Step {step}: "
-            kwargs = {} if step == -1 else {"step": step}
-            print(f"{label}Startup: {res.update()!s}")
-            template, ens = read_ensemble(config.sources, args.in_ens, config.num_members, **kwargs)
-            print(f"{label}Read ensemble: {res.update()!s}")
-            target = target_from_location(args.out_quantiles)
-            do_quantiles(ens, template, target, args.out_paramid, n=config.num_quantiles)
-            print(f"{label}Quantiles: {res.update()!s}")
-            del ens
+    for param in config.params:
+        for win_params in config.windows:
+            window = Window(win_params)
+            for step in window.steps:
+                label = f"{param.name}, step {step}: "
+                in_keys = param.in_keys(step=step)
+                print(f"{label}Startup: {res.update()!s}")
+                template, ens = read_ensemble(config.sources, args.in_ens, config.num_members, **in_keys)
+                print(f"{label}Read ensemble: {res.update()!s}")
+                out_keys = param.out_keys(config.out_keys)
+                target = target_from_location(args.out_quantiles)
+                do_quantiles(ens, template, target, param.out_paramid, n=config.num_quantiles, out_keys=out_keys)
+                print(f"{label}Quantiles: {res.update()!s}")
+                del ens
 
 
 if __name__ == '__main__':
