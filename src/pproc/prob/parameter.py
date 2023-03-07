@@ -39,7 +39,7 @@ class Parameter:
         self.base_request["date"] = dt.strftime("%Y%m%d")
         self.base_request["time"] = dt.strftime("%H")
         self.interpolation_keys = param_cfg.get("interpolation_keys", None)
-        self.scale_data = float(param_cfg.get("scale", 1))
+        self.scale_data = int(param_cfg.get("scale", 1))
 
     def retrieve_data(self, fdb, step: int):
         combined_data = []
