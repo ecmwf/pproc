@@ -54,14 +54,14 @@ def main(args=None):
                 if args.write_ensemble:
                     for index in range(len(window.step_values)):
                         type, number = param.type_and_number(index)
-                        template = construct_message(
-                            message_template, window.grib_header(leg)
-                        )
-                        template.set({"type": type, "number": number})
                         print(
                             f"Writing window values for param {param_name} and output "
                             + f"type {type}, number {number} for step(s) {window.name}"
                         )
+                        template = construct_message(
+                            message_template, window.grib_header(leg)
+                        )
+                        template.set({"type": type, "number": number})
                         write_grib(
                             cfg,
                             fdb,
