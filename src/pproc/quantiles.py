@@ -161,11 +161,13 @@ class ParamConfig:
         keys.update(self._in_keys)
         keys.update(kwargs)
         keys["param"] = self.in_paramid
+        return keys
 
     def out_keys(self, base: Optional[Dict[str, Any]] = None, **kwargs):
         keys = base.copy() if base is not None else {}
         keys.update(self._out_keys)
         keys.update(kwargs)
+        return keys
 
 
 class QuantilesConfig(Config):
