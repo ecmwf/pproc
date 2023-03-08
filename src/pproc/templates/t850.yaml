@@ -55,6 +55,8 @@ parameters:
           - range: [120, 240]
           - range: [168, 240]
           - range: [120, 168]
+        window_operation: 'concatenate'
+        include_start_step: true
         thresholds:
           - out_paramid: 131020
             comparison: "<"
