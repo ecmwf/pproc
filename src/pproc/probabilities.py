@@ -36,35 +36,36 @@ def main(args=None):
         window_manager = ThresholdWindowManager(param_cfg)
 
         for step in window_manager.unique_steps:
-            message_template, data = param.retrieve_data(fdb, step)
-            assert message_template is not None
-            message_template.set(global_output_cfg)
+            with common.ResourceMeter(f"Parameter {param_name}, step {step}"):
+                message_template, data = param.retrieve_data(fdb, step)
+                assert message_template is not None
+                message_template.set(global_output_cfg)
 
-            completed_windows = window_manager.update_windows(step, data)
-            for window in completed_windows:
-                for threshold in window_manager.thresholds(window):
-                    window_probability = ensemble_probability(
-                        window.step_values, threshold
-                    )
+                completed_windows = window_manager.update_windows(step, data)
+                for window in completed_windows:
+                    for threshold in window_manager.thresholds(window):
+                        window_probability = ensemble_probability(
+                            window.step_values, threshold
+                        )
 
-                    print(
-                        f"Writing probability for input param {param_name} and output "
-                        + f"param {threshold['out_paramid']} for step(s) {window.name}"
-                    )
-                    output_file = os.path.join(
-                        cfg.options["root_dir"],
-                        f"{param_name}_{threshold['out_paramid']}_{leg}_step{window.name}.grib",
-                    )
-                    target = common.target_factory(
-                        cfg.options["target"], out_file=output_file, fdb=fdb
-                    )
-                    common.write_grib(
-                        target,
-                        construct_message(
-                            message_template, window.grib_header(leg), threshold
-                        ),
-                        window_probability,
-                    )
+                        print(
+                            f"Writing probability for input param {param_name} and output "
+                            + f"param {threshold['out_paramid']} for step(s) {window.name}"
+                        )
+                        output_file = os.path.join(
+                            cfg.options["root_dir"],
+                            f"{param_name}_{threshold['out_paramid']}_{leg}_step{window.name}.grib",
+                        )
+                        target = common.target_factory(
+                            cfg.options["target"], out_file=output_file, fdb=fdb
+                        )
+                        common.write_grib(
+                            target,
+                            construct_message(
+                                message_template, window.grib_header(leg), threshold
+                            ),
+                            window_probability,
+                        )
 
     fdb.flush()
 
