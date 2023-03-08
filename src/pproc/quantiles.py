@@ -190,20 +190,18 @@ def main(args: List[str] = sys.argv[1:]):
     args = parser.parse_args(args)
     config = QuantilesConfig(args)
 
-    res = ResourceMeter()
     for param in config.params:
         for win_params in config.windows:
             window = Window(win_params)
             for step in window.steps:
                 label = f"{param.name}, step {step}: "
                 in_keys = param.in_keys(step=step)
-                print(f"{label}Startup: {res.update()!s}")
-                template, ens = read_ensemble(config.sources, args.in_ens, config.num_members, **in_keys)
-                print(f"{label}Read ensemble: {res.update()!s}")
-                out_keys = param.out_keys(config.out_keys)
-                target = target_from_location(args.out_quantiles)
-                do_quantiles(ens, template, target, param.out_paramid, n=config.num_quantiles, out_keys=out_keys)
-                print(f"{label}Quantiles: {res.update()!s}")
+                with ResourceMeter(f"{label}Read ensemble"):
+                    template, ens = read_ensemble(config.sources, args.in_ens, config.num_members, **in_keys)
+                with ResourceMeter(f"{label}Quantiles"):
+                    out_keys = param.out_keys(config.out_keys)
+                    target = target_from_location(args.out_quantiles)
+                    do_quantiles(ens, template, target, param.out_paramid, n=config.num_quantiles, out_keys=out_keys)
                 del ens
 
 
