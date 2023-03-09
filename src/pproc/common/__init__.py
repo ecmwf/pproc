@@ -6,6 +6,7 @@ from .window import (
     SimpleOpWindow,
     DiffWindow,
     WeightedSumWindow,
-    DiffDailyRateWindow
+    DiffDailyRateWindow,
+    ConcatenateWindow
 )
 from .window_manager import WindowManager, create_window

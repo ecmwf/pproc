@@ -202,3 +202,20 @@ class DiffDailyRateWindow(DiffWindow):
         num_days = (self.end - self.start) / 24
         self.step_values = new_step_values - self.step_values
         self.step_values = self.step_values / num_days
+
+class ConcatenateWindow(Window):
+    """
+    Window with operation that concatenates current step values with new step 
+    values i.e. stores data for all steps in window
+    """
+
+    def operation(self, new_step_values: np.array):
+        """
+        Combines data from unprocessed steps with existing step data values,
+        and updates step data values
+
+        :param new_step_values: data from new step
+        """
+        self.step_values = np.concatenate(
+            (self.step_values, new_step_values), axis=0
+        )
