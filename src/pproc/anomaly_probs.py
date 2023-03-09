@@ -150,8 +150,8 @@ def main(args=None):
     cfg = common.Config(args)
 
     date = datetime.datetime.strptime(args.date, "%Y%m%d%H")
-    n_ensembles = cfg.options.get("number_of_ensembles", 50)
-    leg = cfg.options.get("leg")
+    n_ensembles = int(cfg.options.get("number_of_ensembles", 50))
+    leg = int(cfg.options.get("leg"))
     global_input_cfg = cfg.options.get("global_input_keys", {})
     global_output_cfg = cfg.options.get("global_output_keys", {})
 
