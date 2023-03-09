@@ -35,7 +35,7 @@ def retrieve_messages(cfg, req, cached_file):
     return messages
 
 
-def fdb_request_det(cfg, levelist, window):
+def fdb_request_det(cfg, levelist, steps, name):
     """
     Retrieve vorticity and divergence or u/v for deterministic forecast
     """
@@ -47,13 +47,13 @@ def fdb_request_det(cfg, levelist, window):
     req["time"] = cfg.date.strftime("%H") + "00"
     if req["levtype"] != "sfc":
         req["levelist"] = levelist
-    req["step"] = window.steps
+    req["step"] = steps
     req["type"] = "fc"
 
-    return retrieve_messages(cfg, req, f"wind_det_{levelist}_{window.name}.grb")
+    return retrieve_messages(cfg, req, f"wind_det_{levelist}_{name}.grb")
 
 
-def fdb_request_ens(cfg, levelist, window):
+def fdb_request_ens(cfg, levelist, steps, name):
     """
     Retrieve vorticity and divergence or u/v for ensemble forecast
     (control + perturbed)
@@ -66,16 +66,16 @@ def fdb_request_ens(cfg, levelist, window):
     req["time"] = cfg.date.strftime("%H") + "00"
     if req["levtype"] != "sfc":
         req["levelist"] = levelist
-    req["step"] = window.steps
+    req["step"] = steps
 
     req_cf = req.copy()
     req_cf["type"] = "cf"
-    messages = retrieve_messages(cfg, req_cf, f"wind_det_{levelist}_{window.name}.grb")
+    messages = retrieve_messages(cfg, req_cf, f"wind_det_{levelist}_{name}.grb")
 
     req_pf = req.copy()
     req_pf["type"] = "pf"
     req_pf["number"] = range(1, cfg.members + 1)
-    messages += retrieve_messages(cfg, req_pf, f"wind_det_{levelist}_{window.name}.grb")
+    messages += retrieve_messages(cfg, req_pf, f"wind_det_{levelist}_{name}.grb")
 
     return messages
 
@@ -212,12 +212,12 @@ def main(args=None):
 
             # calculate wind speed for type=fc (deterministic)
             if args.det_ws:
-                with common.ResourceMeter(f"Window {window.name}, deterministic: read forecast"):
-                    messages = fdb_request_det(cfg, levelist, window)
-                with common.ResourceMeter(f"Window {window.name}, deterministic: compute speed"):
-                    det = wind_speed(messages)
-                with common.ResourceMeter(f"Window {window.name}, deterministic: write output"):
-                    for step in window.steps:
+                for step in window.steps:
+                    with common.ResourceMeter(f"Window {window.name}, step {step}, deterministic: read forecast"):
+                        messages = fdb_request_det(cfg, levelist, step, window.name)
+                    with common.ResourceMeter(f"Window {window.name}, step {step}, deterministic: compute speed"):
+                        det = wind_speed(messages)
+                    with common.ResourceMeter(f"Window {window.name}, step {step}, deterministic: write output"):
                         template_det = basic_template(cfg, messages[0], step, "fc")
                         write_output(
                             cfg,
@@ -228,14 +228,14 @@ def main(args=None):
 
             # calculate wind speed, mean/stddev of wind speed for type=pf/cf (eps)
             if args.eps_ws or args.eps_mean_std:
-                with common.ResourceMeter(f"Window {window.name}, ensemble: read forecast"):
-                    messages = fdb_request_ens(cfg, levelist, window)
-                with common.ResourceMeter(f"Window {window.name}, ensemble: compute speed"):
-                    eps = wind_speed(messages)
-                with common.ResourceMeter(f"Window {window.name}, ensemble: write output"):
-                    template = messages[0]
-                    for step in window.steps:
-                        print(step)
+                for step in window.steps:
+                    print(step)
+                    with common.ResourceMeter(f"Window {window.name}, step {step}, ensemble: read forecast"):
+                        messages = fdb_request_ens(cfg, levelist, step, window.name)
+                    with common.ResourceMeter(f"Window {window.name}, step {step}, ensemble: compute speed"):
+                        eps = wind_speed(messages)
+                    with common.ResourceMeter(f"Window {window.name}, step {step}, ensemble: write output"):
+                        template = messages[0]
                         if args.eps_ws:
                             for number in range(cfg.members + 1):
                                 template_eps = eps_speed_template(
