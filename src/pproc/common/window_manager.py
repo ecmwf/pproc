@@ -42,11 +42,12 @@ class WindowManager:
     Class for creating and managing active windows
     """
 
-    def __init__(self, parameter):
+    def __init__(self, parameter, global_config):
         """
         Sort steps and create windows by reading in the config for specified parameter
 
         :param parameter: parameter config
+        :param global_config: global dictionary of key values for grib_set in all windows
         :raises: RuntimeError if no window operation was provided, or could be derived
         """
         self.windows = []
@@ -61,16 +62,17 @@ class WindowManager:
                     self.unique_steps.add(step)
 
         self.unique_steps = sorted(self.unique_steps)
-        self.create_windows(parameter)
+        self.create_windows(parameter, global_config)
 
-    def create_windows(self, parameter):
+    def create_windows(self, parameter, global_config):
         """
         Creates windows from parameter config and specified window operation
         """
         for window_config in parameter["windows"]:
             for period in window_config["periods"]:
                 new_window = create_window(period, window_config["window_operation"])
-                new_window.config_grib_header = window_config.get("grib_set", {})
+                new_window.config_grib_header = global_config.copy()
+                new_window.config_grib_header.update(window_config.get("grib_set", {}))
                 self.windows.append(new_window)
 
     def update_windows(self, step: int, data: np.array) -> Iterator[Window]:

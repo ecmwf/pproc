@@ -39,12 +39,41 @@ class Parameter:
         self.base_request["date"] = dt.strftime("%Y%m%d")
         self.base_request["time"] = dt.strftime("%H")
         self.interpolation_keys = param_cfg.get("interpolation_keys", None)
+        self.scale_data = int(param_cfg.get("scale", 1))
 
     def retrieve_data(self, fdb, step: int):
-        new_request = self.base_request
-        new_request["step"] = step
+        combined_data = []
+        for type in self.base_request["type"].split("/"):
+            new_request = self.base_request.copy()
+            new_request["step"] = step
+            new_request["type"] = type
+            if type == "cf":
+                new_request.pop("number")
+            message_temp, new_data = common.fdb_read_with_template(
+                fdb, new_request, self.interpolation_keys
+            )
+            if len(combined_data) == 0:
+                combined_data = new_data
+            else:
+                combined_data = np.concatenate((combined_data, new_data), axis=0)
 
-        return common.fdb_read_with_template(fdb, new_request, self.interpolation_keys)
+        return message_temp, combined_data * self.scale_data
+
+    def type_and_number(self, index: int):
+        """
+        Get data type and ensemble number from concatenated data index
+        """
+        types = self.base_request["type"].split("/")
+        if "pf" in types:
+            nensembles = len(self.base_request["number"])
+            pf_start_index = types.index("pf")
+            if index < pf_start_index:
+                return types[index], 0
+            if index < pf_start_index + nensembles:
+                return "pf", index - pf_start_index + 1
+            return types[index - (nensembles - 1)], 0
+        else:
+            return types[index], 0
 
 
 class CombineParameters(Parameter):
@@ -66,15 +95,10 @@ class CombineParameters(Parameter):
         return getattr(np, self.combine_operation)(data_list, axis=0)
 
     def retrieve_data(self, fdb, step: int):
-        new_request = self.base_request
-        new_request["step"] = step
-
         data_list = []
         for param_id in self.param_ids:
-            new_request["param"] = param_id
-            msg_template, data = common.fdb_read_with_template(
-                fdb, new_request, self.interpolation_keys
-            )
+            self.base_request["param"] = param_id
+            msg_template, data = super().retrieve_data(fdb, step)
             data_list.append(data)
 
         return msg_template, self.combine_data(data_list)
