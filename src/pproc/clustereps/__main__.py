@@ -12,7 +12,7 @@ import eccodes
 from pproc.clustereps import attribution, cluster, pca
 from pproc.clustereps.config import FullClusterConfig
 from pproc.clustereps.io import FDBNotOpenError, fdb, open_dataset, read_ensemble_grib, read_steps_grib, target_from_location
-from pproc.common import default_parser
+from pproc.common import default_parser, ResourceMeter
 
 
 def get_mean_spread(sources: dict, locs: List[str], date: datetime, steps: List[int], ndays: int = 31) -> np.ndarray:
@@ -193,13 +193,14 @@ def main(sys_args=None):
     # PCA
 
     ## Read or compute ensemble stddev
-    if args.spread is not None:
-        with open_dataset(config.sources, args.spread) as reader:
-            message = next(reader)
-            # TODO: check param and level
-            spread = message.get_array('values')
-    else:
-        spread = get_mean_spread(config.sources, args.spread_compute, args.date, config.steps)
+    with ResourceMeter("Ensemble spread"):
+        if args.spread is not None:
+            with open_dataset(config.sources, args.spread) as reader:
+                message = next(reader)
+                # TODO: check param and level
+                spread = message.get_array('values')
+        else:
+            spread = get_mean_spread(config.sources, args.spread_compute, args.date, config.steps)
 
     ## Read mask
     if args.mask is not None:
@@ -207,11 +208,13 @@ def main(sys_args=None):
         raise NotImplementedError()
 
     ## Read ensemble
-    nexp = config.num_members
-    lat, lon, ens, grib_template = read_ensemble_grib(config.sources, args.ensemble, config.steps, nexp)
+    with ResourceMeter("Read ensemble"):
+        nexp = config.num_members
+        lat, lon, ens, grib_template = read_ensemble_grib(config.sources, args.ensemble, config.steps, nexp)
 
     ## Compute PCA
-    pca_data = pca.do_pca(config, lat, lon, ens, spread, args.mask)
+    with ResourceMeter("PCA"):
+        pca_data = pca.do_pca(config, lat, lon, ens, spread, args.mask)
 
     ## Save data
     if args.pca is not None:
@@ -230,12 +233,14 @@ def main(sys_args=None):
 
     print(f"Number of PCs used: {npc}, explained variance: {var_cum[npc-1]} %")
 
-    ind_cl, centroids, rep_members, centroids_gp, rep_members_gp, ens_mean = cluster.do_clustering(config, pca_data, npc, verbose=True, dump_indexes=args.indexes)
+    with ResourceMeter("Clustering"):
+        ind_cl, centroids, rep_members, centroids_gp, rep_members_gp, ens_mean = cluster.do_clustering(config, pca_data, npc, verbose=True, dump_indexes=args.indexes)
 
     ## Find the deterministic forecast
     if args.deterministic is not None:
-        det = read_steps_grib(config.sources, args.deterministic, config.steps)
-        det_index = cluster.find_cluster(det, ens_mean, pca_data['eof'][:npc, ...], pca_data['weights'], centroids)
+        with ResourceMeter("Find deterministic"):
+            det = read_steps_grib(config.sources, args.deterministic, config.steps)
+            det_index = cluster.find_cluster(det, ens_mean, pca_data['eof'][:npc, ...], pca_data['weights'], centroids)
     else:
         det_index = 0
 
@@ -254,22 +259,23 @@ def main(sys_args=None):
         'representative': (args.representative, args.rep_anomalies),
     }
 
-    ## Read climatology fields
-    clim = attribution.get_climatology_fields(
-        config.climMeans, config.seasons, config.stepDate
-    )
+    with ResourceMeter("Read climatology"):
+        ## Read climatology fields
+        clim = attribution.get_climatology_fields(
+            config.climMeans, config.seasons, config.stepDate
+        )
 
-    ## Read climatological EOFs
-    clim_eof, clim_ind = attribution.get_climatology_eof(
-        config.climClusterCentroidsEOF,
-        config.climEOFs,
-        config.climPCs,
-        config.climSdv,
-        config.climClusterIndex,
-        config.nClusterClim,
-        config.monStartDoS,
-        config.monEndDoS,
-    )
+        ## Read climatological EOFs
+        clim_eof, clim_ind = attribution.get_climatology_eof(
+            config.climClusterCentroidsEOF,
+            config.climEOFs,
+            config.climPCs,
+            config.climSdv,
+            config.climClusterIndex,
+            config.nClusterClim,
+            config.monStartDoS,
+            config.monEndDoS,
+        )
 
     keys, steps = cluster.get_output_keys(config, grib_template)
 
@@ -281,27 +287,29 @@ def main(sys_args=None):
         anom = scdata - clim
         anom = np.clip(anom, -config.clip, config.clip)
 
-        cluster_att, min_dist = attribution.attribution(anom, clim_eof, clim_ind, weights)
+        with ResourceMeter(f"Attribute {scenario}"):
+            cluster_att, min_dist = attribution.attribution(anom, clim_eof, clim_ind, weights)
 
-        ## Write anomalies and cluster scenarios
-        dest, adest = cluster_dests[scenario]
-        target = target_from_location(dest)
-        anom_target = target_from_location(adest)
-        keys['type'] = cluster_types[scenario]
-        write_cluster_attr_grib(steps, ind_cl, rep_members, det_index, scdata, anom, cluster_att, target, anom_target, keys, ncl_dummy=config.ncl_dummy)
+        with ResourceMeter(f"Write {scenario} output"):
+            ## Write anomalies and cluster scenarios
+            dest, adest = cluster_dests[scenario]
+            target = target_from_location(dest)
+            anom_target = target_from_location(adest)
+            keys['type'] = cluster_types[scenario]
+            write_cluster_attr_grib(steps, ind_cl, rep_members, det_index, scdata, anom, cluster_att, target, anom_target, keys, ncl_dummy=config.ncl_dummy)
 
-        ## Write report output
-        # table: attribution cluster index for all fc clusters, step
-        np.savetxt(
-            pjoin(config.output_root, f'{config.step_start}_{config.step_end}dist_index_{scenario}.txt'), min_dist,
-            fmt='%-10.5f', delimiter=3*' '
-        )
+            ## Write report output
+            # table: attribution cluster index for all fc clusters, step
+            np.savetxt(
+                pjoin(config.output_root, f'{config.step_start}_{config.step_end}dist_index_{scenario}.txt'), min_dist,
+                fmt='%-10.5f', delimiter=3*' '
+            )
 
-        # table: distance measure for all fc clusters, step
-        np.savetxt(
-            pjoin(config.output_root, f'{config.step_start}_{config.step_end}att_index_{scenario}.txt'), cluster_att,
-            fmt='%-3d', delimiter=3*' '
-        )
+            # table: distance measure for all fc clusters, step
+            np.savetxt(
+                pjoin(config.output_root, f'{config.step_start}_{config.step_end}att_index_{scenario}.txt'), cluster_att,
+                fmt='%-3d', delimiter=3*' '
+            )
 
     try:
         fdb(create=False).flush()

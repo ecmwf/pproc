@@ -46,46 +46,47 @@ def main(args=None):
         window_manager = ThresholdWindowManager(param_cfg, global_output_cfg)
 
         for step in window_manager.unique_steps:
-            message_template, data = param.retrieve_data(fdb, step)
+            with common.ResourceMeter(f"Parameter {param_name}, step {step}"):
+                message_template, data = param.retrieve_data(fdb, step)
 
-            completed_windows = window_manager.update_windows(step, data)
-            for window in completed_windows:
-                if args.write_ensemble:
-                    for index in range(len(window.step_values)):
-                        data_type, number = param.type_and_number(index)
+                completed_windows = window_manager.update_windows(step, data)
+                for window in completed_windows:
+                    if args.write_ensemble:
+                        for index in range(len(window.step_values)):
+                            data_type, number = param.type_and_number(index)
+                            print(
+                                f"Writing window values for param {param_name} and output "
+                                + f"type {data_type}, number {number} for step(s) {window.name}"
+                            )
+                            template = construct_message(
+                                message_template, window.grib_header(leg)
+                            )
+                            template.set({"type": data_type, "number": number})
+                            write_grib(
+                                cfg,
+                                fdb,
+                                f"{param_name}_type{data_type}_number{number}_step{window.name}.grib",
+                                template,
+                                window.step_values[index],
+                            )
+                    for threshold in window_manager.thresholds(window):
+                        window_probability = ensemble_probability(
+                            window.step_values, threshold
+                        )
+
                         print(
-                            f"Writing window values for param {param_name} and output "
-                            + f"type {data_type}, number {number} for step(s) {window.name}"
+                            f"Writing probability for input param {param_name} and output "
+                            + f"param {threshold['out_paramid']} for step(s) {window.name}"
                         )
-                        template = construct_message(
-                            message_template, window.grib_header(leg)
-                        )
-                        template.set({"type": data_type, "number": number})
                         write_grib(
                             cfg,
                             fdb,
-                            f"{param_name}_type{data_type}_number{number}_step{window.name}.grib",
-                            template,
-                            window.step_values[index],
+                            f"{param_name}_{threshold['out_paramid']}_{leg}_step{window.name}.grib",
+                            construct_message(
+                                message_template, window.grib_header(leg), threshold
+                            ),
+                            window_probability,
                         )
-                for threshold in window_manager.thresholds(window):
-                    window_probability = ensemble_probability(
-                        window.step_values, threshold
-                    )
-
-                    print(
-                        f"Writing probability for input param {param_name} and output "
-                        + f"param {threshold['out_paramid']} for step(s) {window.name}"
-                    )
-                    write_grib(
-                        cfg,
-                        fdb,
-                        f"{param_name}_{threshold['out_paramid']}_{leg}_step{window.name}.grib",
-                        construct_message(
-                            message_template, window.grib_header(leg), threshold
-                        ),
-                        window_probability,
-                    )
 
     fdb.flush()
 
