@@ -34,7 +34,6 @@ def main(args=None):
     cfg = common.Config(args)
 
     date = datetime.strptime(args.date, "%Y%m%d%H")
-    leg = int(cfg.options.get("leg"))
     nensembles = int(cfg.options.get("number_of_ensembles", 50))
     global_input_cfg = cfg.options.get("global_input_keys", {})
     global_output_cfg = cfg.options.get("global_output_keys", {})
@@ -59,7 +58,7 @@ def main(args=None):
                                 + f"type {data_type}, number {number} for step(s) {window.name}"
                             )
                             template = construct_message(
-                                message_template, window.grib_header(leg)
+                                message_template, window.grib_header()
                             )
                             template.set({"type": data_type, "number": number})
                             write_grib(
@@ -81,9 +80,9 @@ def main(args=None):
                         write_grib(
                             cfg,
                             fdb,
-                            f"{param_name}_{threshold['out_paramid']}_{leg}_step{window.name}.grib",
+                            f"{param_name}_{threshold['out_paramid']}_step{window.name}.grib",
                             construct_message(
-                                message_template, window.grib_header(leg), threshold
+                                message_template, window.grib_header(), threshold
                             ),
                             window_probability,
                         )
