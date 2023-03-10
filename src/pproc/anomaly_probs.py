@@ -153,7 +153,6 @@ def main(args=None):
 
     date = datetime.datetime.strptime(args.date, "%Y%m%d%H")
     n_ensembles = int(cfg.options.get("number_of_ensembles", 50))
-    leg = int(cfg.options.get("leg"))
     global_input_cfg = cfg.options.get("global_input_keys", {})
     global_output_cfg = cfg.options.get("global_output_keys", {})
 
@@ -185,7 +184,7 @@ def main(args=None):
                         )
                         output_file = os.path.join(
                             cfg.options["root_dir"],
-                            f"{param_name}_{threshold['out_paramid']}_{leg}_step{window.name}.grib",
+                            f"{param_name}_{threshold['out_paramid']}_step{window.name}.grib",
                         )
                         target = common.target_factory(
                             cfg.options["target"], out_file=output_file, fdb=fdb
@@ -194,7 +193,7 @@ def main(args=None):
                             target,
                             construct_message(
                                 message_template,
-                                window.grib_header(leg),
+                                window.grib_header(),
                                 threshold,
                                 clim_grib_header,
                             ),

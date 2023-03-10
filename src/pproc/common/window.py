@@ -85,18 +85,17 @@ class Window:
         """
         return self.end - self.start
 
-    def grib_header(self, leg: int) -> Dict:
+    def grib_header(self) -> Dict:
         """
         Returns window specific grib headers, including headers defined in
         config file
 
-        :param leg: model leg
         :return: dictionary of header keys and values
         """
         header = {}
         if (
-            isinstance(self.name, str) and leg == 2 and self.start >= LEG1_END
-        ):  # Note: can we make this just dependent on self.start?
+            isinstance(self.name, str) and self.start >= LEG1_END
+        ):
             header["unitOfTimeRange"] = 11
 
         header.update(self.config_grib_header)
