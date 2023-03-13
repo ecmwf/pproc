@@ -152,7 +152,7 @@ class ParamConfig:
     def __init__(self, name, options: Dict[str, Any]):
         self.name = name
         self.in_paramid = options['in']
-        self.out_paramid = options['out']
+        self.out_paramid = options.get('out', self.in_paramid)
         self._in_keys = options.get('in_keys', {})
         self._out_keys = options.get('out_keys', {})
 
