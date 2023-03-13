@@ -12,6 +12,7 @@
 
 import os
 import numpy as np
+import sys
 from datetime import datetime, timedelta
 from dataclasses import dataclass
 
@@ -304,6 +305,7 @@ class ConfigExtreme(common.Config):
 
 
 def main(args=None):
+    sys.stdout.reconfigure(line_buffering=True)
 
     parser = common.default_parser('Compute EFI and SOT from forecast and climatology for one parameter')
     args = parser.parse_args(args)

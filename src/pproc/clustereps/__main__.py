@@ -3,6 +3,7 @@ import argparse
 from datetime import datetime, timedelta
 import os
 from os.path import join as pjoin
+import sys
 from typing import List
 
 import numpy as np
@@ -185,6 +186,7 @@ def write_cluster_attr_grib(steps, ind_cl, rep_members, det_index, data, anom_da
 
 
 def main(sys_args=None):
+    sys.stdout.reconfigure(line_buffering=True)
     parser = get_parser()
     args = parser.parse_args(sys_args)
 

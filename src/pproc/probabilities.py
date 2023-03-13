@@ -21,6 +21,7 @@ def write_grib(cfg, fdb, filename, template, data):
 
 
 def main(args=None):
+    sys.stdout.reconfigure(line_buffering=True)
 
     parser = common.default_parser("Compute instantaneous and period probabilites")
     parser.add_argument("-d", "--date", required=True, help="Forecast date")

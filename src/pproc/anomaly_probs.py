@@ -143,6 +143,7 @@ class AnomalyWindowManager(ThresholdWindowManager):
 
 
 def main(args=None):
+    sys.stdout.reconfigure(line_buffering=True)
 
     parser = common.default_parser(
         "Compute instantaneous and period probabilites for anomalies"

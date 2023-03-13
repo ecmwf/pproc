@@ -136,6 +136,7 @@ class ConfigExtreme(common.Config):
 
 
 def main(args=None):
+    sys.stdout.reconfigure(line_buffering=True)
 
     parser = common.default_parser('Calculate wind speed mean/standard deviation')
     args = parser.parse_args(args)
