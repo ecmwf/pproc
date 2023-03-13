@@ -49,11 +49,11 @@ def fdb_request_forecast(cfg, options, steps):
     return ens
 
 
-def ensemble_mean_std_eps(cfg, options, window):
+def ensemble_mean_std_eps(cfg, options, steps):
     """
     Calculate ensemble (type=cf/pf) mean and standard deviation of wind speed
     """
-    ens = fdb_request_forecast(cfg, options, window.steps)
+    ens = fdb_request_forecast(cfg, options, steps)
     template = ens.attrs['grib_template']
 
     mean = ens.mean(dim='number')
@@ -96,8 +96,8 @@ class PressureLevels:
     def set_level_key(self, template, level):
         template.set('level', level)
 
-    def slice_dataset(self, ds, level, step):
-        return ds.sel(levelist=level, step=step).values
+    def slice_dataset(self, ds, level, **kwargs):
+        return ds.sel(levelist=level, **kwargs).values
 
 
 class SurfaceLevel:
@@ -108,8 +108,8 @@ class SurfaceLevel:
     def set_level_key(self, template, level):
         return
 
-    def slice_dataset(self, ds, level, step):
-        return ds.sel(step=step).values
+    def slice_dataset(self, ds, level, **kwargs):
+        return ds.sel(**kwargs).values
 
 
 def parameters_manager(options):
@@ -124,7 +124,7 @@ class ConfigExtreme(common.Config):
     def __init__(self, args):
         super().__init__(args)
 
-        self.members = self.options['members']
+        self.members = int(self.options['members'])
         self.date = datetime.strptime(str(self.options['fc_date']), "%Y%m%d%H")
         self.root_dir = self.options['root_dir']
         self.target = self.options['target']
@@ -136,6 +136,7 @@ class ConfigExtreme(common.Config):
 
 
 def main(args=None):
+    sys.stdout.reconfigure(line_buffering=True)
 
     parser = common.default_parser('Calculate wind speed mean/standard deviation')
     args = parser.parse_args(args)
@@ -149,21 +150,23 @@ def main(args=None):
             window = common.Window(window_options)
 
             # calculate mean/stddev of wind speed for type=pf/cf (eps)
-            mean, std, template_ens = ensemble_mean_std_eps(cfg, options, window)
-
             for step in window.steps:
-                for level in param_type.levels:
-                    mean_slice = param_type.slice_dataset(mean, level, step)
-                    mean_file = os.path.join(cfg.out_dir, window.name, f'mean_{param}_{level}_{step}.grib')
-                    target_mean = common.target_factory(cfg.target, out_file=mean_file, fdb=cfg.fdb)
-                    template_mean = template_ensemble(cfg, param_type, template_ens, step, window.step, level, 'em')
-                    common.write_grib(target_mean, template_mean, mean_slice)
+                with common.ResourceMeter(f"Window {window.name}, step {step}: compute mean/stddev"):
+                    mean, std, template_ens = ensemble_mean_std_eps(cfg, options, step)
 
-                    std_slice = param_type.slice_dataset(std, level, step)
-                    std_file = os.path.join(cfg.out_dir, window.name, f'std_{param}_{level}_{step}.grib')
-                    target_std = common.target_factory(cfg.target, out_file=std_file, fdb=cfg.fdb)
-                    template_std = template_ensemble(cfg, param_type, template_ens, step, window.step, level, 'es')
-                    common.write_grib(target_std, template_std, std_slice)
+                with common.ResourceMeter(f"Window {window.name}, step {step}: write output"):
+                    for level in param_type.levels:
+                        mean_slice = param_type.slice_dataset(mean, level)
+                        mean_file = os.path.join(cfg.out_dir, window.name, f'mean_{param}_{level}_{step}.grib')
+                        target_mean = common.target_factory(cfg.target, out_file=mean_file, fdb=cfg.fdb)
+                        template_mean = template_ensemble(cfg, param_type, template_ens, step, window.step, level, 'em')
+                        common.write_grib(target_mean, template_mean, mean_slice)
+
+                        std_slice = param_type.slice_dataset(std, level)
+                        std_file = os.path.join(cfg.out_dir, window.name, f'std_{param}_{level}_{step}.grib')
+                        target_std = common.target_factory(cfg.target, out_file=std_file, fdb=cfg.fdb)
+                        template_std = template_ensemble(cfg, param_type, template_ens, step, window.step, level, 'es')
+                        common.write_grib(target_std, template_std, std_slice)
 
 
 if __name__ == "__main__":

@@ -1,11 +1,13 @@
 number_of_ensembles: 50
-leg: 1
 target: fdb
 root_dir: ''
 global_input_keys: 
   expver: '0001'
 global_output_keys: 
   expver: '0001'
+  type: 'ep'
+  localDefinitionNumber: 5
+  bitsPerValue: 8  # Set equal to accuracy used in mars compute
 parameters:
   t850:
     in_paramid: 130
@@ -55,6 +57,8 @@ parameters:
           - range: [120, 240]
           - range: [168, 240]
           - range: [120, 168]
+        window_operation: 'concatenate'
+        include_start_step: true
         thresholds:
           - out_paramid: 131020
             comparison: "<"
@@ -123,7 +127,7 @@ parameters:
       stream: 'enfo'
       levelist: 850
       levtype: 'pl'  
-      type: 'pf'   
+      type: 'cf/pf'   
       domain: g 
     interpolation_keys:
       grid: 'O640'

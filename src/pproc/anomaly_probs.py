@@ -8,34 +8,9 @@ import pyfdb
 from pproc import common
 from pproc.prob.grib_helpers import construct_message
 from pproc.prob.math import ensemble_probability
-from pproc.prob.parameter import Parameter
+from pproc.prob.parameter import create_parameter, Parameter
 from pproc.prob.window_manager import ThresholdWindowManager
 from pproc.prob.model_constants import LAST_MODEL_STEP, CLIM_INTERVAL
-
-
-class CombinedForecasts(Parameter):
-    def retrieve_data(self, fdb, step: int):
-        """
-        Retrieves data at step for perturbed and control forecast and
-        concatenates them together into one array
-        """
-        new_request = self.base_request.copy()
-        new_request["step"] = step
-
-        # pf
-        new_request["type"] = "pf"
-        message_temp, pf_data = common.fdb_read_with_template(
-            fdb, new_request, self.interpolation_keys
-        )
-
-        # cf
-        new_request["type"] = "cf"
-        new_request.pop("number")
-        _, cf_data = common.fdb_read_with_template(
-            fdb, new_request, self.interpolation_keys
-        )
-
-        return message_temp, np.concatenate((pf_data, cf_data), axis=0)
 
 
 class Climatology(Parameter):
@@ -103,25 +78,17 @@ class Climatology(Parameter):
         and
         """
         cstep = self.clim_step(step)
-        new_request = self.base_request.copy()
-        new_request["step"] = cstep
-        ret = []
-        for type in self.base_request["type"].split("/"):
-            new_request["type"] = type
-            temp_message, data = common.fdb_read_with_template(
-                fdb, new_request, self.interpolation_keys
-            )
-            ret.append(data)
+        temp_message, ret = super().retrieve_data(fdb, cstep)
         return self.grib_header(temp_message), ret
 
 
 class AnomalyWindowManager(ThresholdWindowManager):
-    def __init__(self, parameter):
+    def __init__(self, parameter, global_config):
         self.standardised_anomaly_windows = []
-        ThresholdWindowManager.__init__(self, parameter)
+        ThresholdWindowManager.__init__(self, parameter, global_config)
 
-    def create_windows(self, parameter):
-        super().create_windows(parameter)
+    def create_windows(self, parameter, global_config):
+        super().create_windows(parameter, global_config)
         if "std_anomaly_windows" in parameter:
             # Create windows for standard anomaly
             for window_config in parameter["std_anomaly_windows"]:
@@ -129,9 +96,12 @@ class AnomalyWindowManager(ThresholdWindowManager):
 
                 for operation, thresholds in window_operations.items():
                     for period in window_config["periods"]:
-                        new_window = common.create_window(period, operation)
-                        new_window.config_grib_header = window_config.get(
-                            "grib_set", {}
+                        include_start = bool(window_config.get("include_start_step", False))
+                        new_window = common.create_window(period, operation, 
+                            include_start)
+                        new_window.config_grib_header = global_config.copy()
+                        new_window.config_grib_header.update(
+                            window_config.get("grib_set", {})
                         )
                         self.standardised_anomaly_windows.append(new_window)
                         self.window_thresholds[new_window] = thresholds
@@ -173,6 +143,7 @@ class AnomalyWindowManager(ThresholdWindowManager):
 
 
 def main(args=None):
+    sys.stdout.reconfigure(line_buffering=True)
 
     parser = common.default_parser(
         "Compute instantaneous and period probabilites for anomalies"
@@ -182,57 +153,53 @@ def main(args=None):
     cfg = common.Config(args)
 
     date = datetime.datetime.strptime(args.date, "%Y%m%d%H")
-    n_ensembles = cfg.options.get("number_of_ensembles", 50)
-    leg = cfg.options.get("leg")
+    n_ensembles = int(cfg.options.get("number_of_ensembles", 50))
     global_input_cfg = cfg.options.get("global_input_keys", {})
     global_output_cfg = cfg.options.get("global_output_keys", {})
 
     fdb = pyfdb.FDB()
 
     for param_name, param_cfg in cfg.options["parameters"].items():
-        param_id = param_cfg["in_paramid"]
-        param = CombinedForecasts(
-            date, param_id, global_input_cfg, param_cfg, n_ensembles
-        )
-        clim = Climatology(date, param_id, global_input_cfg, param_cfg)
+        param = create_parameter(date, global_input_cfg, param_cfg, n_ensembles)
+        clim = Climatology(date, param_cfg["in_paramid"], global_input_cfg, param_cfg)
 
-        window_manager = AnomalyWindowManager(param_cfg)
+        window_manager = AnomalyWindowManager(param_cfg, global_output_cfg)
 
         for step in window_manager.unique_steps:
-            message_template, data = param.retrieve_data(fdb, step)
-            message_template.set(global_output_cfg)
-            clim_grib_header, clim_data = clim.retrieve_data(fdb, step)
+            with common.ResourceMeter(f"Parameter {param_name}, step {step}"):
+                message_template, data = param.retrieve_data(fdb, step)
+                clim_grib_header, clim_data = clim.retrieve_data(fdb, step)
 
-            completed_windows = window_manager.update_windows(
-                step, data, clim_data[0], clim_data[1]
-            )
-            for window in completed_windows:
-                for threshold in window_manager.thresholds(window):
-                    window_probability = ensemble_probability(
-                        window.step_values, threshold
-                    )
+                completed_windows = window_manager.update_windows(
+                    step, data, clim_data[0], clim_data[1]
+                )
+                for window in completed_windows:
+                    for threshold in window_manager.thresholds(window):
+                        window_probability = ensemble_probability(
+                            window.step_values, threshold
+                        )
 
-                    print(
-                        f"Writing probability for {param_name} output "
-                        + f"param {threshold['out_paramid']} for step(s) {window.name}"
-                    )
-                    output_file = os.path.join(
-                        cfg.options["root_dir"],
-                        f"{param_name}_{threshold['out_paramid']}_{leg}_step{window.name}.grib",
-                    )
-                    target = common.target_factory(
-                        cfg.options["target"], out_file=output_file, fdb=fdb
-                    )
-                    common.write_grib(
-                        target,
-                        construct_message(
-                            message_template,
-                            window.grib_header(leg),
-                            threshold,
-                            clim_grib_header,
-                        ),
-                        window_probability,
-                    )
+                        print(
+                            f"Writing probability for {param_name} output "
+                            + f"param {threshold['out_paramid']} for step(s) {window.name}"
+                        )
+                        output_file = os.path.join(
+                            cfg.options["root_dir"],
+                            f"{param_name}_{threshold['out_paramid']}_step{window.name}.grib",
+                        )
+                        target = common.target_factory(
+                            cfg.options["target"], out_file=output_file, fdb=fdb
+                        )
+                        common.write_grib(
+                            target,
+                            construct_message(
+                                message_template,
+                                window.grib_header(),
+                                threshold,
+                                clim_grib_header,
+                            ),
+                            window_probability,
+                        )
 
     fdb.flush()
 

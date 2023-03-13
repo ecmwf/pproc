@@ -12,6 +12,7 @@
 
 import os
 import numpy as np
+import sys
 from datetime import datetime, timedelta
 from dataclasses import dataclass
 
@@ -85,7 +86,7 @@ class Parameter(): # change id to paramid
         params = self.fc_keys.pop('param')
         self.req_paramids = set(params) if isinstance(params, list) else {params}
         self.eps = float(options['eps'])
-        self.sot = options['sot']
+        self.sot = [int(x) for x in options['sot']]
         self.type = options['preprocessing']
         self.suffix = f"{self.name}_{window.suffix}"
         self.steps = window.steps
@@ -287,7 +288,7 @@ class ConfigExtreme(common.Config):
 
         self.parameters = parameter_factory(self.options['parameters'])
 
-        self.members = self.options['members']
+        self.members = int(self.options['members'])
         self.fdb = pyfdb.FDB()
         
         self.root_dir = self.options['root_dir']
@@ -304,6 +305,7 @@ class ConfigExtreme(common.Config):
 
 
 def main(args=None):
+    sys.stdout.reconfigure(line_buffering=True)
 
     parser = common.default_parser('Compute EFI and SOT from forecast and climatology for one parameter')
     args = parser.parse_args(args)
