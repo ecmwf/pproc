@@ -186,6 +186,7 @@ class QuantilesConfig(Config):
 
 
 def main(args: List[str] = sys.argv[1:]):
+    sys.stdout.reconfigure(line_buffering=True)
     parser = get_parser()
     args = parser.parse_args(args)
     config = QuantilesConfig(args)
