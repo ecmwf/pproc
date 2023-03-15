@@ -1,11 +1,12 @@
 
 import argparse
 import sys
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
 import eccodes
+from meteokit.stats import iter_quantiles
 
 from pproc.common.config import Config, default_parser
 from pproc.common.dataset import open_multi_dataset
@@ -61,57 +62,6 @@ def read_ensemble(sources: dict, loc: str, members: int, dtype=np.float32, **kwa
     return template, data
 
 
-def quantiles(ens: np.ndarray, n: int = 100, method: str = 'sort') -> Iterable[np.ndarray]:
-    """Compute quantiles
-
-    Parameters
-    ----------
-    ens: numpy array (nens, npoints)
-        Ensemble data
-    n: int
-        Number of quantiles (default 100 = percentiles)
-    method: 'sort', 'numpy_bulk', 'numpy'
-        Method of computing the quantiles:
-        * sort: sort `ens` in place, then interpolates the quantiles one by one
-        * numpy_bulk: compute all the quantiles at once using `numpy.quantile`
-        * numpy: compute the quantiles one by one
-
-    Returns
-    -------
-    Iterable[numpy array]
-        Quantiles, in increasing order
-    """
-    if method not in ('sort', 'numpy_bulk', 'numpy'):
-        raise ValueError(f"Invalid method {method!r}, expected 'sort', 'numpy_bulk', or 'numpy'")
-
-    if method == 'numpy_bulk':
-        q = np.linspace(0., 1., n + 1)
-        quantiles = np.quantile(ens, q, axis=0)
-        yield from quantiles
-        return
-
-    if method == 'sort':
-        ens.sort(axis=0)
-
-    for i in range(n + 1):
-        q = i / n
-        if method == 'numpy':
-            yield np.quantile(ens, q, axis=0)
-
-        elif method == 'sort':
-            q = i / n
-            m = ens.shape[0]
-            f = (m - 1) * q
-            j = int(f)
-            x = f - j
-            quantile = ens[j, :].copy()
-            quantile *= 1 - x
-            tmp = ens[min(j + 1, m - 1), :].copy()
-            tmp *= x
-            quantile += tmp
-            yield quantile
-
-
 def do_quantiles(ens: np.ndarray, template: eccodes.GRIBMessage, target: Target, out_paramid: str, n: int = 100, out_keys: Optional[Dict[str, Any]] = None):
     """Compute quantiles
 
@@ -128,7 +78,7 @@ def do_quantiles(ens: np.ndarray, template: eccodes.GRIBMessage, target: Target,
     out_keys: dict, optional
         Extra GRIB keys to set on the output
     """
-    for i, quantile in enumerate(quantiles(ens, n, method='sort')):
+    for i, quantile in enumerate(iter_quantiles(ens, n, method='sort')):
         message = template.copy()
         if out_keys is not None:
             message.set(out_keys)
