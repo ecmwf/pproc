@@ -25,14 +25,16 @@ class Window:
         else:
             self.name = f"{self.start}-{self.end}"
 
-        if len(window_options["range"]) > 2:
-            self.step = int(window_options["range"][2])
-            if include_init:
-                self.steps = list(range(self.start, self.end + self.step, self.step))
-            else:
-                self.steps = list(
-                    range(self.start + self.step, self.end + self.step, self.step)
-                )
+        self.step = (
+            int(window_options["range"][2]) if len(window_options["range"]) > 2
+            else 1
+        )
+        if include_init:
+            self.steps = list(range(self.start, self.end + 1, self.step))
+        else:
+            self.steps = list(
+                range(self.start + self.step, self.end + 1, self.step)
+            )
 
         self.step_values = []
         self.config_grib_header = {}
