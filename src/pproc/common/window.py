@@ -21,7 +21,7 @@ class Window:
         window_size = self.end - self.start
         self.suffix = f"{window_size:0>3}_{self.start:0>3}h_{self.end:0>3}h"
         if window_size == 0:
-            self.name = self.end
+            self.name = str(self.end)
         else:
             self.name = f"{self.start}-{self.end}"
 
