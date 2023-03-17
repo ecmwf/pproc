@@ -36,6 +36,9 @@ class Recovery:
     def checkpoint_key(cls, checkpoint_identifiers: List):
         return '/'.join(map(str, checkpoint_identifiers))
     
+    @classmethod
+    def checkpoint_identifiers(cls, key: str) -> List[str]:
+        return key.split("/")
     
     def add_checkpoint(self, *checkpoint_identifiers):
         checkpoint = self.checkpoint_key(checkpoint_identifiers)

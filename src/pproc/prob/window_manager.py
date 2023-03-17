@@ -1,3 +1,5 @@
+import bisect
+
 from pproc.common import WindowManager, create_window
 
 
@@ -73,3 +75,23 @@ class ThresholdWindowManager(WindowManager):
         Returns thresholds for window and deletes window from window:threshold dictionary
         """
         return self.window_thresholds.pop(window)
+
+    def update_from_checkpoint(self, checkpoint_step: int):
+        """
+        Find the earliest start step for windows containing checkpoint_step
+
+        """
+        new_start_step = checkpoint_step + 1
+        delete_windows = []
+        for window in self.windows:
+            real_start =  window.start + int(window.include_init)
+            if checkpoint_step in window and real_start < new_start_step:
+                new_start_step = real_start
+            if checkpoint_step >= window.end:
+                delete_windows.append(window)
+
+        for window in delete_windows:
+            self.window_thresholds.pop(window)
+            self.windows.remove(window)
+        start_index = bisect.bisect_left(self.unique_steps, new_start_step)
+        self.unique_steps = self.unique_steps[start_index:]
