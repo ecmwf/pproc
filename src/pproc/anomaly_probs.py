@@ -1,145 +1,14 @@
 import sys
 import os
 import datetime
-from typing import Tuple, Dict, Iterator
-import numpy as np
 
 import pyfdb
 from pproc import common
 from pproc.prob.grib_helpers import construct_message
 from pproc.prob.math import ensemble_probability
-from pproc.prob.parameter import create_parameter, Parameter
-from pproc.prob.window_manager import ThresholdWindowManager
-from pproc.prob.model_constants import LAST_MODEL_STEP, CLIM_INTERVAL
-
-
-class Climatology(Parameter):
-    """
-    Retrieves data for mean and standard deviation of climatology
-    """
-
-    def __init__(
-        self, dt: datetime.datetime, param_id: int, global_input_cfg, param_cfg: Dict
-    ):
-        Parameter.__init__(self, dt, param_id, global_input_cfg, param_cfg, 0)
-        self.base_request.pop("number")
-        self.base_request["date"] = self.get_climatology_date(dt.date())
-        self.base_request["time"] = "00"
-        self.base_request["stream"] = param_cfg["climatology"]["stream"]
-        self.base_request["type"] = "em/es"  # Order of these is important
-        self.time = dt.time()
-        self.steps = param_cfg["steps"]
-
-    def clim_step(self, step: int):
-        """
-        Nearest step with climatology data to step,
-        taking into account diurnal variation in climatology
-        which requires climatology step time to be same
-        as step
-        """
-        if self.time == datetime.time(0):
-            return step
-        if self.time == datetime.time(12):
-            if step == LAST_MODEL_STEP:
-                return step - CLIM_INTERVAL
-            return step + CLIM_INTERVAL
-
-    @classmethod
-    def get_climatology_date(cls, date: datetime.date) -> str:
-        """
-        Assumes climatology run on Monday and Thursday and retrieves most recent
-        date climatology is available
-        """
-        dow = date.weekday()
-        if dow >= 0 and dow < 3:
-            return (date - datetime.timedelta(days=dow)).strftime("%Y%m%d")
-        return (date - datetime.timedelta(days=(dow - 3))).strftime("%Y%m%d")
-
-    @classmethod
-    def grib_header(cls, grib_msg):
-        """
-        Get climatology period from grib message
-        """
-        return {
-            "climateDateFrom": grib_msg.get("climateDateFrom"),
-            "climateDateTo": grib_msg.get("climateDateTo"),
-            "referenceDate": grib_msg.get("referenceDate"),
-        }
-
-    def retrieve_data(self, fdb, step: int) -> Tuple[Dict, Tuple[np.array, np.array]]:
-        """
-        Retrieves data for climatology mean and standard deviation,
-        taking into account possible shift required between data and
-        nearest climatology step
-
-        :param fdb:
-        :param step: model step
-        :return: tuple containing climatology period dates as Dict
-        and
-        """
-        cstep = self.clim_step(step)
-        temp_message, ret = super().retrieve_data(fdb, cstep)
-        return self.grib_header(temp_message), ret
-
-
-class AnomalyWindowManager(ThresholdWindowManager):
-    def __init__(self, parameter, global_config):
-        self.standardised_anomaly_windows = []
-        ThresholdWindowManager.__init__(self, parameter, global_config)
-
-    def create_windows(self, parameter, global_config):
-        super().create_windows(parameter, global_config)
-        if "std_anomaly_windows" in parameter:
-            # Create windows for standard anomaly
-            for window_config in parameter["std_anomaly_windows"]:
-                window_operations = self.window_operation_from_config(window_config)
-
-                for operation, thresholds in window_operations.items():
-                    for period in window_config["periods"]:
-                        include_start = bool(window_config.get("include_start_step", False))
-                        new_window = common.create_window(period, operation, 
-                            include_start)
-                        new_window.config_grib_header = global_config.copy()
-                        new_window.config_grib_header.update(
-                            window_config.get("grib_set", {})
-                        )
-                        self.standardised_anomaly_windows.append(new_window)
-                        self.window_thresholds[new_window] = thresholds
-
-    def update_windows(
-        self, step, data: np.array, clim_mean: np.array, clim_std: np.array
-    ) -> Iterator[common.Window]:
-        """
-        Updates all windows that include step with either the anomaly with clim_mean
-        or standardised anomaly including clim_std. Function modifies input data array.
-
-        :param step: new step
-        :param data: data for step
-        :param clim_mean: mean from climatology
-        :param clim_std: standard deviation from climatology
-        :return: generator for completed windows
-        """
-        data = data - clim_mean
-        new_anom_windows = []
-        for window in self.windows:
-            window.add_step_values(step, data)
-
-            if window.reached_end_step(step):
-                yield window
-            else:
-                new_anom_windows.append(window)
-        self.windows = new_anom_windows
-
-        new_std_anom_windows = []
-        data = data / clim_std
-        for window in self.standardised_anomaly_windows:
-            window.add_step_values(step, data)
-
-            if window.reached_end_step(step):
-                yield window
-            else:
-                new_std_anom_windows.append(window)
-        self.standardised_anomaly_windows = new_std_anom_windows
+from pproc.prob.parameter import create_parameter
+from pproc.prob.window_manager import AnomalyWindowManager
+from pproc.prob.climatology import Climatology
 
 
 def main(args=None):
@@ -158,12 +27,22 @@ def main(args=None):
     global_output_cfg = cfg.options.get("global_output_keys", {})
 
     fdb = pyfdb.FDB()
+    recovery = common.Recovery(cfg.options["root_dir"], args.config, date, args.recover)
+    last_checkpoint = recovery.last_checkpoint()
+    last_checkpoint_step = -1
 
     for param_name, param_cfg in cfg.options["parameters"].items():
         param = create_parameter(date, global_input_cfg, param_cfg, n_ensembles)
         clim = Climatology(date, param_cfg["in_paramid"], global_input_cfg, param_cfg)
 
         window_manager = AnomalyWindowManager(param_cfg, global_output_cfg)
+        if last_checkpoint and recovery.existing_checkpoint(param_name, window_manager.unique_steps[0]):
+            if param_name not in last_checkpoint:
+                print(f"Recovery: skipping completed param {param_name}")
+                continue
+            last_checkpoint_step = int(recovery.checkpoint_identifiers(last_checkpoint)[1])
+            window_manager.update_from_checkpoint(last_checkpoint_step)
+            print(f"Recovery: param {param_name} looping from step {window_manager.unique_steps[0]}")
 
         for step in window_manager.unique_steps:
             with common.ResourceMeter(f"Parameter {param_name}, step {step}"):
@@ -201,8 +80,12 @@ def main(args=None):
                             window_probability,
                         )
 
-    fdb.flush()
+            if step > last_checkpoint_step:
+                recovery.add_checkpoint(param_name, step)
+        last_checkpoint_step = -1
 
+    fdb.flush()
+    recovery.clean()
 
 if __name__ == "__main__":
     main(sys.argv)
