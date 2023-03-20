@@ -29,7 +29,6 @@ def main(args=None):
     fdb = pyfdb.FDB()
     recovery = common.Recovery(cfg.options["root_dir"], args.config, date, args.recover)
     last_checkpoint = recovery.last_checkpoint()
-    last_checkpoint_step = -1
 
     for param_name, param_cfg in cfg.options["parameters"].items():
         param = create_parameter(date, global_input_cfg, param_cfg, n_ensembles)
@@ -86,9 +85,7 @@ def main(args=None):
                             window_probability,
                         )
 
-            if step > last_checkpoint_step:
-                recovery.add_checkpoint(param_name, step)
-        last_checkpoint_step = -1
+            recovery.add_checkpoint(param_name, step)
 
     fdb.flush()
     recovery.clean_file()

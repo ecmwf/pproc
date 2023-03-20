@@ -353,9 +353,9 @@ def main(args=None):
                 target = common.target_factory(cfg.target, out_file=out_file, fdb=cfg.fdb)
                 common.write_grib(target, template_sot, sot[perc])
 
+            cfg.fdb.flush()
             recovery.add_checkpoint(param.paramid, param.window.name)
 
-            cfg.fdb.flush()
     recovery.clean_file()
 
 if __name__ == "__main__":
