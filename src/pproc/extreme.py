@@ -356,7 +356,7 @@ def main(args=None):
             recovery.add_checkpoint(param.paramid, param.window.name)
 
             cfg.fdb.flush()
-    recovery.clean()
+    recovery.clean_file()
 
 if __name__ == "__main__":
     main()

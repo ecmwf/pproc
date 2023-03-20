@@ -175,7 +175,7 @@ def main(args=None):
 
                 recover.add_checkpoint(param, window.name, step)
 
-    recover.clean()
+    recover.clean_file()
 
 if __name__ == "__main__":
     main(sys.argv)

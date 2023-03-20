@@ -85,7 +85,7 @@ def main(args=None):
         last_checkpoint_step = -1
 
     fdb.flush()
-    recovery.clean()
+    recovery.clean_file()
 
 if __name__ == "__main__":
     main(sys.argv)

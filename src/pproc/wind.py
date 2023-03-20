@@ -271,7 +271,7 @@ def main(args=None):
                         
                 recovery.add_checkpoint(levelist, window.name, step)
     
-    recovery.clean()
+    recovery.clean_file()
 
 
 if __name__ == "__main__":

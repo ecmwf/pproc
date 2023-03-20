@@ -21,7 +21,7 @@ class Recovery:
                 self.checkpoints += [x.rstrip('\n') for x in past_checkpoints]
         else:
             print(f"Recovery: cleaning checkpoints in file {self.filename}")
-            self.clean()
+            self.clean_file()
 
     def existing_checkpoint(self, *checkpoint_identifiers) -> bool:
         checkpoint = self.checkpoint_key(checkpoint_identifiers)
@@ -48,6 +48,6 @@ class Recovery:
         self.checkpoints.append(checkpoint)
 
 
-    def clean(self):
+    def clean_file(self):
         if os.path.exists(self.filename):
             os.remove(self.filename)
