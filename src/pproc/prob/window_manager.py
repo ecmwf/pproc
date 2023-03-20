@@ -87,10 +87,10 @@ class ThresholdWindowManager(WindowManager):
         delete_windows = []
         for window in self.windows:
             real_start = window.start + int(window.include_init)
-            if checkpoint_step in window and real_start < new_start_step:
-                new_start_step = real_start
             if checkpoint_step >= window.end:
                 delete_windows.append(window)
+            elif checkpoint_step in window and real_start < new_start_step:
+                new_start_step = real_start
 
         for window in delete_windows:
             self.window_thresholds.pop(window)
