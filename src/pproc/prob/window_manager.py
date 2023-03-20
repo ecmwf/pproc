@@ -80,16 +80,19 @@ class ThresholdWindowManager(WindowManager):
 
     def update_from_checkpoint(self, checkpoint_step: int):
         """
-        Find the earliest start step for windows containing checkpoint_step
+        Find the earliest start step for windows not completed by
+        checkpoint and update list of unique steps. Remove all
+        completed windows and their associated thresholds.
 
+        :param checkpoint_step: step reached at last checkpoint
         """
         new_start_step = checkpoint_step + 1
         delete_windows = []
         for window in self.windows:
-            real_start = window.start + int(window.include_init)
+            real_start = window.start + int(not window.include_init)
             if checkpoint_step >= window.end:
                 delete_windows.append(window)
-            elif checkpoint_step in window and real_start < new_start_step:
+            elif real_start < new_start_step:
                 new_start_step = real_start
 
         for window in delete_windows:
@@ -160,19 +163,15 @@ class AnomalyWindowManager(ThresholdWindowManager):
         self.standardised_anomaly_windows = new_std_anom_windows
 
     def update_from_checkpoint(self, checkpoint_step: int):
-        """
-        Find the earliest start step for windows containing checkpoint_step
-
-        """
         new_start_step = checkpoint_step + 1
         for window_set in [self.windows, self.standardised_anomaly_windows]:
             delete_windows = []
             for window in window_set:
-                real_start = window.start + int(window.include_init)
-                if checkpoint_step in window and real_start < new_start_step:
-                    new_start_step = real_start
+                real_start = window.start + int(not window.include_init)
                 if checkpoint_step >= window.end:
                     delete_windows.append(window)
+                elif real_start < new_start_step:
+                    new_start_step = real_start
 
             for window in delete_windows:
                 self.window_thresholds.pop(window)
