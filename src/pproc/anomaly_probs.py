@@ -30,7 +30,7 @@ def main(args=None):
     recovery = common.Recovery(cfg.options["root_dir"], args.config, date, args.recover)
     last_checkpoint = recovery.last_checkpoint()
 
-    for param_name, param_cfg in cfg.options["parameters"].items():
+    for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
         param = create_parameter(date, global_input_cfg, param_cfg, n_ensembles)
         clim = Climatology(date, param_cfg["in_paramid"], global_input_cfg, param_cfg)
 
