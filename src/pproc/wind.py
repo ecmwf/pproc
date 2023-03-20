@@ -283,6 +283,7 @@ def main(args=None):
                                 np.std(eps[step], axis=0),
                             )
 
+                cfg.fdb.flush()
                 recovery.add_checkpoint(levelist, window.name, step)
 
     recovery.clean_file()

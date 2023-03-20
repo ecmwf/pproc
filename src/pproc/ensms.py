@@ -173,6 +173,7 @@ def main(args=None):
                         template_std = template_ensemble(cfg, param_type, template_ens, step, window.step, level, 'es')
                         common.write_grib(target_std, template_std, std_slice)
 
+                cfg.fdb.flush()
                 recover.add_checkpoint(param, window.name, step)
 
     recover.clean_file()
