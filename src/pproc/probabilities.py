@@ -45,14 +45,20 @@ def main(args=None):
     for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
         param = create_parameter(date, global_input_cfg, param_cfg, nensembles)
         window_manager = ThresholdWindowManager(param_cfg, global_output_cfg)
-        if last_checkpoint and recovery.existing_checkpoint(param_name, window_manager.unique_steps[0]):
+        if last_checkpoint and recovery.existing_checkpoint(
+            param_name, window_manager.unique_steps[0]
+        ):
             if param_name not in last_checkpoint:
                 print(f"Recovery: skipping completed param {param_name}")
                 continue
-            last_checkpoint_step = int(recovery.checkpoint_identifiers(last_checkpoint)[1])
+            last_checkpoint_step = int(
+                recovery.checkpoint_identifiers(last_checkpoint)[1]
+            )
             window_manager.update_from_checkpoint(last_checkpoint_step)
-            print(f"Recovery: param {param_name} looping from step {window_manager.unique_steps[0]}")
-        
+            print(
+                f"Recovery: param {param_name} looping from step {window_manager.unique_steps[0]}"
+            )
+
         for step in window_manager.unique_steps:
             with common.ResourceMeter(f"Parameter {param_name}, step {step}"):
                 message_template, data = param.retrieve_data(fdb, step)
@@ -95,7 +101,7 @@ def main(args=None):
                             ),
                             window_probability,
                         )
-                
+
             if step > last_checkpoint_step:
                 recovery.add_checkpoint(param_name, step)
         last_checkpoint_step = -1

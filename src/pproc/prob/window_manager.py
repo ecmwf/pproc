@@ -34,14 +34,14 @@ class ThresholdWindowManager(WindowManager):
         if "window_operation" in window_config:
             thresholds = window_config.get("thresholds", [])
             for threshold in thresholds:
-                if isinstance(threshold['value'], str):
-                    threshold['value'] = float(threshold['value'])
+                if isinstance(threshold["value"], str):
+                    threshold["value"] = float(threshold["value"])
             window_operations[window_config["window_operation"]] = thresholds
         elif "thresholds" in window_config:
             # Derive from threshold comparison parameter
             for threshold in window_config["thresholds"]:
-                if isinstance(threshold['value'], str):
-                    threshold['value'] = float(threshold['value'])
+                if isinstance(threshold["value"], str):
+                    threshold["value"] = float(threshold["value"])
                 comparison = threshold["comparison"]
                 if "<" in comparison:
                     operation = "min"
@@ -86,7 +86,7 @@ class ThresholdWindowManager(WindowManager):
         new_start_step = checkpoint_step + 1
         delete_windows = []
         for window in self.windows:
-            real_start =  window.start + int(window.include_init)
+            real_start = window.start + int(window.include_init)
             if checkpoint_step in window and real_start < new_start_step:
                 new_start_step = real_start
             if checkpoint_step >= window.end:
@@ -113,9 +113,10 @@ class AnomalyWindowManager(ThresholdWindowManager):
 
                 for operation, thresholds in window_operations.items():
                     for period in window_config["periods"]:
-                        include_start = bool(window_config.get("include_start_step", False))
-                        new_window = create_window(period, operation, 
-                            include_start)
+                        include_start = bool(
+                            window_config.get("include_start_step", False)
+                        )
+                        new_window = create_window(period, operation, include_start)
                         new_window.config_grib_header = global_config.copy()
                         new_window.config_grib_header.update(
                             window_config.get("grib_set", {})
@@ -157,7 +158,7 @@ class AnomalyWindowManager(ThresholdWindowManager):
             else:
                 new_std_anom_windows.append(window)
         self.standardised_anomaly_windows = new_std_anom_windows
-    
+
     def update_from_checkpoint(self, checkpoint_step: int):
         """
         Find the earliest start step for windows containing checkpoint_step
@@ -167,7 +168,7 @@ class AnomalyWindowManager(ThresholdWindowManager):
         for window_set in [self.windows, self.standardised_anomaly_windows]:
             delete_windows = []
             for window in window_set:
-                real_start =  window.start + int(window.include_init)
+                real_start = window.start + int(window.include_init)
                 if checkpoint_step in window and real_start < new_start_step:
                     new_start_step = real_start
                 if checkpoint_step >= window.end:
