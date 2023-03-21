@@ -2,8 +2,8 @@ import datetime
 from typing import Dict, Tuple
 import numpy as np
 
-from prob.parameter import Parameter
-from prob.model_constants import LAST_MODEL_STEP, CLIM_INTERVAL
+from pproc.prob.parameter import Parameter
+from pproc.prob.model_constants import LAST_MODEL_STEP, CLIM_INTERVAL
 
 
 class Climatology(Parameter):
