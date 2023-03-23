@@ -1,36 +1,25 @@
 import tempfile
 import datetime
-import pathlib
 import yaml
 import pytest
 
 from pproc.common import Recovery
 
 
-@pytest.fixture
-def temp_path():
-    temp_dir = tempfile.TemporaryDirectory()
-    path = pathlib.Path(temp_dir.name)
-    with open(f"{path}/config1.yaml", "w") as f1:
+def test_config_uniqueness(tmp_path):
+    with open(f"{tmp_path}/config1.yaml", "w") as f1:
         f1.write(yaml.dump({"param": "2t"}))
-
-    yield path
-
-    temp_dir.cleanup()
-
-
-def test_config_uniqueness(temp_path):
-    with open(f"{temp_path}/config2.yaml", "w") as f1:
+    with open(f"{tmp_path}/config2.yaml", "w") as f1:
         f1.write(yaml.dump({"param": "swh"}))
     recover1 = Recovery(
-        temp_path,
-        f"{temp_path}/config1.yaml",
+        tmp_path,
+        f"{tmp_path}/config1.yaml",
         datetime.datetime(2023, 1, 1),
         recover=False,
     )
     recover2 = Recovery(
-        temp_path,
-        f"{temp_path}/config2.yaml",
+        tmp_path,
+        f"{tmp_path}/config2.yaml",
         datetime.datetime(2023, 1, 1),
         recover=False,
     )
@@ -38,10 +27,12 @@ def test_config_uniqueness(temp_path):
 
 
 @pytest.mark.parametrize("recover, num_checkpoints", [(True, 1), (False, 0)])
-def test_recovery(temp_path, recover: bool, num_checkpoints: int):
+def test_recovery(tmp_path, recover: bool, num_checkpoints: int):
+    with open(f"{tmp_path}/config1.yaml", "w") as f1:
+        f1.write(yaml.dump({"param": "2t"}))
     recover1 = Recovery(
-        temp_path,
-        f"{temp_path}/config1.yaml",
+        tmp_path,
+        f"{tmp_path}/config1.yaml",
         datetime.datetime(2023, 1, 1),
         recover=False,
     )
@@ -54,8 +45,8 @@ def test_recovery(temp_path, recover: bool, num_checkpoints: int):
     assert len(recover1.checkpoints) == 1
 
     recover2 = Recovery(
-        temp_path,
-        f"{temp_path}/config1.yaml",
+        tmp_path,
+        f"{tmp_path}/config1.yaml",
         datetime.datetime(2023, 1, 1),
         recover=recover,
     )
