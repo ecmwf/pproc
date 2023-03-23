@@ -70,6 +70,7 @@ def fdb_request_forecast(fc_keys, paramid, date, steps, member):
         req['type'] = 'pf'
         req['number'] = member
 
+    print('Parameter request: ', req)
     return req
 
 
@@ -207,6 +208,7 @@ def read_clim(cfg, param, n_clim=101):
     req["quantile"] = ['{}:100'.format(i) for i in range(n_clim)]
     req["step"] = f'{param.window.name}'
 
+    print('Climatology request: ', req)
     da_clim = common.fdb_read(cfg.fdb, req)
     da_clim_sorted = da_clim.reindex(quantile=[f'{x}:100' for x in range(n_clim)])
     print(da_clim_sorted)

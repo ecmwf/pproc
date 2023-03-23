@@ -49,6 +49,7 @@ class Parameter:
             new_request["type"] = type
             if type == "cf":
                 new_request.pop("number")
+            print('FDB request: ', new_request)
             message_temp, new_data = common.fdb_read_with_template(
                 fdb, new_request, self.interpolation_keys
             )
