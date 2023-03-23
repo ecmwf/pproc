@@ -10,7 +10,7 @@ class Recovery:
         root_dir: str,
         config_file: str,
         date: datetime.datetime,
-        recover: bool = True,
+        recover: bool,
     ):
         """
         Class for writing out checkpoints and recovering computation from checkpoint file. The date and
