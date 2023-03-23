@@ -32,14 +32,14 @@ class Recovery:
         )
         self.checkpoints = []
         if recover:
-            print(f"Recovery: checkpoints from file {self.filename}")
+            print(f"Recovery: checkpoints from file {root_dir}/{self.filename}")
             # Load from file if one exists
             if os.path.exists(self.filename):
                 with open(self.filename, "rt") as f:
                     past_checkpoints = f.readlines()
                 self.checkpoints += [x.rstrip("\n") for x in past_checkpoints]
         else:
-            print(f"Recovery: cleaning checkpoints in file {self.filename}")
+            print(f"Recovery: cleaning checkpoints in file {root_dir}/{self.filename}")
             self.clean_file()
 
     def existing_checkpoint(self, *checkpoint_identifiers) -> bool:
