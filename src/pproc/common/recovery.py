@@ -31,15 +31,14 @@ class Recovery:
             root_dir, f"{date.strftime('%Y%m%d%H')}{sha256.hexdigest()}.txt"
         )
         self.checkpoints = []
+        print(f"Recovery: checkpoint file {self.filename}. Start from checkpoints: {recover}")
         if recover:
-            print(f"Recovery: checkpoints from file {root_dir}/{self.filename}")
             # Load from file if one exists
             if os.path.exists(self.filename):
                 with open(self.filename, "rt") as f:
                     past_checkpoints = f.readlines()
                 self.checkpoints += [x.rstrip("\n") for x in past_checkpoints]
         else:
-            print(f"Recovery: cleaning checkpoints in file {root_dir}/{self.filename}")
             self.clean_file()
 
     def existing_checkpoint(self, *checkpoint_identifiers) -> bool:
