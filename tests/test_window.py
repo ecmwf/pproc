@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from pproc.common import (
     DiffWindow,
@@ -7,6 +8,19 @@ from pproc.common import (
     DiffDailyRateWindow,
     Window,
 )
+
+@pytest.mark.parametrize("steps, include_init, exp", [
+    pytest.param([0, 0], True, [0], id="0-0"),
+    pytest.param([3, 10], True, list(range(3, 11)), id="3-10"),
+    pytest.param([2, 6], False, list(range(3, 7)), id="2-6-noinit"),
+    pytest.param([3, 12, 3], True, [3, 6, 9, 12], id="3-12-by3"),
+    pytest.param([1, 1, 6], True, [1], id="1-1-by6"),
+    pytest.param([0, 1, 4], True, [0], id="0-1-by4"),
+    pytest.param([0, 24, 8], False, [8, 16, 24], id="0-24-by8-noinit"),
+])
+def test_window_steps(steps, include_init, exp):
+    window = Window({"range": steps}, include_init)
+    assert window.steps == exp
 
 
 def test_instantaneous_window():
