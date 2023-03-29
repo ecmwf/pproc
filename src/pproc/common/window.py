@@ -92,11 +92,12 @@ class Window:
         :return: dictionary of header keys and values
         """
         header = {}
-        if (self.end - self.start) > 0 and self.start >= LEG1_END:
+        window_size = self.end - self.start
+        if window_size > 0 and self.start >= LEG1_END:
             header["unitOfTimeRange"] = 11
 
         header.update(self.config_grib_header)
-        if (self.end - self.start) == 0 :
+        if window_size == 0:
             header["step"] = self.name
         else:
             header.setdefault("stepType", "max")  # Don't override if set in config
