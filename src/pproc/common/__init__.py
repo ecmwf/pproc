@@ -7,6 +7,7 @@ from .window import (
     DiffWindow,
     WeightedSumWindow,
     DiffDailyRateWindow,
-    ConcatenateWindow
+    ConcatenateWindow, 
+    MeanWindow
 )
 from .window_manager import WindowManager, create_window
