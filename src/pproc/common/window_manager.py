@@ -8,7 +8,8 @@ from pproc.common import (
     WeightedSumWindow,
     DiffWindow,
     DiffDailyRateWindow,
-    ConcatenateWindow
+    ConcatenateWindow,
+    MeanWindow,
 )
 
 
@@ -34,6 +35,8 @@ def create_window(window_options, window_operation: str, include_start: bool) ->
         return DiffDailyRateWindow(window_options)
     if window_operation == "concatenate":
         return ConcatenateWindow(window_options, include_start)
+    if window_operation == "mean":
+        return MeanWindow(window_options, include_start)
     raise ValueError(
         f"Unsupported window operation {window_operation}. "
         + "Supported types: diff, min, max, sum, weightedsum, diffdailyrate"
@@ -74,8 +77,9 @@ class WindowManager:
         for window_config in parameter["windows"]:
             for period in window_config["periods"]:
                 include_start = bool(window_config.get("include_start_step", False))
-                new_window = create_window(period, window_config["window_operation"], 
-                    include_start)
+                new_window = create_window(
+                    period, window_config["window_operation"], include_start
+                )
                 new_window.config_grib_header = global_config.copy()
                 new_window.config_grib_header.update(window_config.get("grib_set", {}))
                 self.windows.append(new_window)
