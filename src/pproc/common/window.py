@@ -92,7 +92,7 @@ class Window:
         :return: dictionary of header keys and values
         """
         header = {}
-        if isinstance(self.name, str) and self.start >= LEG1_END:
+        if (self.end - self.start) > 0 and self.start >= LEG1_END:
             header["unitOfTimeRange"] = 11
 
         header.update(self.config_grib_header)
