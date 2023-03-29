@@ -28,6 +28,7 @@ setup(
             "pproc-clustereps-cluster=pproc.clustereps.cluster:main",
             "pproc-clustereps-attr=pproc.clustereps.attribution:main",
             "pproc-anomaly-probabilities=pproc.anomaly_probs:main",
+            "pproc-quantiles=pproc.quantiles:main"
         ],
     },
 )

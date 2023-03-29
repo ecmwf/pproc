@@ -12,8 +12,10 @@ import eccodes
 
 from pproc.clustereps import attribution, cluster, pca
 from pproc.clustereps.config import FullClusterConfig
-from pproc.clustereps.io import FDBNotOpenError, fdb, open_dataset, read_ensemble_grib, read_steps_grib, target_from_location
+from pproc.clustereps.io import read_ensemble_grib, read_steps_grib
 from pproc.common import default_parser, ResourceMeter
+from pproc.common.dataset import open_dataset
+from pproc.common.io import FDBNotOpenError, fdb, target_from_location
 
 
 def get_mean_spread(sources: dict, locs: List[str], date: datetime, steps: List[int], ndays: int = 31) -> np.ndarray:

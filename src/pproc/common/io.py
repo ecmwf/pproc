@@ -1,13 +1,13 @@
 from contextlib import ExitStack
 from io import BytesIO
+import re
 import yaml
-import itertools
 import os
 
 import numpy as np
 import xarray as xr
-from dataclasses import dataclass, field
-from typing import Union, Any, List, Dict
+from dataclasses import dataclass
+from typing import Optional, Tuple, Union, List, Dict
 
 import eccodes
 import pyfdb
@@ -386,3 +386,36 @@ def write_grib(target, template, data, missing=-9999):
             raise Exception(f'Number of missing values in the message not consistent, is {n_missing1} and should be {n_missing2}')
 
     target.write(message)
+
+
+class FDBNotOpenError(RuntimeError):
+    pass
+
+
+def fdb(create: bool = True) -> pyfdb.FDB:
+    instance = getattr(fdb, '_instance', None)
+    if instance is None:
+        if not create:
+            raise FDBNotOpenError("FDB not open")
+        instance = pyfdb.FDB()
+        fdb._instance = instance
+    return instance
+
+
+_LOCATION_RE = re.compile('^([a-z](?:[a-z0-9+-.])*):(.*)$', re.I)
+
+
+def split_location(loc: str, default: Optional[str] = None) -> Tuple[Optional[str], str]:
+    m = _LOCATION_RE.fullmatch(loc)
+    if m is None:
+        return (default, loc)
+    return m.groups()
+
+
+def target_from_location(loc: Optional[str]):
+    type_ = 'null'
+    ident = ''
+    if loc is not None:
+        type_, ident = split_location(loc, default='file')
+    fdb_ = fdb() if type_ == 'fdb' else None
+    return target_factory(type_, out_file=ident, fdb=fdb_)
