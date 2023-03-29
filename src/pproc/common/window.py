@@ -96,7 +96,7 @@ class Window:
             header["unitOfTimeRange"] = 11
 
         header.update(self.config_grib_header)
-        if isinstance(self.name, int):
+        if (self.end - self.start) == 0 :
             header["step"] = self.name
         else:
             header.setdefault("stepType", "max")  # Don't override if set in config
