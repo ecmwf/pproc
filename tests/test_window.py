@@ -7,7 +7,6 @@ from pproc.common import (
     WeightedSumWindow,
     DiffDailyRateWindow,
     Window,
-    ConcatenateWindow,
     MeanWindow,
 )
 
@@ -44,6 +43,7 @@ def test_instantaneous_window():
         ["min", [[1, 2, 3], [1, 2, 3]]],
         ["max", [[2, 4, 6], [2, 4, 6]]],
         ["sum", [[3, 6, 9], [3, 6, 9]]],
+        ["concatenate", [[1, 2, 3], [2, 4, 6], [2, 4, 6], [1, 2, 3]]],
     ],
 )
 def test_simple_op(window_operation, values):
@@ -74,12 +74,6 @@ def test_multi_windows():
         [DiffWindow, 2, 1, [[1, 2, 3], [2, 4, 6]]],
         [WeightedSumWindow, 2, 1, [[1.5, 3, 4.5], [3, 6, 9]]],
         [DiffDailyRateWindow, 240, 120, np.divide([[1, 2, 3], [2, 4, 6]], 10)],
-        [
-            ConcatenateWindow,
-            2,
-            1,
-            [[1, 2, 3], [2, 4, 6], [1, 2, 3], [2, 4, 6], [2, 4, 6], [4, 8, 12]],
-        ],
         [MeanWindow, 6, 3, [[1.5, 3, 4.5], [3, 6, 9]]],
     ],
 )

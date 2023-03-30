@@ -107,7 +107,7 @@ class Window:
 
 class SimpleOpWindow(Window):
     """
-    Window with operation min, max, sum - reduction operations supported by numpy
+    Window with operation min, max, sum, concatenate - reduction operations supported by numpy
     """
 
     def __init__(
@@ -128,8 +128,8 @@ class SimpleOpWindow(Window):
 
         :param new_step_values: data from new step
         """
-        getattr(np, self.operation_str)(
-            [self.step_values, new_step_values], axis=0, out=self.step_values
+        self.step_values = getattr(np, self.operation_str)(
+            [self.step_values, new_step_values], axis=0
         )
 
 
@@ -200,23 +200,11 @@ class DiffDailyRateWindow(DiffWindow):
         self.step_values = self.step_values / num_days
 
 
-class ConcatenateWindow(Window):
-    """
-    Window with operation that concatenates current step values with new step
-    values i.e. stores data for all steps in window
-    """
-
-    def operation(self, new_step_values: np.array):
-        """
-        Combines data from unprocessed steps with existing step data values,
-        and updates step data values
-
-        :param new_step_values: data from new step
-        """
-        self.step_values = np.concatenate((self.step_values, new_step_values), axis=0)
-
-
 class MeanWindow(SimpleOpWindow):
+    """
+    Window with operation that computes mean over the steps in window
+    """
+
     def __init__(self, window_options, include_init=False):
         super().__init__(window_options, "sum", include_init=include_init)
         self.num_steps = 0
