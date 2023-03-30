@@ -90,3 +90,22 @@ def test_window_classes(window_class, end_step, step_increment, values):
     window.add_step_values(step_increment, step_values)
     window.add_step_values(2 * step_increment, step_values * 2)
     assert np.all(window.step_values == values)
+
+
+@pytest.mark.parametrize(
+    "start_end, grib_key_values",
+    [
+        [[1, 1], {"step": "1"}],
+        [[1, 2], {"stepRange": "1-2", "stepType": "max"}],
+        [
+            [320, 360],
+            {"stepRange": "320-360", "stepType": "max", "unitOfTimeRange": 11},
+        ],
+    ],
+)
+def test_grib_header(start_end, grib_key_values):
+    window = Window({"range": start_end}, True)
+    header = window.grib_header()
+    assert header.keys() == grib_key_values.keys()
+    for key, value in grib_key_values.items():
+        assert header[key] == value
