@@ -1,0 +1,55 @@
+import tempfile
+import datetime
+import yaml
+import pytest
+
+from pproc.common import Recovery
+
+
+def test_config_uniqueness(tmp_path):
+    with open(f"{tmp_path}/config1.yaml", "w") as f1:
+        f1.write(yaml.dump({"param": "2t"}))
+    with open(f"{tmp_path}/config2.yaml", "w") as f1:
+        f1.write(yaml.dump({"param": "swh"}))
+    recover1 = Recovery(
+        tmp_path,
+        f"{tmp_path}/config1.yaml",
+        datetime.datetime(2023, 1, 1),
+        recover=False,
+    )
+    recover2 = Recovery(
+        tmp_path,
+        f"{tmp_path}/config2.yaml",
+        datetime.datetime(2023, 1, 1),
+        recover=False,
+    )
+    assert recover1.filename != recover2.filename
+
+
+@pytest.mark.parametrize("recover, num_checkpoints", [(True, 1), (False, 0)])
+def test_recovery(tmp_path, recover: bool, num_checkpoints: int):
+    with open(f"{tmp_path}/config1.yaml", "w") as f1:
+        f1.write(yaml.dump({"param": "2t"}))
+    recover1 = Recovery(
+        tmp_path,
+        f"{tmp_path}/config1.yaml",
+        datetime.datetime(2023, 1, 1),
+        recover=False,
+    )
+
+    # Should take arguments of different types
+    recover1.add_checkpoint("2t", "10-20", 10)
+    assert len(recover1.checkpoints) == 1
+
+    recover1.add_checkpoint("2t", "10-20", 10)
+    assert len(recover1.checkpoints) == 1
+
+    recover2 = Recovery(
+        tmp_path,
+        f"{tmp_path}/config1.yaml",
+        datetime.datetime(2023, 1, 1),
+        recover=recover,
+    )
+    assert len(recover2.checkpoints) == num_checkpoints
+    if num_checkpoints == 1:
+        assert recover2.checkpoints == recover1.checkpoints

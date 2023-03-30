@@ -313,9 +313,13 @@ def main(args=None):
     parser = common.default_parser('Compute EFI and SOT from forecast and climatology for one parameter')
     args = parser.parse_args(args)
     cfg = ConfigExtreme(args)
+    recovery = common.Recovery(cfg.root_dir, args.config, cfg.fc_date, args.recover)
 
     for param_windows in cfg.parameters:
         for param in param_windows:
+            if recovery.existing_checkpoint(param.paramid, param.window.name):
+                print(f'Recovery: skipping param {param.paramid} window {param.window.name}')
+                continue
 
             fc_avg, template_fc = compute_forecast_operation(cfg, param)
             print(f'Resulting averaged array: {fc_avg.shape}')
@@ -353,7 +357,9 @@ def main(args=None):
                 common.write_grib(target, template_sot, sot[perc])
 
             cfg.fdb.flush()
+            recovery.add_checkpoint(param.paramid, param.window.name)
 
+    recovery.clean_file()
 
 if __name__ == "__main__":
     main()

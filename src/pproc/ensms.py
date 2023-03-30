@@ -141,6 +141,7 @@ def main(args=None):
     parser = common.default_parser('Calculate wind speed mean/standard deviation')
     args = parser.parse_args(args)
     cfg = ConfigExtreme(args)
+    recover = common.Recovery(cfg.root_dir, args.config, cfg.date, args.recover)
 
     for param, options in cfg.parameters.items():
         
@@ -151,6 +152,10 @@ def main(args=None):
 
             # calculate mean/stddev of wind speed for type=pf/cf (eps)
             for step in window.steps:
+                if recover.existing_checkpoint(param, window.name, step):
+                    print(f'Recovery: skipping param {param} step {step}')
+                    continue
+
                 with common.ResourceMeter(f"Window {window.name}, step {step}: compute mean/stddev"):
                     mean, std, template_ens = ensemble_mean_std_eps(cfg, options, step)
 
@@ -168,6 +173,10 @@ def main(args=None):
                         template_std = template_ensemble(cfg, param_type, template_ens, step, window.step, level, 'es')
                         common.write_grib(target_std, template_std, std_slice)
 
+                cfg.fdb.flush()
+                recover.add_checkpoint(param, window.name, step)
+
+    recover.clean_file()
 
 if __name__ == "__main__":
     main(sys.argv)

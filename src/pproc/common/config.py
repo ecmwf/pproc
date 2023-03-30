@@ -25,6 +25,10 @@ def default_parser(description):
                              "it with double quotes: "
                              'foo="this is a sentence". Note that '
                              "values are always treated as strings.")
+    parser.add_argument('--recover', action="store_true", default=True,
+                        help='Continue from last checkpoint in recovery file.')
+    parser.add_argument('--no-recover', action="store_false", dest="recover",
+                        help='Ignore checkpoints and recompute from beginning.')
 
     return parser
 

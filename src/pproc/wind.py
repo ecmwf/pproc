@@ -31,7 +31,7 @@ def retrieve_messages(cfg, req, cached_file):
         out = common.fdb_retrieve(cfg.fdb, req, cfg.interpolation_keys)
         reader = eccodes.StreamReader(out)
         if not reader.peek():
-            raise RuntimeError(f'No data retrieved for request {req}')
+            raise RuntimeError(f"No data retrieved for request {req}")
         messages = list(reader)
     return messages
 
@@ -206,20 +206,33 @@ def main(args=None):
         args.eps_mean_std = True
 
     cfg = ConfigExtreme(args)
+    recovery = common.Recovery(cfg.root_dir, args.config, cfg.date, args.recover)
 
     for levelist in cfg.levelist:
         for window_options in cfg.windows:
 
             window = common.Window(window_options, include_init=True)
 
-            # calculate wind speed for type=fc (deterministic)
-            if args.det_ws:
-                for step in window.steps:
-                    with common.ResourceMeter(f"Window {window.name}, step {step}, deterministic: read forecast"):
+            for step in window.steps:
+                if recovery.existing_checkpoint(levelist, window.name, step):
+                    print(
+                        f"Recovery: skipping level {levelist} window {window} step {step}"
+                    )
+                    continue
+
+                # calculate wind speed for type=fc (deterministic)
+                if args.det_ws:
+                    with common.ResourceMeter(
+                        f"Window {window.name}, step {step}, deterministic: read forecast"
+                    ):
                         messages = fdb_request_det(cfg, levelist, step, window.name)
-                    with common.ResourceMeter(f"Window {window.name}, step {step}, deterministic: compute speed"):
+                    with common.ResourceMeter(
+                        f"Window {window.name}, step {step}, deterministic: compute speed"
+                    ):
                         det = wind_speed(messages)
-                    with common.ResourceMeter(f"Window {window.name}, step {step}, deterministic: write output"):
+                    with common.ResourceMeter(
+                        f"Window {window.name}, step {step}, deterministic: write output"
+                    ):
                         template_det = basic_template(cfg, messages[0], step, "fc")
                         write_output(
                             cfg,
@@ -228,15 +241,19 @@ def main(args=None):
                             det[step][0],
                         )
 
-            # calculate wind speed, mean/stddev of wind speed for type=pf/cf (eps)
-            if args.eps_ws or args.eps_mean_std:
-                for step in window.steps:
-                    print(step)
-                    with common.ResourceMeter(f"Window {window.name}, step {step}, ensemble: read forecast"):
+                # calculate wind speed, mean/stddev of wind speed for type=pf/cf (eps)
+                if args.eps_ws or args.eps_mean_std:
+                    with common.ResourceMeter(
+                        f"Window {window.name}, step {step}, ensemble: read forecast"
+                    ):
                         messages = fdb_request_ens(cfg, levelist, step, window.name)
-                    with common.ResourceMeter(f"Window {window.name}, step {step}, ensemble: compute speed"):
+                    with common.ResourceMeter(
+                        f"Window {window.name}, step {step}, ensemble: compute speed"
+                    ):
                         eps = wind_speed(messages)
-                    with common.ResourceMeter(f"Window {window.name}, step {step}, ensemble: write output"):
+                    with common.ResourceMeter(
+                        f"Window {window.name}, step {step}, ensemble: write output"
+                    ):
                         template = messages[0]
                         if args.eps_ws:
                             for number in range(cfg.members + 1):
@@ -265,6 +282,11 @@ def main(args=None):
                                 template_std,
                                 np.std(eps[step], axis=0),
                             )
+
+                cfg.fdb.flush()
+                recovery.add_checkpoint(levelist, window.name, step)
+
+    recovery.clean_file()
 
 
 if __name__ == "__main__":
