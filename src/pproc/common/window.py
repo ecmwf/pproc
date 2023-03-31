@@ -26,15 +26,12 @@ class Window:
             self.name = f"{self.start}-{self.end}"
 
         self.step = (
-            int(window_options["range"][2]) if len(window_options["range"]) > 2
-            else 1
+            int(window_options["range"][2]) if len(window_options["range"]) > 2 else 1
         )
         if include_init:
             self.steps = list(range(self.start, self.end + 1, self.step))
         else:
-            self.steps = list(
-                range(self.start + self.step, self.end + 1, self.step)
-            )
+            self.steps = list(range(self.start + self.step, self.end + 1, self.step))
 
         self.step_values = []
         self.config_grib_header = {}
@@ -95,13 +92,11 @@ class Window:
         :return: dictionary of header keys and values
         """
         header = {}
-        if (
-            isinstance(self.name, str) and self.start >= LEG1_END
-        ):
+        if self.size() > 0 and self.start >= LEG1_END:
             header["unitOfTimeRange"] = 11
 
         header.update(self.config_grib_header)
-        if isinstance(self.name, int):
+        if self.size() == 0:
             header["step"] = self.name
         else:
             header.setdefault("stepType", "max")  # Don't override if set in config
@@ -112,7 +107,7 @@ class Window:
 
 class SimpleOpWindow(Window):
     """
-    Window with operation min, max, sum - reduction operations supported by numpy
+    Window with operation min, max, sum, concatenate - reduction operations supported by numpy
     """
 
     def __init__(
@@ -133,8 +128,8 @@ class SimpleOpWindow(Window):
 
         :param new_step_values: data from new step
         """
-        getattr(np, self.operation_str)(
-            [self.step_values, new_step_values], axis=0, out=self.step_values
+        self.step_values = getattr(np, self.operation_str)(
+            [self.step_values, new_step_values], axis=0
         )
 
 
@@ -204,19 +199,20 @@ class DiffDailyRateWindow(DiffWindow):
         self.step_values = new_step_values - self.step_values
         self.step_values = self.step_values / num_days
 
-class ConcatenateWindow(Window):
+
+class MeanWindow(SimpleOpWindow):
     """
-    Window with operation that concatenates current step values with new step 
-    values i.e. stores data for all steps in window
+    Window with operation that computes mean over the steps in window
     """
 
-    def operation(self, new_step_values: np.array):
-        """
-        Combines data from unprocessed steps with existing step data values,
-        and updates step data values
+    def __init__(self, window_options, include_init=False):
+        super().__init__(window_options, "sum", include_init=include_init)
+        self.num_steps = 0
 
-        :param new_step_values: data from new step
-        """
-        self.step_values = np.concatenate(
-            (self.step_values, new_step_values), axis=0
-        )
+    def add_step_values(self, step: int, step_values: np.array):
+        super().add_step_values(step, step_values)
+        if step in self:
+            self.num_steps += 1
+
+        if self.reached_end_step(step):
+            self.step_values = self.step_values / self.num_steps
