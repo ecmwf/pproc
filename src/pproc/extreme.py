@@ -17,8 +17,6 @@ from datetime import datetime, timedelta
 
 import pyfdb
 from meteokit import extreme
-from pproc.prob.parameter import create_parameter
-from pproc.common import WindowManager
 from pproc import common
 
 
@@ -163,8 +161,8 @@ def main(args=None):
     last_checkpoint = recovery.last_checkpoint()
 
     for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
-        param = create_parameter(cfg.fc_date, {}, param_cfg, cfg.members)
-        window_manager = WindowManager(param_cfg, cfg.output_grib_set)
+        param = common.create_parameter(cfg.fc_date, {}, param_cfg, cfg.members)
+        window_manager = common.WindowManager(param_cfg, cfg.output_grib_set)
         efi_vars = ExtremeVariables(param_cfg)
 
         if last_checkpoint and recovery.existing_checkpoint(
