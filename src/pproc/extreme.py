@@ -14,11 +14,11 @@ import os
 import numpy as np
 import sys
 from datetime import datetime, timedelta
-from dataclasses import dataclass
 
-import eccodes
 import pyfdb
 from meteokit import extreme
+from pproc.prob.parameter import create_parameter
+from pproc.common import WindowManager
 from pproc import common
 
 
@@ -34,180 +34,19 @@ def climatology_date(fc_date):
 
     return clim_date
 
-
-def read_grib_file(in_file):
-    reader = eccodes.FileReader(in_file)
-
-    data = []
-    for message in reader:
-        data_array = message.get_array("values")
-
-        # handle missing values and replace by nan
-        if message.get('bitmapPresent'):
-            missing = message.get('missingValue')
-            data_array[data_array == missing] = np.nan
-
-        data.append(data_array)
-
-    return np.asarray(data)
+class ExtremeVariables:
+    def __init__(self, efi_cfg):
+        self.eps = float(efi_cfg['eps'])
+        self.sot = map(int, efi_cfg['sot'])
 
 
-def read_grib_template(in_file):
-    reader = eccodes.FileReader(in_file)
-    return next(reader)
+def read_clim(cfg, clim_keys, window, n_clim=101):
 
-
-def fdb_request_forecast(fc_keys, paramid, date, steps, member):
-
-    req = fc_keys.copy()
-    req["date"] = date.strftime("%Y%m%d")
-    req["time"] = date.strftime("%H")+'00'
-    req["step"] = steps
-    req["param"] = paramid
-    if member == 0:
-        req['type'] = 'cf'
-    else:
-        req['type'] = 'pf'
-        req['number'] = member
-
-    if member < 2:
-        print("Parameter request: ", req)
-    return req
-
-
-@dataclass
-class Parameter(): # change id to paramid
-    def __init__(self, paramid, options, window):
-
-        self.paramid = paramid
-        self.window = window
-        self.name = options['name']
-        self.clim_keys = options['clim_keys']
-        self.fc_keys = options['fc_keys']
-        self.out_keys = options['out_keys']
-        params = self.fc_keys.pop('param')
-        self.req_paramids = set(params) if isinstance(params, list) else {params}
-        self.eps = float(options['eps'])
-        self.sot = [int(x) for x in options['sot']]
-        self.type = options['preprocessing']
-        self.suffix = f"{self.name}_{window.suffix}"
-        self.steps = window.steps
-
-    def accumulation(self, fields):
-        if isinstance(fields, dict):
-            vals = fields[self.paramid].values
-        else:
-            vals = fields
-        if self.type == 'mean':
-            nsteps = vals.shape[0]
-            accum = np.sum(vals, axis=0) / nsteps
-        elif self.type == 'min':
-            accum = np.min(vals, axis=0)
-        elif self.type == 'max':
-            accum = np.max(vals, axis=0)
-        else:
-            raise Exception(f'Accumulation {self.type} not supported! Accepted values: (mean, min, max)')
-        return accum
-
-    def retrieve_fields(self, cfg, member):
-        fields = {}
-        for paramid in self.req_paramids:
-            req = fdb_request_forecast(self.fc_keys, paramid, cfg.fc_date, self.steps, member)
-            fields[paramid] = common.fdb_read(cfg.fdb, req)
-        return fields
-    
-    def template(self, fields):
-        return fields[self.paramid].attrs['grib_template']
-
-    def preprocessing(self, cfg, member):
-        fields = self.retrieve_fields(cfg, member)
-        acc = self.accumulation(fields)
-        return acc, self.template(fields)
-
-
-class ParameterNorm(Parameter):
-    def __init__(self, paramid, options, window):
-        super().__init__(paramid, options, window)
-        self.type = options['accumulation']
-        assert len(self.req_paramids) == 2
-
-    def template(self, fields):
-        return list(fields.values())[0].attrs['grib_template']
-
-    def accumulation(self, fields):
-        u = list(fields.values())[0]
-        v = list(fields.values())[1]
-        norm = np.sqrt(u*u+v*v)
-        return super().accumulation(norm.values)  # calling parent accumulation to compute mean, max, etc.
-
-
-class ParameterAccumulated(Parameter):
-    def __init__(self, paramid, options, window):
-        super().__init__(paramid, options, window)
-        self.steps = [window.start, window.end]
-    
-    def accumulation(self, fields):
-        vals = fields[self.paramid].values
-        return vals[-1]-vals[0]
-
-
-class ParameterTreshold(Parameter):
-
-    def __init__(self, paramid, options, window):
-        super().__init__(paramid, options, window)
-        self.type = options['accumulation']
-        self.paramid_filter = options['fc_keys'].pop('paramid_filter', self.paramid)
-        self.threshold = options['threshold']
-        self.req_paramids.add(self.paramid_filter)
-
-    def accumulation(self, fields):
-        vals = fields[self.paramid].values
-        vals_filt = fields[self.paramid_filter].values
-        vals[vals_filt<=self.threshold] = 0
-        return super().accumulation(vals)  # calling parent accumulation to compute mean, max, etc.
-
-
-def parameter_factory(parameters_options):
-
-    parameters = []
-    for paramid, options in parameters_options.items():
-        param_windows = []
-        for window_options in options['windows']:
-            window = common.Window(window_options, include_init=False)
-            if options['preprocessing'] in ['min', 'max', 'mean']:
-                param = Parameter(paramid, options, window)
-            elif options['preprocessing'] in ['accumulated']:
-                param = ParameterAccumulated(paramid, options, window)
-            elif options['preprocessing'] in ['norm']:
-                param = ParameterNorm(paramid, options, window)
-            elif options['preprocessing'] in ['threshold']:
-                param = ParameterTreshold(paramid, options, window)
-            else:
-                raise ValueError(f"Parameter preprocessing {options['preprocessing']} not supported")
-            param_windows.append(param)
-        parameters.append(param_windows)
-    return parameters
-
-
-def compute_forecast_operation(cfg, param):
-
-    avg = []
-    for member in range(cfg.members):
-        acc, grib_template = param.preprocessing(cfg, member)
-        avg.append(acc)
-    avg = np.asarray(avg)
-    print(f'Array computed from FDB: {avg.shape}')
-
-    return avg, grib_template
-
-
-def read_clim(cfg, param, n_clim=101):
-
-    req = param.clim_keys.copy()
+    req = clim_keys.copy()
     req["date"] = cfg.clim_date.strftime("%Y%m%d")
     req["time"] = '0000'
     req["quantile"] = ['{}:100'.format(i) for i in range(n_clim)]
-    req["step"] = f'{param.window.name}'
+    req["step"] = f'{window.name}'
 
     print("Climatology request: ", req)
     da_clim = common.fdb_read(cfg.fdb, req)
@@ -217,17 +56,17 @@ def read_clim(cfg, param, n_clim=101):
     return np.asarray(da_clim_sorted.values), da_clim.attrs['grib_template']
 
 
-def extreme_template(param, template_fc, template_clim):
+def extreme_template(window, template_fc, template_clim):
 
     template_ext = template_fc.copy()
 
-    for key, value in param.out_keys.items():
+    for key, value in window.config_grib_header.items():
         template_ext[key] = value
     
     # EFI specific stuff
-    template_ext['stepRange'] = param.window.name
+    template_ext['stepRange'] = window.name
     if int(template_ext['timeRangeIndicator']) == 3:
-        template_ext['numberIncludedInAverage'] = len(param.steps)
+        template_ext['numberIncludedInAverage'] = len(window.steps)
         template_ext['numberMissingFromAveragesOrAccumulations'] = 0        
 
     # set clim keys
@@ -289,8 +128,6 @@ class ConfigExtreme(common.Config):
 
         self.fc_date = datetime.strptime(str(self.options['fc_date']), "%Y%m%d%H")
 
-        self.parameters = parameter_factory(self.options['parameters'])
-
         self.members = int(self.options['members'])
         self.fdb = pyfdb.FDB()
         
@@ -300,10 +137,10 @@ class ConfigExtreme(common.Config):
         self.clim_date = self.options.get('clim_date', climatology_date(self.fc_date))
 
         self.target = self.options['target']
+        self.output_grib_set = self.options['grib_set']
 
         print(f'Forecast date is {self.fc_date}')
         print(f'Climatology date is {self.clim_date}')
-        print(f'Parameters are {self.parameters}')
         print(f'Root directory is {self.root_dir}')
 
 
@@ -314,50 +151,68 @@ def main(args=None):
     args = parser.parse_args(args)
     cfg = ConfigExtreme(args)
     recovery = common.Recovery(cfg.root_dir, args.config, cfg.fc_date, args.recover)
+    last_checkpoint = recovery.last_checkpoint()
 
-    for param_windows in cfg.parameters:
-        for param in param_windows:
-            if recovery.existing_checkpoint(param.paramid, param.window.name):
-                print(f'Recovery: skipping param {param.paramid} window {param.window.name}')
+    for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
+        param = create_parameter(cfg.fc_date, {}, param_cfg, cfg.members)
+        window_manager = WindowManager(param_cfg, cfg.output_grib_set)
+        efi_vars = ExtremeVariables(param_cfg)
+
+        if last_checkpoint and recovery.existing_checkpoint(
+            param_name, window_manager.unique_steps[0]
+        ):
+            if param_name not in last_checkpoint:
+                print(f"Recovery: skipping completed param {param_name}")
                 continue
+            last_checkpoint_step = int(
+                recovery.checkpoint_identifiers(last_checkpoint)[1]
+            )
+            window_manager.update_from_checkpoint(last_checkpoint_step)
+            print(
+                f"Recovery: param {param_name} looping from step {window_manager.unique_steps[0]}"
+            )
 
-            fc_avg, template_fc = compute_forecast_operation(cfg, param)
-            print(f'Resulting averaged array: {fc_avg.shape}')
+        for step in window_manager.unique_steps:
+            with common.ResourceMeter(f"Parameter {param_name}, step {step}"):
+                message_template, data = param.retrieve_data(cfg.fdb, step)
 
-            clim, template_clim = read_clim(cfg, param)
-            print(f'Climatology array: {clim.shape}')
+                completed_windows = window_manager.update_windows(step, data)
+                for window in completed_windows:
 
-            template_extreme = extreme_template(param, template_fc, template_clim)
+                    clim, template_clim = read_clim(cfg, param_cfg['clim_keys'], window)
+                    print(f'Climatology array: {clim.shape}')
 
-            print('Computing efi for the control member')
-            efi_control = extreme.efi(clim, fc_avg[: 1], param.eps)
-            template_efi = efi_template_control(template_extreme)
-            
-            out_file = os.path.join(cfg.out_dir, f'efi_control_{param.suffix}.grib')
-            target = common.target_factory(cfg.target, out_file=out_file, fdb=cfg.fdb)
-            common.write_grib(target, template_efi, efi_control)
+                    template_extreme = extreme_template(window, message_template, template_clim)
 
-            print('Computing efi')
-            efi = extreme.efi(clim, fc_avg, param.eps)
-            template_efi = efi_template(template_extreme)
-            
-            out_file = os.path.join(cfg.out_dir, f'efi_{param.suffix}.grib')
-            target = common.target_factory(cfg.target, out_file=out_file, fdb=cfg.fdb)
-            common.write_grib(target, template_efi, efi)
+                    print('Computing efi for the control member')
+                    efi_control = extreme.efi(clim, window.step_values[: 1], efi_vars.eps)
+                    template_efi = efi_template_control(template_extreme)
+                    
+                    out_file = os.path.join(cfg.out_dir, f'efi_control_{param_name}_{window.suffix}.grib')
+                    target = common.target_factory(cfg.target, out_file=out_file, fdb=cfg.fdb)
+                    common.write_grib(target, template_efi, efi_control)
 
-            sot = {}
-            for perc in param.sot:
-                print(f'Computing sot {perc}')
-                
-                sot[perc] = extreme.sot(clim, fc_avg, perc, param.eps)
-                template_sot = sot_template(template_extreme, perc)
-                
-                out_file = os.path.join(cfg.out_dir, f'sot{perc}_{param.suffix}.grib')
-                target = common.target_factory(cfg.target, out_file=out_file, fdb=cfg.fdb)
-                common.write_grib(target, template_sot, sot[perc])
+                    print('Computing efi')
+                    efi = extreme.efi(clim, window.step_values, efi_vars.eps)
+                    template_efi = efi_template(template_extreme)
+                    
+                    out_file = os.path.join(cfg.out_dir, f'efi_{param_name}_{window.suffix}.grib')
+                    target = common.target_factory(cfg.target, out_file=out_file, fdb=cfg.fdb)
+                    common.write_grib(target, template_efi, efi)
+
+                    sot = {}
+                    for perc in efi_vars.sot:
+                        print(f'Computing sot {perc}')
+                        
+                        sot[perc] = extreme.sot(clim, window.step_values, perc, efi_vars.eps)
+                        template_sot = sot_template(template_extreme, perc)
+                        
+                        out_file = os.path.join(cfg.out_dir, f'sot{perc}_{param_name}_{window.suffix}.grib')
+                        target = common.target_factory(cfg.target, out_file=out_file, fdb=cfg.fdb)
+                        common.write_grib(target, template_sot, sot[perc])
 
             cfg.fdb.flush()
-            recovery.add_checkpoint(param.paramid, param.window.name)
+            recovery.add_checkpoint(param_name, step)
 
     recovery.clean_file()
 
