@@ -142,7 +142,7 @@ class ConfigExtreme(common.Config):
         self.clim_date = self.options.get("clim_date", climatology_date(self.fc_date))
 
         self.target = self.options["target"]
-        self.output_grib_set = self.options["grib_set"]
+        self.output_grib_set = self.options.get(["grib_set"], {})
 
         print(f"Forecast date is {self.fc_date}")
         print(f"Climatology date is {self.clim_date}")
