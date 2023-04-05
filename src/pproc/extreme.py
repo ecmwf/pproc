@@ -193,7 +193,7 @@ def main(args=None):
                         window, message_template, template_clim
                     )
 
-                    print("Computing efi for the control member")
+                    print(f"Window {window.suffix}: computing efi for the control member")
                     control_index = param.get_type_index('cf')
                     efi_control = extreme.efi(
                         clim, window.step_values[control_index], efi_vars.eps
@@ -208,7 +208,7 @@ def main(args=None):
                     )
                     common.write_grib(target, template_efi, efi_control)
 
-                    print("Computing efi")
+                    print(f"Window {window.suffix}: computing efi")
                     efi = extreme.efi(clim, window.step_values, efi_vars.eps)
                     template_efi = efi_template(template_extreme)
 
@@ -222,7 +222,7 @@ def main(args=None):
 
                     sot = {}
                     for perc in efi_vars.sot:
-                        print(f"Computing sot {perc}")
+                        print(f"Window {window.suffix}: computing sot {perc}")
 
                         sot[perc] = extreme.sot(
                             clim, window.step_values, perc, efi_vars.eps
