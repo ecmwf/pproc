@@ -1,6 +1,7 @@
 import datetime
 from typing import Dict, List
 import numpy as np
+import numexpr
 
 from pproc import common
 
@@ -8,11 +9,15 @@ from pproc import common
 def create_parameter(
     date: datetime.datetime, global_input_cfg: Dict, param_cfg: Dict, n_ensembles: int
 ):
-    if isinstance(param_cfg["in_paramid"], str) and "/" in param_cfg["in_paramid"]:
+    if "input_combine_operation" in param_cfg:
         param_ids = param_cfg["in_paramid"].split("/")
         assert len(param_ids) == 2
         return CombineParameters(
             date, param_ids, global_input_cfg, param_cfg, n_ensembles
+        )
+    if "input_filter_operation" in param_cfg:
+        return FilterParameter(
+            date, param_cfg["in_paramid"], global_input_cfg, param_cfg, n_ensembles
         )
     return Parameter(
         date, param_cfg["in_paramid"], global_input_cfg, param_cfg, n_ensembles
@@ -120,3 +125,48 @@ class CombineParameters(Parameter):
             data_list.append(data)
 
         return msg_template, self.combine_data(data_list)
+
+
+class FilterParameter(Parameter):
+    """
+    Class for digesting parameter related config and retrieving parameter data
+    Filters input data based on its own values, or the values of another parameter
+    Filtering is specified by:
+        - comparison: operation to compare values
+        - threshold: value to compare data against
+        - param: parameter data used in filter, input data itself is used if none is specified
+        - replacement: value to replace all data values by that satisfy the filter, default is 0
+    """
+
+    def __init__(
+        self,
+        dt: datetime.datetime,
+        param_id: int,
+        global_input_cfg: Dict,
+        param_cfg: Dict,
+        n_ensembles: int,
+    ):
+        super().__init__(dt, param_id, global_input_cfg, param_cfg, n_ensembles)
+        self.param_id = param_id
+        self.filter_comparison = param_cfg["input_filter_operation"]["comparison"]
+        self.filter_threshold = param_cfg["input_filter_operation"]["threshold"]
+        self.filter_param = param_cfg["input_filter_operation"].get("param", param_id)
+        self.filter_replacement = float(
+            param_cfg["input_filter_operation"].get("replacement", 0)
+        )
+
+    def retrieve_data(self, fdb, step: int):
+        msg_template, data = super().retrieve_data(fdb, step)
+
+        filter_data = data
+        if self.filter_param != self.param_id:
+            self.base_request["param"] = self.filter_param
+            _, filter_data = super().retrieve_data(fdb, step)
+            # Reset back to original
+            self.base_request["param"] = self.param_id
+
+        comp = numexpr.evaluate(
+            "data " + self.filter_comparison + str(self.filter_threshold),
+            local_dict={"data": filter_data},
+        )
+        return msg_template, np.where(comp, self.filter_replacement, data)
