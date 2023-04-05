@@ -194,8 +194,9 @@ def main(args=None):
                     )
 
                     print("Computing efi for the control member")
+                    control_index = param.get_type_index('cf')
                     efi_control = extreme.efi(
-                        clim, window.step_values[:1], efi_vars.eps
+                        clim, window.step_values[control_index], efi_vars.eps
                     )
                     template_efi = efi_template_control(template_extreme)
 

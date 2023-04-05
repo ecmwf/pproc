@@ -76,6 +76,23 @@ class Parameter:
         else:
             return types[index], 0
 
+    def get_type_index(self, type: str):
+        """
+        Get range of concatenated data indices for requested type
+        """
+        types = self.base_request["type"].split("/")
+        index = types.index(type)
+        nensembles = len(self.base_request["number"])
+        if type == "pf":
+            pf_start_index = types.index("pf")
+            return range(pf_start_index, pf_start_index + nensembles)
+        if "pf" in types:
+            pf_start_index = types.index("pf")
+            if index > pf_start_index:
+                offset = pf_start_index + nensembles - 1
+                return range(offset + index, offset + index + 1)
+        return range(index, index + 1)
+
 
 class CombineParameters(Parameter):
     def __init__(

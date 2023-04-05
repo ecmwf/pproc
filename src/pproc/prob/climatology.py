@@ -21,7 +21,6 @@ class Climatology(Parameter):
         self.base_request["stream"] = param_cfg["climatology"]["stream"]
         self.base_request["type"] = "em/es"  # Order of these is important
         self.time = dt.time()
-        self.steps = param_cfg["steps"]
 
     def clim_step(self, step: int):
         """
