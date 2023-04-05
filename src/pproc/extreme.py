@@ -36,7 +36,7 @@ def climatology_date(fc_date):
 class ExtremeVariables:
     def __init__(self, efi_cfg):
         self.eps = float(efi_cfg["eps"])
-        self.sot = map(int, efi_cfg["sot"])
+        self.sot = list(map(int, efi_cfg["sot"]))
 
 
 def read_clim(cfg, clim_keys, window, n_clim=101):
