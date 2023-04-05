@@ -142,7 +142,8 @@ class ConfigExtreme(common.Config):
         self.clim_date = self.options.get("clim_date", climatology_date(self.fc_date))
 
         self.target = self.options["target"]
-        self.output_grib_set = self.options.get("grib_set", {})
+        self.global_input_cfg = self.options.get("global_input_keys", {})
+        self.global_output_cfg = self.options.get("global_output_keys", {})
 
         print(f"Forecast date is {self.fc_date}")
         print(f"Climatology date is {self.clim_date}")
@@ -161,8 +162,8 @@ def main(args=None):
     last_checkpoint = recovery.last_checkpoint()
 
     for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
-        param = common.create_parameter(cfg.fc_date, {}, param_cfg, cfg.members)
-        window_manager = common.WindowManager(param_cfg, cfg.output_grib_set)
+        param = common.create_parameter(cfg.fc_date, cfg.global_input_cfg, param_cfg, cfg.members)
+        window_manager = common.WindowManager(param_cfg, cfg.global_output_cfg)
         efi_vars = ExtremeVariables(param_cfg)
 
         if last_checkpoint and recovery.existing_checkpoint(
