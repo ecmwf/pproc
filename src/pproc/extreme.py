@@ -297,7 +297,7 @@ class ConfigExtreme(common.Config):
         self.root_dir = self.options['root_dir']
         self.out_dir = os.path.join(self.root_dir, 'efi_test', self.fc_date.strftime("%Y%m%d%H"))
 
-        self.clim_date = self.options.get('clim_date', climatology_date(self.fc_date))
+        self.clim_date = self.options.get('clim_date', common.climatology_date(self.fc_date))
 
         self.target = self.options['target']
 
