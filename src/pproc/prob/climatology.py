@@ -17,7 +17,7 @@ class Climatology(Parameter):
     ):
         Parameter.__init__(self, dt, param_id, global_input_cfg, param_cfg, 0)
         self.base_request.pop("number")
-        self.base_request["date"] = climatology_date(dt.date())
+        self.base_request["date"] = climatology_date(dt.date()).strftime("%Y%m%d")
         self.base_request["time"] = "00"
         self.base_request["stream"] = param_cfg["climatology"]["stream"]
         self.base_request["type"] = "em/es"  # Order of these is important
