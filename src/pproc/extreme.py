@@ -20,19 +20,6 @@ from meteokit import extreme
 from pproc import common
 
 
-def climatology_date(fc_date):
-
-    weekday = fc_date.weekday()
-
-    # friday to monday -> take previous monday clim, else previous thursday clim
-    if weekday == 0 or weekday > 3:
-        clim_date = fc_date - timedelta(days=(weekday + 4) % 7)
-    else:
-        clim_date = fc_date - timedelta(days=weekday)
-
-    return clim_date
-
-
 class ExtremeVariables:
     def __init__(self, efi_cfg):
         self.eps = float(efi_cfg["eps"])
@@ -139,7 +126,9 @@ class ConfigExtreme(common.Config):
             self.root_dir, "efi_test", self.fc_date.strftime("%Y%m%d%H")
         )
 
-        self.clim_date = self.options.get("clim_date", climatology_date(self.fc_date))
+        self.clim_date = self.options.get(
+            "clim_date", common.climatology_date(self.fc_date)
+        )
 
         self.target = self.options["target"]
         self.global_input_cfg = self.options.get("global_input_keys", {})
@@ -162,7 +151,9 @@ def main(args=None):
     last_checkpoint = recovery.last_checkpoint()
 
     for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
-        param = common.create_parameter(cfg.fc_date, cfg.global_input_cfg, param_cfg, cfg.members)
+        param = common.create_parameter(
+            cfg.fc_date, cfg.global_input_cfg, param_cfg, cfg.members
+        )
         window_manager = common.WindowManager(param_cfg, cfg.global_output_cfg)
         efi_vars = ExtremeVariables(param_cfg)
 
@@ -194,8 +185,10 @@ def main(args=None):
                         window, message_template, template_clim
                     )
 
-                    print(f"Window {window.suffix}: computing efi for the control member")
-                    control_index = param.get_type_index('cf')
+                    print(
+                        f"Window {window.suffix}: computing efi for the control member"
+                    )
+                    control_index = param.get_type_index("cf")
                     efi_control = extreme.efi(
                         clim, window.step_values[control_index], efi_vars.eps
                     )
