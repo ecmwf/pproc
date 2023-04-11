@@ -2,7 +2,7 @@ import datetime
 from typing import Dict, Tuple
 import numpy as np
 
-from pproc.prob.parameter import Parameter
+from pproc.common import Parameter
 from pproc.prob.model_constants import LAST_MODEL_STEP, CLIM_INTERVAL
 from pproc.common import climatology_date
 
@@ -22,7 +22,6 @@ class Climatology(Parameter):
         self.base_request["stream"] = param_cfg["climatology"]["stream"]
         self.base_request["type"] = "em/es"  # Order of these is important
         self.time = dt.time()
-        self.steps = param_cfg["steps"]
 
     def clim_step(self, step: int):
         """

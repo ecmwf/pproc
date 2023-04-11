@@ -8,7 +8,6 @@ import pyfdb
 from pproc import common
 from pproc.prob.grib_helpers import construct_message
 from pproc.prob.math import ensemble_probability
-from pproc.prob.parameter import create_parameter
 from pproc.prob.window_manager import ThresholdWindowManager
 
 
@@ -42,7 +41,7 @@ def main(args=None):
     last_checkpoint = recovery.last_checkpoint()
 
     for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
-        param = create_parameter(date, global_input_cfg, param_cfg, nensembles)
+        param = common.create_parameter(date, global_input_cfg, param_cfg, nensembles)
         window_manager = ThresholdWindowManager(param_cfg, global_output_cfg)
         if last_checkpoint and recovery.existing_checkpoint(
             param_name, window_manager.unique_steps[0]

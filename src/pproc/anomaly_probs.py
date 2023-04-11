@@ -6,7 +6,6 @@ import pyfdb
 from pproc import common
 from pproc.prob.grib_helpers import construct_message
 from pproc.prob.math import ensemble_probability
-from pproc.prob.parameter import create_parameter
 from pproc.prob.window_manager import AnomalyWindowManager
 from pproc.prob.climatology import Climatology
 
@@ -31,7 +30,7 @@ def main(args=None):
     last_checkpoint = recovery.last_checkpoint()
 
     for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
-        param = create_parameter(date, global_input_cfg, param_cfg, n_ensembles)
+        param = common.create_parameter(date, global_input_cfg, param_cfg, n_ensembles)
         clim = Climatology(date, param_cfg["in_paramid"], global_input_cfg, param_cfg)
 
         window_manager = AnomalyWindowManager(param_cfg, global_output_cfg)

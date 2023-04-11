@@ -1,4 +1,5 @@
 from typing import Iterator
+import bisect
 
 import numpy as np
 
@@ -98,3 +99,25 @@ class WindowManager:
             else:
                 new_windows.append(window)
         self.windows = new_windows
+
+    def update_from_checkpoint(self, checkpoint_step: int):
+        """
+        Find the earliest start step for windows not completed by
+        checkpoint and update list of unique steps. Remove all
+        completed windows and their associated thresholds.
+
+        :param checkpoint_step: step reached at last checkpoint
+        """
+        new_start_step = checkpoint_step + 1
+        delete_windows = []
+        for window in self.windows:
+            real_start = window.start + int(not window.include_init)
+            if checkpoint_step >= window.end:
+                delete_windows.append(window)
+            elif real_start < new_start_step:
+                new_start_step = real_start
+
+        for window in delete_windows:
+            self.windows.remove(window)
+        start_index = bisect.bisect_left(self.unique_steps, new_start_step)
+        self.unique_steps = self.unique_steps[start_index:]

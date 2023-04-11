@@ -51,9 +51,7 @@ class Window:
         :param step: current step
         :return: boolean specifying if step is in window interval
         """
-        if self.include_init:
-            return step >= self.start and step <= self.end
-        return step > self.start and step <= self.end
+        return step in self.steps
 
     def add_step_values(self, step: int, step_values: np.array):
         """
@@ -174,6 +172,7 @@ class DiffWindow(Window):
 
     def __init__(self, window_options):
         super().__init__(window_options, include_init=True)
+        self.steps = [self.start, self.end]
 
     def operation(self, new_step_values: np.array):
         """
@@ -183,9 +182,6 @@ class DiffWindow(Window):
         :param new_step_values: data from new step
         """
         self.step_values = new_step_values - self.step_values
-
-    def __contains__(self, step: int) -> bool:
-        return step == self.start or step == self.end
 
 
 class DiffDailyRateWindow(DiffWindow):
