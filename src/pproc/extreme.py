@@ -22,19 +22,6 @@ from meteokit import extreme
 from pproc import common
 
 
-def climatology_date(fc_date):
-
-    weekday = fc_date.weekday()
-
-    # friday to monday -> take previous monday clim, else previous thursday clim
-    if weekday == 0 or weekday > 3:
-        clim_date = fc_date - timedelta(days=(weekday+4)%7)
-    else:
-        clim_date = fc_date - timedelta(days=weekday)
-
-    return clim_date
-
-
 def read_grib_file(in_file):
     reader = eccodes.FileReader(in_file)
 
