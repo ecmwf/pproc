@@ -71,12 +71,12 @@ def fdb_request_ens(cfg, levelist, steps, name):
 
     req_cf = req.copy()
     req_cf["type"] = "cf"
-    messages = retrieve_messages(cfg, req_cf, f"wind_det_{levelist}_{name}.grb")
+    messages = retrieve_messages(cfg, req_cf, f"wind_cf_{levelist}_{name}.grb")
 
     req_pf = req.copy()
     req_pf["type"] = "pf"
     req_pf["number"] = range(1, cfg.members + 1)
-    messages += retrieve_messages(cfg, req_pf, f"wind_det_{levelist}_{name}.grb")
+    messages += retrieve_messages(cfg, req_pf, f"wind_pf_{levelist}_{name}.grb")
 
     return messages
 
