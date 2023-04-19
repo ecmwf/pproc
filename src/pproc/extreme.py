@@ -13,7 +13,8 @@
 import os
 import numpy as np
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
+import multiprocessing
 
 import pyfdb
 from meteokit import extreme
@@ -107,10 +108,22 @@ def sot_template(template, sot):
         template_sot["efiOrder"] = 1
     else:
         raise Exception(
-            "SOT value '{sot}' not supported in template! Only accepting 10 and 90"
+            f"SOT value '{sot}' not supported in template! Only accepting 10 and 90"
         )
     return template_sot
 
+def write(cfg, param_name: str, window_suffix: str, type: str, 
+                    template, data_values):
+    print(
+        f"Window {window_suffix}: writing {type}"
+    )
+    out_file = os.path.join(
+        cfg.out_dir, f"{type}_{param_name}_{window_suffix}.grib"
+    )
+    target = common.target_factory(
+        cfg.target, out_file=out_file, fdb=cfg.fdb
+    )
+    common.write_grib(target, template, data_values)
 
 class ConfigExtreme(common.Config):
     def __init__(self, args):
@@ -171,68 +184,46 @@ def main(args=None):
                 f"Recovery: param {param_name} looping from step {window_manager.unique_steps[0]}"
             )
 
-        for step in window_manager.unique_steps:
-            with common.ResourceMeter(f"Parameter {param_name}, step {step}"):
-                message_template, data = param.retrieve_data(cfg.fdb, step)
+        with multiprocessing.Pool(3) as pool:
+            for step in window_manager.unique_steps:
+                with common.ResourceMeter(f"Parameter {param_name}, step {step}"):
+                    message_template, data = param.retrieve_data(cfg.fdb, step)
 
-                completed_windows = window_manager.update_windows(step, data)
-                for window in completed_windows:
+                    completed_windows = window_manager.update_windows(step, data)
 
-                    clim, template_clim = read_clim(cfg, param_cfg["clim_keys"], window)
-                    print(f"Climatology array: {clim.shape}")
+                    for window in completed_windows:
+                        results = []
 
-                    template_extreme = extreme_template(
-                        window, message_template, template_clim
-                    )
+                        clim, template_clim = read_clim(cfg, param_cfg["clim_keys"], window)
+                        print(f"Climatology array: {clim.shape}")
 
-                    print(
-                        f"Window {window.suffix}: computing efi for the control member"
-                    )
-                    control_index = param.get_type_index("cf")
-                    efi_control = extreme.efi(
-                        clim, window.step_values[control_index], efi_vars.eps
-                    )
-                    template_efi = efi_template_control(template_extreme)
+                        control_index = param.get_type_index("cf")
+                        results.append(('efi_control', 
+                            pool.apply_async(extreme.efi, [clim, window.step_values[control_index], efi_vars.eps])))
+                        results.append(('efi', 
+                            pool.apply_async(extreme.efi, [clim, window.step_values, efi_vars.eps])))
+                        for perc in efi_vars.sot:
+                            results.append((f'sot_{perc}', 
+                                pool.apply_async(extreme.sot, [clim, window.step_values, perc, efi_vars.eps])))
 
-                    out_file = os.path.join(
-                        cfg.out_dir, f"efi_control_{param_name}_{window.suffix}.grib"
-                    )
-                    target = common.target_factory(
-                        cfg.target, out_file=out_file, fdb=cfg.fdb
-                    )
-                    common.write_grib(target, template_efi, efi_control)
-
-                    print(f"Window {window.suffix}: computing efi")
-                    efi = extreme.efi(clim, window.step_values, efi_vars.eps)
-                    template_efi = efi_template(template_extreme)
-
-                    out_file = os.path.join(
-                        cfg.out_dir, f"efi_{param_name}_{window.suffix}.grib"
-                    )
-                    target = common.target_factory(
-                        cfg.target, out_file=out_file, fdb=cfg.fdb
-                    )
-                    common.write_grib(target, template_efi, efi)
-
-                    sot = {}
-                    for perc in efi_vars.sot:
-                        print(f"Window {window.suffix}: computing sot {perc}")
-
-                        sot[perc] = extreme.sot(
-                            clim, window.step_values, perc, efi_vars.eps
+                        template_extreme = extreme_template(
+                            window, message_template, template_clim
                         )
-                        template_sot = sot_template(template_extreme, perc)
+                        for name, res in results:
+                            values = res.get()
+                            if name == 'efi_control':
+                                template = efi_template_control(template_extreme)
+                            elif name == 'efi':
+                                template = efi_template(template_extreme)
+                            else:
+                                print(name.split('_')[1])
+                                template = sot_template(template_extreme, int(name.split('_')[1]))
 
-                        out_file = os.path.join(
-                            cfg.out_dir, f"sot{perc}_{param_name}_{window.suffix}.grib"
-                        )
-                        target = common.target_factory(
-                            cfg.target, out_file=out_file, fdb=cfg.fdb
-                        )
-                        common.write_grib(target, template_sot, sot[perc])
+                            write(cfg, param_name, window.suffix, name, 
+                                    template, values)
 
-            cfg.fdb.flush()
-            recovery.add_checkpoint(param_name, step)
+                cfg.fdb.flush()
+                recovery.add_checkpoint(param_name, step)
 
     recovery.clean_file()
 
