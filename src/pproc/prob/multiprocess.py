@@ -1,3 +1,5 @@
+import eccodes
+
 import pproc.common as common
 
 DEFAULT_NUM_PROCESSES = 2
@@ -7,5 +9,9 @@ def retrieve(step, *data_requesters):
         collated_data = []
         fdb = common.io.fdb()
         for requester in data_requesters:
-            collated_data.append(requester.retrieve_data(fdb, step))
+            template, data = requester.retrieve_data(fdb, step)
+            if isinstance(template, eccodes.highlevel.message.GRIBMessage):
+                collated_data.append((None, data))
+            else:
+                collated_data.append((template, data))
         return (step, collated_data)
