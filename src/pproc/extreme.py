@@ -15,6 +15,8 @@ import numpy as np
 import sys
 from datetime import datetime
 import multiprocessing
+import functools
+import time
 
 import pyfdb
 from meteokit import extreme
@@ -112,18 +114,13 @@ def sot_template(template, sot):
         )
     return template_sot
 
-def write(cfg, param_name: str, window_suffix: str, type: str, 
-                    template, data_values):
-    print(
-        f"Window {window_suffix}: writing {type}"
-    )
-    out_file = os.path.join(
-        cfg.out_dir, f"{type}_{param_name}_{window_suffix}.grib"
-    )
-    target = common.target_factory(
-        cfg.target, out_file=out_file, fdb=cfg.fdb
-    )
+
+def write(cfg, param_name: str, window_suffix: str, type: str, template, data_values):
+    print(f"Window {window_suffix}: writing {type}")
+    out_file = os.path.join(cfg.out_dir, f"{type}_{param_name}_{window_suffix}.grib")
+    target = common.target_factory(cfg.target, out_file=out_file, fdb=cfg.fdb)
     common.write_grib(target, template, data_values)
+
 
 class ConfigExtreme(common.Config):
     def __init__(self, args):
@@ -158,6 +155,13 @@ def main(args=None):
     parser = common.default_parser(
         "Compute EFI and SOT from forecast and climatology for one parameter"
     )
+    parser.add_argument(
+        "-p",
+        "--processes",
+        default=2,
+        type=int,
+        help=f"number of processes for computing efi/sot, default: 2",
+    )
     args = parser.parse_args(args)
     cfg = ConfigExtreme(args)
     recovery = common.Recovery(cfg.root_dir, args.config, cfg.fc_date, args.recover)
@@ -184,43 +188,72 @@ def main(args=None):
                 f"Recovery: param {param_name} looping from step {window_manager.unique_steps[0]}"
             )
 
-        with multiprocessing.Pool(3) as pool:
+        with multiprocessing.Pool(args.processes) as pool:
             for step in window_manager.unique_steps:
                 with common.ResourceMeter(f"Parameter {param_name}, step {step}"):
                     message_template, data = param.retrieve_data(cfg.fdb, step)
 
                     completed_windows = window_manager.update_windows(step, data)
-
+                    results = []
                     for window in completed_windows:
-                        results = []
 
-                        clim, template_clim = read_clim(cfg, param_cfg["clim_keys"], window)
+                        clim, template_clim = read_clim(
+                            cfg, param_cfg["clim_keys"], window
+                        )
                         print(f"Climatology array: {clim.shape}")
 
                         control_index = param.get_type_index("cf")
-                        results.append(('efi_control', 
-                            pool.apply_async(extreme.efi, [clim, window.step_values[control_index], efi_vars.eps])))
-                        results.append(('efi', 
-                            pool.apply_async(extreme.efi, [clim, window.step_values, efi_vars.eps])))
+                        results.append(
+                            (
+                                "efi_control",
+                                pool.apply_async(
+                                    extreme.efi,
+                                    [
+                                        clim,
+                                        window.step_values[control_index],
+                                        efi_vars.eps,
+                                    ],
+                                ),
+                            )
+                        )
+                        results.append(
+                            (
+                                "efi",
+                                pool.apply_async(
+                                    extreme.efi,
+                                    [clim, window.step_values, efi_vars.eps],
+                                ),
+                            )
+                        )
                         for perc in efi_vars.sot:
-                            results.append((f'sot_{perc}', 
-                                pool.apply_async(extreme.sot, [clim, window.step_values, perc, efi_vars.eps])))
+                            results.append(
+                                (
+                                    f"sot_{perc}",
+                                    pool.apply_async(
+                                        extreme.sot,
+                                        [clim, window.step_values, perc, efi_vars.eps],
+                                    ),
+                                )
+                            )
 
                         template_extreme = extreme_template(
                             window, message_template, template_clim
                         )
                         for name, res in results:
                             values = res.get()
-                            if name == 'efi_control':
+                            if name == "efi_control":
                                 template = efi_template_control(template_extreme)
-                            elif name == 'efi':
+                            elif name == "efi":
                                 template = efi_template(template_extreme)
                             else:
-                                print(name.split('_')[1])
-                                template = sot_template(template_extreme, int(name.split('_')[1]))
+                                print(name.split("_")[1])
+                                template = sot_template(
+                                    template_extreme, int(name.split("_")[1])
+                                )
 
-                            write(cfg, param_name, window.suffix, name, 
-                                    template, values)
+                            write(
+                                cfg, param_name, window.suffix, name, template, values
+                            )
 
                 cfg.fdb.flush()
                 recovery.add_checkpoint(param_name, step)

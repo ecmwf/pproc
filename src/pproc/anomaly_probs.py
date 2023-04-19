@@ -1,7 +1,7 @@
 import sys
 import os
 import datetime
-import multiprocessing 
+import multiprocessing
 
 import pyfdb
 from pproc import common
@@ -19,8 +19,12 @@ def main(args=None):
         "Compute instantaneous and period probabilites for anomalies"
     )
     parser.add_argument("-d", "--date", required=True, help="Forecast date")
-    parser.add_argument("-p", "--processes", default=DEFAULT_NUM_PROCESSES, type=int, 
-        help=f"number of processes for reading files, default: {DEFAULT_NUM_PROCESSES}"
+    parser.add_argument(
+        "-p",
+        "--processes",
+        default=2,
+        type=int,
+        help=f"number of processes for reading files, default: 2",
     )
     args = parser.parse_args()
     cfg = common.Config(args)
@@ -55,7 +59,10 @@ def main(args=None):
 
         message_template, _ = param.retrieve_data(fdb, window_manager.unique_steps[0])
         with multiprocessing.Pool(processes=args.processes) as pool:
-            results = [pool.apply_async(retrieve, [step, param, clim]) for step in window_manager.unique_steps]
+            results = [
+                pool.apply_async(retrieve, [step, param, clim])
+                for step in window_manager.unique_steps
+            ]
             for res in results:
                 step, retrieved_data = res.get()
 

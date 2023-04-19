@@ -2,7 +2,6 @@ import eccodes
 
 import pproc.common as common
 
-DEFAULT_NUM_PROCESSES = 2
 
 def retrieve(step, *data_requesters):
     with common.ResourceMeter(f"Retrieve step {step}"):
