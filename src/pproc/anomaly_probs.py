@@ -9,7 +9,7 @@ from pproc.prob.grib_helpers import construct_message
 from pproc.prob.math import ensemble_probability
 from pproc.prob.window_manager import AnomalyWindowManager
 from pproc.prob.climatology import Climatology
-from pproc.prob.multiprocess import retrieve, DEFAULT_NUM_PROCESSES
+from pproc.prob.multiprocess import fdb_retrieve
 
 
 def main(args=None):
@@ -60,7 +60,7 @@ def main(args=None):
         message_template, _ = param.retrieve_data(fdb, window_manager.unique_steps[0])
         with multiprocessing.Pool(processes=args.processes) as pool:
             results = [
-                pool.apply_async(retrieve, [step, param, clim])
+                pool.apply_async(fdb_retrieve, [step, param, clim])
                 for step in window_manager.unique_steps
             ]
             for res in results:

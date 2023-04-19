@@ -3,7 +3,17 @@ import eccodes
 import pproc.common as common
 
 
-def retrieve(step, *data_requesters):
+def fdb_retrieve(step, *data_requesters):
+    """
+    Multiprocess retrieve data function from multiple data requests 
+    with retrieve_data method. Grib message templates returned with 
+    data are not returned.  
+
+    :param step: integer step to retrieve data for
+    :param data_requesters: list of objects with retrieve_data method
+    accepting arguments (fdb, step)
+    :return: tuple containing step and list of retrieved data
+    """
     with common.ResourceMeter(f"Retrieve step {step}"):
         collated_data = []
         fdb = common.io.fdb()
