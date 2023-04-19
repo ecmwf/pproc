@@ -246,7 +246,6 @@ def main(args=None):
                             elif name == "efi":
                                 template = efi_template(template_extreme)
                             else:
-                                print(name.split("_")[1])
                                 template = sot_template(
                                     template_extreme, int(name.split("_")[1])
                                 )
