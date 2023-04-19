@@ -8,7 +8,6 @@
 # In applying this licence, ECMWF does not waive the privileges and immunities
 # granted to it by virtue of its status as an intergovernmental organisation nor
 # does it submit to any jurisdiction.
-import concurrent.futures as fut
 import functools
 import os
 import sys
@@ -22,6 +21,7 @@ import pyfdb
 import mir
 
 from pproc import common
+from pproc.common.parallel import parallel_processing
 
 
 def retrieve_messages(cfg, req, cached_file):
@@ -254,9 +254,7 @@ def wind_iteration_gen(config, tp, levelist, name, step, write_ws=True, mean_std
             )
 
 
-def wind_iteration_step(config, det_ws, eps_ws, eps_mean_std, args):
-    levelist, name, step = args
-
+def wind_iteration(config, det_ws, eps_ws, eps_mean_std, levelist, name, step):
     # calculate wind speed for type=fc (deterministic)
     wind_iteration_gen(config, "det", levelist, name, step, det_ws, False)
 
@@ -264,11 +262,7 @@ def wind_iteration_step(config, det_ws, eps_ws, eps_mean_std, args):
     wind_iteration_gen(config, "eps", levelist, name, step, eps_ws, eps_mean_std)
 
     config.fdb.flush()
-    return args
-
-
-def wind_iteration(config, det_ws, eps_ws, eps_mean_std):
-    return functools.partial(wind_iteration_step, config, det_ws, eps_ws, eps_mean_std)
+    return levelist, name, step
 
 
 def main(args=None):
@@ -312,17 +306,8 @@ def main(args=None):
 
                 plan.append((levelist, window.name, step))
 
-    iteration = wind_iteration(cfg, args.det_ws, args.eps_ws, args.eps_mean_std)
-    if cfg.n_par == 1:
-        for args in plan:
-            key = iteration(args)
-            recovery.add_checkpoint(*key)
-    else:
-        with fut.ProcessPoolExecutor(max_workers=cfg.n_par) as executor:
-            futures = (executor.submit(iteration, args) for args in plan)
-            for future in fut.as_completed(futures):
-                key = future.result()
-                recovery.add_checkpoint(*key)
+    iteration = functools.partial(wind_iteration, cfg, args.det_ws, args.eps_ws, args.eps_mean_std)
+    parallel_processing(iteration, plan, cfg.n_par, recovery)
 
     recovery.clean_file()
 
