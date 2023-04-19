@@ -30,6 +30,9 @@ def main(args=None):
         default=False,
         help="write ensemble members to fdb/file",
     )
+    parser.add_argument("-p", "--processes", default=DEFAULT_NUM_PROCESSES, type=int, 
+        help=f"number of processes for reading files, default: {DEFAULT_NUM_PROCESSES}"
+    )
     args = parser.parse_args()
     cfg = common.Config(args)
 
@@ -37,7 +40,6 @@ def main(args=None):
     nensembles = int(cfg.options.get("number_of_ensembles", 50))
     global_input_cfg = cfg.options.get("global_input_keys", {})
     global_output_cfg = cfg.options.get("global_output_keys", {})
-    num_processes = cfg.options.get("num_processes", DEFAULT_NUM_PROCESSES)
 
     fdb = pyfdb.FDB()
     recovery = common.Recovery(cfg.options["root_dir"], args.config, date, args.recover)
@@ -60,56 +62,56 @@ def main(args=None):
                 f"Recovery: param {param_name} looping from step {window_manager.unique_steps[0]}"
             )
 
-            message_template, _ = param.retrieve_data(fdb, window_manager.unique_steps[0])
-            with multiprocessing.Pool(processes=num_processes) as pool:
-                results = [pool.apply_async(retrieve, [step, param]) for step in window_manager.unique_steps]
-                for res in results:
-                    step, retrieved_data = res.get()
+        message_template, _ = param.retrieve_data(fdb, window_manager.unique_steps[0])
+        with multiprocessing.Pool(processes=args.processes) as pool:
+            results = [pool.apply_async(retrieve, [step, param]) for step in window_manager.unique_steps]
+            for res in results:
+                step, retrieved_data = res.get()
 
-                    with common.ResourceMeter(f"Process step {step}"):
-                        _, data = retrieved_data[0]
+                with common.ResourceMeter(f"Process step {step}"):
+                    _, data = retrieved_data[0]
 
-                        completed_windows = window_manager.update_windows(step, data)
-                        for window in completed_windows:
-                            if args.write_ensemble:
-                                for index in range(len(window.step_values)):
-                                    data_type, number = param.type_and_number(index)
-                                    print(
-                                        f"Writing window values for param {param_name} and output "
-                                        + f"type {data_type}, number {number} for step(s) {window.name}"
-                                    )
-                                    template = construct_message(
-                                        message_template, window.grib_header()
-                                    )
-                                    template.set({"type": data_type, "number": number})
-                                    write_grib(
-                                        cfg,
-                                        fdb,
-                                        f"{param_name}_type{data_type}_number{number}_step{window.name}.grib",
-                                        template,
-                                        window.step_values[index],
-                                    )
-                            for threshold in window_manager.thresholds(window):
-                                window_probability = ensemble_probability(
-                                    window.step_values, threshold
-                                )
-
+                    completed_windows = window_manager.update_windows(step, data)
+                    for window in completed_windows:
+                        if args.write_ensemble:
+                            for index in range(len(window.step_values)):
+                                data_type, number = param.type_and_number(index)
                                 print(
-                                    f"Writing probability for input param {param_name} and output "
-                                    + f"param {threshold['out_paramid']} for step(s) {window.name}"
+                                    f"Writing window values for param {param_name} and output "
+                                    + f"type {data_type}, number {number} for step(s) {window.name}"
                                 )
+                                template = construct_message(
+                                    message_template, window.grib_header()
+                                )
+                                template.set({"type": data_type, "number": number})
                                 write_grib(
                                     cfg,
                                     fdb,
-                                    f"{param_name}_{threshold['out_paramid']}_step{window.name}.grib",
-                                    construct_message(
-                                        message_template, window.grib_header(), threshold
-                                    ),
-                                    window_probability,
+                                    f"{param_name}_type{data_type}_number{number}_step{window.name}.grib",
+                                    template,
+                                    window.step_values[index],
                                 )
+                        for threshold in window_manager.thresholds(window):
+                            window_probability = ensemble_probability(
+                                window.step_values, threshold
+                            )
 
-                        fdb.flush()
-                        recovery.add_checkpoint(param_name, step)
+                            print(
+                                f"Writing probability for input param {param_name} and output "
+                                + f"param {threshold['out_paramid']} for step(s) {window.name}"
+                            )
+                            write_grib(
+                                cfg,
+                                fdb,
+                                f"{param_name}_{threshold['out_paramid']}_step{window.name}.grib",
+                                construct_message(
+                                    message_template, window.grib_header(), threshold
+                                ),
+                                window_probability,
+                            )
+
+                    fdb.flush()
+                    recovery.add_checkpoint(param_name, step)
 
     recovery.clean_file()
 

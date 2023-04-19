@@ -19,6 +19,9 @@ def main(args=None):
         "Compute instantaneous and period probabilites for anomalies"
     )
     parser.add_argument("-d", "--date", required=True, help="Forecast date")
+    parser.add_argument("-p", "--processes", default=DEFAULT_NUM_PROCESSES, type=int, 
+        help=f"number of processes for reading files, default: {DEFAULT_NUM_PROCESSES}"
+    )
     args = parser.parse_args()
     cfg = common.Config(args)
 
@@ -26,7 +29,6 @@ def main(args=None):
     n_ensembles = int(cfg.options.get("number_of_ensembles", 50))
     global_input_cfg = cfg.options.get("global_input_keys", {})
     global_output_cfg = cfg.options.get("global_output_keys", {})
-    num_processes = cfg.options.get("num_processes", DEFAULT_NUM_PROCESSES)
 
     fdb = pyfdb.FDB()
     recovery = common.Recovery(cfg.options["root_dir"], args.config, date, args.recover)
@@ -52,7 +54,7 @@ def main(args=None):
             )
 
         message_template, _ = param.retrieve_data(fdb, window_manager.unique_steps[0])
-        with multiprocessing.Pool(processes=num_processes) as pool:
+        with multiprocessing.Pool(processes=args.processes) as pool:
             results = [pool.apply_async(retrieve, [step, param, clim]) for step in window_manager.unique_steps]
             for res in results:
                 step, retrieved_data = res.get()
