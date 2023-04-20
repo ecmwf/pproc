@@ -219,7 +219,7 @@ def main(args=None):
                     )
                     write_callback = functools.partial(write_outputs, cfg, f"{param_name}_{window.suffix}.grib", 
                             template_extreme)
-                    common.parallel_processing(efi_sot, plan, cfg.n_par, write_callback)
+                    parallel_processing(efi_sot, plan, cfg.n_par, write_callback)
 
 
             cfg.fdb.flush()
