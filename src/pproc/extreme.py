@@ -114,30 +114,34 @@ def sot_template(template, sot):
         )
     return template_sot
 
-def efi_sot(computation_type, *args):
-    with common.ResourceMeter(f"{computation_type}"):
-        if 'efi' in computation_type:
-            return computation_type, extreme.efi(*args)
-        else:
-            return computation_type, extreme.sot(*args)
+def efi_sot(param, clim, window, efi_vars):
+    with common.ResourceMeter(f"Window {window.suffix}, computing EFI/SOT"):
+        results = {
+            "efi_control": extreme.efi(clim, window.step_values[param.get_type_index("cf")], efi_vars.eps),
+            "efi": extreme.efi(clim, window.step_values, efi_vars.eps)
+        }
+        for perc in efi_vars.sot:
+            results[f"sot_{perc}"] = extreme.sot(clim, window.step_values, perc, efi_vars.eps)
+
+        return results
     
 def write_outputs(cfg, filename, template, future):
-    computation_type, computed_values = future.result()
-    if computation_type == "efi_control":
-        template_efi = efi_template_control(template)
-    elif computation_type == "efi":
-         template_efi = efi_template(template)
-    elif "sot" in computation_type:
-        perc = int(computation_type.split("_")[1])
-        template_efi = sot_template(template, perc)
+    for computation_type, computed_values in future.result().items():
+        if computation_type == "efi_control":
+            template_efi = efi_template_control(template)
+        elif computation_type == "efi":
+            template_efi = efi_template(template)
+        elif "sot" in computation_type:
+            perc = int(computation_type.split("_")[1])
+            template_efi = sot_template(template, perc)
 
-    out_file = os.path.join(
-        cfg.out_dir, f"{computation_type}_{filename}"
-    )
-    target = common.target_factory(
-        cfg.target, out_file=out_file, fdb=cfg.fdb
-    )
-    common.write_grib(target, template_efi, computed_values)
+        out_file = os.path.join(
+            cfg.out_dir, f"{computation_type}_{filename}"
+        )
+        target = common.target_factory(
+            cfg.target, out_file=out_file, fdb=cfg.fdb
+        )
+        common.write_grib(target, template_efi, computed_values)
 
 class ConfigExtreme(common.Config):
     def __init__(self, args):
@@ -212,22 +216,16 @@ def main(args=None):
                     clim, template_clim = read_clim(cfg, param_cfg["clim_keys"], window)
                     print(f"Climatology array: {clim.shape}")
 
-                    window_futures = [
-                        executor.submit(efi_sot, 'efi_control', clim, window.step_values[param.get_type_index("cf")], efi_vars.eps), 
-                        executor.submit(efi_sot, 'efi', clim, window.step_values, efi_vars.eps)
-                    ]
-                    for perc in efi_vars.sot:
-                        window_futures.append(executor.submit(efi_sot, f'sot_{perc}', clim, window.step_values, perc, efi_vars.eps))
+                    window_future = executor.submit(efi_sot, param, clim, window, efi_vars)
                                                              
                     template_extreme = extreme_template(
                         window, message_template, template_clim
                     )
                     write_callback = functools.partial(write_outputs, cfg, f"{param_name}_{window.suffix}.grib", 
                             template_extreme)
-                    for window_fut in window_futures:
-                        window_fut.add_done_callback(write_callback)
+                    window_future.add_done_callback(write_callback)
 
-                    step_futures[step] += window_futures
+                    step_futures[step].append(window_future)
 
         for step, futures in step_futures.items():
             fut.wait(futures)
