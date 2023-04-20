@@ -22,8 +22,7 @@ class Recovery:
         :param recover: boolean specifying whether to retrieve checkpoints from file. Otherwise, existing
         checkpoints in the recovery file are deleted.
         """
-        if not os.path.isdir(root_dir):
-            os.mkdir(root_dir)
+        os.makedirs(root_dir, exist_ok=True)
         sha256 = hashlib.sha256()
         with open(config_file, "rb") as f:
             sha256.update(f.read())
