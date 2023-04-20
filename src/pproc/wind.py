@@ -8,6 +8,7 @@
 # In applying this licence, ECMWF does not waive the privileges and immunities
 # granted to it by virtue of its status as an intergovernmental organisation nor
 # does it submit to any jurisdiction.
+import functools
 import os
 import sys
 from io import BytesIO
@@ -20,6 +21,7 @@ import pyfdb
 import mir
 
 from pproc import common
+from pproc.common.parallel import parallel_processing
 
 
 def retrieve_messages(cfg, req, cached_file):
@@ -51,7 +53,12 @@ def fdb_request_det(cfg, levelist, steps, name):
     req["step"] = steps
     req["type"] = "fc"
 
-    return retrieve_messages(cfg, req, f"wind_det_{levelist}_{name}.grb")
+    try:
+        stepid = list(steps)[0]
+    except (TypeError, ValueError):
+        stepid = steps
+
+    return retrieve_messages(cfg, req, f"wind_det_{levelist}_{name}_{stepid}.grb")
 
 
 def fdb_request_ens(cfg, levelist, steps, name):
@@ -69,14 +76,19 @@ def fdb_request_ens(cfg, levelist, steps, name):
         req["levelist"] = levelist
     req["step"] = steps
 
+    try:
+        stepid = list(steps)[0]
+    except (TypeError, ValueError):
+        stepid = steps
+
     req_cf = req.copy()
     req_cf["type"] = "cf"
-    messages = retrieve_messages(cfg, req_cf, f"wind_det_{levelist}_{name}.grb")
+    messages = retrieve_messages(cfg, req_cf, f"wind_cf_{levelist}_{name}_{stepid}.grb")
 
     req_pf = req.copy()
     req_pf["type"] = "pf"
     req_pf["number"] = range(1, cfg.members + 1)
-    messages += retrieve_messages(cfg, req_pf, f"wind_det_{levelist}_{name}.grb")
+    messages += retrieve_messages(cfg, req_pf, f"wind_pf_{levelist}_{name}_{stepid}.grb")
 
     return messages
 
@@ -170,7 +182,8 @@ class ConfigExtreme(common.Config):
         self.target = self.options["target"]
         self.out_dir = os.path.join(self.root_dir, self.date.strftime("%Y%m%d%H"))
 
-        self.fdb = pyfdb.FDB()
+        self.n_par = self.options.get("n_par", 1)
+        self._fdb = None
 
         self.request = self.options["request"]
         self.windows = self.options["windows"]
@@ -180,6 +193,76 @@ class ConfigExtreme(common.Config):
 
         if args.eps_ws or args.eps_mean_std:
             self.members = int(self.options["members"])
+
+    @property
+    def fdb(self):
+        if self._fdb is None:
+            self._fdb = pyfdb.FDB()
+        return self._fdb
+
+
+def wind_iteration_gen(config, tp, levelist, name, step, write_ws=True, mean_std=False):
+    if not write_ws and not mean_std:
+        return
+
+    fdb_req = fdb_request_det if tp == "det" else fdb_request_ens
+    tpname = "deterministic" if tp == "det" else "ensemble"
+    mk_template = (
+        (lambda cfg, msg, stp, num: basic_template(cfg, msg, stp, "fc"))
+        if tp == "det"
+        else eps_speed_template
+    )
+    numbers = [0] if tp == "det" else range(config.members + 1)
+
+    with common.ResourceMeter(
+        f"Window {name}, step {step}, {tpname}: read forecast"
+    ):
+        messages = fdb_req(config, levelist, step, name)
+    with common.ResourceMeter(
+        f"Window {name}, step {step}, {tpname}: compute speed"
+    ):
+        spd = wind_speed(messages)
+    with common.ResourceMeter(
+        f"Window {name}, step {step}, {tpname}: write output"
+    ):
+        template = messages[0]
+        if write_ws:
+            for number in numbers:
+                suffix = "" if tp == "det" else f"_{number}"
+                template = mk_template(config, template, step, number)
+                write_output(
+                    config,
+                    f"{tp}_{levelist}_{name}_{step}{suffix}.grib",
+                    template,
+                    spd[step][number],
+                )
+        if mean_std:
+            template_mean = basic_template(config, template, step, "em")
+            write_output(
+                config,
+                f"mean_{levelist}_{name}_{step}.grib",
+                template_mean,
+                np.mean(spd[step], axis=0),
+            )
+
+            template_std = basic_template(config, template, step, "es")
+            write_output(
+                config,
+                f"std_{levelist}_{name}_{step}.grib",
+                template_std,
+                np.std(spd[step], axis=0),
+            )
+
+
+def wind_iteration(config, det_ws, eps_ws, eps_mean_std, levelist, name, step):
+    # calculate wind speed for type=fc (deterministic)
+    wind_iteration_gen(config, "det", levelist, name, step, det_ws, False)
+
+    # calculate wind speed, mean/stddev of wind speed for type=pf/cf (eps)
+    wind_iteration_gen(config, "eps", levelist, name, step, eps_ws, eps_mean_std)
+
+    config.fdb.flush()
+    return levelist, name, step
 
 
 def main(args=None):
@@ -208,6 +291,7 @@ def main(args=None):
     cfg = ConfigExtreme(args)
     recovery = common.Recovery(cfg.root_dir, args.config, cfg.date, args.recover)
 
+    plan = []
     for levelist in cfg.levelist:
         for window_options in cfg.windows:
 
@@ -220,71 +304,10 @@ def main(args=None):
                     )
                     continue
 
-                # calculate wind speed for type=fc (deterministic)
-                if args.det_ws:
-                    with common.ResourceMeter(
-                        f"Window {window.name}, step {step}, deterministic: read forecast"
-                    ):
-                        messages = fdb_request_det(cfg, levelist, step, window.name)
-                    with common.ResourceMeter(
-                        f"Window {window.name}, step {step}, deterministic: compute speed"
-                    ):
-                        det = wind_speed(messages)
-                    with common.ResourceMeter(
-                        f"Window {window.name}, step {step}, deterministic: write output"
-                    ):
-                        template_det = basic_template(cfg, messages[0], step, "fc")
-                        write_output(
-                            cfg,
-                            f"det_{levelist}_{window.name}_{step}.grib",
-                            template_det,
-                            det[step][0],
-                        )
+                plan.append((levelist, window.name, step))
 
-                # calculate wind speed, mean/stddev of wind speed for type=pf/cf (eps)
-                if args.eps_ws or args.eps_mean_std:
-                    with common.ResourceMeter(
-                        f"Window {window.name}, step {step}, ensemble: read forecast"
-                    ):
-                        messages = fdb_request_ens(cfg, levelist, step, window.name)
-                    with common.ResourceMeter(
-                        f"Window {window.name}, step {step}, ensemble: compute speed"
-                    ):
-                        eps = wind_speed(messages)
-                    with common.ResourceMeter(
-                        f"Window {window.name}, step {step}, ensemble: write output"
-                    ):
-                        template = messages[0]
-                        if args.eps_ws:
-                            for number in range(cfg.members + 1):
-                                template_eps = eps_speed_template(
-                                    cfg, template, step, number
-                                )
-                                write_output(
-                                    cfg,
-                                    f"eps_{levelist}_{window.name}_{step}_{number}.grib",
-                                    template_eps,
-                                    eps[step][number],
-                                )
-                        if args.eps_mean_std:
-                            template_mean = basic_template(cfg, template, step, "em")
-                            write_output(
-                                cfg,
-                                f"mean_{levelist}_{window.name}_{step}.grib",
-                                template_mean,
-                                np.mean(eps[step], axis=0),
-                            )
-
-                            template_std = basic_template(cfg, template, step, "es")
-                            write_output(
-                                cfg,
-                                f"std_{levelist}_{window.name}_{step}.grib",
-                                template_std,
-                                np.std(eps[step], axis=0),
-                            )
-
-                cfg.fdb.flush()
-                recovery.add_checkpoint(levelist, window.name, step)
+    iteration = functools.partial(wind_iteration, cfg, args.det_ws, args.eps_ws, args.eps_mean_std)
+    parallel_processing(iteration, plan, cfg.n_par, recovery)
 
     recovery.clean_file()
 
