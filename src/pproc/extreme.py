@@ -187,6 +187,7 @@ def main(args=None):
     args = parser.parse_args(args)
     cfg = ConfigExtreme(args)
     recovery = common.Recovery(cfg.root_dir, args.config, cfg.fc_date, args.recover)
+    last_checkpoint = recovery.last_checkpoint()
     executor = create_executor(cfg.n_par)
 
     for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
@@ -196,13 +197,20 @@ def main(args=None):
         window_manager = common.WindowManager(param_cfg, cfg.global_output_cfg)
         efi_vars = ExtremeVariables(param_cfg)
 
-        checkpointed_windows = [
-            recovery.checkpoint_identifiers(x)[1] for x in recovery.checkpoints
-        ]
-        window_manager.delete_windows(checkpointed_windows)
-        print(
-            f"Recovery: param {param_name} looping from step {window_manager.unique_steps[0]}"
-        )
+        if last_checkpoint:
+            if param_name not in last_checkpoint:
+                print(f"Recovery: skipping completed param {param_name}")
+                continue
+            checkpointed_windows = [
+                recovery.checkpoint_identifiers(x)[1]
+                for x in recovery.checkpoints
+                if param_name in x
+            ]
+            window_manager.delete_windows(checkpointed_windows)
+            print(
+                f"Recovery: param {param_name} looping from step {window_manager.unique_steps[0]}"
+            )
+            last_checkpoint = None  # All remaining params have not been run
 
         all_futures = []
         for step in window_manager.unique_steps:
