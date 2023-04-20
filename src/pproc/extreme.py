@@ -125,7 +125,7 @@ def efi_sot(param, clim, window, efi_vars):
 
         return results
     
-def write_outputs(cfg, filename, template, future):
+def write_outputs(cfg, param_name, window, template, recovery, future):
     for computation_type, computed_values in future.result().items():
         if computation_type == "efi_control":
             template_efi = efi_template_control(template)
@@ -136,12 +136,15 @@ def write_outputs(cfg, filename, template, future):
             template_efi = sot_template(template, perc)
 
         out_file = os.path.join(
-            cfg.out_dir, f"{computation_type}_{filename}"
+            cfg.out_dir, f"{computation_type}_{param_name}_{window.suffix}.grib"
         )
         target = common.target_factory(
             cfg.target, out_file=out_file, fdb=cfg.fdb
         )
         common.write_grib(target, template_efi, computed_values)
+        cfg.fdb.flush()
+        recovery.add_checkpoint(param_name, window.name)
+
 
 class ConfigExtreme(common.Config):
     def __init__(self, args):
@@ -180,7 +183,6 @@ def main(args=None):
     args = parser.parse_args(args)
     cfg = ConfigExtreme(args)
     recovery = common.Recovery(cfg.root_dir, args.config, cfg.fc_date, args.recover)
-    last_checkpoint = recovery.last_checkpoint()
     executor = create_executor(cfg.n_par)
 
     for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
@@ -190,23 +192,14 @@ def main(args=None):
         window_manager = common.WindowManager(param_cfg, cfg.global_output_cfg)
         efi_vars = ExtremeVariables(param_cfg)
 
-        if last_checkpoint and recovery.existing_checkpoint(
-            param_name, window_manager.unique_steps[0]
-        ):
-            if param_name not in last_checkpoint:
-                print(f"Recovery: skipping completed param {param_name}")
-                continue
-            last_checkpoint_step = int(
-                recovery.checkpoint_identifiers(last_checkpoint)[1]
-            )
-            window_manager.update_from_checkpoint(last_checkpoint_step)
-            print(
-                f"Recovery: param {param_name} looping from step {window_manager.unique_steps[0]}"
-            )
+        checkpointed_windows = [recovery.checkpoint_identifiers(x)[1] for x in recovery.checkpoints]
+        window_manager.delete_windows(checkpointed_windows)
+        print(
+            f"Recovery: param {param_name} looping from step {window_manager.unique_steps[0]}"
+        )
 
-        step_futures = {}
+        all_futures = []
         for step in window_manager.unique_steps:
-            step_futures[step] = []
             with common.ResourceMeter(f"Parameter {param_name}, step {step}"):
                 message_template, data = param.retrieve_data(cfg.fdb, step)
 
@@ -221,16 +214,13 @@ def main(args=None):
                     template_extreme = extreme_template(
                         window, message_template, template_clim
                     )
-                    write_callback = functools.partial(write_outputs, cfg, f"{param_name}_{window.suffix}.grib", 
-                            template_extreme)
+                    write_callback = functools.partial(write_outputs, cfg, param_name, window, 
+                            template_extreme, recovery)
                     window_future.add_done_callback(write_callback)
 
-                    step_futures[step].append(window_future)
+                    all_futures.append(window_future)
 
-        for step, futures in step_futures.items():
-            fut.wait(futures)
-            cfg.fdb.flush()
-            recovery.add_checkpoint(param_name, step)
+        fut.wait(all_futures)
 
     recovery.clean_file()
 

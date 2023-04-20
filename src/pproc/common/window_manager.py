@@ -1,4 +1,4 @@
-from typing import Iterator
+from typing import Iterator, List
 import bisect
 
 import numpy as np
@@ -121,3 +121,20 @@ class WindowManager:
             self.windows.remove(window)
         start_index = bisect.bisect_left(self.unique_steps, new_start_step)
         self.unique_steps = self.unique_steps[start_index:]
+
+    def delete_windows(self, window_names: List[str]):
+        """
+        Remove windows in the list of provided window names and updates steps
+        to only those contained in remaining list of windows
+        """
+        for window in self.windows:
+            if window.name in window_names:
+                self.windows.remove(window)
+        
+        for step in self.unique_steps:
+            in_any_window = np.any([step in window for window in self.windows])
+            if in_any_window:
+                # Steps must be processed in order so stop at first step that appears
+                # in remaining window
+                break
+            self.unique_steps.remove(step)

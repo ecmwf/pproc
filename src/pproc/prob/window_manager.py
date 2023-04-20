@@ -178,3 +178,8 @@ class AnomalyWindowManager(ThresholdWindowManager):
                 window_set.remove(window)
         start_index = bisect.bisect_left(self.unique_steps, new_start_step)
         self.unique_steps = self.unique_steps[start_index:]
+
+    def delete_windows(self, window_names: List[str]):
+        # Windows are not uniquely identifiable from their names when we have 
+        # anomly windows as well
+        raise NotImplementedError
