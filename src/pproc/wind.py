@@ -307,7 +307,7 @@ def main(args=None):
                 plan.append((levelist, window.name, step))
 
     iteration = functools.partial(wind_iteration, cfg, args.det_ws, args.eps_ws, args.eps_mean_std)
-    parallel_processing(iteration, plan, cfg.n_par, recovery)
+    parallel_processing(iteration, plan, cfg.n_par, recovery.add_checkpoint)
 
     recovery.clean_file()
 

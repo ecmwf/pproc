@@ -13,11 +13,13 @@
 import os
 import numpy as np
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
+import functools
 
 import pyfdb
 from meteokit import extreme
 from pproc import common
+from pproc.common.parallel import parallel_processing
 
 
 class ExtremeVariables:
@@ -111,6 +113,29 @@ def sot_template(template, sot):
         )
     return template_sot
 
+def efi_sot(computation_type, *args):
+    with common.ResourceMeter(f"{computation_type}"):
+        if 'efi' in computation_type:
+            return computation_type, extreme.efi(*args)
+        else:
+            return computation_type, extreme.sot(*args)
+    
+def write_outputs(cfg, filename, template, computation_type, computed_values):
+    if computation_type == "efi_control":
+        template_efi = efi_template_control(template)
+    elif computation_type == "efi":
+         template_efi = efi_template(template)
+    elif "sot" in computation_type:
+        perc = int(computation_type.split("_")[1])
+        template_efi = sot_template(template, perc)
+
+    out_file = os.path.join(
+        cfg.out_dir, f"{computation_type}_{filename}"
+    )
+    target = common.target_factory(
+        cfg.target, out_file=out_file, fdb=cfg.fdb
+    )
+    common.write_grib(target, template_efi, computed_values)
 
 class ConfigExtreme(common.Config):
     def __init__(self, args):
@@ -120,6 +145,7 @@ class ConfigExtreme(common.Config):
 
         self.members = int(self.options["members"])
         self.fdb = pyfdb.FDB()
+        self.n_par = self.options.get("n_par", 1)
 
         self.root_dir = self.options["root_dir"]
         self.out_dir = os.path.join(
@@ -181,55 +207,20 @@ def main(args=None):
                     clim, template_clim = read_clim(cfg, param_cfg["clim_keys"], window)
                     print(f"Climatology array: {clim.shape}")
 
+                    plan = [
+                        ('efi_control', clim, window.step_values[param.get_type_index("cf")], efi_vars.eps),
+                        ('efi', clim, window.step_values, efi_vars.eps)
+                    ]
+                    for perc in efi_vars.sot:
+                        plan.append((f'sot_{perc}', clim, window.step_values, perc, efi_vars.eps))
+
                     template_extreme = extreme_template(
                         window, message_template, template_clim
                     )
+                    write_callback = functools.partial(write_outputs, cfg, f"{param_name}_{window.suffix}.grib", 
+                            template_extreme)
+                    common.parallel_processing(efi_sot, plan, cfg.n_par, write_callback)
 
-                    print(
-                        f"Window {window.suffix}: computing efi for the control member"
-                    )
-                    control_index = param.get_type_index("cf")
-                    efi_control = extreme.efi(
-                        clim, window.step_values[control_index], efi_vars.eps
-                    )
-                    template_efi = efi_template_control(template_extreme)
-
-                    out_file = os.path.join(
-                        cfg.out_dir, f"efi_control_{param_name}_{window.suffix}.grib"
-                    )
-                    target = common.target_factory(
-                        cfg.target, out_file=out_file, fdb=cfg.fdb
-                    )
-                    common.write_grib(target, template_efi, efi_control)
-
-                    print(f"Window {window.suffix}: computing efi")
-                    efi = extreme.efi(clim, window.step_values, efi_vars.eps)
-                    template_efi = efi_template(template_extreme)
-
-                    out_file = os.path.join(
-                        cfg.out_dir, f"efi_{param_name}_{window.suffix}.grib"
-                    )
-                    target = common.target_factory(
-                        cfg.target, out_file=out_file, fdb=cfg.fdb
-                    )
-                    common.write_grib(target, template_efi, efi)
-
-                    sot = {}
-                    for perc in efi_vars.sot:
-                        print(f"Window {window.suffix}: computing sot {perc}")
-
-                        sot[perc] = extreme.sot(
-                            clim, window.step_values, perc, efi_vars.eps
-                        )
-                        template_sot = sot_template(template_extreme, perc)
-
-                        out_file = os.path.join(
-                            cfg.out_dir, f"sot{perc}_{param_name}_{window.suffix}.grib"
-                        )
-                        target = common.target_factory(
-                            cfg.target, out_file=out_file, fdb=cfg.fdb
-                        )
-                        common.write_grib(target, template_sot, sot[perc])
 
             cfg.fdb.flush()
             recovery.add_checkpoint(param_name, step)
