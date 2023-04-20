@@ -1,15 +1,13 @@
 import sys
 import os
 import datetime
-import concurrent.futures as fut
 
-import pyfdb
 from pproc import common
 from pproc.prob.grib_helpers import construct_message
 from pproc.prob.math import ensemble_probability
 from pproc.prob.window_manager import AnomalyWindowManager
 from pproc.prob.climatology import Climatology
-from pproc.prob.multiprocess import fdb_retrieve
+from pproc.prob.multiprocess import parallel_data_retrieval
 
 
 def main(args=None):
@@ -57,51 +55,46 @@ def main(args=None):
                 f"Recovery: param {param_name} looping from step {window_manager.unique_steps[0]}"
             )
 
-        message_template, _ = param.retrieve_data(fdb, window_manager.unique_steps[0])
-        with fut.ProcessPoolExecutor(max_workers=args.processes) as pool:
-            results = [
-                pool.submit(fdb_retrieve, step, param, clim)
-                for step in window_manager.unique_steps
-            ]
-            for res in results:
-                step, retrieved_data = res.result()
+        for step, retrieved_data in parallel_data_retrieval(
+            args.processes, window_manager.unique_steps, [param, clim], 0
+        ):
 
-                with common.ResourceMeter(f"Process step {step}"):
-                    _, data = retrieved_data[0]
-                    clim_grib_header, clim_data = retrieved_data[1]
+            with common.ResourceMeter(f"Process step {step}"):
+                message_template, data = retrieved_data[0]
+                clim_grib_header, clim_data = retrieved_data[1]
 
-                    completed_windows = window_manager.update_windows(
-                        step, data, clim_data[0], clim_data[1]
-                    )
-                    for window in completed_windows:
-                        for threshold in window_manager.thresholds(window):
-                            window_probability = ensemble_probability(
-                                window.step_values, threshold
-                            )
+                completed_windows = window_manager.update_windows(
+                    step, data, clim_data[0], clim_data[1]
+                )
+                for window in completed_windows:
+                    for threshold in window_manager.thresholds(window):
+                        window_probability = ensemble_probability(
+                            window.step_values, threshold
+                        )
 
-                            print(
-                                f"Writing probability for {param_name} output "
-                                + f"param {threshold['out_paramid']} for step(s) {window.name}"
-                            )
-                            output_file = os.path.join(
-                                cfg.options["root_dir"],
-                                f"{param_name}_{threshold['out_paramid']}_step{window.name}.grib",
-                            )
-                            target = common.target_factory(
-                                cfg.options["target"], out_file=output_file, fdb=fdb
-                            )
-                            common.write_grib(
-                                target,
-                                construct_message(
-                                    message_template,
-                                    window.grib_header(),
-                                    threshold,
-                                    clim_grib_header,
-                                ),
-                                window_probability,
-                            )
-                    fdb.flush()
-                    recovery.add_checkpoint(param_name, step)
+                        print(
+                            f"Writing probability for {param_name} output "
+                            + f"param {threshold['out_paramid']} for step(s) {window.name}"
+                        )
+                        output_file = os.path.join(
+                            cfg.options["root_dir"],
+                            f"{param_name}_{threshold['out_paramid']}_step{window.name}.grib",
+                        )
+                        target = common.target_factory(
+                            cfg.options["target"], out_file=output_file, fdb=fdb
+                        )
+                        common.write_grib(
+                            target,
+                            construct_message(
+                                message_template,
+                                window.grib_header(),
+                                threshold,
+                                clim_grib_header,
+                            ),
+                            window_probability,
+                        )
+                fdb.flush()
+                recovery.add_checkpoint(param_name, step)
 
     recovery.clean_file()
 
