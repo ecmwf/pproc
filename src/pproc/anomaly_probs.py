@@ -93,8 +93,8 @@ def main(args=None):
                             ),
                             window_probability,
                         )
-                fdb.flush()
-                recovery.add_checkpoint(param_name, step)
+            fdb.flush()
+            recovery.add_checkpoint(param_name, step)
 
     recovery.clean_file()
 
