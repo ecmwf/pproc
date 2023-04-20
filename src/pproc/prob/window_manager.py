@@ -1,5 +1,5 @@
 import bisect
-from typing import Iterator
+from typing import Iterator, List
 import numpy as np
 
 from pproc.common import WindowManager, Window, create_window
@@ -180,6 +180,6 @@ class AnomalyWindowManager(ThresholdWindowManager):
         self.unique_steps = self.unique_steps[start_index:]
 
     def delete_windows(self, window_names: List[str]):
-        # Windows are not uniquely identifiable from their names when we have 
+        # Windows are not uniquely identifiable from their names when we have
         # anomly windows as well
         raise NotImplementedError

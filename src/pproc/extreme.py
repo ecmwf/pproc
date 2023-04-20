@@ -114,17 +114,23 @@ def sot_template(template, sot):
         )
     return template_sot
 
+
 def efi_sot(param, clim, window, efi_vars):
     with common.ResourceMeter(f"Window {window.suffix}, computing EFI/SOT"):
         results = {
-            "efi_control": extreme.efi(clim, window.step_values[param.get_type_index("cf")], efi_vars.eps),
-            "efi": extreme.efi(clim, window.step_values, efi_vars.eps)
+            "efi_control": extreme.efi(
+                clim, window.step_values[param.get_type_index("cf")], efi_vars.eps
+            ),
+            "efi": extreme.efi(clim, window.step_values, efi_vars.eps),
         }
         for perc in efi_vars.sot:
-            results[f"sot_{perc}"] = extreme.sot(clim, window.step_values, perc, efi_vars.eps)
+            results[f"sot_{perc}"] = extreme.sot(
+                clim, window.step_values, perc, efi_vars.eps
+            )
 
         return results
-    
+
+
 def write_outputs(cfg, param_name, window, template, recovery, future):
     for computation_type, computed_values in future.result().items():
         if computation_type == "efi_control":
@@ -138,9 +144,7 @@ def write_outputs(cfg, param_name, window, template, recovery, future):
         out_file = os.path.join(
             cfg.out_dir, f"{computation_type}_{param_name}_{window.suffix}.grib"
         )
-        target = common.target_factory(
-            cfg.target, out_file=out_file, fdb=cfg.fdb
-        )
+        target = common.target_factory(cfg.target, out_file=out_file, fdb=cfg.fdb)
         common.write_grib(target, template_efi, computed_values)
         cfg.fdb.flush()
         recovery.add_checkpoint(param_name, window.name)
@@ -192,7 +196,9 @@ def main(args=None):
         window_manager = common.WindowManager(param_cfg, cfg.global_output_cfg)
         efi_vars = ExtremeVariables(param_cfg)
 
-        checkpointed_windows = [recovery.checkpoint_identifiers(x)[1] for x in recovery.checkpoints]
+        checkpointed_windows = [
+            recovery.checkpoint_identifiers(x)[1] for x in recovery.checkpoints
+        ]
         window_manager.delete_windows(checkpointed_windows)
         print(
             f"Recovery: param {param_name} looping from step {window_manager.unique_steps[0]}"
@@ -209,13 +215,21 @@ def main(args=None):
                     clim, template_clim = read_clim(cfg, param_cfg["clim_keys"], window)
                     print(f"Climatology array: {clim.shape}")
 
-                    window_future = executor.submit(efi_sot, param, clim, window, efi_vars)
-                                                             
+                    window_future = executor.submit(
+                        efi_sot, param, clim, window, efi_vars
+                    )
+
                     template_extreme = extreme_template(
                         window, message_template, template_clim
                     )
-                    write_callback = functools.partial(write_outputs, cfg, param_name, window, 
-                            template_extreme, recovery)
+                    write_callback = functools.partial(
+                        write_outputs,
+                        cfg,
+                        param_name,
+                        window,
+                        template_extreme,
+                        recovery,
+                    )
                     window_future.add_done_callback(write_callback)
 
                     all_futures.append(window_future)

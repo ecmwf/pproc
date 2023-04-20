@@ -126,11 +126,13 @@ class WindowManager:
         """
         Remove windows in the list of provided window names and updates steps
         to only those contained in remaining list of windows
+        
+        :param window_names: list of window names to delete
         """
         for window in self.windows:
             if window.name in window_names:
                 self.windows.remove(window)
-        
+
         for step in self.unique_steps:
             in_any_window = np.any([step in window for window in self.windows])
             if in_any_window:
