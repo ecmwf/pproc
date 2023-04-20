@@ -1,7 +1,7 @@
 import sys
 import os
 import datetime
-import multiprocessing
+import concurrent.futures as fut
 
 import pyfdb
 from pproc import common
@@ -34,7 +34,7 @@ def main(args=None):
     global_input_cfg = cfg.options.get("global_input_keys", {})
     global_output_cfg = cfg.options.get("global_output_keys", {})
 
-    fdb = pyfdb.FDB()
+    fdb = common.io.fdb(create=True)
     recovery = common.Recovery(cfg.options["root_dir"], args.config, date, args.recover)
     last_checkpoint = recovery.last_checkpoint()
 
@@ -58,13 +58,13 @@ def main(args=None):
             )
 
         message_template, _ = param.retrieve_data(fdb, window_manager.unique_steps[0])
-        with multiprocessing.Pool(processes=args.processes) as pool:
+        with fut.ProcessPoolExecutor(max_workers=args.processes) as pool:
             results = [
-                pool.apply_async(fdb_retrieve, [step, param, clim])
+                pool.submit(fdb_retrieve, step, param, clim)
                 for step in window_manager.unique_steps
             ]
             for res in results:
-                step, retrieved_data = res.get()
+                step, retrieved_data = res.result()
 
                 with common.ResourceMeter(f"Process step {step}"):
                     _, data = retrieved_data[0]
