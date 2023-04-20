@@ -190,7 +190,7 @@ def main(args=None):
                 plan.append((param, options, window, step))
 
     iteration = functools.partial(ensms_iteration, cfg)
-    parallel_processing(iteration, plan, cfg.n_par, recover)
+    parallel_processing(iteration, plan, cfg.n_par, recover.add_checkpoint)
 
     recover.clean_file()
 
