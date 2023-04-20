@@ -64,7 +64,7 @@ def main(args=None):
             )
 
         for step, retrieved_data in parallel_data_retrieval(
-            args.processes, window_manager.unique_steps, [param, clim], 0
+            args.processes, window_manager.unique_steps, [param], 0
         ):
 
             with common.ResourceMeter(f"Process step {step}"):
