@@ -15,11 +15,12 @@ import numpy as np
 import sys
 from datetime import datetime
 import functools
+import concurrent.futures as fut
 
 import pyfdb
 from meteokit import extreme
 from pproc import common
-from pproc.common.parallel import parallel_processing
+from pproc.common.parallel import create_executor
 
 
 class ExtremeVariables:
@@ -120,7 +121,8 @@ def efi_sot(computation_type, *args):
         else:
             return computation_type, extreme.sot(*args)
     
-def write_outputs(cfg, filename, template, computation_type, computed_values):
+def write_outputs(cfg, filename, template, future):
+    computation_type, computed_values = future.result()
     if computation_type == "efi_control":
         template_efi = efi_template_control(template)
     elif computation_type == "efi":
@@ -175,6 +177,7 @@ def main(args=None):
     cfg = ConfigExtreme(args)
     recovery = common.Recovery(cfg.root_dir, args.config, cfg.fc_date, args.recover)
     last_checkpoint = recovery.last_checkpoint()
+    executor = create_executor(cfg.n_par)
 
     for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
         param = common.create_parameter(
@@ -197,7 +200,9 @@ def main(args=None):
                 f"Recovery: param {param_name} looping from step {window_manager.unique_steps[0]}"
             )
 
+        step_futures = {}
         for step in window_manager.unique_steps:
+            step_futures[step] = []
             with common.ResourceMeter(f"Parameter {param_name}, step {step}"):
                 message_template, data = param.retrieve_data(cfg.fdb, step)
 
@@ -207,21 +212,25 @@ def main(args=None):
                     clim, template_clim = read_clim(cfg, param_cfg["clim_keys"], window)
                     print(f"Climatology array: {clim.shape}")
 
-                    plan = [
-                        ('efi_control', clim, window.step_values[param.get_type_index("cf")], efi_vars.eps),
-                        ('efi', clim, window.step_values, efi_vars.eps)
+                    window_futures = [
+                        executor.submit(efi_sot, 'efi_control', clim, window.step_values[param.get_type_index("cf")], efi_vars.eps), 
+                        executor.submit(efi_sot, 'efi', clim, window.step_values, efi_vars.eps)
                     ]
                     for perc in efi_vars.sot:
-                        plan.append((f'sot_{perc}', clim, window.step_values, perc, efi_vars.eps))
-
+                        window_futures.append(executor.submit(efi_sot, f'sot_{perc}', clim, window.step_values, perc, efi_vars.eps))
+                                                             
                     template_extreme = extreme_template(
                         window, message_template, template_clim
                     )
                     write_callback = functools.partial(write_outputs, cfg, f"{param_name}_{window.suffix}.grib", 
                             template_extreme)
-                    parallel_processing(efi_sot, plan, cfg.n_par, write_callback)
+                    for window_fut in window_futures:
+                        window_fut.add_done_callback(write_callback)
 
+                    step_futures[step] += window_futures
 
+        for step, futures in step_futures.items():
+            fut.wait(futures)
             cfg.fdb.flush()
             recovery.add_checkpoint(param_name, step)
 

@@ -13,30 +13,33 @@ class SynchronousExecutor(fut.Executor):
         return f
 
 
-def parallel_processing(process, plan, n_par, completion_callback=None):
+def create_executor(n_par):
+    return (
+        SynchronousExecutor()
+        if n_par == 1
+        else fut.ProcessPoolExecutor(max_workers=n_par)
+    )
+
+
+def parallel_processing(process, plan, n_par, recovery=None):
     """Run a processing function in parallel
 
     Parameters
     ----------
     process: callable
-        Processing function to call. 
+        Processing function to call. The return value is used as a recovery key.
     plan: iterable of tuples
         Arguments for the processing function
     n_par: int
         Number of parallel processes
-    completion_callback: 
-        If set, function to run on completion with return values
+    recovery: Recovery or None
+        If set, add checkpoints when processing succeeds
     """
-    executor = (
-        SynchronousExecutor()
-        if n_par == 1
-        else fut.ProcessPoolExecutor(max_workers=n_par)
-    )
+    executor = create_executor(n_par)
     with executor:
         for future in fut.as_completed(
                 executor.submit(process, *args) for args in plan
             ):
             key = future.result()
-            if completion_callback is not None:
-                completion_callback(*key)
-
+            if recovery is not None:
+                recovery.add_checkpoint(*key)
