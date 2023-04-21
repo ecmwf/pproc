@@ -141,7 +141,7 @@ class AnomalyWindowManager(ThresholdWindowManager):
         :return: generator for completed windows
         """
         for identifier, window in list(self.windows.items()):
-            if 'std' in identifier:
+            if identifier.split('_')[0] == "std":
                 window.add_step_values(step, data / clim_std)
             else:
                 window.add_step_values(step, data - clim_mean)
