@@ -7,20 +7,29 @@ from pproc import common
 
 
 def create_parameter(
-    date: datetime.datetime, global_input_cfg: Dict, param_cfg: Dict, n_ensembles: int
+    name: str,
+    date: datetime.datetime,
+    global_input_cfg: Dict,
+    param_cfg: Dict,
+    n_ensembles: int,
 ):
     if "input_combine_operation" in param_cfg:
         param_ids = param_cfg["in_paramid"].split("/")
         assert len(param_ids) == 2
         return CombineParameters(
-            date, param_ids, global_input_cfg, param_cfg, n_ensembles
+            name, date, param_ids, global_input_cfg, param_cfg, n_ensembles
         )
     if "input_filter_operation" in param_cfg:
         return FilterParameter(
-            date, param_cfg["in_paramid"], global_input_cfg, param_cfg, n_ensembles
+            name,
+            date,
+            param_cfg["in_paramid"],
+            global_input_cfg,
+            param_cfg,
+            n_ensembles,
         )
     return Parameter(
-        date, param_cfg["in_paramid"], global_input_cfg, param_cfg, n_ensembles
+        name, date, param_cfg["in_paramid"], global_input_cfg, param_cfg, n_ensembles
     )
 
 
@@ -31,12 +40,14 @@ class Parameter:
 
     def __init__(
         self,
+        name: str,
         dt: datetime.datetime,
         param_id: int,
         global_input_cfg,
         param_cfg: Dict,
         n_ensembles: int,
     ):
+        self.name = name
         self.base_request = global_input_cfg.copy()
         self.base_request.update(param_cfg["base_request"])
         self.base_request["param"] = param_id
@@ -102,13 +113,14 @@ class Parameter:
 class CombineParameters(Parameter):
     def __init__(
         self,
+        name: str,
         dt: datetime.datetime,
         param_ids: List[int],
         global_input_cfg: Dict,
         param_cfg: Dict,
         n_ensembles: int,
     ):
-        super().__init__(dt, 0, global_input_cfg, param_cfg, n_ensembles)
+        super().__init__(name, dt, 0, global_input_cfg, param_cfg, n_ensembles)
         self.param_ids = param_ids
         self.combine_operation = param_cfg["input_combine_operation"]
 
@@ -140,13 +152,14 @@ class FilterParameter(Parameter):
 
     def __init__(
         self,
+        name: str,
         dt: datetime.datetime,
         param_id: int,
         global_input_cfg: Dict,
         param_cfg: Dict,
         n_ensembles: int,
     ):
-        super().__init__(dt, param_id, global_input_cfg, param_cfg, n_ensembles)
+        super().__init__(name, dt, param_id, global_input_cfg, param_cfg, n_ensembles)
         self.param_id = param_id
         self.filter_comparison = param_cfg["input_filter_operation"]["comparison"]
         self.filter_threshold = param_cfg["input_filter_operation"]["threshold"]

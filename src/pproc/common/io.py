@@ -419,3 +419,15 @@ def target_from_location(loc: Optional[str]):
         type_, ident = split_location(loc, default='file')
     fdb_ = fdb() if type_ == 'fdb' else None
     return target_factory(type_, out_file=ident, fdb=fdb_)
+
+
+def write_template(filepath, template):
+    """
+    Write grib message, setting all data values to 0
+    """
+    template.set_array("values", np.zeros(template.data.shape))
+    template.write_to(open(os.path.join(filepath), "wb"))
+
+
+def read_template(filepath):
+    return list(eccodes.FileReader(filepath))[0]

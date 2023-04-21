@@ -41,7 +41,9 @@ def main(args=None):
     last_checkpoint = recovery.last_checkpoint()
 
     for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
-        param = common.create_parameter(date, global_input_cfg, param_cfg, nensembles)
+        param = common.create_parameter(
+            param_name, date, global_input_cfg, param_cfg, nensembles
+        )
         window_manager = ThresholdWindowManager(param_cfg, global_output_cfg)
         if last_checkpoint and recovery.existing_checkpoint(
             param_name, window_manager.unique_steps[0]

@@ -30,7 +30,9 @@ def main(args=None):
     last_checkpoint = recovery.last_checkpoint()
 
     for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
-        param = common.create_parameter(date, global_input_cfg, param_cfg, n_ensembles)
+        param = common.create_parameter(
+            param_name, date, global_input_cfg, param_cfg, n_ensembles
+        )
         clim = Climatology(date, param_cfg["in_paramid"], global_input_cfg, param_cfg)
 
         window_manager = AnomalyWindowManager(param_cfg, global_output_cfg)
