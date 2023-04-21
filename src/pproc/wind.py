@@ -139,6 +139,8 @@ def basic_template(cfg, template, step, marstype):
     new_template.set("step", step)
     if step == 0:
         new_template.set("timeRangeIndicator", 1)
+    elif step > 255:
+        new_template.set('timeRangeIndicator', 10)
     else:
         new_template.set("timeRangeIndicator", 0)
     for key, value in cfg.options["grib_set"].items():
