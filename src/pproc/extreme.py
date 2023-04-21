@@ -247,20 +247,23 @@ def main(args=None):
                 # Write most recently fetched template to file for reading in subprocess
                 common.io.write_template(f"template_step{step}.grib", template)
 
+                # Blocking queue to control memory usage by windows dispatched to subprocesses
                 if len(all_futures) >= cfg.window_queue_size:
                     print(
                         f"Queue reached max limit {cfg.window_queue_size}. Waiting for a subprocess completion"
                     )
-                    for completed_fut in fut.as_completed(all_futures):
-                        completed_fut.result()
-                        all_futures.remove(completed_fut)
-                        break
+                    fut.wait(all_futures, return_when="FIRST_COMPLETED")
+                    for future in all_futures:
+                        if future.done():
+                            future.result()
+                            all_futures.remove(future)
 
                 all_futures.append(
                     executor.submit(
                         efi_partial, f"template_step{step}.grib", window_id, window
                     )
                 )
+
         for future in fut.as_completed(all_futures):
             future.result()
 
