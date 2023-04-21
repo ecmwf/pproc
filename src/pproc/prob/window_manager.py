@@ -140,11 +140,12 @@ class AnomalyWindowManager(ThresholdWindowManager):
         :param clim_std: standard deviation from climatology
         :return: generator for completed windows
         """
+        anomaly = data - clim_mean
         for identifier, window in list(self.windows.items()):
             if identifier.split('_')[0] == "std":
-                window.add_step_values(step, data / clim_std)
+                window.add_step_values(step, anomaly / clim_std)
             else:
-                window.add_step_values(step, data - clim_mean)
+                window.add_step_values(step, anomaly)
 
             if window.reached_end_step(step):
                 yield identifier, self.windows.pop(identifier)
