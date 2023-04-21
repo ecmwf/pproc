@@ -131,7 +131,7 @@ def efi_sot(param, clim, window, efi_vars):
         return results
 
 
-def write_outputs(cfg, param_name, window, template, recovery, future):
+def write_outputs(cfg, param_name, window_id, window, template, recovery, future):
     for computation_type, computed_values in future.result().items():
         if computation_type == "efi_control":
             template_efi = efi_template_control(template)
@@ -147,7 +147,7 @@ def write_outputs(cfg, param_name, window, template, recovery, future):
         target = common.target_factory(cfg.target, out_file=out_file, fdb=cfg.fdb)
         common.write_grib(target, template_efi, computed_values)
         cfg.fdb.flush()
-        recovery.add_checkpoint(param_name, window.name)
+        recovery.add_checkpoint(param_name, window_id)
 
 
 class ConfigExtreme(common.Config):
@@ -218,7 +218,7 @@ def main(args=None):
                 message_template, data = param.retrieve_data(cfg.fdb, step)
 
                 completed_windows = window_manager.update_windows(step, data)
-                for window in completed_windows:
+                for window_id, window in completed_windows:
 
                     clim, template_clim = read_clim(cfg, param_cfg["clim_keys"], window)
                     print(f"Climatology array: {clim.shape}")
@@ -234,6 +234,7 @@ def main(args=None):
                         write_outputs,
                         cfg,
                         param_name,
+                        window_id, 
                         window,
                         template_extreme,
                         recovery,

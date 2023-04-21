@@ -56,8 +56,8 @@ def main(args=None):
                 completed_windows = window_manager.update_windows(
                     step, data, clim_data[0], clim_data[1]
                 )
-                for window in completed_windows:
-                    for threshold in window_manager.thresholds(window):
+                for window_id, window in completed_windows:
+                    for threshold in window_manager.thresholds(window_id):
                         window_probability = ensemble_probability(
                             window.step_values, threshold
                         )

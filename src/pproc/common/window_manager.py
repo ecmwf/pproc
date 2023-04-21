@@ -54,7 +54,7 @@ class WindowManager:
         :param global_config: global dictionary of key values for grib_set in all windows
         :raises: RuntimeError if no window operation was provided, or could be derived
         """
-        self.windows = []
+        self.windows = {}
         self.unique_steps = set()
         for steps in parameter["steps"]:
             start_step = steps["start_step"]
@@ -80,7 +80,7 @@ class WindowManager:
                 )
                 new_window.config_grib_header = global_config.copy()
                 new_window.config_grib_header.update(window_config.get("grib_set", {}))
-                self.windows.append(new_window)
+                self.windows[new_window.name] = new_window
 
     def update_windows(self, step: int, data: np.array) -> Iterator[Window]:
         """
@@ -90,51 +90,47 @@ class WindowManager:
         :param data: data for step
         :return: generator for completed windows
         """
-        new_windows = []
-        for window in self.windows:
+        for identifier, window in list(self.windows.items()):
             window.add_step_values(step, data)
 
             if window.reached_end_step(step):
-                yield window
-            else:
-                new_windows.append(window)
-        self.windows = new_windows
+                yield identifier, self.windows.pop(identifier)
 
-    def update_from_checkpoint(self, checkpoint_step: int):
+    def update_from_checkpoint(self, checkpoint_step: int) -> List[str]:
         """
         Find the earliest start step for windows not completed by
         checkpoint and update list of unique steps. Remove all
         completed windows and their associated thresholds.
 
         :param checkpoint_step: step reached at last checkpoint
+        :return: list of deleted window identifiers
         """
         new_start_step = checkpoint_step + 1
-        delete_windows = []
-        for window in self.windows:
+        deleted_windows = []
+        for identifier, window in list(self.windows.items()):
             real_start = window.start + int(not window.include_init)
             if checkpoint_step >= window.end:
-                delete_windows.append(window)
+                del self.windows[identifier]
+                deleted_windows.append(identifier)
             elif real_start < new_start_step:
                 new_start_step = real_start
 
-        for window in delete_windows:
-            self.windows.remove(window)
         start_index = bisect.bisect_left(self.unique_steps, new_start_step)
         self.unique_steps = self.unique_steps[start_index:]
+        return deleted_windows
 
-    def delete_windows(self, window_names: List[str]):
+    def delete_windows(self, window_ids: List[str]):
         """
-        Remove windows in the list of provided window names and updates steps
+        Remove windows in the list of provided window identifiers and updates steps
         to only those contained in remaining list of windows
         
-        :param window_names: list of window names to delete
+        :param window_ids: list of identifiers of windows to delete
         """
-        for window in self.windows:
-            if window.name in window_names:
-                self.windows.remove(window)
+        for identifier in window_ids:
+            del self.windows[identifier]
 
         for step in self.unique_steps:
-            in_any_window = np.any([step in window for window in self.windows])
+            in_any_window = np.any([step in window for window in self.windows.values()])
             if in_any_window:
                 # Steps must be processed in order so stop at first step that appears
                 # in remaining window

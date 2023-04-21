@@ -62,7 +62,7 @@ def main(args=None):
                 message_template, data = param.retrieve_data(fdb, step)
 
                 completed_windows = window_manager.update_windows(step, data)
-                for window in completed_windows:
+                for window_id, window in completed_windows:
                     if args.write_ensemble:
                         for index in range(len(window.step_values)):
                             data_type, number = param.type_and_number(index)
@@ -81,7 +81,7 @@ def main(args=None):
                                 template,
                                 window.step_values[index],
                             )
-                    for threshold in window_manager.thresholds(window):
+                    for threshold in window_manager.thresholds(window_id):
                         window_probability = ensemble_probability(
                             window.step_values, threshold
                         )
