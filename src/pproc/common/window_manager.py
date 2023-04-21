@@ -80,6 +80,8 @@ class WindowManager:
                 )
                 new_window.config_grib_header = global_config.copy()
                 new_window.config_grib_header.update(window_config.get("grib_set", {}))
+                if new_window.name in self.windows:
+                    raise Exception(f"Duplicate window {new_window.name}")
                 self.windows[new_window.name] = new_window
 
     def update_windows(self, step: int, data: np.array) -> Iterator[Window]:

@@ -69,8 +69,11 @@ class ThresholdWindowManager(WindowManager):
                     new_window.config_grib_header.update(
                         window_config.get("grib_set", {})
                     )
-                    self.windows[new_window.name] = new_window
-                    self.window_thresholds[new_window.name] = thresholds
+                    window_id = f"{new_window.name}_{operation}"
+                    if window_id in self.windows:
+                        raise Exception(f"Duplicate window {window_id}")
+                    self.windows[window_id] = new_window
+                    self.window_thresholds[window_id] = thresholds
 
     def thresholds(self, identifier):
         """
@@ -117,8 +120,11 @@ class AnomalyWindowManager(ThresholdWindowManager):
                         new_window.config_grib_header.update(
                             window_config.get("grib_set", {})
                         )
-                        self.windows[f"std_{new_window.name}"] = new_window
-                        self.window_thresholds[f"std_{new_window.name}"] = thresholds
+                        window_id = f"std_{new_window.name}_{operation}"
+                        if window_id in self.windows:
+                            raise Exception(f"Duplicate window {window_id}")
+                        self.windows[window_id] = new_window
+                        self.window_thresholds[window_id] = thresholds
 
     def update_windows(
         self, step, data: np.array, clim_mean: np.array, clim_std: np.array
