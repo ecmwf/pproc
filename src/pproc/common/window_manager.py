@@ -72,7 +72,7 @@ class WindowManager:
         """
         Creates windows from parameter config and specified window operation
         """
-        for window_config in parameter["windows"]:
+        for window_index, window_config in enumerate(parameter["windows"]):
             for period in window_config["periods"]:
                 include_start = bool(window_config.get("include_start_step", False))
                 new_window = create_window(
@@ -80,9 +80,10 @@ class WindowManager:
                 )
                 new_window.config_grib_header = global_config.copy()
                 new_window.config_grib_header.update(window_config.get("grib_set", {}))
-                if new_window.name in self.windows:
-                    raise Exception(f"Duplicate window {new_window.name}")
-                self.windows[new_window.name] = new_window
+                window_id = f"{new_window.name}_{window_index}"
+                if window_id in self.windows:
+                    raise Exception(f"Duplicate window {window_id}")
+                self.windows[window_id] = new_window
 
     def update_windows(self, step: int, data: np.array) -> Iterator[Window]:
         """

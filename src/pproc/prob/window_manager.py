@@ -58,7 +58,8 @@ class ThresholdWindowManager(WindowManager):
         return window_operations
 
     def create_windows(self, parameter, global_config):
-        for window_config in parameter["windows"]:
+
+        for window_index, window_config in enumerate(parameter["windows"]):
             window_operations = self.window_operation_from_config(window_config)
 
             for operation, thresholds in window_operations.items():
@@ -69,7 +70,7 @@ class ThresholdWindowManager(WindowManager):
                     new_window.config_grib_header.update(
                         window_config.get("grib_set", {})
                     )
-                    window_id = f"{new_window.name}_{operation}"
+                    window_id = f"{new_window.name}_{operation}_{window_index}"
                     if window_id in self.windows:
                         raise Exception(f"Duplicate window {window_id}")
                     self.windows[window_id] = new_window
@@ -107,7 +108,7 @@ class AnomalyWindowManager(ThresholdWindowManager):
         super().create_windows(parameter, global_config)
         if "std_anomaly_windows" in parameter:
             # Create windows for standard anomaly
-            for window_config in parameter["std_anomaly_windows"]:
+            for window_index, window_config in enumerate(parameter["std_anomaly_windows"]):
                 window_operations = self.window_operation_from_config(window_config)
 
                 for operation, thresholds in window_operations.items():
@@ -120,7 +121,7 @@ class AnomalyWindowManager(ThresholdWindowManager):
                         new_window.config_grib_header.update(
                             window_config.get("grib_set", {})
                         )
-                        window_id = f"std_{new_window.name}_{operation}"
+                        window_id = f"std_{new_window.name}_{operation}_{window_index}"
                         if window_id in self.windows:
                             raise Exception(f"Duplicate window {window_id}")
                         self.windows[window_id] = new_window
