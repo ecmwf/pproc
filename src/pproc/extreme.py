@@ -209,48 +209,48 @@ def main(args=None):
     )
     fdb = pyfdb.FDB()
 
-    for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
-        param = common.create_parameter(
-            param_name, cfg.fc_date, cfg.global_input_cfg, param_cfg, cfg.members
-        )
-        window_manager = common.WindowManager(param_cfg, cfg.global_output_cfg)
-        efi_vars = ExtremeVariables(param_cfg)
-
-        if last_checkpoint:
-            if param_name not in last_checkpoint:
-                print(f"Recovery: skipping completed param {param_name}")
-                continue
-            checkpointed_windows = [
-                recovery.checkpoint_identifiers(x)[1]
-                for x in recovery.checkpoints
-                if param_name in x
-            ]
-            window_manager.delete_windows(checkpointed_windows)
-            print(
-                f"Recovery: param {param_name} looping from step {window_manager.unique_steps[0]}"
+    with executor:
+        for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
+            param = common.create_parameter(
+                param_name, cfg.fc_date, cfg.global_input_cfg, param_cfg, cfg.members
             )
-            last_checkpoint = None  # All remaining params have not been run
+            window_manager = common.WindowManager(param_cfg, cfg.global_output_cfg)
+            efi_vars = ExtremeVariables(param_cfg)
 
-        efi_partial = functools.partial(
-            efi_sot, cfg, param, param_cfg["clim_keys"], efi_vars, recovery
-        )
-        for step in window_manager.unique_steps:
-            with common.ResourceMeter(f"Parameter {param_name}, retrieve step {step}"):
-                template, data = param.retrieve_data(fdb, step)
+            if last_checkpoint:
+                if param_name not in last_checkpoint:
+                    print(f"Recovery: skipping completed param {param_name}")
+                    continue
+                checkpointed_windows = [
+                    recovery.checkpoint_identifiers(x)[1]
+                    for x in recovery.checkpoints
+                    if param_name in x
+                ]
+                window_manager.delete_windows(checkpointed_windows)
+                print(
+                    f"Recovery: param {param_name} looping from step {window_manager.unique_steps[0]}"
+                )
+                last_checkpoint = None  # All remaining params have not been run
 
-            completed_windows = window_manager.update_windows(step, data)
-            for window_id, window in completed_windows:
+            efi_partial = functools.partial(
+                efi_sot, cfg, param, param_cfg["clim_keys"], efi_vars, recovery
+            )
+            for step in window_manager.unique_steps:
+                with common.ResourceMeter(f"Parameter {param_name}, retrieve step {step}"):
+                    template, data = param.retrieve_data(fdb, step)
 
-                # Write most recently fetched template to file for reading in subprocess
-                template_name = f"template_{param_name}_step{step}.grib"
-                common.io.write_template(template_name, template)
+                completed_windows = window_manager.update_windows(step, data)
+                for window_id, window in completed_windows:
 
-                executor.submit(efi_partial, template_name, window_id, window)
+                    # Write most recently fetched template to file for reading in subprocess
+                    template_name = f"template_{param_name}_step{step}.grib"
+                    common.io.write_template(template_name, template)
 
-        executor.wait()
+                    executor.submit(efi_partial, template_name, window_id, window)
 
-    recovery.clean_file()
-    executor.shutdown()
+            executor.wait()
+
+        recovery.clean_file()
 
 
 if __name__ == "__main__":
