@@ -9,6 +9,7 @@ from pproc import common
 from pproc.prob.grib_helpers import construct_message
 from pproc.prob.math import ensemble_probability
 from pproc.prob.window_manager import ThresholdWindowManager
+from pproc.prob.parallel import parallel_data_retrieval
 
 
 def write_grib(cfg, fdb, filename, template, data):
@@ -35,6 +36,7 @@ def main(args=None):
     nensembles = int(cfg.options.get("number_of_ensembles", 50))
     global_input_cfg = cfg.options.get("global_input_keys", {})
     global_output_cfg = cfg.options.get("global_output_keys", {})
+    n_par = cfg.options.get("n_par", 1)
 
     fdb = pyfdb.FDB()
     recovery = common.Recovery(cfg.options["root_dir"], args.config, date, args.recover)
@@ -59,9 +61,11 @@ def main(args=None):
                 f"Recovery: param {param_name} looping from step {window_manager.unique_steps[0]}"
             )
 
-        for step in window_manager.unique_steps:
-            with common.ResourceMeter(f"Parameter {param_name}, step {step}"):
-                message_template, data = param.retrieve_data(fdb, step)
+        for step, retrieved_data in parallel_data_retrieval(
+            n_par, window_manager.unique_steps, [param]
+        ):
+            with common.ResourceMeter(f"Process step {step}"):
+                message_template, data = retrieved_data[0]
 
                 completed_windows = window_manager.update_windows(step, data)
                 for window_id, window in completed_windows:
