@@ -13,6 +13,14 @@ class SynchronousExecutor(fut.Executor):
         return f
 
 
+def create_executor(n_par):
+    return (
+        SynchronousExecutor()
+        if n_par == 1
+        else fut.ProcessPoolExecutor(max_workers=n_par)
+    )
+
+
 def parallel_processing(process, plan, n_par, recovery=None):
     """Run a processing function in parallel
 
@@ -27,11 +35,7 @@ def parallel_processing(process, plan, n_par, recovery=None):
     recovery: Recovery or None
         If set, add checkpoints when processing succeeds
     """
-    executor = (
-        SynchronousExecutor()
-        if n_par == 1
-        else fut.ProcessPoolExecutor(max_workers=n_par)
-    )
+    executor = create_executor(n_par)
     with executor:
         for future in fut.as_completed(
                 executor.submit(process, *args) for args in plan
@@ -39,4 +43,3 @@ def parallel_processing(process, plan, n_par, recovery=None):
             key = future.result()
             if recovery is not None:
                 recovery.add_checkpoint(*key)
-

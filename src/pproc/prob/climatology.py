@@ -15,7 +15,7 @@ class Climatology(Parameter):
     def __init__(
         self, dt: datetime.datetime, param_id: int, global_input_cfg, param_cfg: Dict
     ):
-        Parameter.__init__(self, dt, param_id, global_input_cfg, param_cfg, 0)
+        Parameter.__init__(self, "clim", dt, param_id, global_input_cfg, param_cfg, 0)
         self.base_request.pop("number")
         self.base_request["date"] = climatology_date(dt.date()).strftime("%Y%m%d")
         self.base_request["time"] = "00"
