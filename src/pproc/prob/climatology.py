@@ -4,7 +4,6 @@ import numpy as np
 
 from pproc.common import Parameter
 from pproc.prob.model_constants import LAST_MODEL_STEP, CLIM_INTERVAL
-from pproc.common import climatology_date
 
 
 class Climatology(Parameter):
@@ -17,7 +16,7 @@ class Climatology(Parameter):
     ):
         Parameter.__init__(self, "clim", dt, param_id, global_input_cfg, param_cfg, 0)
         self.base_request.pop("number")
-        self.base_request["date"] = climatology_date(dt.date()).strftime("%Y%m%d")
+        self.base_request["date"] = self.get_climatology_date(dt.date())
         self.base_request["time"] = "00"
         self.base_request["stream"] = param_cfg["climatology"]["stream"]
         self.base_request["type"] = "em/es"  # Order of these is important
@@ -36,6 +35,17 @@ class Climatology(Parameter):
             if step == LAST_MODEL_STEP:
                 return step - CLIM_INTERVAL
             return step + CLIM_INTERVAL
+
+    @classmethod
+    def get_climatology_date(cls, date: datetime.date) -> str:
+        """
+        Assumes climatology run on Monday and Thursday and retrieves most recent
+        date climatology is available
+        """
+        dow = date.weekday()
+        if dow >= 0 and dow < 3:
+            return (date - datetime.timedelta(days=dow)).strftime("%Y%m%d")
+        return (date - datetime.timedelta(days=(dow - 3))).strftime("%Y%m%d")
 
     @classmethod
     def grib_header(cls, grib_msg):

@@ -13,7 +13,7 @@
 import os
 import numpy as np
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 import functools
 import concurrent.futures as fut
 import multiprocessing
@@ -22,6 +22,19 @@ import pyfdb
 from meteokit import extreme
 from pproc import common
 from pproc.common.parallel import SynchronousExecutor, QueueingExecutor
+
+
+def climatology_date(fc_date):
+
+    weekday = fc_date.weekday()
+
+    # friday to monday -> take previous monday clim, else previous thursday clim
+    if weekday == 0 or weekday > 3:
+        clim_date = fc_date - timedelta(days=(weekday + 4) % 7)
+    else:
+        clim_date = fc_date - timedelta(days=weekday)
+
+    return clim_date
 
 
 class ExtremeVariables:
@@ -176,9 +189,7 @@ class ConfigExtreme(common.Config):
             self.root_dir, "efi_test", self.fc_date.strftime("%Y%m%d%H")
         )
 
-        self.clim_date = self.options.get(
-            "clim_date", common.climatology_date(self.fc_date)
-        )
+        self.clim_date = self.options.get("clim_date", climatology_date(self.fc_date))
 
         self.target = self.options["target"]
         self.global_input_cfg = self.options.get("global_input_keys", {})

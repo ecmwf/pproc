@@ -82,6 +82,8 @@ def template_ensemble(cfg, param_type, template, step, window_step, level, marst
         })
         grib_sets = cfg.options['grib_set'].copy()
         grib_sets.pop('timeRangeIndicator')
+    elif step > 255:
+        template_ens.set('timeRangeIndicator', 10)
     else:
         template_ens.set('timeRangeIndicator', 0)
     template_ens.set("marsType", marstype)
