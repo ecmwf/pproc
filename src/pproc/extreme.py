@@ -21,7 +21,7 @@ import multiprocessing
 import pyfdb
 from meteokit import extreme
 from pproc import common
-from pproc.common.parallel import create_executor
+from pproc.common.parallel import SynchronousExecutor, QueueingExecutor
 
 
 class ExtremeVariables:
@@ -30,7 +30,7 @@ class ExtremeVariables:
         self.sot = list(map(int, efi_cfg["sot"]))
 
 
-def read_clim(cfg, clim_keys, window, n_clim=101):
+def read_clim(fdb, cfg, clim_keys, window, n_clim=101):
 
     req = clim_keys.copy()
     req["date"] = cfg.clim_date.strftime("%Y%m%d")
@@ -39,7 +39,7 @@ def read_clim(cfg, clim_keys, window, n_clim=101):
     req["step"] = f"{window.name}"
 
     print("Climatology request: ", req)
-    da_clim = common.fdb_read(cfg.fdb, req)
+    da_clim = common.fdb_read(fdb, req)
     da_clim_sorted = da_clim.reindex(quantile=[f"{x}:100" for x in range(n_clim)])
     print(da_clim_sorted)
 
@@ -121,9 +121,10 @@ def efi_sot(
 ):
     with common.ResourceMeter(f"Window {window.suffix}, computing EFI/SOT"):
 
+        fdb = pyfdb.FDB()
         message_template = common.io.read_template(template_filename)
 
-        clim, template_clim = read_clim(cfg, clim_keys, window)
+        clim, template_clim = read_clim(fdb, cfg, clim_keys, window)
         print(f"Climatology array: {clim.shape}")
 
         template_extreme = extreme_template(window, message_template, template_clim)
@@ -134,14 +135,14 @@ def efi_sot(
         out_file = os.path.join(
             cfg.out_dir, f"efi_control_{param.name}_{window.suffix}.grib"
         )
-        target = common.target_factory(cfg.target, out_file=out_file, fdb=cfg.fdb)
+        target = common.target_factory(cfg.target, out_file=out_file, fdb=fdb)
         common.write_grib(target, template_efi, efi_control)
 
         efi = extreme.efi(clim, window.step_values, efi_vars.eps)
         template_efi = efi_template(template_extreme)
 
         out_file = os.path.join(cfg.out_dir, f"efi_{param.name}_{window.suffix}.grib")
-        target = common.target_factory(cfg.target, out_file=out_file, fdb=cfg.fdb)
+        target = common.target_factory(cfg.target, out_file=out_file, fdb=fdb)
         common.write_grib(target, template_efi, efi)
 
         sot = {}
@@ -153,10 +154,10 @@ def efi_sot(
             out_file = os.path.join(
                 cfg.out_dir, f"sot{perc}_{param.name}_{window.suffix}.grib"
             )
-            target = common.target_factory(cfg.target, out_file=out_file, fdb=cfg.fdb)
+            target = common.target_factory(cfg.target, out_file=out_file, fdb=fdb)
             common.write_grib(target, template_sot, sot[perc])
 
-        cfg.fdb.flush()
+        fdb.flush()
         recovery.add_checkpoint(param.name, window_id)
 
 
@@ -167,7 +168,6 @@ class ConfigExtreme(common.Config):
         self.fc_date = datetime.strptime(str(self.options["fc_date"]), "%Y%m%d%H")
 
         self.members = int(self.options["members"])
-        self._fdb = None
         self.n_par = self.options.get("n_par", 1)
         self.window_queue_size = self.options.get("queue_size", 100)
 
@@ -188,12 +188,6 @@ class ConfigExtreme(common.Config):
         print(f"Climatology date is {self.clim_date}")
         print(f"Root directory is {self.root_dir}")
 
-    @property
-    def fdb(self):
-        if self._fdb is None:
-            self._fdb = pyfdb.FDB()
-        return self._fdb
-
 
 def main(args=None):
     sys.stdout.reconfigure(line_buffering=True)
@@ -208,7 +202,12 @@ def main(args=None):
         cfg.root_dir, args.config, cfg.fc_date, args.recover, manager.Lock()
     )
     last_checkpoint = recovery.last_checkpoint()
-    executor = create_executor(cfg.n_par)
+    executor = (
+        SynchronousExecutor()
+        if cfg.n_par == 1
+        else QueueingExecutor(cfg.n_par, cfg.window_queue_size)
+    )
+    fdb = pyfdb.FDB()
 
     for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
         param = common.create_parameter(
@@ -232,8 +231,6 @@ def main(args=None):
             )
             last_checkpoint = None  # All remaining params have not been run
 
-        all_futures = []
-        fdb = pyfdb.FDB()
         efi_partial = functools.partial(
             efi_sot, cfg, param, param_cfg["clim_keys"], efi_vars, recovery
         )
@@ -248,27 +245,12 @@ def main(args=None):
                 template_name = f"template_{param_name}_step{step}.grib"
                 common.io.write_template(template_name, template)
 
-                # Blocking queue to control memory usage by windows dispatched to subprocesses
-                if len(all_futures) >= cfg.window_queue_size:
-                    print(
-                        f"Queue reached max limit {cfg.window_queue_size}. Waiting for a subprocess completion"
-                    )
-                    fut.wait(all_futures, return_when="FIRST_COMPLETED")
-                    for future in all_futures:
-                        if future.done():
-                            future.result()
-                            all_futures.remove(future)
+                executor.submit(efi_partial, template_name, window_id, window)
 
-                all_futures.append(
-                    executor.submit(
-                        efi_partial, template_name, window_id, window
-                    )
-                )
-
-        for future in fut.as_completed(all_futures):
-            future.result()
+        executor.wait()
 
     recovery.clean_file()
+    executor.shutdown()
 
 
 if __name__ == "__main__":
