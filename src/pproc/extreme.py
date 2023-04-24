@@ -144,15 +144,17 @@ def efi_sot(
         print(f"Climatology array: {clim.shape}")
 
         template_extreme = extreme_template(window, message_template, template_clim)
-        control_index = param.get_type_index("cf")
-        efi_control = extreme.efi(clim, window.step_values[control_index], efi_vars.eps)
-        template_efi = efi_template_control(template_extreme)
 
-        out_file = os.path.join(
-            cfg.out_dir, f"efi_control_{param.name}_{window.suffix}.grib"
-        )
-        target = common.target_factory(cfg.target, out_file=out_file, fdb=fdb)
-        common.write_grib(target, template_efi, efi_control)
+        control_index = param.get_type_index("cf", default=None)
+        if control_index is not None:
+            efi_control = extreme.efi(clim, window.step_values[control_index], efi_vars.eps)
+            template_efi = efi_template_control(template_extreme)
+
+            out_file = os.path.join(
+                cfg.out_dir, f"efi_control_{param.name}_{window.suffix}.grib"
+            )
+            target = common.target_factory(cfg.target, out_file=out_file, fdb=fdb)
+            common.write_grib(target, template_efi, efi_control)
 
         efi = extreme.efi(clim, window.step_values, efi_vars.eps)
         template_efi = efi_template(template_extreme)

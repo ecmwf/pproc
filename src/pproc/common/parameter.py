@@ -95,12 +95,19 @@ class Parameter:
         else:
             return types[index], 0
 
-    def get_type_index(self, type: str):
+    _get_type_index_nodefault = object()
+
+    def get_type_index(self, type: str, default=_get_type_index_nodefault):
         """
         Get range of concatenated data indices for requested type
         """
         types = self.base_request["type"].split("/")
-        index = types.index(type)
+        try:
+            index = types.index(type)
+        except ValueError:
+            if default is not self._get_type_index_nodefault:
+                return default
+            raise
         nensembles = len(self.base_request["number"])
         if type == "pf":
             pf_start_index = types.index("pf")
