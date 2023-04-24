@@ -183,7 +183,11 @@ class ConfigExtreme(common.Config):
 
         self.fc_date = datetime.strptime(str(self.options["fc_date"]), "%Y%m%d%H")
 
-        self.members = int(self.options["members"])
+        if isinstance(self.options["members"], dict):
+            self.members = range(self.options["members"]["start"], self.options["members"]["end"] + 1)
+        else:
+            self.members = int(self.options["members"])
+
         self.n_par = self.options.get("n_par", 1)
         self.window_queue_size = self.options.get("queue_size", 100)
 

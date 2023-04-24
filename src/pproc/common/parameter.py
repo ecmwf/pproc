@@ -1,5 +1,5 @@
 import datetime
-from typing import Dict, List
+from typing import Dict, List, Union
 import numpy as np
 import numexpr
 
@@ -45,13 +45,16 @@ class Parameter:
         param_id: int,
         global_input_cfg,
         param_cfg: Dict,
-        n_ensembles: int,
+        n_ensembles: Union[int, range],
     ):
         self.name = name
         self.base_request = global_input_cfg.copy()
         self.base_request.update(param_cfg["base_request"])
         self.base_request["param"] = param_id
-        self.base_request["number"] = range(1, n_ensembles + 1)
+        if isinstance(n_ensembles, range):
+            self.base_request["number"] = n_ensembles
+        else:
+            self.base_request["number"] = range(1, n_ensembles + 1)
         self.base_request["date"] = dt.strftime("%Y%m%d")
         self.base_request["time"] = dt.strftime("%H")
         self.interpolation_keys = param_cfg.get("interpolation_keys", None)
