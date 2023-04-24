@@ -245,7 +245,8 @@ def main(args=None):
             for window_id, window in completed_windows:
 
                 # Write most recently fetched template to file for reading in subprocess
-                common.io.write_template(f"template_step{step}.grib", template)
+                template_name = f"template_{param_name}_step{step}.grib"
+                common.io.write_template(template_name, template)
 
                 # Blocking queue to control memory usage by windows dispatched to subprocesses
                 if len(all_futures) >= cfg.window_queue_size:
@@ -260,7 +261,7 @@ def main(args=None):
 
                 all_futures.append(
                     executor.submit(
-                        efi_partial, f"template_step{step}.grib", window_id, window
+                        efi_partial, template_name, window_id, window
                     )
                 )
 
