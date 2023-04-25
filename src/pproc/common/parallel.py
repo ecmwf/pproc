@@ -46,10 +46,13 @@ class QueueingExecutor(fut.ProcessPoolExecutor):
                 f"Queue reached max limit {self.queue_size}. Waiting for a subprocess completion"
             )
             fut.wait(self.futures, return_when="FIRST_COMPLETED")
+            new_futures = []
             for future in self.futures:
                 if future.done():
                     future.result()
-                    self.futures.remove(future)
+                else:
+                    new_futures.append(future)
+            self.futures[:] = new_futures
 
         self.futures.append(super().submit(function, *args, **kwargs))
 
