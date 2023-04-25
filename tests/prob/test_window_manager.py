@@ -101,8 +101,8 @@ def test_anomaly_recovery(
 
     window_manager.update_from_checkpoint(checkpoint_step)
     assert window_manager.unique_steps[0] == start_step
-    assert len(window_manager.windows) == num_windows
-    assert len(window_manager.standardised_anomaly_windows) == num_anomaly_windows
+    assert len(window_manager.windows) == num_windows + num_anomaly_windows
+    assert len([x for x in window_manager.windows.keys() if 'std' in x]) == num_anomaly_windows
     assert len(window_manager.window_thresholds) == num_windows + num_anomaly_windows
 
 
@@ -110,7 +110,7 @@ def test_anomaly_recovery(
     "window_manager, window_sets",
     [
         (ThresholdWindowManager, ["windows"]),
-        (AnomalyWindowManager, ["windows", "standardised_anomaly_windows"]),
+        (AnomalyWindowManager, ["windows"]),
     ],
 )
 def test_checkpoint_past_end(window_manager, window_sets):

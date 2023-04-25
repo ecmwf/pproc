@@ -11,5 +11,4 @@ from .window import (
 )
 from .window_manager import WindowManager, create_window
 from .recovery import Recovery
-from .clim_date import climatology_date
 from .parameter import Parameter, create_parameter

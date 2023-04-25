@@ -13,7 +13,7 @@
 import os
 import numpy as np
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 import functools
 import concurrent.futures as fut
 import multiprocessing
@@ -21,7 +21,20 @@ import multiprocessing
 import pyfdb
 from meteokit import extreme
 from pproc import common
-from pproc.common.parallel import create_executor
+from pproc.common.parallel import SynchronousExecutor, QueueingExecutor
+
+
+def climatology_date(fc_date):
+
+    weekday = fc_date.weekday()
+
+    # friday to monday -> take previous monday clim, else previous thursday clim
+    if weekday == 0 or weekday > 3:
+        clim_date = fc_date - timedelta(days=(weekday + 4) % 7)
+    else:
+        clim_date = fc_date - timedelta(days=weekday)
+
+    return clim_date
 
 
 class ExtremeVariables:
@@ -30,7 +43,7 @@ class ExtremeVariables:
         self.sot = list(map(int, efi_cfg["sot"]))
 
 
-def read_clim(cfg, clim_keys, window, n_clim=101):
+def read_clim(fdb, cfg, clim_keys, window, n_clim=101):
 
     req = clim_keys.copy()
     req["date"] = cfg.clim_date.strftime("%Y%m%d")
@@ -39,7 +52,7 @@ def read_clim(cfg, clim_keys, window, n_clim=101):
     req["step"] = f"{window.name}"
 
     print("Climatology request: ", req)
-    da_clim = common.fdb_read(cfg.fdb, req)
+    da_clim = common.fdb_read(fdb, req)
     da_clim_sorted = da_clim.reindex(quantile=[f"{x}:100" for x in range(n_clim)])
     print(da_clim_sorted)
 
@@ -121,9 +134,10 @@ def efi_sot(
 ):
     with common.ResourceMeter(f"Window {window.suffix}, computing EFI/SOT"):
 
+        fdb = pyfdb.FDB()
         message_template = common.io.read_template(template_filename)
 
-        clim, template_clim = read_clim(cfg, clim_keys, window)
+        clim, template_clim = read_clim(fdb, cfg, clim_keys, window)
         print(f"Climatology array: {clim.shape}")
 
         template_extreme = extreme_template(window, message_template, template_clim)
@@ -134,14 +148,14 @@ def efi_sot(
         out_file = os.path.join(
             cfg.out_dir, f"efi_control_{param.name}_{window.suffix}.grib"
         )
-        target = common.target_factory(cfg.target, out_file=out_file, fdb=cfg.fdb)
+        target = common.target_factory(cfg.target, out_file=out_file, fdb=fdb)
         common.write_grib(target, template_efi, efi_control)
 
         efi = extreme.efi(clim, window.step_values, efi_vars.eps)
         template_efi = efi_template(template_extreme)
 
         out_file = os.path.join(cfg.out_dir, f"efi_{param.name}_{window.suffix}.grib")
-        target = common.target_factory(cfg.target, out_file=out_file, fdb=cfg.fdb)
+        target = common.target_factory(cfg.target, out_file=out_file, fdb=fdb)
         common.write_grib(target, template_efi, efi)
 
         sot = {}
@@ -153,10 +167,10 @@ def efi_sot(
             out_file = os.path.join(
                 cfg.out_dir, f"sot{perc}_{param.name}_{window.suffix}.grib"
             )
-            target = common.target_factory(cfg.target, out_file=out_file, fdb=cfg.fdb)
+            target = common.target_factory(cfg.target, out_file=out_file, fdb=fdb)
             common.write_grib(target, template_sot, sot[perc])
 
-        cfg.fdb.flush()
+        fdb.flush()
         recovery.add_checkpoint(param.name, window_id)
 
 
@@ -167,7 +181,6 @@ class ConfigExtreme(common.Config):
         self.fc_date = datetime.strptime(str(self.options["fc_date"]), "%Y%m%d%H")
 
         self.members = int(self.options["members"])
-        self._fdb = None
         self.n_par = self.options.get("n_par", 1)
         self.window_queue_size = self.options.get("queue_size", 100)
 
@@ -176,9 +189,7 @@ class ConfigExtreme(common.Config):
             self.root_dir, "efi_test", self.fc_date.strftime("%Y%m%d%H")
         )
 
-        self.clim_date = self.options.get(
-            "clim_date", common.climatology_date(self.fc_date)
-        )
+        self.clim_date = self.options.get("clim_date", climatology_date(self.fc_date))
 
         self.target = self.options["target"]
         self.global_input_cfg = self.options.get("global_input_keys", {})
@@ -187,12 +198,6 @@ class ConfigExtreme(common.Config):
         print(f"Forecast date is {self.fc_date}")
         print(f"Climatology date is {self.clim_date}")
         print(f"Root directory is {self.root_dir}")
-
-    @property
-    def fdb(self):
-        if self._fdb is None:
-            self._fdb = pyfdb.FDB()
-        return self._fdb
 
 
 def main(args=None):
@@ -208,67 +213,55 @@ def main(args=None):
         cfg.root_dir, args.config, cfg.fc_date, args.recover, manager.Lock()
     )
     last_checkpoint = recovery.last_checkpoint()
-    executor = create_executor(cfg.n_par)
+    executor = (
+        SynchronousExecutor()
+        if cfg.n_par == 1
+        else QueueingExecutor(cfg.n_par, cfg.window_queue_size)
+    )
+    fdb = pyfdb.FDB()
 
-    for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
-        param = common.create_parameter(
-            param_name, cfg.fc_date, cfg.global_input_cfg, param_cfg, cfg.members
-        )
-        window_manager = common.WindowManager(param_cfg, cfg.global_output_cfg)
-        efi_vars = ExtremeVariables(param_cfg)
-
-        if last_checkpoint:
-            if param_name not in last_checkpoint:
-                print(f"Recovery: skipping completed param {param_name}")
-                continue
-            checkpointed_windows = [
-                recovery.checkpoint_identifiers(x)[1]
-                for x in recovery.checkpoints
-                if param_name in x
-            ]
-            window_manager.delete_windows(checkpointed_windows)
-            print(
-                f"Recovery: param {param_name} looping from step {window_manager.unique_steps[0]}"
+    with executor:
+        for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
+            param = common.create_parameter(
+                param_name, cfg.fc_date, cfg.global_input_cfg, param_cfg, cfg.members
             )
-            last_checkpoint = None  # All remaining params have not been run
+            window_manager = common.WindowManager(param_cfg, cfg.global_output_cfg)
+            efi_vars = ExtremeVariables(param_cfg)
 
-        all_futures = []
-        fdb = pyfdb.FDB()
-        efi_partial = functools.partial(
-            efi_sot, cfg, param, param_cfg["clim_keys"], efi_vars, recovery
-        )
-        for step in window_manager.unique_steps:
-            with common.ResourceMeter(f"Parameter {param_name}, retrieve step {step}"):
-                template, data = param.retrieve_data(fdb, step)
-
-            completed_windows = window_manager.update_windows(step, data)
-            for window_id, window in completed_windows:
-
-                # Write most recently fetched template to file for reading in subprocess
-                template_name = f"template_{param_name}_step{step}.grib"
-                common.io.write_template(template_name, template)
-
-                # Blocking queue to control memory usage by windows dispatched to subprocesses
-                if len(all_futures) >= cfg.window_queue_size:
-                    print(
-                        f"Queue reached max limit {cfg.window_queue_size}. Waiting for a subprocess completion"
-                    )
-                    fut.wait(all_futures, return_when="FIRST_COMPLETED")
-                    for future in all_futures:
-                        if future.done():
-                            future.result()
-                            all_futures.remove(future)
-
-                all_futures.append(
-                    executor.submit(
-                        efi_partial, template_name, window_id, window
-                    )
+            if last_checkpoint:
+                if param_name not in last_checkpoint:
+                    print(f"Recovery: skipping completed param {param_name}")
+                    continue
+                checkpointed_windows = [
+                    recovery.checkpoint_identifiers(x)[1]
+                    for x in recovery.checkpoints
+                    if param_name in x
+                ]
+                window_manager.delete_windows(checkpointed_windows)
+                print(
+                    f"Recovery: param {param_name} looping from step {window_manager.unique_steps[0]}"
                 )
+                last_checkpoint = None  # All remaining params have not been run
 
-        for future in fut.as_completed(all_futures):
-            future.result()
+            efi_partial = functools.partial(
+                efi_sot, cfg, param, param_cfg["clim_keys"], efi_vars, recovery
+            )
+            for step in window_manager.unique_steps:
+                with common.ResourceMeter(f"Parameter {param_name}, retrieve step {step}"):
+                    template, data = param.retrieve_data(fdb, step)
 
-    recovery.clean_file()
+                completed_windows = window_manager.update_windows(step, data)
+                for window_id, window in completed_windows:
+
+                    # Write most recently fetched template to file for reading in subprocess
+                    template_name = f"template_{param_name}_step{step}.grib"
+                    common.io.write_template(template_name, template)
+
+                    executor.submit(efi_partial, template_name, window_id, window)
+
+            executor.wait()
+
+        recovery.clean_file()
 
 
 if __name__ == "__main__":
