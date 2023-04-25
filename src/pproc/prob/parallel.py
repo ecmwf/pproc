@@ -56,13 +56,11 @@ def parallel_data_retrieval(
                 executor.submit(fdb_retrieve, step, data_requesters, True)
                 for step in steps
             ]
-            step_index = 0
-            while len(futures) > 0:
+            for step in steps:
                 # Steps need to be processed in order so block until data for next step
                 # is available
                 data_results = futures.pop(0).result()
                 for result_index, result in enumerate(data_results):
                     if isinstance(result[0], str):
                         data_results[result_index][0] = common.io.read_template(result[0])
-                yield steps[step_index], data_results
-                step_index += 1
+                yield step, data_results
