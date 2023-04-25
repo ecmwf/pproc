@@ -132,8 +132,7 @@ class WindowManager:
         for identifier in window_ids:
             del self.windows[identifier]
 
-        for step_index in range(len(self.unique_steps)):
-            step = self.unique_steps[step_index]
+        for step_index, step in enumerate(self.unique_steps):
             in_any_window = np.any([step in window for window in self.windows.values()])
             if in_any_window:
                 # Steps must be processed in order so stop at first step that appears
