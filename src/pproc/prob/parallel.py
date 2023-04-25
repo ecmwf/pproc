@@ -1,8 +1,8 @@
 import eccodes
 from typing import List
+import concurrent.futures as fut
 
 import pproc.common as common
-from pproc.common.parallel import create_executor
 
 
 def fdb_retrieve(
@@ -47,17 +47,20 @@ def parallel_data_retrieval(
     :param data_requesters: list of Parameter instances
     :return: iterator over step, retrieved data
     """
-    executor = create_executor(num_processes)
-    with executor:
-        futures = [
-            executor.submit(fdb_retrieve, step, data_requesters, num_processes > 1)
-            for step in steps
-        ]
-        for step_index, future in enumerate(futures):
-            # Steps need to be processed in order so block until data for next step
-            # is available
-            data_results = future.result()
-            for result_index, result in enumerate(data_results):
-                if isinstance(result[0], str):
-                    data_results[result_index][0] = common.io.read_template(result[0])
-            yield steps[step_index], data_results
+    if num_processes == 1:
+        for step in steps:
+            yield step, fdb_retrieve(step, data_requesters)
+    else:
+        with fut.ProcessPoolExecutor(max_workers=num_processes) as executor:
+            futures = [
+                executor.submit(fdb_retrieve, step, data_requesters, True)
+                for step in steps
+            ]
+            for step_index, future in enumerate(futures):
+                # Steps need to be processed in order so block until data for next step
+                # is available
+                data_results = future.result()
+                for result_index, result in enumerate(data_results):
+                    if isinstance(result[0], str):
+                        data_results[result_index][0] = common.io.read_template(result[0])
+                yield steps[step_index], data_results
