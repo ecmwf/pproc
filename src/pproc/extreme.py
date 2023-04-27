@@ -49,7 +49,10 @@ def read_clim(fdb, cfg, clim_keys, window, n_clim=101):
     req["date"] = cfg.clim_date.strftime("%Y%m%d")
     req["time"] = "0000"
     req["quantile"] = ["{}:100".format(i) for i in range(n_clim)]
-    req["step"] = f"{window.name}"
+    if cfg.fc_date.strftime("%H") == "12" and window.end < 240:
+        req["step"] = f"{window.start-12}-{window.end-12}"
+    else:
+        req["step"] = f"{window.name}"
 
     print("Climatology request: ", req)
     da_clim = common.fdb_read(fdb, req)
