@@ -68,22 +68,21 @@ def main(args=None):
             for step, retrieved_data in parallel_data_retrieval(
                 cfg.n_par_read, window_manager.unique_steps, [param, clim]
             ):
-                with common.ResourceMeter(f"Process step {step}"):
-                    message_template, data = retrieved_data[0]
-                    clim_grib_header, clim_data = retrieved_data[1]
+                message_template, data = retrieved_data[0]
+                clim_grib_header, clim_data = retrieved_data[1]
 
-                    completed_windows = window_manager.update_windows(
-                        step, data, clim_data[0], clim_data[1]
+                completed_windows = window_manager.update_windows(
+                    step, data, clim_data[0], clim_data[1]
+                )
+                for window_id, window in completed_windows:
+                    executor.submit(
+                        prob_partial,
+                        message_template,
+                        window_id,
+                        window,
+                        window_manager.thresholds(window_id),
+                        additional_headers=clim_grib_header,
                     )
-                    for window_id, window in completed_windows:
-                        executor.submit(
-                            prob_partial,
-                            message_template,
-                            window_id,
-                            window,
-                            window_manager.thresholds(window_id),
-                            additional_headers=clim_grib_header,
-                        )
 
             executor.wait()
 
