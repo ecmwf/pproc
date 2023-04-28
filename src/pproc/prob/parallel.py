@@ -61,7 +61,7 @@ def parallel_data_retrieval(
             for step_index, step in enumerate(steps):
                 # Submit as steps get processed to avoid out of memory problems
                 submit_index = step_index + num_processes
-                while submit_index < len(steps):
+                if submit_index < len(steps):
                     futures.append(
                         executor.submit(
                             fdb_retrieve, steps[submit_index], data_requesters, True
