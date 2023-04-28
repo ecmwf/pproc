@@ -143,15 +143,16 @@ def parallel_data_retrieval(
             yield step, fdb_retrieve(step, data_requesters)
     else:
         with fut.ProcessPoolExecutor(max_workers=num_processes) as executor:
+            n_initial_submit = min(num_processes, len(steps))
             futures = [
                 executor.submit(
                     fdb_retrieve, steps[submit_index], data_requesters, True
                 )
-                for submit_index in range(num_processes)
+                for submit_index in range(n_initial_submit)
             ]
             for step_index, step in enumerate(steps):
                 # Submit as steps get processed to avoid out of memory problems
-                submit_index = step_index + num_processes
+                submit_index = step_index + n_initial_submit
                 if submit_index < len(steps):
                     futures.append(
                         executor.submit(
