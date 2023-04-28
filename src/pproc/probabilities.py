@@ -38,7 +38,7 @@ def main(args=None):
     executor = (
         SynchronousExecutor()
         if cfg.n_par_compute == 1
-        else QueueingExecutor(cfg.n_par, cfg.window_queue_size)
+        else QueueingExecutor(cfg.n_par_compute, cfg.window_queue_size)
     )
 
     with executor:

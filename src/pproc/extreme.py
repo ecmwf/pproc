@@ -187,7 +187,7 @@ class ConfigExtreme(common.Config):
         self.members = int(self.options["members"])
         self.n_par_compute = self.options.get("n_par_compute", 1)
         self.n_par_read = self.options.get("n_par_read", 1)
-        self.window_queue_size = self.options.get("queue_size", 100)
+        self.window_queue_size = self.options.get("queue_size", self.n_par_compute)
 
         self.root_dir = self.options["root_dir"]
         self.out_dir = os.path.join(
@@ -221,7 +221,7 @@ def main(args=None):
     executor = (
         SynchronousExecutor()
         if cfg.n_par_compute == 1
-        else QueueingExecutor(cfg.n_par, cfg.window_queue_size)
+        else QueueingExecutor(cfg.n_par_compute, cfg.window_queue_size)
     )
 
     with executor:

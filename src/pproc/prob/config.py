@@ -9,3 +9,4 @@ class ProbConfig(common.Config):
         self.global_output_cfg = self.options.get("global_output_keys", {})
         self.n_par_read = self.options.get("n_par_read", 1)
         self.n_par_compute = self.options.get("n_par_compute", 1)
+        self.window_queue_size = self.options.get("queue_size", self.n_par_compute)
