@@ -44,9 +44,9 @@ class ThresholdWindowManager(WindowManager):
                     threshold["value"] = float(threshold["value"])
                 comparison = threshold["comparison"]
                 if "<" in comparison:
-                    operation = "min"
+                    operation = "minimum"
                 elif ">" in comparison:
-                    operation = "max"
+                    operation = "maximum"
                 else:
                     raise RuntimeError(f"Unknown threshold comparison {comparison}")
                 window_operations.setdefault(operation, []).append(threshold)

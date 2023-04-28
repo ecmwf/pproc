@@ -27,7 +27,7 @@ def create_window(window_options, window_operation: str, include_start: bool) ->
         return Window(window_options, include_init=True)
     if window_operation == "diff":
         return DiffWindow(window_options)
-    if window_operation in ["min", "max", "sum", "concatenate"]:
+    if window_operation in ["minimum", "maximum", "add"]:
         return SimpleOpWindow(window_options, window_operation, include_start)
     if window_operation == "weightedsum":
         return WeightedSumWindow(window_options)
