@@ -259,9 +259,9 @@ def main(args=None):
                 with common.ResourceMeter(f"Process step {step}"):
                     template, data = retrieved_data[0]
 
-                completed_windows = window_manager.update_windows(step, data)
-                for window_id, window in completed_windows:
-                    executor.submit(efi_partial, template, window_id, window)
+                    completed_windows = window_manager.update_windows(step, data)
+                    for window_id, window in completed_windows:
+                        executor.submit(efi_partial, template, window_id, window)
 
             executor.wait()
 
