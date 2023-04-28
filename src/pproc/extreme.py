@@ -256,7 +256,8 @@ def main(args=None):
             for step, retrieved_data in parallel_data_retrieval(
                 cfg.n_par_read, window_manager.unique_steps, [param]
             ):
-                template, data = retrieved_data[0]
+                with common.ResourceMeter(f"Process step {step}"):
+                    template, data = retrieved_data[0]
 
                 completed_windows = window_manager.update_windows(step, data)
                 for window_id, window in completed_windows:
