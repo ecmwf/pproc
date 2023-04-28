@@ -1,14 +1,18 @@
 import sys
-import os
-import datetime
+from datetime import datetime
+import functools
+import multiprocessing
 
-import pyfdb
 from pproc import common
-from pproc.prob.grib_helpers import construct_message
-from pproc.prob.math import ensemble_probability
+from pproc.common.parallel import (
+    SynchronousExecutor,
+    QueueingExecutor,
+    parallel_data_retrieval,
+)
+from pproc.prob.parallel import prob_iteration
+from pproc.prob.config import ProbConfig
 from pproc.prob.window_manager import AnomalyWindowManager
 from pproc.prob.climatology import Climatology
-from pproc.prob.parallel import parallel_data_retrieval
 
 
 def main(args=None):
@@ -19,80 +23,71 @@ def main(args=None):
     )
     parser.add_argument("-d", "--date", required=True, help="Forecast date")
     args = parser.parse_args()
-    cfg = common.Config(args)
+    date = datetime.strptime(args.date, "%Y%m%d%H")
+    cfg = ProbConfig(args)
 
-    date = datetime.datetime.strptime(args.date, "%Y%m%d%H")
-    n_ensembles = int(cfg.options.get("number_of_ensembles", 50))
-    global_input_cfg = cfg.options.get("global_input_keys", {})
-    global_output_cfg = cfg.options.get("global_output_keys", {})
-    n_par = cfg.options.get("n_par", 1)
-
-    fdb = pyfdb.FDB()
-    recovery = common.Recovery(cfg.options["root_dir"], args.config, date, args.recover)
+    manager = multiprocessing.Manager()
+    recovery = common.Recovery(
+        cfg.options["root_dir"], args.config, date, args.recover, manager.Lock()
+    )
     last_checkpoint = recovery.last_checkpoint()
+    executor = (
+        SynchronousExecutor()
+        if cfg.n_par_compute == 1
+        else QueueingExecutor(cfg.n_par, cfg.window_queue_size)
+    )
 
-    for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
-        param = common.create_parameter(
-            param_name, date, global_input_cfg, param_cfg, n_ensembles
-        )
-        clim = Climatology(date, param_cfg["in_paramid"], global_input_cfg, param_cfg)
-
-        window_manager = AnomalyWindowManager(param_cfg, global_output_cfg)
-        if last_checkpoint and recovery.existing_checkpoint(
-            param_name, window_manager.unique_steps[0]
-        ):
-            if param_name not in last_checkpoint:
-                print(f"Recovery: skipping completed param {param_name}")
-                continue
-            last_checkpoint_step = int(
-                recovery.checkpoint_identifiers(last_checkpoint)[1]
+    with executor:
+        for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
+            param = common.create_parameter(
+                param_name, date, cfg.global_input_cfg, param_cfg, cfg.n_ensembles
             )
-            window_manager.update_from_checkpoint(last_checkpoint_step)
-            print(
-                f"Recovery: param {param_name} looping from step {window_manager.unique_steps[0]}"
+            clim = Climatology(
+                date, param_cfg["in_paramid"], cfg.global_input_cfg, param_cfg
             )
+            window_manager = AnomalyWindowManager(param_cfg, cfg.global_output_cfg)
 
-        for step, retrieved_data in parallel_data_retrieval(
-            n_par, window_manager.unique_steps, [param, clim]
-        ):
-            with common.ResourceMeter(f"Process step {step}"):
-                message_template, data = retrieved_data[0]
-                clim_grib_header, clim_data = retrieved_data[1]
-
-                completed_windows = window_manager.update_windows(
-                    step, data, clim_data[0], clim_data[1]
+            if last_checkpoint:
+                if param_name not in last_checkpoint:
+                    print(f"Recovery: skipping completed param {param_name}")
+                    continue
+                checkpointed_windows = [
+                    recovery.checkpoint_identifiers(x)[1]
+                    for x in recovery.checkpoints
+                    if param_name in x
+                ]
+                window_manager.delete_windows(checkpointed_windows)
+                print(
+                    f"Recovery: param {param_name} looping from step {window_manager.unique_steps[0]}"
                 )
-                for window_id, window in completed_windows:
-                    for threshold in window_manager.thresholds(window_id):
-                        window_probability = ensemble_probability(
-                            window.step_values, threshold
+                last_checkpoint = None  # All remaining params have not been run
+
+            prob_partial = functools.partial(
+                prob_iteration, cfg, param, recovery, False
+            )
+            for step, retrieved_data in parallel_data_retrieval(
+                cfg.n_par_read, window_manager.unique_steps, [param, clim]
+            ):
+                with common.ResourceMeter(f"Process step {step}"):
+                    message_template, data = retrieved_data[0]
+                    clim_grib_header, clim_data = retrieved_data[1]
+
+                    completed_windows = window_manager.update_windows(
+                        step, data, clim_data[0], clim_data[1]
+                    )
+                    for window_id, window in completed_windows:
+                        executor.submit(
+                            prob_partial,
+                            message_template,
+                            window_id,
+                            window,
+                            window_manager.thresholds(window_id),
+                            additional_headers=clim_grib_header,
                         )
 
-                        print(
-                            f"Writing probability for {param_name} output "
-                            + f"param {threshold['out_paramid']} for step(s) {window.name}"
-                        )
-                        output_file = os.path.join(
-                            cfg.options["root_dir"],
-                            f"{param_name}_{threshold['out_paramid']}_step{window.name}.grib",
-                        )
-                        target = common.target_factory(
-                            cfg.options["target"], out_file=output_file, fdb=fdb
-                        )
-                        common.write_grib(
-                            target,
-                            construct_message(
-                                message_template,
-                                window.grib_header(),
-                                threshold,
-                                clim_grib_header,
-                            ),
-                            window_probability,
-                        )
-            fdb.flush()
-            recovery.add_checkpoint(param_name, step)
+            executor.wait()
 
-    recovery.clean_file()
+        recovery.clean_file()
 
 
 if __name__ == "__main__":

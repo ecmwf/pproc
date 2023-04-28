@@ -1,79 +1,70 @@
-import eccodes
-from typing import List
-import concurrent.futures as fut
+import os
+import pyfdb
 
-import pproc.common as common
+from pproc import common
+from pproc.prob.grib_helpers import construct_message
+from pproc.prob.math import ensemble_probability
 
 
-def fdb_retrieve(
-    step: int, data_requesters: List[common.Parameter], grib_to_file: bool = False
+def write_grib(cfg, fdb, filename, template, data):
+    output_file = os.path.join(cfg.options["root_dir"], filename)
+    target = common.target_factory(cfg.options["target"], out_file=output_file, fdb=fdb)
+    common.write_grib(target, template, data)
+
+
+def prob_iteration(
+    cfg,
+    param,
+    recovery,
+    write_ensemble,
+    template_filename,
+    window_id,
+    window,
+    thresholds,
+    additional_headers={},
 ):
-    """
-    Retrieve data function for multiple data requests
-    with retrieve_data method. If requested, grib template messages are written to
-    file and their filename returned
 
-    :param step: integer step to retrieve data for
-    :param data_requesters: list of objects with retrieve_data method
-    accepting arguments (fdb, step)
-    :param grib_to_file: boolean specifying whether to write grib messages to file and return filename
-    :return: tuple containing step and list of retrieved data
-    """
-    with common.ResourceMeter(f"Retrieve step {step}"):
-        collated_data = []
-        fdb = common.io.fdb()
-        for requester in data_requesters:
-            template, data = requester.retrieve_data(fdb, step)
-            if grib_to_file and isinstance(
-                template, eccodes.highlevel.message.GRIBMessage
-            ):
-                filename = f"template_{requester.name}_step{step}.grib"
-                common.io.write_template(filename, template)
-                collated_data.append([filename, data])
-            else:
-                collated_data.append([template, data])
-        return collated_data
+    with common.ResourceMeter(
+        f"Window {window.name}, computing threshold probs"
+    ):
+        fdb = pyfdb.FDB()
+        message_template = common.io.read_template(template_filename)
 
-
-def parallel_data_retrieval(
-    num_processes: int, steps: List[int], data_requesters: List[common.Parameter]
-):
-    """
-    Multiprocess retrieve data function from multiple data requests
-    with retrieve_data method.
-
-    :param num_processes: number of processes to use for data retrieval
-    :param steps: steps to retrieve data for
-    :param data_requesters: list of Parameter instances
-    :return: iterator over step, retrieved data
-    """
-    if num_processes == 1:
-        for step in steps:
-            yield step, fdb_retrieve(step, data_requesters)
-    else:
-        with fut.ProcessPoolExecutor(max_workers=num_processes) as executor:
-            futures = [
-                executor.submit(
-                    fdb_retrieve, steps[submit_index], data_requesters, True
+        if write_ensemble:
+            for index in range(len(window.step_values)):
+                data_type, number = param.type_and_number(index)
+                print(
+                    f"Writing window values for param {param.name} and output "
+                    + f"type {data_type}, number {number} for step(s) {window.name}"
                 )
-                for submit_index in range(num_processes)
-            ]
-            for step_index, step in enumerate(steps):
-                # Submit as steps get processed to avoid out of memory problems
-                submit_index = step_index + num_processes
-                if submit_index < len(steps):
-                    futures.append(
-                        executor.submit(
-                            fdb_retrieve, steps[submit_index], data_requesters, True
-                        )
-                    )
+                template = construct_message(message_template, window.grib_header())
+                template.set({"type": data_type, "number": number})
+                write_grib(
+                    cfg,
+                    fdb,
+                    f"{param.name}_type{data_type}_number{number}_step{window.name}.grib",
+                    template,
+                    window.step_values[index],
+                )
+        for threshold in thresholds:
+            window_probability = ensemble_probability(window.step_values, threshold)
 
-                # Steps need to be processed in order so block until data for next step
-                # is available
-                data_results = futures.pop(0).result()
-                for result_index, result in enumerate(data_results):
-                    if isinstance(result[0], str):
-                        data_results[result_index][0] = common.io.read_template(
-                            result[0]
-                        )
-                yield step, data_results
+            print(
+                f"Writing probability for input param {param.name} and output "
+                + f"param {threshold['out_paramid']} for step(s) {window.name}"
+            )
+            write_grib(
+                cfg,
+                fdb,
+                f"{param.name}_{threshold['out_paramid']}_step{window.name}.grib",
+                construct_message(
+                    message_template,
+                    window.grib_header(),
+                    threshold,
+                    additional_headers,
+                ),
+                window_probability,
+            )
+
+        fdb.flush()
+        recovery.add_checkpoint(param.name, window_id)
