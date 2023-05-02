@@ -430,4 +430,7 @@ def write_template(filepath, template):
 
 
 def read_template(filepath):
+    if isinstance(filepath, eccodes.highlevel.message.GRIBMessage):
+        return filepath
+    assert isinstance(filepath, str)
     return list(eccodes.FileReader(filepath))[0]
