@@ -127,11 +127,12 @@ def fdb_retrieve(
 
 
 def parallel_data_retrieval(
-    num_processes: int, steps: List[int], data_requesters: List[Parameter]
+    num_processes: int, steps: List[int], data_requesters: List[Parameter], grib_to_file: bool = False
 ):
     """
     Multiprocess retrieve data function from multiple data requests
-    with retrieve_data method.
+    with retrieve_data method. If grib_to_file is true then message templates from the fdb requests are
+    written to file and the filename returned with the data, else the message template itself is returned.
 
     :param num_processes: number of processes to use for data retrieval
     :param steps: steps to retrieve data for
@@ -140,7 +141,7 @@ def parallel_data_retrieval(
     """
     if num_processes == 1:
         for step in steps:
-            yield step, fdb_retrieve(step, data_requesters)
+            yield step, fdb_retrieve(step, data_requesters, grib_to_file)
     else:
         with fut.ProcessPoolExecutor(max_workers=num_processes) as executor:
             n_initial_submit = min(num_processes, len(steps))
@@ -163,4 +164,8 @@ def parallel_data_retrieval(
                 # Steps need to be processed in order so block until data for next step
                 # is available
                 data_results = futures.pop(0).result()
+                if not grib_to_file:
+                    for result_index, result in enumerate(data_results):
+                        if isinstance(result[0], str):
+                            data_results[result_index][0] = io.read_template(result[0])
                 yield step, data_results

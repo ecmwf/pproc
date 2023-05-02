@@ -19,6 +19,7 @@ import concurrent.futures as fut
 import multiprocessing
 
 import pyfdb
+import eccodes
 from meteokit import extreme
 from pproc import common
 from pproc.common.parallel import (
@@ -142,7 +143,11 @@ def efi_sot(
     with common.ResourceMeter(f"Window {window.suffix}, computing EFI/SOT"):
 
         fdb = pyfdb.FDB()
-        message_template = common.io.read_template(template_filename)
+        message_template = (
+            template_filename
+            if isinstance(template_filename, eccodes.highlevel.message.GRIBMessage)
+            else common.io.read_template(template_filename)
+        )
 
         clim, template_clim = read_clim(fdb, cfg, clim_keys, window)
         print(f"Climatology array: {clim.shape}")
@@ -254,7 +259,10 @@ def main(args=None):
                 efi_sot, cfg, param, param_cfg["clim_keys"], efi_vars, recovery
             )
             for step, retrieved_data in parallel_data_retrieval(
-                cfg.n_par_read, window_manager.unique_steps, [param]
+                cfg.n_par_read,
+                window_manager.unique_steps,
+                [param],
+                cfg.n_par_compute > 1,
             ):
                 with common.ResourceMeter(f"Process step {step}"):
                     template, data = retrieved_data[0]

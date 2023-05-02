@@ -1,5 +1,6 @@
 import os
 import pyfdb
+import eccodes
 
 from pproc import common
 from pproc.prob.grib_helpers import construct_message
@@ -24,11 +25,13 @@ def prob_iteration(
     additional_headers={},
 ):
 
-    with common.ResourceMeter(
-        f"Window {window.name}, computing threshold probs"
-    ):
+    with common.ResourceMeter(f"Window {window.name}, computing threshold probs"):
         fdb = pyfdb.FDB()
-        message_template = common.io.read_template(template_filename)
+        message_template = (
+            template_filename
+            if isinstance(template_filename, eccodes.highlevel.message.GRIBMessage)
+            else common.io.read_template(template_filename)
+        )
 
         if write_ensemble:
             for index in range(len(window.step_values)):

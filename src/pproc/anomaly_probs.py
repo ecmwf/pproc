@@ -66,7 +66,10 @@ def main(args=None):
                 prob_iteration, cfg, param, recovery, False
             )
             for step, retrieved_data in parallel_data_retrieval(
-                cfg.n_par_read, window_manager.unique_steps, [param, clim]
+                cfg.n_par_read,
+                window_manager.unique_steps,
+                [param, clim],
+                cfg.n_par_compute > 1,
             ):
                 with common.ResourceMeter(f"Process step {step}"):
                     message_template, data = retrieved_data[0]
