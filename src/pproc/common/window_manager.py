@@ -1,4 +1,4 @@
-from typing import Iterator, List
+from typing import Iterator, List, Union
 import bisect
 
 import numpy as np
@@ -10,6 +10,9 @@ from pproc.common import (
     DiffWindow,
     DiffDailyRateWindow,
     MeanWindow,
+    PrecomputedWindow,
+    AnyStep,
+    Step,
 )
 
 
@@ -35,6 +38,8 @@ def create_window(window_options, window_operation: str, include_start: bool) ->
         return DiffDailyRateWindow(window_options)
     if window_operation == "mean":
         return MeanWindow(window_options, include_start)
+    if window_operation == "precomputed":
+        return PrecomputedWindow(window_options)
     raise ValueError(
         f"Unsupported window operation {window_operation}. "
         + "Supported types: diff, min, max, sum, weightedsum, diffdailyrate"
@@ -60,10 +65,15 @@ class WindowManager:
             start_step = steps["start_step"]
             end_step = steps["end_step"]
             interval = steps["interval"]
+            range_len = steps.get("range", None)
 
-            for step in range(start_step, end_step + 1, interval):
-                if step not in self.unique_steps:
-                    self.unique_steps.add(step)
+            if range_len is None:
+                for step in range(start_step, end_step + 1, interval):
+                    if step not in self.unique_steps:
+                        self.unique_steps.add(step)
+            else:
+                for sstep in range(start_step, end_step - range_len + 1, interval):
+                    self.unique_steps.add(Step(sstep, sstep + range_len))
 
         self.unique_steps = sorted(self.unique_steps)
         self.create_windows(parameter, global_config)
@@ -85,7 +95,7 @@ class WindowManager:
                     raise Exception(f"Duplicate window {window_id}")
                 self.windows[window_id] = new_window
 
-    def update_windows(self, step: int, data: np.array) -> Iterator[Window]:
+    def update_windows(self, step: AnyStep, data: np.array) -> Iterator[Window]:
         """
         Updates all windows that include step with the step data values
 
@@ -99,7 +109,7 @@ class WindowManager:
             if window.reached_end_step(step):
                 yield identifier, self.windows.pop(identifier)
 
-    def update_from_checkpoint(self, checkpoint_step: int) -> List[str]:
+    def update_from_checkpoint(self, checkpoint_step: AnyStep) -> List[str]:
         """
         Find the earliest start step for windows not completed by
         checkpoint and update list of unique steps. Remove all
@@ -108,17 +118,21 @@ class WindowManager:
         :param checkpoint_step: step reached at last checkpoint
         :return: list of deleted window identifiers
         """
-        new_start_step = checkpoint_step + 1
+        checkpoint_step = Step(checkpoint_step)
         deleted_windows = []
+        new_start_step = checkpoint_step.next()
         for identifier, window in list(self.windows.items()):
-            real_start = window.start + int(not window.include_init)
-            if checkpoint_step >= window.end:
+            real_start = Step(window.start + int(not window.include_init))
+            if checkpoint_step.start >= window.end or (
+                checkpoint_step.is_range()
+                and checkpoint_step >= Step(window.start, window.end)
+            ):
                 del self.windows[identifier]
                 deleted_windows.append(identifier)
-            elif real_start < new_start_step:
+            elif not checkpoint_step.is_range() and real_start < new_start_step:
                 new_start_step = real_start
 
-        start_index = bisect.bisect_left(self.unique_steps, new_start_step)
+        start_index = bisect.bisect_left(self.unique_steps, new_start_step.decay())
         self.unique_steps = self.unique_steps[start_index:]
         return deleted_windows
 

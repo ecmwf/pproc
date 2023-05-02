@@ -60,11 +60,11 @@ class Parameter:
         self.interpolation_keys = param_cfg.get("interpolation_keys", None)
         self.scale_data = int(param_cfg.get("scale", 1))
 
-    def retrieve_data(self, fdb, step: int):
+    def retrieve_data(self, fdb, step: common.AnyStep):
         combined_data = []
         for type in self.base_request["type"].split("/"):
             new_request = self.base_request.copy()
-            new_request["step"] = step
+            new_request["step"] = str(step)
             new_request["type"] = type
             if type == "cf":
                 new_request.pop("number")
@@ -139,7 +139,7 @@ class CombineParameters(Parameter):
             return np.linalg.norm(data_list, axis=0)
         return getattr(np, self.combine_operation)(data_list, axis=0)
 
-    def retrieve_data(self, fdb, step: int):
+    def retrieve_data(self, fdb, step: common.AnyStep):
         data_list = []
         for param_id in self.param_ids:
             self.base_request["param"] = param_id
@@ -178,7 +178,7 @@ class FilterParameter(Parameter):
             param_cfg["input_filter_operation"].get("replacement", 0)
         )
 
-    def retrieve_data(self, fdb, step: int):
+    def retrieve_data(self, fdb, step: common.AnyStep):
         msg_template, data = super().retrieve_data(fdb, step)
 
         filter_data = data
