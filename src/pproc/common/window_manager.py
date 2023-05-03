@@ -61,22 +61,26 @@ class WindowManager:
         """
         self.windows = {}
         self.unique_steps = set()
-        for steps in parameter["steps"]:
-            start_step = steps["start_step"]
-            end_step = steps["end_step"]
-            interval = steps["interval"]
-            range_len = steps.get("range", None)
+        self.create_windows(parameter, global_config)
+        if "steps" not in parameter:
+            for window in self.windows.values():
+                self.unique_steps.update(window.steps)
+        else:
+            for steps in parameter["steps"]:
+                start_step = steps["start_step"]
+                end_step = steps["end_step"]
+                interval = steps["interval"]
+                range_len = steps.get("range", None)
 
-            if range_len is None:
-                for step in range(start_step, end_step + 1, interval):
-                    if step not in self.unique_steps:
-                        self.unique_steps.add(step)
-            else:
-                for sstep in range(start_step, end_step - range_len + 1, interval):
-                    self.unique_steps.add(Step(sstep, sstep + range_len))
+                if range_len is None:
+                    for step in range(start_step, end_step + 1, interval):
+                        if step not in self.unique_steps:
+                            self.unique_steps.add(step)
+                else:
+                    for sstep in range(start_step, end_step - range_len + 1, interval):
+                        self.unique_steps.add(Step(sstep, sstep + range_len))
 
         self.unique_steps = sorted(self.unique_steps)
-        self.create_windows(parameter, global_config)
 
     def create_windows(self, parameter, global_config):
         """
