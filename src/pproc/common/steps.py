@@ -9,12 +9,13 @@ class Step:
     end: int = None
 
     def __init__(self, start_or_step, end=None):
+        _set_frozen = lambda attr, val: object.__setattr__(self, attr, val)
         if isinstance(start_or_step, Step):
-            object.__setattr__(self, "start", start_or_step.start)
-            object.__setattr__(self, "end", start_or_step.end)
+            _set_frozen("start", start_or_step.start)
+            _set_frozen("end", start_or_step.end)
         else:
-            object.__setattr__(self, "start", int(start_or_step))
-            object.__setattr__(self, "end", None if end is None else int(end))
+            _set_frozen("start", int(start_or_step))
+            _set_frozen("end", None if end is None else int(end))
 
     def __str__(self):
         if self.end is None:
