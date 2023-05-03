@@ -10,11 +10,11 @@ class Step:
 
     def __init__(self, start_or_step, end=None):
         if isinstance(start_or_step, Step):
-            self.start = start_or_step.start
-            self.end = start_or_step.end
+            object.__setattr__(self, "start", start_or_step.start)
+            object.__setattr__(self, "end", start_or_step.end)
         else:
-            self.start = int(start_or_step)
-            self.end = None if end is None else int(end)
+            object.__setattr__(self, "start", int(start_or_step))
+            object.__setattr__(self, "end", None if end is None else int(end))
 
     def __str__(self):
         if self.end is None:
