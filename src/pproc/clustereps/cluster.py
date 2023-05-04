@@ -333,8 +333,8 @@ def compute_partition(pc, indexes, max_iter=100):
         n_fields = np.bincount(ind_cl, minlength=ncl)
         centroids = np.apply_along_axis(
             lambda x: np.bincount(ind_cl, weights=x, minlength=ncl),
-            1,
-            pc,
+            0,
+            pc.T,
         )
         centroids /= n_fields[:, np.newaxis]
 
