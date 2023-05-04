@@ -56,7 +56,10 @@ def main(args=None):
                 clim_grib_header, clim_data = clim.retrieve_data(fdb, step)
 
                 completed_windows = window_manager.update_windows(
-                    step, data, clim_data[0], clim_data[1]
+                    step,
+                    data,
+                    clim_data[clim.get_type_index("em")],
+                    clim_data[clim.get_type_index("es")],
                 )
                 for window_id, window in completed_windows:
                     for threshold in window_manager.thresholds(window_id):
