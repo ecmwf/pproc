@@ -98,11 +98,11 @@ class Parameter:
         """
         types = self.base_request["type"].split("/")
         index = types.index(type)
-        nensembles = len(self.base_request["number"])
-        if type == "pf":
-            pf_start_index = types.index("pf")
-            return range(pf_start_index, pf_start_index + nensembles)
         if "pf" in types:
+            nensembles = len(self.base_request["number"])
+            if type == "pf":
+                pf_start_index = types.index("pf")
+                return range(pf_start_index, pf_start_index + nensembles)
             pf_start_index = types.index("pf")
             if index > pf_start_index:
                 offset = pf_start_index + nensembles - 1

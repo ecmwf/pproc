@@ -72,8 +72,8 @@ def main(args=None):
                 cfg.n_par_compute > 1,
             ):
                 with common.ResourceMeter(f"Process step {step}"):
-                    message_template, data = retrieved_data[0]
-                    clim_grib_header, clim_data = retrieved_data[1]
+                    message_template, data = retrieved_data[clim.get_type_index("em")]
+                    clim_grib_header, clim_data = retrieved_data[clim.get_type_index("es")]
 
                     completed_windows = window_manager.update_windows(
                         step, data, clim_data[0], clim_data[1]
