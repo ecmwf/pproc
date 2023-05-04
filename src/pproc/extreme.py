@@ -56,6 +56,7 @@ def read_clim(fdb, cfg, clim_keys, window, n_clim=101):
 
     print("Climatology request: ", req)
     da_clim = common.fdb_read(fdb, req)
+    assert da_clim.values.shape[0] == n_clim
     da_clim_sorted = da_clim.reindex(quantile=[f"{x}:100" for x in range(n_clim)])
     print(da_clim_sorted)
 
