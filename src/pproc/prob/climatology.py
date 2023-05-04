@@ -3,7 +3,6 @@ from typing import Dict, Tuple
 import numpy as np
 
 from pproc.common import Parameter
-from pproc.prob.model_constants import LAST_MODEL_STEP, CLIM_INTERVAL
 
 
 class Climatology(Parameter):
@@ -16,36 +15,11 @@ class Climatology(Parameter):
     ):
         Parameter.__init__(self, "clim", dt, param_id, global_input_cfg, param_cfg, 0)
         self.base_request.pop("number")
-        self.base_request["date"] = self.get_climatology_date(dt.date())
         self.base_request["time"] = "00"
-        self.base_request["stream"] = param_cfg["climatology"]["stream"]
-        self.base_request["type"] = "em/es"  # Order of these is important
-        self.time = dt.time()
-
-    def clim_step(self, step: int):
-        """
-        Nearest step with climatology data to step,
-        taking into account diurnal variation in climatology
-        which requires climatology step time to be same
-        as step
-        """
-        if self.time == datetime.time(0):
-            return step
-        if self.time == datetime.time(12):
-            if step == LAST_MODEL_STEP:
-                return step - CLIM_INTERVAL
-            return step + CLIM_INTERVAL
-
-    @classmethod
-    def get_climatology_date(cls, date: datetime.date) -> str:
-        """
-        Assumes climatology run on Monday and Thursday and retrieves most recent
-        date climatology is available
-        """
-        dow = date.weekday()
-        if dow >= 0 and dow < 3:
-            return (date - datetime.timedelta(days=dow)).strftime("%Y%m%d")
-        return (date - datetime.timedelta(days=(dow - 3))).strftime("%Y%m%d")
+        assert "date" in param_cfg["climatology"]["clim_keys"]
+        for key, value in param_cfg["climatology"]["clim_keys"].items():
+            self.base_request[key] = value
+        self.steps = param_cfg["climatology"].get("steps", None)
 
     @classmethod
     def grib_header(cls, grib_msg):
@@ -60,15 +34,13 @@ class Climatology(Parameter):
 
     def retrieve_data(self, fdb, step: int) -> Tuple[Dict, Tuple[np.array, np.array]]:
         """
-        Retrieves data for climatology mean and standard deviation,
-        taking into account possible shift required between data and
-        nearest climatology step
+        Retrieves data for climatology mean and standard deviation
 
         :param fdb:
         :param step: model step
         :return: tuple containing climatology period dates as Dict
         and
         """
-        cstep = self.clim_step(step)
+        cstep = step if not self.steps else self.steps[step]
         temp_message, ret = super().retrieve_data(fdb, cstep)
         return self.grib_header(temp_message), ret
