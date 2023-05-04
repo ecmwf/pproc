@@ -649,7 +649,7 @@ def red_noise_cluster_iteration(ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand):
     Returns
     -------
     numpy array (ncl_max - 1)
-        Variance ratio of the partitions, index is number of clusters - 1
+        Variance ratio of the partitions, index is number of clusters - 2
     """
     ndis = 1
     pc_red = np.empty((npc, nfld))
@@ -692,7 +692,7 @@ def red_noise_cluster(n_samples, ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand, 
     Returns
     -------
     numpy array (n_samples, ncl_max - 1)
-        Variance ratio of the partitions, second index is number of clusters - 1
+        Variance ratio of the partitions, second index is number of clusters - 2
     """
     if n_par == 1:
         noise_var = np.zeros((n_samples, ncl_max - 1))
