@@ -72,7 +72,8 @@ def extreme_template(window, template_fc, template_clim):
     # EFI specific stuff
     template_ext["stepRange"] = window.name
     if int(template_ext["timeRangeIndicator"]) == 3:
-        template_ext["numberIncludedInAverage"] = len(window.steps)
+        if template_ext["numberIncludedInAverage"] == 0:
+            template_ext["numberIncludedInAverage"] = len(window.steps)
         template_ext["numberMissingFromAveragesOrAccumulations"] = 0
 
     # set clim keys
