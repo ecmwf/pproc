@@ -6,10 +6,7 @@ class SynchronousExecutor(fut.Executor):
 
     def submit(self, fn, *args, **kwargs):
         f = fut.Future()
-        try:
-            f.set_result(fn(*args, **kwargs))
-        except Exception as e:
-            f.set_exception(e)
+        f.set_result(fn(*args, **kwargs))
         return f
 
     def wait(self):

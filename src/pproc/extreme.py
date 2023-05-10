@@ -24,38 +24,26 @@ from pproc import common
 from pproc.common.parallel import SynchronousExecutor, QueueingExecutor
 
 
-def climatology_date(fc_date):
-
-    weekday = fc_date.weekday()
-
-    # friday to monday -> take previous monday clim, else previous thursday clim
-    if weekday == 0 or weekday > 3:
-        clim_date = fc_date - timedelta(days=(weekday + 4) % 7)
-    else:
-        clim_date = fc_date - timedelta(days=weekday)
-
-    return clim_date
-
-
 class ExtremeVariables:
     def __init__(self, efi_cfg):
         self.eps = float(efi_cfg["eps"])
         self.sot = list(map(int, efi_cfg["sot"]))
 
 
-def read_clim(fdb, cfg, clim_keys, window, n_clim=101):
+def read_clim(fdb, climatology, window, n_clim=101):
 
-    req = clim_keys.copy()
-    req["date"] = cfg.clim_date.strftime("%Y%m%d")
+    req = climatology["clim_keys"].copy()
+    assert "date" in req
     req["time"] = "0000"
     req["quantile"] = ["{}:100".format(i) for i in range(n_clim)]
-    if cfg.fc_date.strftime("%H") == "12" and window.end < 240:
-        req["step"] = f"{window.start-12}-{window.end-12}"
+    if window.name in climatology.get("steps", {}):
+        req["step"] = climatology["steps"][window.name]
     else:
-        req["step"] = f"{window.name}"
+        req["step"] = window.name
 
     print("Climatology request: ", req)
     da_clim = common.fdb_read(fdb, req)
+    assert da_clim.values.shape[0] == n_clim
     da_clim_sorted = da_clim.reindex(quantile=[f"{x}:100" for x in range(n_clim)])
     print(da_clim_sorted)
 
@@ -134,14 +122,14 @@ def sot_template(template, sot):
 
 
 def efi_sot(
-    cfg, param, clim_keys, efi_vars, recovery, template_filename, window_id, window
+    cfg, param, climatology, efi_vars, recovery, template_filename, window_id, window
 ):
     with common.ResourceMeter(f"Window {window.suffix}, computing EFI/SOT"):
 
         fdb = pyfdb.FDB()
         message_template = common.io.read_template(template_filename)
 
-        clim, template_clim = read_clim(fdb, cfg, clim_keys, window)
+        clim, template_clim = read_clim(fdb, climatology, window)
         print(f"Climatology array: {clim.shape}")
 
         template_extreme = extreme_template(window, message_template, template_clim)
@@ -199,14 +187,11 @@ class ConfigExtreme(common.Config):
             self.root_dir, "efi_test", self.fc_date.strftime("%Y%m%d%H")
         )
 
-        self.clim_date = self.options.get("clim_date", climatology_date(self.fc_date))
-
         self.target = self.options["target"]
         self.global_input_cfg = self.options.get("global_input_keys", {})
         self.global_output_cfg = self.options.get("global_output_keys", {})
 
         print(f"Forecast date is {self.fc_date}")
-        print(f"Climatology date is {self.clim_date}")
         print(f"Root directory is {self.root_dir}")
 
 
@@ -254,10 +239,12 @@ def main(args=None):
                 last_checkpoint = None  # All remaining params have not been run
 
             efi_partial = functools.partial(
-                efi_sot, cfg, param, param_cfg["clim_keys"], efi_vars, recovery
+                efi_sot, cfg, param, param_cfg["climatology"], efi_vars, recovery
             )
             for step in window_manager.unique_steps:
-                with common.ResourceMeter(f"Parameter {param_name}, retrieve step {step}"):
+                with common.ResourceMeter(
+                    f"Parameter {param_name}, retrieve step {step}"
+                ):
                     template, data = param.retrieve_data(fdb, step)
 
                 completed_windows = window_manager.update_windows(step, data)

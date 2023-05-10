@@ -108,11 +108,12 @@ class Parameter:
             if default is not self._get_type_index_nodefault:
                 return default
             raise
-        nensembles = len(self.base_request["number"])
-        if type == "pf":
-            pf_start_index = types.index("pf")
-            return range(pf_start_index, pf_start_index + nensembles)
+
         if "pf" in types:
+            nensembles = len(self.base_request["number"])
+            if type == "pf":
+                pf_start_index = types.index("pf")
+                return range(pf_start_index, pf_start_index + nensembles)
             pf_start_index = types.index("pf")
             if index > pf_start_index:
                 offset = pf_start_index + nensembles - 1
