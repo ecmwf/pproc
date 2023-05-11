@@ -41,8 +41,8 @@ def create_window(window_options, window_operation: str, include_start: bool) ->
     if window_operation == "precomputed":
         return PrecomputedWindow(window_options)
     raise ValueError(
-        f"Unsupported window operation {window_operation}. "
-        + "Supported types: diff, min, max, sum, weightedsum, diffdailyrate"
+        f"Unsupported window operation {window_operation}. Supported types: "
+        + "diff, minimum, maximum, add, weightedsum, diffdailyrate, mean and precomputed"
     )
 
 
