@@ -65,7 +65,8 @@ def extreme_template(window, template_fc, template_clim):
     # EFI specific stuff
     template_ext["stepRange"] = window.name
     if int(template_ext["timeRangeIndicator"]) == 3:
-        template_ext["numberIncludedInAverage"] = len(window.steps)
+        if template_ext["numberIncludedInAverage"] == 0:
+            template_ext["numberIncludedInAverage"] = len(window.steps)
         template_ext["numberMissingFromAveragesOrAccumulations"] = 0
 
     # set clim keys
@@ -141,15 +142,17 @@ def efi_sot(
         print(f"Climatology array: {clim.shape}")
 
         template_extreme = extreme_template(window, message_template, template_clim)
-        control_index = param.get_type_index("cf")
-        efi_control = extreme.efi(clim, window.step_values[control_index], efi_vars.eps)
-        template_efi = efi_template_control(template_extreme)
 
-        out_file = os.path.join(
-            cfg.out_dir, f"efi_control_{param.name}_{window.suffix}.grib"
-        )
-        target = common.target_factory(cfg.target, out_file=out_file, fdb=fdb)
-        common.write_grib(target, template_efi, efi_control)
+        control_index = param.get_type_index("cf", default=None)
+        if control_index is not None:
+            efi_control = extreme.efi(clim, window.step_values[control_index], efi_vars.eps)
+            template_efi = efi_template_control(template_extreme)
+
+            out_file = os.path.join(
+                cfg.out_dir, f"efi_control_{param.name}_{window.suffix}.grib"
+            )
+            target = common.target_factory(cfg.target, out_file=out_file, fdb=fdb)
+            common.write_grib(target, template_efi, efi_control)
 
         efi = extreme.efi(clim, window.step_values, efi_vars.eps)
         template_efi = efi_template(template_extreme)
@@ -180,7 +183,10 @@ class ConfigExtreme(common.Config):
 
         self.fc_date = datetime.strptime(str(self.options["fc_date"]), "%Y%m%d%H")
 
-        self.members = int(self.options["members"])
+        if isinstance(self.options["members"], dict):
+            self.members = range(self.options["members"]["start"], self.options["members"]["end"] + 1)
+        else:
+            self.members = int(self.options["members"])
         self.n_par_compute = self.options.get("n_par_compute", 1)
         self.n_par_read = self.options.get("n_par_read", 1)
         self.window_queue_size = self.options.get("queue_size", self.n_par_compute)

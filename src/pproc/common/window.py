@@ -1,6 +1,7 @@
 import numpy as np
 from typing import Dict
 
+from pproc.common.steps import AnyStep, Step
 from pproc.prob.model_constants import LEG1_END
 
 
@@ -46,14 +47,14 @@ class Window:
         """
         raise NotImplementedError
 
-    def __contains__(self, step: int) -> bool:
+    def __contains__(self, step: AnyStep) -> bool:
         """
         :param step: current step
         :return: boolean specifying if step is in window interval
         """
         return step in self.steps
 
-    def add_step_values(self, step: int, step_values: np.array):
+    def add_step_values(self, step: AnyStep, step_values: np.array):
         """
         Adds contribution of data values for specified step, if inside window, by computing
         reduction operation on existing step values and new step values - only the reduction
@@ -69,7 +70,7 @@ class Window:
         else:
             self.operation(step_values)
 
-    def reached_end_step(self, step: int) -> bool:
+    def reached_end_step(self, step: AnyStep) -> bool:
         """
         :param step: current step
         :return: boolean specifying if current step is equal to window end step
@@ -212,3 +213,19 @@ class MeanWindow(SimpleOpWindow):
 
         if self.reached_end_step(step):
             self.step_values = self.step_values / self.num_steps
+
+
+class PrecomputedWindow(Window):
+    """
+    Window containing a single pre-computed accumulation with the given step range
+    """
+    def __init__(self, window_options):
+        super().__init__(window_options, include_init=True)
+        self.steps = [Step(self.start, self.end)]
+
+    def reached_end_step(self, step: AnyStep) -> bool:
+        """
+        :param step: current step
+        :return: boolean specifying if current step is equal to window end step
+        """
+        return step == self.steps[0]

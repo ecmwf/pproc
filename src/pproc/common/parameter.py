@@ -1,5 +1,5 @@
 import datetime
-from typing import Dict, List
+from typing import Dict, List, Union
 import numpy as np
 import numexpr
 
@@ -45,23 +45,26 @@ class Parameter:
         param_id: int,
         global_input_cfg,
         param_cfg: Dict,
-        n_ensembles: int,
+        n_ensembles: Union[int, range],
     ):
         self.name = name
         self.base_request = global_input_cfg.copy()
         self.base_request.update(param_cfg["base_request"])
         self.base_request["param"] = param_id
-        self.base_request["number"] = range(1, n_ensembles + 1)
+        if isinstance(n_ensembles, range):
+            self.base_request["number"] = n_ensembles
+        else:
+            self.base_request["number"] = range(1, n_ensembles + 1)
         self.base_request["date"] = dt.strftime("%Y%m%d")
         self.base_request["time"] = dt.strftime("%H")
         self.interpolation_keys = param_cfg.get("interpolation_keys", None)
         self.scale_data = int(param_cfg.get("scale", 1))
 
-    def retrieve_data(self, fdb, step: int):
+    def retrieve_data(self, fdb, step: common.AnyStep):
         combined_data = []
         for type in self.base_request["type"].split("/"):
             new_request = self.base_request.copy()
-            new_request["step"] = step
+            new_request["step"] = str(step)
             new_request["type"] = type
             if type == "cf":
                 new_request.pop("number")
@@ -92,12 +95,20 @@ class Parameter:
         else:
             return types[index], 0
 
-    def get_type_index(self, type: str):
+    _get_type_index_nodefault = object()
+
+    def get_type_index(self, type: str, default=_get_type_index_nodefault):
         """
         Get range of concatenated data indices for requested type
         """
         types = self.base_request["type"].split("/")
-        index = types.index(type)
+        try:
+            index = types.index(type)
+        except ValueError:
+            if default is not self._get_type_index_nodefault:
+                return default
+            raise
+
         if "pf" in types:
             nensembles = len(self.base_request["number"])
             if type == "pf":
@@ -129,7 +140,7 @@ class CombineParameters(Parameter):
             return np.linalg.norm(data_list, axis=0)
         return getattr(np, self.combine_operation)(data_list, axis=0)
 
-    def retrieve_data(self, fdb, step: int):
+    def retrieve_data(self, fdb, step: common.AnyStep):
         data_list = []
         for param_id in self.param_ids:
             self.base_request["param"] = param_id
@@ -168,7 +179,7 @@ class FilterParameter(Parameter):
             param_cfg["input_filter_operation"].get("replacement", 0)
         )
 
-    def retrieve_data(self, fdb, step: int):
+    def retrieve_data(self, fdb, step: common.AnyStep):
         msg_template, data = super().retrieve_data(fdb, step)
 
         filter_data = data
