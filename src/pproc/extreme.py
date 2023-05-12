@@ -19,9 +19,14 @@ import concurrent.futures as fut
 import multiprocessing
 
 import pyfdb
+import eccodes
 from meteokit import extreme
 from pproc import common
-from pproc.common.parallel import SynchronousExecutor, QueueingExecutor
+from pproc.common.parallel import (
+    SynchronousExecutor,
+    QueueingExecutor,
+    parallel_data_retrieval,
+)
 
 
 class ExtremeVariables:
@@ -127,7 +132,11 @@ def efi_sot(
     with common.ResourceMeter(f"Window {window.suffix}, computing EFI/SOT"):
 
         fdb = pyfdb.FDB()
-        message_template = common.io.read_template(template_filename)
+        message_template = (
+            template_filename
+            if isinstance(template_filename, eccodes.highlevel.message.GRIBMessage)
+            else common.io.read_template(template_filename)
+        )
 
         clim, template_clim = read_clim(fdb, climatology, window)
         print(f"Climatology array: {clim.shape}")
@@ -178,9 +187,9 @@ class ConfigExtreme(common.Config):
             self.members = range(self.options["members"]["start"], self.options["members"]["end"] + 1)
         else:
             self.members = int(self.options["members"])
-
-        self.n_par = self.options.get("n_par", 1)
-        self.window_queue_size = self.options.get("queue_size", 100)
+        self.n_par_compute = self.options.get("n_par_compute", 1)
+        self.n_par_read = self.options.get("n_par_read", 1)
+        self.window_queue_size = self.options.get("queue_size", self.n_par_compute)
 
         self.root_dir = self.options["root_dir"]
         self.out_dir = os.path.join(
@@ -210,10 +219,9 @@ def main(args=None):
     last_checkpoint = recovery.last_checkpoint()
     executor = (
         SynchronousExecutor()
-        if cfg.n_par == 1
-        else QueueingExecutor(cfg.n_par, cfg.window_queue_size)
+        if cfg.n_par_compute == 1
+        else QueueingExecutor(cfg.n_par_compute, cfg.window_queue_size)
     )
-    fdb = pyfdb.FDB()
 
     with executor:
         for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
@@ -241,20 +249,18 @@ def main(args=None):
             efi_partial = functools.partial(
                 efi_sot, cfg, param, param_cfg["climatology"], efi_vars, recovery
             )
-            for step in window_manager.unique_steps:
-                with common.ResourceMeter(
-                    f"Parameter {param_name}, retrieve step {step}"
-                ):
-                    template, data = param.retrieve_data(fdb, step)
+            for step, retrieved_data in parallel_data_retrieval(
+                cfg.n_par_read,
+                window_manager.unique_steps,
+                [param],
+                cfg.n_par_compute > 1,
+            ):
+                with common.ResourceMeter(f"Process step {step}"):
+                    template, data = retrieved_data[0]
 
-                completed_windows = window_manager.update_windows(step, data)
-                for window_id, window in completed_windows:
-
-                    # Write most recently fetched template to file for reading in subprocess
-                    template_name = f"template_{param_name}_step{step}.grib"
-                    common.io.write_template(template_name, template)
-
-                    executor.submit(efi_partial, template_name, window_id, window)
+                    completed_windows = window_manager.update_windows(step, data)
+                    for window_id, window in completed_windows:
+                        executor.submit(efi_partial, template, window_id, window)
 
             executor.wait()
 

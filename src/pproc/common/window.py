@@ -106,7 +106,7 @@ class Window:
 
 class SimpleOpWindow(Window):
     """
-    Window with operation min, max, sum, concatenate - reduction operations supported by numpy
+    Window with operation minimum, maximum, add
     """
 
     def __init__(
@@ -114,7 +114,7 @@ class SimpleOpWindow(Window):
     ):
         """
         :param window_options: config specifying start and end of window
-        :param window_operation: name of reduction operation out of min, max, sum
+        :param window_operation: name of reduction operation out of minimum, maximum, add
         :param include_init: boolean specifying whether to include start step
         """
         super().__init__(window_options, include_init)
@@ -128,7 +128,7 @@ class SimpleOpWindow(Window):
         :param new_step_values: data from new step
         """
         self.step_values = getattr(np, self.operation_str)(
-            [self.step_values, new_step_values], axis=0
+            self.step_values, new_step_values
         )
 
 
@@ -140,7 +140,7 @@ class WeightedSumWindow(SimpleOpWindow):
     """
 
     def __init__(self, window_options):
-        super().__init__(window_options, "sum", include_init=False)
+        super().__init__(window_options, "add", include_init=False)
         self.previous_step = self.start
 
     def add_step_values(self, step: int, step_values: np.array):
@@ -203,7 +203,7 @@ class MeanWindow(SimpleOpWindow):
     """
 
     def __init__(self, window_options, include_init=False):
-        super().__init__(window_options, "sum", include_init=include_init)
+        super().__init__(window_options, "add", include_init=include_init)
         self.num_steps = 0
 
     def add_step_values(self, step: int, step_values: np.array):

@@ -430,4 +430,5 @@ def write_template(filepath, template):
 
 
 def read_template(filepath):
+    assert isinstance(filepath, str)
     return list(eccodes.FileReader(filepath))[0]

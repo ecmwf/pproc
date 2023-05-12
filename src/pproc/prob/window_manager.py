@@ -44,9 +44,9 @@ class ThresholdWindowManager(WindowManager):
                     threshold["value"] = float(threshold["value"])
                 comparison = threshold["comparison"]
                 if "<" in comparison:
-                    operation = "min"
+                    operation = "minimum"
                 elif ">" in comparison:
-                    operation = "max"
+                    operation = "maximum"
                 else:
                     raise RuntimeError(f"Unknown threshold comparison {comparison}")
                 window_operations.setdefault(operation, []).append(threshold)
@@ -97,7 +97,7 @@ class ThresholdWindowManager(WindowManager):
     def delete_windows(self, window_ids: List[str]):
         super().delete_windows(window_ids)
         for window_id in window_ids:
-            del self.thresholds[window_id]
+            del self.window_thresholds[window_id]
 
 
 class AnomalyWindowManager(ThresholdWindowManager):
