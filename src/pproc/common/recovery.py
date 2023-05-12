@@ -4,6 +4,14 @@ import hashlib
 from typing import List
 
 
+class TrivialLock(object):
+    def __enter__(self):
+        pass
+
+    def __exit__(*args):
+        pass
+
+
 class Recovery:
     def __init__(
         self,
@@ -11,6 +19,7 @@ class Recovery:
         config_file: str,
         date: datetime.datetime,
         recover: bool,
+        lock=TrivialLock(),
     ):
         """
         Class for writing out checkpoints and recovering computation from checkpoint file. The date and
@@ -21,9 +30,9 @@ class Recovery:
         :param date: date and time of run
         :param recover: boolean specifying whether to retrieve checkpoints from file. Otherwise, existing
         checkpoints in the recovery file are deleted.
+        :param lock: lock for writing into recovery file
         """
-        if not os.path.isdir(root_dir):
-            os.mkdir(root_dir)
+        os.makedirs(root_dir, exist_ok=True)
         sha256 = hashlib.sha256()
         with open(config_file, "rb") as f:
             sha256.update(f.read())
@@ -31,7 +40,9 @@ class Recovery:
             root_dir, f"{date.strftime('%Y%m%d%H')}{sha256.hexdigest()}.txt"
         )
         self.checkpoints = []
-        print(f"Recovery: checkpoint file {self.filename}. Start from checkpoints: {recover}")
+        print(
+            f"Recovery: checkpoint file {self.filename}. Start from checkpoints: {recover}"
+        )
         if recover:
             # Load from file if one exists
             if os.path.exists(self.filename):
@@ -40,6 +51,7 @@ class Recovery:
                 self.checkpoints += [x.rstrip("\n") for x in past_checkpoints]
         else:
             self.clean_file()
+        self.lock = lock
 
     def existing_checkpoint(self, *checkpoint_identifiers) -> bool:
         """
@@ -80,9 +92,11 @@ class Recovery:
             return
         checkpoint = self.checkpoint_key(checkpoint_identifiers)
         # Append new completed step to file
-        with open(self.filename, "at") as f:
-            f.write(checkpoint + "\n")
-        self.checkpoints.append(checkpoint)
+
+        with self.lock:
+            with open(self.filename, "at") as f:
+                f.write(checkpoint + "\n")
+            self.checkpoints.append(checkpoint)
 
     def clean_file(self):
         """

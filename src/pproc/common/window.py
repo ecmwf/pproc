@@ -1,6 +1,7 @@
 import numpy as np
 from typing import Dict
 
+from pproc.common.steps import AnyStep, Step
 from pproc.prob.model_constants import LEG1_END
 
 
@@ -46,16 +47,14 @@ class Window:
         """
         raise NotImplementedError
 
-    def __contains__(self, step: int) -> bool:
+    def __contains__(self, step: AnyStep) -> bool:
         """
         :param step: current step
         :return: boolean specifying if step is in window interval
         """
-        if self.include_init:
-            return step >= self.start and step <= self.end
-        return step > self.start and step <= self.end
+        return step in self.steps
 
-    def add_step_values(self, step: int, step_values: np.array):
+    def add_step_values(self, step: AnyStep, step_values: np.array):
         """
         Adds contribution of data values for specified step, if inside window, by computing
         reduction operation on existing step values and new step values - only the reduction
@@ -71,7 +70,7 @@ class Window:
         else:
             self.operation(step_values)
 
-    def reached_end_step(self, step: int) -> bool:
+    def reached_end_step(self, step: AnyStep) -> bool:
         """
         :param step: current step
         :return: boolean specifying if current step is equal to window end step
@@ -107,7 +106,7 @@ class Window:
 
 class SimpleOpWindow(Window):
     """
-    Window with operation min, max, sum, concatenate - reduction operations supported by numpy
+    Window with operation minimum, maximum, add
     """
 
     def __init__(
@@ -115,7 +114,7 @@ class SimpleOpWindow(Window):
     ):
         """
         :param window_options: config specifying start and end of window
-        :param window_operation: name of reduction operation out of min, max, sum
+        :param window_operation: name of reduction operation out of minimum, maximum, add
         :param include_init: boolean specifying whether to include start step
         """
         super().__init__(window_options, include_init)
@@ -129,7 +128,7 @@ class SimpleOpWindow(Window):
         :param new_step_values: data from new step
         """
         self.step_values = getattr(np, self.operation_str)(
-            [self.step_values, new_step_values], axis=0
+            self.step_values, new_step_values
         )
 
 
@@ -141,7 +140,7 @@ class WeightedSumWindow(SimpleOpWindow):
     """
 
     def __init__(self, window_options):
-        super().__init__(window_options, "sum", include_init=False)
+        super().__init__(window_options, "add", include_init=False)
         self.previous_step = self.start
 
     def add_step_values(self, step: int, step_values: np.array):
@@ -174,6 +173,7 @@ class DiffWindow(Window):
 
     def __init__(self, window_options):
         super().__init__(window_options, include_init=True)
+        self.steps = [self.start, self.end]
 
     def operation(self, new_step_values: np.array):
         """
@@ -183,9 +183,6 @@ class DiffWindow(Window):
         :param new_step_values: data from new step
         """
         self.step_values = new_step_values - self.step_values
-
-    def __contains__(self, step: int) -> bool:
-        return step == self.start or step == self.end
 
 
 class DiffDailyRateWindow(DiffWindow):
@@ -206,7 +203,7 @@ class MeanWindow(SimpleOpWindow):
     """
 
     def __init__(self, window_options, include_init=False):
-        super().__init__(window_options, "sum", include_init=include_init)
+        super().__init__(window_options, "add", include_init=include_init)
         self.num_steps = 0
 
     def add_step_values(self, step: int, step_values: np.array):
@@ -216,3 +213,19 @@ class MeanWindow(SimpleOpWindow):
 
         if self.reached_end_step(step):
             self.step_values = self.step_values / self.num_steps
+
+
+class PrecomputedWindow(Window):
+    """
+    Window containing a single pre-computed accumulation with the given step range
+    """
+    def __init__(self, window_options):
+        super().__init__(window_options, include_init=True)
+        self.steps = [Step(self.start, self.end)]
+
+    def reached_end_step(self, step: AnyStep) -> bool:
+        """
+        :param step: current step
+        :return: boolean specifying if current step is equal to window end step
+        """
+        return step == self.steps[0]

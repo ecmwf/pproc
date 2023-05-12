@@ -8,6 +8,7 @@
 # In applying this licence, ECMWF does not waive the privileges and immunities
 # granted to it by virtue of its status as an intergovernmental organisation nor
 # does it submit to any jurisdiction.
+import functools
 import os
 import sys
 from datetime import datetime
@@ -17,6 +18,7 @@ import xarray as xr
 import pyfdb
 
 from pproc import common
+from pproc.common.parallel import parallel_processing
 
 
 def fdb_request_forecast(cfg, options, steps):
@@ -132,9 +134,41 @@ class ConfigExtreme(common.Config):
         self.target = self.options['target']
         self.out_dir = os.path.join(self.root_dir, self.date.strftime("%Y%m%d%H"))
 
-        self.fdb = pyfdb.FDB()
+        self.n_par = self.options.get("n_par", 1)
+        self._fdb = None
 
         self.parameters = self.options['parameters']
+
+    @property
+    def fdb(self):
+        if self._fdb is None:
+            self._fdb = pyfdb.FDB()
+        return self._fdb
+
+
+def ensms_iteration(config, param, options, window, step):
+    param_type = parameters_manager(options)
+
+    # calculate mean/stddev of wind speed for type=pf/cf (eps)
+    with common.ResourceMeter(f"Window {window.name}, step {step}: compute mean/stddev"):
+        mean, std, template_ens = ensemble_mean_std_eps(config, options, step)
+
+    with common.ResourceMeter(f"Window {window.name}, step {step}: write output"):
+        for level in param_type.levels:
+            mean_slice = param_type.slice_dataset(mean, level)
+            mean_file = os.path.join(config.out_dir, window.name, f'mean_{param}_{level}_{step}.grib')
+            target_mean = common.target_factory(config.target, out_file=mean_file, fdb=config.fdb)
+            template_mean = template_ensemble(config, param_type, template_ens, step, window.step, level, 'em')
+            common.write_grib(target_mean, template_mean, mean_slice)
+
+            std_slice = param_type.slice_dataset(std, level)
+            std_file = os.path.join(config.out_dir, window.name, f'std_{param}_{level}_{step}.grib')
+            target_std = common.target_factory(config.target, out_file=std_file, fdb=config.fdb)
+            template_std = template_ensemble(config, param_type, template_ens, step, window.step, level, 'es')
+            common.write_grib(target_std, template_std, std_slice)
+
+    config.fdb.flush()
+    return param, window.name, step
 
 
 def main(args=None):
@@ -145,38 +179,20 @@ def main(args=None):
     cfg = ConfigExtreme(args)
     recover = common.Recovery(cfg.root_dir, args.config, cfg.date, args.recover)
 
+    plan = []
     for param, options in cfg.parameters.items():
-        
-        param_type = parameters_manager(options)
-
         for window_options in options['windows']:
             window = common.Window(window_options)
 
-            # calculate mean/stddev of wind speed for type=pf/cf (eps)
             for step in window.steps:
                 if recover.existing_checkpoint(param, window.name, step):
                     print(f'Recovery: skipping param {param} step {step}')
                     continue
 
-                with common.ResourceMeter(f"Window {window.name}, step {step}: compute mean/stddev"):
-                    mean, std, template_ens = ensemble_mean_std_eps(cfg, options, step)
+                plan.append((param, options, window, step))
 
-                with common.ResourceMeter(f"Window {window.name}, step {step}: write output"):
-                    for level in param_type.levels:
-                        mean_slice = param_type.slice_dataset(mean, level)
-                        mean_file = os.path.join(cfg.out_dir, window.name, f'mean_{param}_{level}_{step}.grib')
-                        target_mean = common.target_factory(cfg.target, out_file=mean_file, fdb=cfg.fdb)
-                        template_mean = template_ensemble(cfg, param_type, template_ens, step, window.step, level, 'em')
-                        common.write_grib(target_mean, template_mean, mean_slice)
-
-                        std_slice = param_type.slice_dataset(std, level)
-                        std_file = os.path.join(cfg.out_dir, window.name, f'std_{param}_{level}_{step}.grib')
-                        target_std = common.target_factory(cfg.target, out_file=std_file, fdb=cfg.fdb)
-                        template_std = template_ensemble(cfg, param_type, template_ens, step, window.step, level, 'es')
-                        common.write_grib(target_std, template_std, std_slice)
-
-                cfg.fdb.flush()
-                recover.add_checkpoint(param, window.name, step)
+    iteration = functools.partial(ensms_iteration, cfg)
+    parallel_processing(iteration, plan, cfg.n_par, recover)
 
     recover.clean_file()
 

@@ -1,21 +1,18 @@
 #!/usr/bin/env python3
 import sys
-import os
 from datetime import datetime
-
-import pyfdb
+import functools
+import multiprocessing
 
 from pproc import common
-from pproc.prob.grib_helpers import construct_message
-from pproc.prob.math import ensemble_probability
-from pproc.prob.parameter import create_parameter
+from pproc.common.parallel import (
+    SynchronousExecutor,
+    QueueingExecutor,
+    parallel_data_retrieval,
+)
+from pproc.prob.parallel import prob_iteration
+from pproc.prob.config import ProbConfig
 from pproc.prob.window_manager import ThresholdWindowManager
-
-
-def write_grib(cfg, fdb, filename, template, data):
-    output_file = os.path.join(cfg.options["root_dir"], filename)
-    target = common.target_factory(cfg.options["target"], out_file=output_file, fdb=fdb)
-    common.write_grib(target, template, data)
 
 
 def main(args=None):
@@ -30,81 +27,65 @@ def main(args=None):
         help="write ensemble members to fdb/file",
     )
     args = parser.parse_args()
-    cfg = common.Config(args)
-
     date = datetime.strptime(args.date, "%Y%m%d%H")
-    nensembles = int(cfg.options.get("number_of_ensembles", 50))
-    global_input_cfg = cfg.options.get("global_input_keys", {})
-    global_output_cfg = cfg.options.get("global_output_keys", {})
+    cfg = ProbConfig(args)
 
-    fdb = pyfdb.FDB()
-    recovery = common.Recovery(cfg.options["root_dir"], args.config, date, args.recover)
+    manager = multiprocessing.Manager()
+    recovery = common.Recovery(
+        cfg.options["root_dir"], args.config, date, args.recover, manager.Lock()
+    )
     last_checkpoint = recovery.last_checkpoint()
+    executor = (
+        SynchronousExecutor()
+        if cfg.n_par_compute == 1
+        else QueueingExecutor(cfg.n_par_compute, cfg.window_queue_size)
+    )
 
-    for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
-        param = create_parameter(date, global_input_cfg, param_cfg, nensembles)
-        window_manager = ThresholdWindowManager(param_cfg, global_output_cfg)
-        if last_checkpoint and recovery.existing_checkpoint(
-            param_name, window_manager.unique_steps[0]
-        ):
-            if param_name not in last_checkpoint:
-                print(f"Recovery: skipping completed param {param_name}")
-                continue
-            last_checkpoint_step = int(
-                recovery.checkpoint_identifiers(last_checkpoint)[1]
+    with executor:
+        for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
+            param = common.create_parameter(
+                param_name, date, cfg.global_input_cfg, param_cfg, cfg.n_ensembles
             )
-            window_manager.update_from_checkpoint(last_checkpoint_step)
-            print(
-                f"Recovery: param {param_name} looping from step {window_manager.unique_steps[0]}"
+            window_manager = ThresholdWindowManager(param_cfg, cfg.global_output_cfg)
+            if last_checkpoint:
+                if param_name not in last_checkpoint:
+                    print(f"Recovery: skipping completed param {param_name}")
+                    continue
+                checkpointed_windows = [
+                    recovery.checkpoint_identifiers(x)[1]
+                    for x in recovery.checkpoints
+                    if param_name in x
+                ]
+                window_manager.delete_windows(checkpointed_windows)
+                print(
+                    f"Recovery: param {param_name} looping from step {window_manager.unique_steps[0]}"
+                )
+                last_checkpoint = None  # All remaining params have not been run
+
+            prob_partial = functools.partial(
+                prob_iteration, cfg, param, recovery, args.write_ensemble
             )
+            for step, retrieved_data in parallel_data_retrieval(
+                cfg.n_par_read,
+                window_manager.unique_steps,
+                [param],
+                cfg.n_par_compute > 1,
+            ):
+                with common.ResourceMeter(f"Process step {step}"):
+                    message_template, data = retrieved_data[0]
 
-        for step in window_manager.unique_steps:
-            with common.ResourceMeter(f"Parameter {param_name}, step {step}"):
-                message_template, data = param.retrieve_data(fdb, step)
-
-                completed_windows = window_manager.update_windows(step, data)
-                for window in completed_windows:
-                    if args.write_ensemble:
-                        for index in range(len(window.step_values)):
-                            data_type, number = param.type_and_number(index)
-                            print(
-                                f"Writing window values for param {param_name} and output "
-                                + f"type {data_type}, number {number} for step(s) {window.name}"
-                            )
-                            template = construct_message(
-                                message_template, window.grib_header()
-                            )
-                            template.set({"type": data_type, "number": number})
-                            write_grib(
-                                cfg,
-                                fdb,
-                                f"{param_name}_type{data_type}_number{number}_step{window.name}.grib",
-                                template,
-                                window.step_values[index],
-                            )
-                    for threshold in window_manager.thresholds(window):
-                        window_probability = ensemble_probability(
-                            window.step_values, threshold
+                    completed_windows = window_manager.update_windows(step, data)
+                    for window_id, window in completed_windows:
+                        executor.submit(
+                            prob_partial,
+                            message_template,
+                            window_id,
+                            window,
+                            window_manager.thresholds(window_id),
                         )
+            executor.wait()
 
-                        print(
-                            f"Writing probability for input param {param_name} and output "
-                            + f"param {threshold['out_paramid']} for step(s) {window.name}"
-                        )
-                        write_grib(
-                            cfg,
-                            fdb,
-                            f"{param_name}_{threshold['out_paramid']}_step{window.name}.grib",
-                            construct_message(
-                                message_template, window.grib_header(), threshold
-                            ),
-                            window_probability,
-                        )
-
-            fdb.flush()
-            recovery.add_checkpoint(param_name, step)
-
-    recovery.clean_file()
+        recovery.clean_file()
 
 
 if __name__ == "__main__":

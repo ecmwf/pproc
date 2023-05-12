@@ -40,10 +40,9 @@ def test_instantaneous_window():
 @pytest.mark.parametrize(
     "window_operation, values",
     [
-        ["min", [[1, 2, 3], [1, 2, 3]]],
-        ["max", [[2, 4, 6], [2, 4, 6]]],
-        ["sum", [[3, 6, 9], [3, 6, 9]]],
-        ["concatenate", [[1, 2, 3], [2, 4, 6], [2, 4, 6], [1, 2, 3]]],
+        ["minimum", [[1, 2, 3], [1, 2, 3]]],
+        ["maximum", [[2, 4, 6], [2, 4, 6]]],
+        ["add", [[3, 6, 9], [3, 6, 9]]]
     ],
 )
 def test_simple_op(window_operation, values):
@@ -56,8 +55,8 @@ def test_simple_op(window_operation, values):
 
 
 def test_multi_windows():
-    window = SimpleOpWindow({"range": [0, 2]}, "sum", False)
-    window2 = SimpleOpWindow({"range": [0, 2]}, "sum", False)
+    window = SimpleOpWindow({"range": [0, 2]}, "add", False)
+    window2 = SimpleOpWindow({"range": [0, 2]}, "add", False)
     step_values = np.array([[1, 2, 3], [2, 4, 6]])
     window.add_step_values(1, step_values)
     window2.add_step_values(1, step_values)

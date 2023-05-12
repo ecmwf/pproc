@@ -1,4 +1,5 @@
-from typing import Iterator
+from typing import Iterator, List, Union
+import bisect
 
 import numpy as np
 
@@ -9,6 +10,9 @@ from pproc.common import (
     DiffWindow,
     DiffDailyRateWindow,
     MeanWindow,
+    PrecomputedWindow,
+    AnyStep,
+    Step,
 )
 
 
@@ -26,7 +30,7 @@ def create_window(window_options, window_operation: str, include_start: bool) ->
         return Window(window_options, include_init=True)
     if window_operation == "diff":
         return DiffWindow(window_options)
-    if window_operation in ["min", "max", "sum", "concatenate"]:
+    if window_operation in ["minimum", "maximum", "add"]:
         return SimpleOpWindow(window_options, window_operation, include_start)
     if window_operation == "weightedsum":
         return WeightedSumWindow(window_options)
@@ -34,9 +38,11 @@ def create_window(window_options, window_operation: str, include_start: bool) ->
         return DiffDailyRateWindow(window_options)
     if window_operation == "mean":
         return MeanWindow(window_options, include_start)
+    if window_operation == "precomputed":
+        return PrecomputedWindow(window_options)
     raise ValueError(
-        f"Unsupported window operation {window_operation}. "
-        + "Supported types: diff, min, max, sum, weightedsum, diffdailyrate"
+        f"Unsupported window operation {window_operation}. Supported types: "
+        + "diff, minimum, maximum, add, weightedsum, diffdailyrate, mean and precomputed"
     )
 
 
@@ -53,25 +59,34 @@ class WindowManager:
         :param global_config: global dictionary of key values for grib_set in all windows
         :raises: RuntimeError if no window operation was provided, or could be derived
         """
-        self.windows = []
+        self.windows = {}
         self.unique_steps = set()
-        for steps in parameter["steps"]:
-            start_step = steps["start_step"]
-            end_step = steps["end_step"]
-            interval = steps["interval"]
+        self.create_windows(parameter, global_config)
+        if "steps" not in parameter:
+            for window in self.windows.values():
+                self.unique_steps.update(window.steps)
+        else:
+            for steps in parameter["steps"]:
+                start_step = steps["start_step"]
+                end_step = steps["end_step"]
+                interval = steps["interval"]
+                range_len = steps.get("range", None)
 
-            for step in range(start_step, end_step + 1, interval):
-                if step not in self.unique_steps:
-                    self.unique_steps.add(step)
+                if range_len is None:
+                    for step in range(start_step, end_step + 1, interval):
+                        if step not in self.unique_steps:
+                            self.unique_steps.add(step)
+                else:
+                    for sstep in range(start_step, end_step - range_len + 1, interval):
+                        self.unique_steps.add(Step(sstep, sstep + range_len))
 
         self.unique_steps = sorted(self.unique_steps)
-        self.create_windows(parameter, global_config)
 
     def create_windows(self, parameter, global_config):
         """
         Creates windows from parameter config and specified window operation
         """
-        for window_config in parameter["windows"]:
+        for window_index, window_config in enumerate(parameter["windows"]):
             for period in window_config["periods"]:
                 include_start = bool(window_config.get("include_start_step", False))
                 new_window = create_window(
@@ -79,9 +94,12 @@ class WindowManager:
                 )
                 new_window.config_grib_header = global_config.copy()
                 new_window.config_grib_header.update(window_config.get("grib_set", {}))
-                self.windows.append(new_window)
+                window_id = f"{new_window.name}_{window_index}"
+                if window_id in self.windows:
+                    raise Exception(f"Duplicate window {window_id}")
+                self.windows[window_id] = new_window
 
-    def update_windows(self, step: int, data: np.array) -> Iterator[Window]:
+    def update_windows(self, step: AnyStep, data: np.array) -> Iterator[Window]:
         """
         Updates all windows that include step with the step data values
 
@@ -89,12 +107,53 @@ class WindowManager:
         :param data: data for step
         :return: generator for completed windows
         """
-        new_windows = []
-        for window in self.windows:
+        for identifier, window in list(self.windows.items()):
             window.add_step_values(step, data)
 
             if window.reached_end_step(step):
-                yield window
-            else:
-                new_windows.append(window)
-        self.windows = new_windows
+                yield identifier, self.windows.pop(identifier)
+
+    def update_from_checkpoint(self, checkpoint_step: AnyStep) -> List[str]:
+        """
+        Find the earliest start step for windows not completed by
+        checkpoint and update list of unique steps. Remove all
+        completed windows and their associated thresholds.
+
+        :param checkpoint_step: step reached at last checkpoint
+        :return: list of deleted window identifiers
+        """
+        checkpoint_step = Step(checkpoint_step)
+        deleted_windows = []
+        new_start_step = checkpoint_step.next()
+        for identifier, window in list(self.windows.items()):
+            real_start = Step(window.start + int(not window.include_init))
+            if checkpoint_step.start >= window.end or (
+                checkpoint_step.is_range()
+                and checkpoint_step >= Step(window.start, window.end)
+            ):
+                del self.windows[identifier]
+                deleted_windows.append(identifier)
+            elif not checkpoint_step.is_range() and real_start < new_start_step:
+                new_start_step = real_start
+
+        start_index = bisect.bisect_left(self.unique_steps, new_start_step.decay())
+        self.unique_steps = self.unique_steps[start_index:]
+        return deleted_windows
+
+    def delete_windows(self, window_ids: List[str]):
+        """
+        Remove windows in the list of provided window identifiers and updates steps
+        to only those contained in remaining list of windows
+        
+        :param window_ids: list of identifiers of windows to delete
+        """
+        for identifier in window_ids:
+            del self.windows[identifier]
+
+        for step_index, step in enumerate(self.unique_steps):
+            in_any_window = np.any([step in window for window in self.windows.values()])
+            if in_any_window:
+                # Steps must be processed in order so stop at first step that appears
+                # in remaining window
+                break
+        self.unique_steps[:] = self.unique_steps[step_index:]

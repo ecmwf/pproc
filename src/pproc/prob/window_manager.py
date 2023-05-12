@@ -1,5 +1,5 @@
 import bisect
-from typing import Iterator
+from typing import Iterator, List
 import numpy as np
 
 from pproc.common import WindowManager, Window, create_window
@@ -44,9 +44,9 @@ class ThresholdWindowManager(WindowManager):
                     threshold["value"] = float(threshold["value"])
                 comparison = threshold["comparison"]
                 if "<" in comparison:
-                    operation = "min"
+                    operation = "minimum"
                 elif ">" in comparison:
-                    operation = "max"
+                    operation = "maximum"
                 else:
                     raise RuntimeError(f"Unknown threshold comparison {comparison}")
                 window_operations.setdefault(operation, []).append(threshold)
@@ -58,7 +58,8 @@ class ThresholdWindowManager(WindowManager):
         return window_operations
 
     def create_windows(self, parameter, global_config):
-        for window_config in parameter["windows"]:
+
+        for window_index, window_config in enumerate(parameter["windows"]):
             window_operations = self.window_operation_from_config(window_config)
 
             for operation, thresholds in window_operations.items():
@@ -69,14 +70,17 @@ class ThresholdWindowManager(WindowManager):
                     new_window.config_grib_header.update(
                         window_config.get("grib_set", {})
                     )
-                    self.windows.append(new_window)
-                    self.window_thresholds[new_window] = thresholds
+                    window_id = f"{new_window.name}_{operation}_{window_index}"
+                    if window_id in self.windows:
+                        raise Exception(f"Duplicate window {window_id}")
+                    self.windows[window_id] = new_window
+                    self.window_thresholds[window_id] = thresholds
 
-    def thresholds(self, window):
+    def thresholds(self, identifier):
         """
         Returns thresholds for window and deletes window from window:threshold dictionary
         """
-        return self.window_thresholds.pop(window)
+        return self.window_thresholds.pop(identifier)
 
     def update_from_checkpoint(self, checkpoint_step: int):
         """
@@ -86,32 +90,25 @@ class ThresholdWindowManager(WindowManager):
 
         :param checkpoint_step: step reached at last checkpoint
         """
-        new_start_step = checkpoint_step + 1
-        delete_windows = []
-        for window in self.windows:
-            real_start = window.start + int(not window.include_init)
-            if checkpoint_step >= window.end:
-                delete_windows.append(window)
-            elif real_start < new_start_step:
-                new_start_step = real_start
+        deleted_windows = super().update_from_checkpoint(checkpoint_step)
+        for window in deleted_windows:
+            del self.window_thresholds[window]
 
-        for window in delete_windows:
-            self.window_thresholds.pop(window)
-            self.windows.remove(window)
-        start_index = bisect.bisect_left(self.unique_steps, new_start_step)
-        self.unique_steps = self.unique_steps[start_index:]
+    def delete_windows(self, window_ids: List[str]):
+        super().delete_windows(window_ids)
+        for window_id in window_ids:
+            del self.window_thresholds[window_id]
 
 
 class AnomalyWindowManager(ThresholdWindowManager):
     def __init__(self, parameter, global_config):
-        self.standardised_anomaly_windows = []
         ThresholdWindowManager.__init__(self, parameter, global_config)
 
     def create_windows(self, parameter, global_config):
         super().create_windows(parameter, global_config)
         if "std_anomaly_windows" in parameter:
             # Create windows for standard anomaly
-            for window_config in parameter["std_anomaly_windows"]:
+            for window_index, window_config in enumerate(parameter["std_anomaly_windows"]):
                 window_operations = self.window_operation_from_config(window_config)
 
                 for operation, thresholds in window_operations.items():
@@ -124,8 +121,11 @@ class AnomalyWindowManager(ThresholdWindowManager):
                         new_window.config_grib_header.update(
                             window_config.get("grib_set", {})
                         )
-                        self.standardised_anomaly_windows.append(new_window)
-                        self.window_thresholds[new_window] = thresholds
+                        window_id = f"std_{new_window.name}_{operation}_{window_index}"
+                        if window_id in self.windows:
+                            raise Exception(f"Duplicate window {window_id}")
+                        self.windows[window_id] = new_window
+                        self.window_thresholds[window_id] = thresholds
 
     def update_windows(
         self, step, data: np.array, clim_mean: np.array, clim_std: np.array
@@ -140,41 +140,13 @@ class AnomalyWindowManager(ThresholdWindowManager):
         :param clim_std: standard deviation from climatology
         :return: generator for completed windows
         """
-        data = data - clim_mean
-        new_anom_windows = []
-        for window in self.windows:
-            window.add_step_values(step, data)
+        anomaly = data - clim_mean
+        std_anomaly = anomaly / clim_std
+        for identifier, window in list(self.windows.items()):
+            if identifier.split('_')[0] == "std":
+                window.add_step_values(step, std_anomaly)
+            else:
+                window.add_step_values(step, anomaly)
 
             if window.reached_end_step(step):
-                yield window
-            else:
-                new_anom_windows.append(window)
-        self.windows = new_anom_windows
-
-        new_std_anom_windows = []
-        data = data / clim_std
-        for window in self.standardised_anomaly_windows:
-            window.add_step_values(step, data)
-
-            if window.reached_end_step(step):
-                yield window
-            else:
-                new_std_anom_windows.append(window)
-        self.standardised_anomaly_windows = new_std_anom_windows
-
-    def update_from_checkpoint(self, checkpoint_step: int):
-        new_start_step = checkpoint_step + 1
-        for window_set in [self.windows, self.standardised_anomaly_windows]:
-            delete_windows = []
-            for window in window_set:
-                real_start = window.start + int(not window.include_init)
-                if checkpoint_step >= window.end:
-                    delete_windows.append(window)
-                elif real_start < new_start_step:
-                    new_start_step = real_start
-
-            for window in delete_windows:
-                self.window_thresholds.pop(window)
-                window_set.remove(window)
-        start_index = bisect.bisect_left(self.unique_steps, new_start_step)
-        self.unique_steps = self.unique_steps[start_index:]
+                yield identifier, self.windows.pop(identifier)
