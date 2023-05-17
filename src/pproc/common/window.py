@@ -2,7 +2,6 @@ import numpy as np
 from typing import Dict
 
 from pproc.common.steps import AnyStep, Step
-from pproc.prob.model_constants import LEG1_END
 
 
 class Window:
@@ -91,7 +90,8 @@ class Window:
         :return: dictionary of header keys and values
         """
         header = {}
-        if self.size() > 0 and self.start >= LEG1_END:
+        if self.size() > 0 and self.end >= 256:
+            # The range is encoded as two 8-bit integers
             header["unitOfTimeRange"] = 11
 
         header.update(self.config_grib_header)

@@ -3,7 +3,7 @@ import os
 
 setup(
     name="pproc",
-    version='0.2.0',
+    version='0.2.1',
     author='ECMWF',
     description="ECMWF Post-processing tools",
     packages=find_packages(where='src'),
