@@ -1,6 +1,9 @@
 import concurrent.futures as fut
 from typing import List
+import psutil
+import os
 import eccodes
+import sys
 
 from pproc.common import Parameter, ResourceMeter, io
 
@@ -124,7 +127,10 @@ def fdb_retrieve(
 
 
 def parallel_data_retrieval(
-    num_processes: int, steps: List[int], data_requesters: List[Parameter], grib_to_file: bool = False
+    num_processes: int,
+    steps: List[int],
+    data_requesters: List[Parameter],
+    grib_to_file: bool = False,
 ):
     """
     Multiprocess retrieve data function from multiple data requests
@@ -166,3 +172,15 @@ def parallel_data_retrieval(
                         if isinstance(result[0], str):
                             data_results[result_index][0] = io.read_template(result[0])
                 yield step, data_results
+
+
+def sigterm_handler(signum, handler):
+    print(f"{signum} received. Terminating process and child processes")
+    try:
+        parent = psutil.Process(os.getpid())
+    except psutil.NoSuchProcess:
+        return
+    children = parent.children(recursive=True)
+    for process in children:
+        process.send_signal(signum)
+    sys.exit(1)
