@@ -19,7 +19,11 @@ from pproc.prob.climatology import Climatology
 
 def main(args=None):
     sys.stdout.reconfigure(line_buffering=True)
-    signal.signal(signal.SIGTERM, sigterm_handler)
+    for sig in signal.Signals:
+        try:
+            signal.signal(sig, sigterm_handler)
+        except:
+            print(f'Skipping {sig}')
 
     parser = common.default_parser(
         "Compute instantaneous and period probabilites for anomalies"
