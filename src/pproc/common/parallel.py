@@ -175,12 +175,14 @@ def parallel_data_retrieval(
 
 
 def sigterm_handler(signum, handler):
-    print(f"{signum} received. Terminating process and child processes")
+    process_id = os.getpid()
+    print(f"Process {process_id} received {signum}")
     try:
-        parent = psutil.Process(os.getpid())
+        parent = psutil.Process(process_id)
     except psutil.NoSuchProcess:
         return
     children = parent.children(recursive=True)
     for process in children:
-        process.send_signal(signum)
+        process.terminate()
+    print(f'Process {process_id}, num children {len(children)}')
     sys.exit(1)
