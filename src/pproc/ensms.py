@@ -14,11 +14,12 @@ import sys
 from datetime import datetime
 import numpy as np
 import xarray as xr
+import signal
 
 import pyfdb
 
 from pproc import common
-from pproc.common.parallel import parallel_processing
+from pproc.common.parallel import parallel_processing, sigterm_handler
 
 
 def fdb_request_forecast(cfg, options, steps):
@@ -173,6 +174,7 @@ def ensms_iteration(config, param, options, window, step):
 
 def main(args=None):
     sys.stdout.reconfigure(line_buffering=True)
+    signal.signal(signal.SIGTERM, sigterm_handler)
 
     parser = common.default_parser('Calculate wind speed mean/standard deviation')
     args = parser.parse_args(args)

@@ -14,14 +14,14 @@ import sys
 from io import BytesIO
 from datetime import datetime
 import numpy as np
-import xarray as xr
+import signal
 
 import eccodes
 import pyfdb
 import mir
 
 from pproc import common
-from pproc.common.parallel import parallel_processing
+from pproc.common.parallel import parallel_processing, sigterm_handler
 
 
 def retrieve_messages(cfg, req, cached_file):
@@ -269,6 +269,7 @@ def wind_iteration(config, det_ws, eps_ws, eps_mean_std, levelist, name, step):
 
 def main(args=None):
     sys.stdout.reconfigure(line_buffering=True)
+    signal.signal(signal.SIGTERM, sigterm_handler)
 
     parser = common.default_parser("Calculate wind speed")
     parser.add_argument(
