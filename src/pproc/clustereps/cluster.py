@@ -246,6 +246,7 @@ def select_seeds(ncl, pc, r2seed, d2seed, rand):
         costmax = 0
         cost1 = 1 / jcl
         for _ in range(10):
+            jseed = indexes[jcl-1]
             while jseed in indexes[:jcl]:
                 jseed = rand.randint(nfld)
 
@@ -263,7 +264,7 @@ def select_seeds(ncl, pc, r2seed, d2seed, rand):
                 if d2 > d2seed:
                     costf += cost1
 
-                dotp = pc[0, jseed] * pc[0, kseed] + pc[1, jseed] + pc[1, kseed]
+                dotp = pc[0, jseed] * pc[0, kseed] + pc[1, jseed] * pc[1, kseed]
                 r2k = pc[0, kseed]**2 + pc[1, kseed]**2
                 if dotp < cospn * np.sqrt(r2j * r2k):
                     costf += cost1
