@@ -304,7 +304,7 @@ def compute_partition(pc, indexes, max_iter=100):
     _, nfld = pc.shape
     ncl = indexes.shape[0]
 
-    ind_cl = np.zeros(nfld, dtype=int)
+    ind_cl = -np.ones(nfld, dtype=int)
     n_fields = np.zeros(ncl, dtype=int)
 
     centroids = indexes.copy() if indexes.ndim == 2 else pc.T[indexes, :]
