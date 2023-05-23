@@ -170,7 +170,7 @@ class Random:
 
         See also `random.randrange`"""
         if stop is None:
-            start = 1
+            start = 0
             stop = int(start_or_stop)
         else:
             start = int(start_or_stop)
