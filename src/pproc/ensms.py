@@ -96,8 +96,8 @@ def template_ensemble(cfg, param_type, template, step, window_step, level, marst
 def write_grib(cfg, template, data):
     specifiers = [f"{specifier}{template[specifier]}" for specifier in cfg.file_specifiers]
     filename = f"{'_'.join(specifiers)}.grib"
-    output_file = os.path.join(cfg.options["root_dir"], filename)
-    target = common.target_factory(cfg.options["target"], out_file=output_file, fdb=cfg.fdb)
+    output_file = os.path.join(cfg.root_dir, filename)
+    target = common.target_factory(cfg.target, out_file=output_file, fdb=cfg.fdb)
     common.write_grib(target, template, data)
 
     
@@ -141,7 +141,6 @@ class ConfigExtreme(common.Config):
         self.date = datetime.strptime(str(self.options['fc_date']), "%Y%m%d%H")
         self.root_dir = self.options['root_dir']
         self.target = self.options['target']
-        self.out_dir = self.root_dir
         self.file_specifiers = self.options.get("file_specifiers", [
             "shortName", "type", "levtype", "level", "step"
         ])

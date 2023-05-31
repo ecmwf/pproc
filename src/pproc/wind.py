@@ -172,7 +172,7 @@ def eps_speed_template(cfg, template, step, number):
 def write_output(cfg, template, data):
     specifiers = [f"{specifier}{template[specifier]}" for specifier in cfg.file_specifiers]
     filename = f"{'_'.join(specifiers)}.grib"
-    file = os.path.join(cfg.out_dir, filename)
+    file = os.path.join(cfg.root_dir, filename)
     target_det = common.target_factory(cfg.target, out_file=file, fdb=cfg.fdb)
     common.write_grib(target_det, template, data)
 
@@ -184,7 +184,6 @@ class ConfigExtreme(common.Config):
         self.date = datetime.strptime(str(self.options["fc_date"]), "%Y%m%d%H")
         self.root_dir = self.options["root_dir"]
         self.target = self.options["target"]
-        self.out_dir = self.root_dir
         self.file_specifiers = self.options.get("file_specifiers", [
             "type", "levtype", "level", "step", "number"
         ])
