@@ -93,6 +93,14 @@ def template_ensemble(cfg, param_type, template, step, window_step, level, marst
     return template_ens
 
 
+def write_grib(cfg, template, data):
+    specifiers = [f"{specifier}{template[specifier]}" for specifier in cfg.file_specifiers]
+    filename = f"{'_'.join(specifiers)}.grib"
+    output_file = os.path.join(cfg.options["root_dir"], filename)
+    target = common.target_factory(cfg.options["target"], out_file=output_file, fdb=cfg.fdb)
+    common.write_grib(target, template, data)
+
+    
 class PressureLevels:
     def __init__(self, options):
         self.type = 'pl'
@@ -133,7 +141,10 @@ class ConfigExtreme(common.Config):
         self.date = datetime.strptime(str(self.options['fc_date']), "%Y%m%d%H")
         self.root_dir = self.options['root_dir']
         self.target = self.options['target']
-        self.out_dir = os.path.join(self.root_dir, self.date.strftime("%Y%m%d%H"))
+        self.out_dir = self.root_dir
+        self.file_specifiers = self.options.get("file_specifiers", [
+            "type", "param", "level", "step"
+        ])
 
         self.n_par = self.options.get("n_par", 1)
         self._fdb = None
@@ -157,16 +168,12 @@ def ensms_iteration(config, param, options, window, step):
     with common.ResourceMeter(f"Window {window.name}, step {step}: write output"):
         for level in param_type.levels:
             mean_slice = param_type.slice_dataset(mean, level)
-            mean_file = os.path.join(config.out_dir, window.name, f'mean_{param}_{level}_{step}.grib')
-            target_mean = common.target_factory(config.target, out_file=mean_file, fdb=config.fdb)
             template_mean = template_ensemble(config, param_type, template_ens, step, window.step, level, 'em')
-            common.write_grib(target_mean, template_mean, mean_slice)
+            write_grib(config, template_mean, mean_slice)
 
             std_slice = param_type.slice_dataset(std, level)
-            std_file = os.path.join(config.out_dir, window.name, f'std_{param}_{level}_{step}.grib')
-            target_std = common.target_factory(config.target, out_file=std_file, fdb=config.fdb)
             template_std = template_ensemble(config, param_type, template_ens, step, window.step, level, 'es')
-            common.write_grib(target_std, template_std, std_slice)
+            write_grib(config, template_std, std_slice)
 
     config.fdb.flush()
     return param, window.name, step

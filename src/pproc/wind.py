@@ -169,7 +169,9 @@ def eps_speed_template(cfg, template, step, number):
     return eps_template
 
 
-def write_output(cfg, filename, template, data):
+def write_output(cfg, template, data):
+    specifiers = [f"{specifier}{template[specifier]}" for specifier in cfg.file_specifiers]
+    filename = f"{'_'.join(specifiers)}.grib"
     file = os.path.join(cfg.out_dir, filename)
     target_det = common.target_factory(cfg.target, out_file=file, fdb=cfg.fdb)
     common.write_grib(target_det, template, data)
@@ -182,7 +184,10 @@ class ConfigExtreme(common.Config):
         self.date = datetime.strptime(str(self.options["fc_date"]), "%Y%m%d%H")
         self.root_dir = self.options["root_dir"]
         self.target = self.options["target"]
-        self.out_dir = os.path.join(self.root_dir, self.date.strftime("%Y%m%d%H"))
+        self.out_dir = self.root_dir
+        self.file_specifiers = self.options.get("file_specifiers", [
+            "type", "level", "step", "number"
+        ])
 
         self.n_par = self.options.get("n_par", 1)
         self._fdb = None
@@ -230,11 +235,9 @@ def wind_iteration_gen(config, tp, levelist, name, step, write_ws=True, mean_std
         template = messages[0]
         if write_ws:
             for number in numbers:
-                suffix = "" if tp == "det" else f"_{number}"
                 template = mk_template(config, template, step, number)
                 write_output(
                     config,
-                    f"{tp}_{levelist}_{name}_{step}{suffix}.grib",
                     template,
                     spd[step][number],
                 )
@@ -242,7 +245,6 @@ def wind_iteration_gen(config, tp, levelist, name, step, write_ws=True, mean_std
             template_mean = basic_template(config, template, step, "em")
             write_output(
                 config,
-                f"mean_{levelist}_{name}_{step}.grib",
                 template_mean,
                 np.mean(spd[step], axis=0),
             )
@@ -250,7 +252,6 @@ def wind_iteration_gen(config, tp, levelist, name, step, write_ws=True, mean_std
             template_std = basic_template(config, template, step, "es")
             write_output(
                 config,
-                f"std_{levelist}_{name}_{step}.grib",
                 template_std,
                 np.std(spd[step], axis=0),
             )

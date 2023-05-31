@@ -7,7 +7,9 @@ from pproc.prob.grib_helpers import construct_message
 from pproc.prob.math import ensemble_probability
 
 
-def write_grib(cfg, fdb, filename, template, data):
+def write_grib(cfg, fdb, template, data):
+    specifiers = [f"{specifier}{template[specifier]}" for specifier in cfg.file_specifiers]
+    filename = f"{'_'.join(specifiers)}.grib"
     output_file = os.path.join(cfg.options["root_dir"], filename)
     target = common.target_factory(cfg.options["target"], out_file=output_file, fdb=fdb)
     common.write_grib(target, template, data)
@@ -45,7 +47,6 @@ def prob_iteration(
                 write_grib(
                     cfg,
                     fdb,
-                    f"{param.name}_type{data_type}_number{number}_step{window.name}.grib",
                     template,
                     window.step_values[index],
                 )
@@ -59,7 +60,6 @@ def prob_iteration(
             write_grib(
                 cfg,
                 fdb,
-                f"{param.name}_{threshold['out_paramid']}_step{window.name}.grib",
                 construct_message(
                     message_template,
                     window.grib_header(),
