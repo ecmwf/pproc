@@ -17,6 +17,7 @@ from datetime import datetime, timedelta
 import functools
 import concurrent.futures as fut
 import multiprocessing
+import signal
 
 import pyfdb
 import eccodes
@@ -26,6 +27,7 @@ from pproc.common.parallel import (
     SynchronousExecutor,
     QueueingExecutor,
     parallel_data_retrieval,
+    sigterm_handler
 )
 
 
@@ -206,6 +208,7 @@ class ConfigExtreme(common.Config):
 
 def main(args=None):
     sys.stdout.reconfigure(line_buffering=True)
+    signal.signal(signal.SIGTERM, sigterm_handler)
 
     parser = common.default_parser(
         "Compute EFI and SOT from forecast and climatology for one parameter"

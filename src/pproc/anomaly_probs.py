@@ -2,12 +2,14 @@ import sys
 from datetime import datetime
 import functools
 import multiprocessing
+import signal
 
 from pproc import common
 from pproc.common.parallel import (
     SynchronousExecutor,
     QueueingExecutor,
     parallel_data_retrieval,
+    sigterm_handler,
 )
 from pproc.prob.parallel import prob_iteration
 from pproc.prob.config import ProbConfig
@@ -17,6 +19,7 @@ from pproc.prob.climatology import Climatology
 
 def main(args=None):
     sys.stdout.reconfigure(line_buffering=True)
+    signal.signal(signal.SIGTERM, sigterm_handler)
 
     parser = common.default_parser(
         "Compute instantaneous and period probabilites for anomalies"
