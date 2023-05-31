@@ -141,7 +141,7 @@ class ConfigExtreme(common.Config):
         self.date = datetime.strptime(str(self.options['fc_date']), "%Y%m%d%H")
         self.root_dir = self.options['root_dir']
         self.target = self.options['target']
-        self.file_specifiers = self.options.get("file_specifiers", [
+        self.file_specifiers = self.options.get("target_file_specifiers", [
             "shortName", "type", "levtype", "level", "step"
         ])
 
