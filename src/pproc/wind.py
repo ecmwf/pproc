@@ -186,7 +186,7 @@ class ConfigExtreme(common.Config):
         self.target = self.options["target"]
         self.out_dir = self.root_dir
         self.file_specifiers = self.options.get("file_specifiers", [
-            "type", "level", "step", "number"
+            "type", "levtype", "level", "step", "number"
         ])
 
         self.n_par = self.options.get("n_par", 1)
