@@ -11,5 +11,5 @@ class ProbConfig(common.Config):
         self.n_par_compute = self.options.get("n_par_compute", 1)
         self.window_queue_size = self.options.get("queue_size", self.n_par_compute)
         self.file_specifiers = self.options.get("file_specifiers", [
-            "type", "param", "step", "number"
+            "shortName", "type", "step", "number"
         ])
