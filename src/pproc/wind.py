@@ -169,24 +169,13 @@ def eps_speed_template(cfg, template, step, number):
     return eps_template
 
 
-def write_output(cfg, template, data):
-    specifiers = [f"{specifier}{template[specifier]}" for specifier in cfg.file_specifiers]
-    filename = f"{'_'.join(specifiers)}.grib"
-    file = os.path.join(cfg.root_dir, filename)
-    target_det = common.target_factory(cfg.target, out_file=file, fdb=cfg.fdb)
-    common.write_grib(target_det, template, data)
-
-
 class ConfigExtreme(common.Config):
     def __init__(self, args):
         super().__init__(args)
 
         self.date = datetime.strptime(str(self.options["fc_date"]), "%Y%m%d%H")
         self.root_dir = self.options["root_dir"]
-        self.target = self.options["target"]
-        self.file_specifiers = self.options.get("target_file_specifiers", [
-            "type", "levtype", "level", "step", "number"
-        ])
+        self.target = common.io.target_from_location(self.options['target'])
 
         self.n_par = self.options.get("n_par", 1)
         self._fdb = None
@@ -235,25 +224,14 @@ def wind_iteration_gen(config, tp, levelist, name, step, write_ws=True, mean_std
         if write_ws:
             for number in numbers:
                 template = mk_template(config, template, step, number)
-                write_output(
-                    config,
-                    template,
-                    spd[step][number],
-                )
+                common.write_grib(config.target, template, spd[step][number])
+
         if mean_std:
             template_mean = basic_template(config, template, step, "em")
-            write_output(
-                config,
-                template_mean,
-                np.mean(spd[step], axis=0),
-            )
+            common.write_grib(config.target, template_mean, np.mean(spd[step], axis=0))
 
             template_std = basic_template(config, template, step, "es")
-            write_output(
-                config,
-                template_std,
-                np.std(spd[step], axis=0),
-            )
+            common.write_grib(config.target, template_std, np.std(spd[step], axis=0))
 
 
 def wind_iteration(config, det_ws, eps_ws, eps_mean_std, levelist, name, step):

@@ -92,15 +92,6 @@ def template_ensemble(cfg, param_type, template, step, window_step, level, marst
         template_ens.set(key, value)
     return template_ens
 
-
-def write_grib(cfg, template, data):
-    specifiers = [f"{specifier}{template[specifier]}" for specifier in cfg.file_specifiers]
-    filename = f"{'_'.join(specifiers)}.grib"
-    output_file = os.path.join(cfg.root_dir, filename)
-    target = common.target_factory(cfg.target, out_file=output_file, fdb=cfg.fdb)
-    common.write_grib(target, template, data)
-
-    
 class PressureLevels:
     def __init__(self, options):
         self.type = 'pl'
@@ -140,10 +131,7 @@ class ConfigExtreme(common.Config):
         self.members = int(self.options['members'])
         self.date = datetime.strptime(str(self.options['fc_date']), "%Y%m%d%H")
         self.root_dir = self.options['root_dir']
-        self.target = self.options['target']
-        self.file_specifiers = self.options.get("target_file_specifiers", [
-            "shortName", "type", "levtype", "level", "step"
-        ])
+        self.target = common.io.target_from_location(self.options['target'])
 
         self.n_par = self.options.get("n_par", 1)
         self._fdb = None
@@ -168,11 +156,11 @@ def ensms_iteration(config, param, options, window, step):
         for level in param_type.levels:
             mean_slice = param_type.slice_dataset(mean, level)
             template_mean = template_ensemble(config, param_type, template_ens, step, window.step, level, 'em')
-            write_grib(config, template_mean, mean_slice)
+            common.write_grib(config.target, template_mean, mean_slice)
 
             std_slice = param_type.slice_dataset(std, level)
             template_std = template_ensemble(config, param_type, template_ens, step, window.step, level, 'es')
-            write_grib(config, template_std, std_slice)
+            common.write_grib(config.target, template_std, std_slice)
 
     config.fdb.flush()
     return param, window.name, step
