@@ -140,6 +140,7 @@ def main(args: List[str] = sys.argv[1:]):
     parser = get_parser()
     args = parser.parse_args(args)
     config = QuantilesConfig(args)
+    target = target_from_location(args.out_quantiles)
 
     for param in config.params:
         for win_params in config.windows:
@@ -151,7 +152,6 @@ def main(args: List[str] = sys.argv[1:]):
                     template, ens = read_ensemble(config.sources, args.in_ens, config.num_members, **in_keys)
                 with ResourceMeter(f"{label}Quantiles"):
                     out_keys = param.out_keys(config.out_keys)
-                    target = target_from_location(args.out_quantiles)
                     do_quantiles(ens, template, target, param.out_paramid, n=config.num_quantiles, out_keys=out_keys)
                 del ens
 
