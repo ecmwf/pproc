@@ -3,6 +3,7 @@ from io import BytesIO
 import re
 import yaml
 import os
+from filelock import FileLock
 
 import numpy as np
 import xarray as xr
@@ -307,16 +308,34 @@ class NullTarget(Target):
 
 class FileTarget(Target):
     def __init__(self, path, mode="wb"):
-        self.file = open(path, mode)
+        self.path = path 
+        self.mode = mode
+        self._file = None
+        self._lock = None
+
+    @property
+    def file(self):
+        if self._file is None:
+            self._file = open(self.path, self.mode)
+        return self._file
+            
+    @property
+    def lock(self):
+        if self._lock is None:
+            self._lock = FileLock(self.path + ".lock")
+        return self._lock
 
     def __enter__(self):
+        self.lock.acquire()
         return self.file.__enter__()
 
     def __exit__(self, exc_type, exc_value, traceback):
+        self.lock.release()
         return self.file.__exit__(exc_type, exc_value, traceback)
 
     def write(self, message):
-        message.write_to(self.file)
+        with self.lock:
+            message.write_to(self.file)
 
 
 class FileSetTarget(Target):
@@ -325,19 +344,26 @@ class FileSetTarget(Target):
         self.mode = mode
         self.stack = ExitStack()
         self.files = {}
+        self.file_locks = {}
 
     def __enter__(self):
+        for lock in self.file_locks.values():
+            lock.acquire()
         self.stack.__enter__()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
+        for lock in self.file_locks.values():
+            lock.release()
         return self.stack.__exit__(exc_type, exc_value, traceback)
 
     def write(self, message):
         path = self.location.format_map(message)
         if path not in self.files:
             self.files[path] = self.stack.enter_context(open(path, self.mode))
-        message.write_to(self.files[path])
+            self.file_locks[path] = FileLock(path + ".lock")
+        with self.file_locks[path]:
+            message.write_to(self.files[path])
 
 
 class FDBTarget(Target):

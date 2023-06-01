@@ -10,4 +10,3 @@ class ProbConfig(common.Config):
         self.n_par_read = self.options.get("n_par_read", 1)
         self.n_par_compute = self.options.get("n_par_compute", 1)
         self.window_queue_size = self.options.get("queue_size", self.n_par_compute)
-        self.target = common.io.target_from_location(self.options["target"])

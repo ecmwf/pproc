@@ -24,11 +24,11 @@ def main(args=None):
     parser = common.default_parser("Compute instantaneous and period probabilites")
     parser.add_argument("-d", "--date", required=True, help="Forecast date")
     parser.add_argument(
-        "--write_ensemble",
-        action="store_true",
-        default=False,
-        help="write ensemble members to fdb/file",
+        "--out_ensemble",
+        default="null:",
+        help="Target for ensemble members",
     )
+    parser.add_argument("--out_prob", required=True, help="Target for threshold probabilities")
     args = parser.parse_args()
     date = datetime.strptime(args.date, "%Y%m%d%H")
     cfg = ProbConfig(args)
@@ -43,6 +43,8 @@ def main(args=None):
         if cfg.n_par_compute == 1
         else QueueingExecutor(cfg.n_par_compute, cfg.window_queue_size)
     )
+    out_ensemble = common.io.target_from_location(args.out_ensemble)
+    out_prob = common.io.target_from_location(args.out_prob)
 
     with executor:
         for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
@@ -66,7 +68,7 @@ def main(args=None):
                 last_checkpoint = None  # All remaining params have not been run
 
             prob_partial = functools.partial(
-                prob_iteration, cfg, param, recovery, args.write_ensemble
+                prob_iteration, param, recovery, out_ensemble, out_prob,
             )
             for step, retrieved_data in parallel_data_retrieval(
                 cfg.n_par_read,

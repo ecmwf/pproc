@@ -175,7 +175,6 @@ class ConfigExtreme(common.Config):
 
         self.date = datetime.strptime(str(self.options["fc_date"]), "%Y%m%d%H")
         self.root_dir = self.options["root_dir"]
-        self.target = common.io.target_from_location(self.options["target"])
 
         self.n_par = self.options.get("n_par", 1)
         self._fdb = None
@@ -186,8 +185,7 @@ class ConfigExtreme(common.Config):
         self.interpolation_keys = self.options.get("interpolation_keys", None)
         self.vod2uv = bool(self.options.get("vod2uv", False))
 
-        if args.eps_ws or args.eps_mean_std:
-            self.members = int(self.options["members"])
+        self.members = int(self.options["members"]) if "members" in self.options else None
 
     @property
     def fdb(self):
@@ -196,8 +194,8 @@ class ConfigExtreme(common.Config):
         return self._fdb
 
 
-def wind_iteration_gen(config, tp, levelist, name, step, write_ws=True, mean_std=False):
-    if not write_ws and not mean_std:
+def wind_iteration_gen(config, tp, levelist, name, step, out_ws, out_mean=common.io.NullTarget, out_std=common.io.NullTarget):
+    if np.all([isinstance(x, common.io.NullTarget) for x in [out_ws, out_mean, out_std]]):
         return
 
     fdb_req = fdb_request_det if tp == "det" else fdb_request_ens
@@ -221,25 +219,26 @@ def wind_iteration_gen(config, tp, levelist, name, step, write_ws=True, mean_std
         f"Window {name}, step {step}, {tpname}: write output"
     ):
         template = messages[0]
-        if write_ws:
+        if not isinstance(out_ws, common.io.NullTarget):
             for number in numbers:
                 template = mk_template(config, template, step, number)
-                common.write_grib(config.target, template, spd[step][number])
+                common.write_grib(out_ws, template, spd[step][number])
 
-        if mean_std:
+        if not isinstance(out_mean, common.io.NullTarget):
             template_mean = basic_template(config, template, step, "em")
-            common.write_grib(config.target, template_mean, np.mean(spd[step], axis=0))
+            common.write_grib(out_mean, template_mean, np.mean(spd[step], axis=0))
 
+        if not isinstance(out_std, common.io.NullTarget):
             template_std = basic_template(config, template, step, "es")
-            common.write_grib(config.target, template_std, np.std(spd[step], axis=0))
+            common.write_grib(out_std, template_std, np.std(spd[step], axis=0))
 
 
-def wind_iteration(config, det_ws, eps_ws, eps_mean_std, levelist, name, step):
+def wind_iteration(config, det_ws, eps_ws, eps_mean, eps_std, levelist, name, step):
     # calculate wind speed for type=fc (deterministic)
-    wind_iteration_gen(config, "det", levelist, name, step, det_ws, False)
+    wind_iteration_gen(config, "det", levelist, name, step, det_ws, common.io.NullTarget(), common.io.NullTarget())
 
     # calculate wind speed, mean/stddev of wind speed for type=pf/cf (eps)
-    wind_iteration_gen(config, "eps", levelist, name, step, eps_ws, eps_mean_std)
+    wind_iteration_gen(config, "eps", levelist, name, step, eps_ws, eps_mean, eps_std)
 
     config.fdb.flush()
     return levelist, name, step
@@ -251,23 +250,18 @@ def main(args=None):
 
     parser = common.default_parser("Calculate wind speed")
     parser.add_argument(
-        "--det_ws", action="store_true", default=False, help="Wind speed for type=fc"
+        "--out_det_ws", default="null:", help="Target for wind speed for type=fc"
     )
     parser.add_argument(
-        "--eps_ws", action="store_true", default=False, help="Wind speed for type=pf/cf"
+        "--out_eps_ws", default="null:", help="Target for wind speed for type=pf/cf"
     )
     parser.add_argument(
-        "--eps_mean_std",
-        action="store_true",
-        default=False,
-        help="Wind speed mean/std for type=pf/cf. "
-        + "Default option if no options are set.",
+        "--out_eps_mean", required=True, help="Target for mean wind speed for type=pf/cf"
+    )
+    parser.add_argument(
+        "--out_eps_std", requied=True, help="Target for wind speed std for type=pf/cf"
     )
     args = parser.parse_args(args)
-
-    # If no arguments are selected then run eps_mean_std by default
-    if not any([args.det_ws, args.eps_ws, args.eps_mean_std]):
-        args.eps_mean_std = True
 
     cfg = ConfigExtreme(args)
     recovery = common.Recovery(cfg.root_dir, args.config, cfg.date, args.recover)
@@ -287,7 +281,11 @@ def main(args=None):
 
                 plan.append((levelist, window.name, step))
 
-    iteration = functools.partial(wind_iteration, cfg, args.det_ws, args.eps_ws, args.eps_mean_std)
+    det_ws = common.io.target_from_location(args.out_det_ws)
+    eps_ws = common.io.target_from_location(args.out_eps_ws)
+    eps_mean = common.io.target_from_location(args.out_eps_mean)
+    eps_std = common.io.target_from_location(args.out_eps_std)
+    iteration = functools.partial(wind_iteration, cfg, det_ws, eps_ws, eps_mean, eps_std)
     parallel_processing(iteration, plan, cfg.n_par, recovery)
 
     recovery.clean_file()

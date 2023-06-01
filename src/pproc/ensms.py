@@ -132,7 +132,6 @@ class ConfigExtreme(common.Config):
         self.members = int(self.options['members'])
         self.date = datetime.strptime(str(self.options['fc_date']), "%Y%m%d%H")
         self.root_dir = self.options['root_dir']
-        self.target = common.io.target_from_location(self.options['target'])
 
         self.n_par = self.options.get("n_par", 1)
         self._fdb = None
@@ -146,7 +145,7 @@ class ConfigExtreme(common.Config):
         return self._fdb
 
 
-def ensms_iteration(config, param, options, window, step):
+def ensms_iteration(config, out_mean, out_std, param, options, window, step):
     param_type = parameters_manager(options)
 
     # calculate mean/stddev of wind speed for type=pf/cf (eps)
@@ -157,11 +156,11 @@ def ensms_iteration(config, param, options, window, step):
         for level in param_type.levels:
             mean_slice = param_type.slice_dataset(mean, level)
             template_mean = template_ensemble(config, param_type, template_ens, step, window.step, level, 'em')
-            common.write_grib(config.target, template_mean, mean_slice)
+            common.write_grib(out_mean, template_mean, mean_slice)
 
             std_slice = param_type.slice_dataset(std, level)
             template_std = template_ensemble(config, param_type, template_ens, step, window.step, level, 'es')
-            common.write_grib(config.target, template_std, std_slice)
+            common.write_grib(out_std, template_std, std_slice)
 
     config.fdb.flush()
     return param, window.name, step
@@ -171,7 +170,13 @@ def main(args=None):
     sys.stdout.reconfigure(line_buffering=True)
     signal.signal(signal.SIGTERM, sigterm_handler)
 
-    parser = common.default_parser('Calculate wind speed mean/standard deviation')
+    parser = common.default_parser('Calculate mean/standard deviation')
+    parser.add_argument(
+        "--out_eps_mean", required=True, help="Target for mean "
+    )
+    parser.add_argument(
+        "--out_eps_std", requied=True, help="Target for standard deviation"
+    )
     args = parser.parse_args(args)
     cfg = ConfigExtreme(args)
     recover = common.Recovery(cfg.root_dir, args.config, cfg.date, args.recover)
@@ -188,7 +193,9 @@ def main(args=None):
 
                 plan.append((param, options, window, step))
 
-    iteration = functools.partial(ensms_iteration, cfg)
+    out_mean = common.io.target_from_location(args.out_eps_mean)
+    out_std = common.io.target_from_location(args.out_eps_std)
+    iteration = functools.partial(ensms_iteration, cfg, out_mean, out_std)
     parallel_processing(iteration, plan, cfg.n_par, recover)
 
     recover.clean_file()

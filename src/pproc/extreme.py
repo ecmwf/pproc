@@ -129,7 +129,7 @@ def sot_template(template, sot):
 
 
 def efi_sot(
-    cfg, param, climatology, efi_vars, recovery, template_filename, window_id, window
+    efi_target, sot_target, param, climatology, efi_vars, recovery, template_filename, window_id, window
 ):
     with common.ResourceMeter(f"Window {window.suffix}, computing EFI/SOT"):
 
@@ -149,17 +149,17 @@ def efi_sot(
         if control_index is not None:
             efi_control = extreme.efi(clim, window.step_values[control_index], efi_vars.eps)
             template_efi = efi_template_control(template_extreme)
-            common.write_grib(cfg.target, template_efi, efi_control)
+            common.write_grib(efi_target, template_efi, efi_control)
 
         efi = extreme.efi(clim, window.step_values, efi_vars.eps)
         template_efi = efi_template(template_extreme)
-        common.write_grib(cfg.target, template_efi, efi)
+        common.write_grib(efi_target, template_efi, efi)
 
         sot = {}
         for perc in efi_vars.sot:
             sot[perc] = extreme.sot(clim, window.step_values, perc, efi_vars.eps)
             template_sot = sot_template(template_extreme, perc)
-            common.write_grib(cfg.target, template_sot, sot[perc])
+            common.write_grib(sot_target, template_sot, sot[perc])
 
         fdb.flush()
         recovery.add_checkpoint(param.name, window_id)
@@ -181,7 +181,6 @@ class ConfigExtreme(common.Config):
 
         self.root_dir = self.options["root_dir"]
 
-        self.target = common.io.target_from_location(self.options["target"])
         self.global_input_cfg = self.options.get("global_input_keys", {})
         self.global_output_cfg = self.options.get("global_output_keys", {})
 
@@ -194,7 +193,13 @@ def main(args=None):
     signal.signal(signal.SIGTERM, sigterm_handler)
 
     parser = common.default_parser(
-        "Compute EFI and SOT from forecast and climatology for one parameter"
+        "Compute EFI and SOT from forecast and climatology"
+    )
+    parser.add_argument(
+        "--out_efi", required=True, help="Target for EFI"
+    )
+    parser.add_argument(
+        "--out_sot", requied=True, help="Target for SOT"
     )
     args = parser.parse_args(args)
     cfg = ConfigExtreme(args)
@@ -208,6 +213,8 @@ def main(args=None):
         if cfg.n_par_compute == 1
         else QueueingExecutor(cfg.n_par_compute, cfg.window_queue_size)
     )
+    out_efi = common.io.target_from_location(args.out_efi)
+    out_sot = common.io.target_from_location(args.out_sot)
 
     with executor:
         for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
@@ -233,7 +240,7 @@ def main(args=None):
                 last_checkpoint = None  # All remaining params have not been run
 
             efi_partial = functools.partial(
-                efi_sot, cfg, param, param_cfg["climatology"], efi_vars, recovery
+                efi_sot, out_efi, out_sot, param, param_cfg["climatology"], efi_vars, recovery
             )
             for step, retrieved_data in parallel_data_retrieval(
                 cfg.n_par_read,

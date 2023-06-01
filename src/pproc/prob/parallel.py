@@ -8,10 +8,10 @@ from pproc.prob.math import ensemble_probability
 
 
 def prob_iteration(
-    cfg,
     param,
     recovery,
-    write_ensemble,
+    out_ensemble,
+    out_prob,
     template_filename,
     window_id,
     window,
@@ -27,7 +27,7 @@ def prob_iteration(
             else common.io.read_template(template_filename)
         )
 
-        if write_ensemble:
+        if not isinstance(out_ensemble, common.io.NullTarget):
             for index in range(len(window.step_values)):
                 data_type, number = param.type_and_number(index)
                 print(
@@ -36,7 +36,7 @@ def prob_iteration(
                 )
                 template = construct_message(message_template, window.grib_header())
                 template.set({"type": data_type, "number": number})
-                common.write_grib(cfg.target, template, window.step_values[index])
+                common.write_grib(out_ensemble, template, window.step_values[index])
 
         for threshold in thresholds:
             window_probability = ensemble_probability(window.step_values, threshold)
@@ -46,7 +46,7 @@ def prob_iteration(
                 + f"param {threshold['out_paramid']} for step(s) {window.name}"
             )
             common.write_grib(
-                cfg.target,
+                out_prob,
                 construct_message(
                     message_template,
                     window.grib_header(),
