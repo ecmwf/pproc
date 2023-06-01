@@ -149,31 +149,17 @@ def efi_sot(
         if control_index is not None:
             efi_control = extreme.efi(clim, window.step_values[control_index], efi_vars.eps)
             template_efi = efi_template_control(template_extreme)
-
-            out_file = os.path.join(
-                cfg.out_dir, f"efi_control_{param.name}_{window.suffix}.grib"
-            )
-            target = common.target_factory(cfg.target, out_file=out_file, fdb=fdb)
-            common.write_grib(target, template_efi, efi_control)
+            common.write_grib(cfg.target, template_efi, efi_control)
 
         efi = extreme.efi(clim, window.step_values, efi_vars.eps)
         template_efi = efi_template(template_extreme)
-
-        out_file = os.path.join(cfg.out_dir, f"efi_{param.name}_{window.suffix}.grib")
-        target = common.target_factory(cfg.target, out_file=out_file, fdb=fdb)
-        common.write_grib(target, template_efi, efi)
+        common.write_grib(cfg.target, template_efi, efi)
 
         sot = {}
         for perc in efi_vars.sot:
-
             sot[perc] = extreme.sot(clim, window.step_values, perc, efi_vars.eps)
             template_sot = sot_template(template_extreme, perc)
-
-            out_file = os.path.join(
-                cfg.out_dir, f"sot{perc}_{param.name}_{window.suffix}.grib"
-            )
-            target = common.target_factory(cfg.target, out_file=out_file, fdb=fdb)
-            common.write_grib(target, template_sot, sot[perc])
+            common.write_grib(cfg.target, template_sot, sot[perc])
 
         fdb.flush()
         recovery.add_checkpoint(param.name, window_id)
@@ -194,11 +180,8 @@ class ConfigExtreme(common.Config):
         self.window_queue_size = self.options.get("queue_size", self.n_par_compute)
 
         self.root_dir = self.options["root_dir"]
-        self.out_dir = os.path.join(
-            self.root_dir, "efi_test", self.fc_date.strftime("%Y%m%d%H")
-        )
 
-        self.target = self.options["target"]
+        self.target = common.io.target_from_location(self.options["target"])
         self.global_input_cfg = self.options.get("global_input_keys", {})
         self.global_output_cfg = self.options.get("global_output_keys", {})
 
