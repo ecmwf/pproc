@@ -175,7 +175,7 @@ class ConfigExtreme(common.Config):
 
         self.date = datetime.strptime(str(self.options["fc_date"]), "%Y%m%d%H")
         self.root_dir = self.options["root_dir"]
-        self.target = common.io.target_from_location(self.options['target'])
+        self.target = common.io.target_from_location(self.options["target"])
 
         self.n_par = self.options.get("n_par", 1)
         self._fdb = None

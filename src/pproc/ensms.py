@@ -92,6 +92,7 @@ def template_ensemble(cfg, param_type, template, step, window_step, level, marst
         template_ens.set(key, value)
     return template_ens
 
+
 class PressureLevels:
     def __init__(self, options):
         self.type = 'pl'
