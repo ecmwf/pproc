@@ -4,6 +4,7 @@ import psutil
 import os
 import eccodes
 import sys
+import multiprocessing
 
 from pproc.common import Parameter, ResourceMeter, io
 
@@ -184,3 +185,20 @@ def sigterm_handler(signum, handler):
     for process in children:
         process.terminate()
     sys.exit()
+
+
+_manager = None
+
+
+def shared_lock():
+    global _manager
+    if _manager is None:
+        _manager = multiprocessing.Manager()
+    return _manager.Lock()
+
+
+def shared_list():
+    global _manager
+    if _manager is None:
+        _manager = multiprocessing.Manager()
+    return _manager.list()

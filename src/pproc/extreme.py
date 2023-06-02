@@ -10,16 +10,12 @@
 # does it submit to any jurisdiction.
 
 
-import os
 import numpy as np
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 import functools
-import concurrent.futures as fut
-import multiprocessing
 import signal
 
-import pyfdb
 import eccodes
 from meteokit import extreme
 from pproc import common
@@ -27,7 +23,9 @@ from pproc.common.parallel import (
     SynchronousExecutor,
     QueueingExecutor,
     parallel_data_retrieval,
-    sigterm_handler
+    sigterm_handler, 
+    shared_list, 
+    shared_lock
 )
 
 
@@ -128,19 +126,17 @@ def sot_template(template, sot):
     return template_sot
 
 
-def efi_sot(
-    efi_target, sot_target, param, climatology, efi_vars, recovery, template_filename, window_id, window
+def efi_sot(cfg, param, climatology, efi_vars, recovery, template_filename, window_id, window
 ):
     with common.ResourceMeter(f"Window {window.suffix}, computing EFI/SOT"):
 
-        fdb = pyfdb.FDB()
         message_template = (
             template_filename
             if isinstance(template_filename, eccodes.highlevel.message.GRIBMessage)
             else common.io.read_template(template_filename)
         )
 
-        clim, template_clim = read_clim(fdb, climatology, window)
+        clim, template_clim = read_clim(common.io.fdb(), climatology, window)
         print(f"Climatology array: {clim.shape}")
 
         template_extreme = extreme_template(window, message_template, template_clim)
@@ -149,19 +145,19 @@ def efi_sot(
         if control_index is not None:
             efi_control = extreme.efi(clim, window.step_values[control_index], efi_vars.eps)
             template_efi = efi_template_control(template_extreme)
-            common.write_grib(efi_target, template_efi, efi_control)
+            common.write_grib(cfg.out_efi, template_efi, efi_control)
 
         efi = extreme.efi(clim, window.step_values, efi_vars.eps)
         template_efi = efi_template(template_extreme)
-        common.write_grib(efi_target, template_efi, efi)
+        common.write_grib(cfg.out_efi, template_efi, efi)
 
         sot = {}
         for perc in efi_vars.sot:
             sot[perc] = extreme.sot(clim, window.step_values, perc, efi_vars.eps)
             template_sot = sot_template(template_extreme, perc)
-            common.write_grib(sot_target, template_sot, sot[perc])
+            common.write_grib(cfg.sot_target, template_sot, sot[perc])
 
-        fdb.flush()
+        common.io.fdb.flush()
         recovery.add_checkpoint(param.name, window_id)
 
 
@@ -184,6 +180,13 @@ class ConfigExtreme(common.Config):
         self.global_input_cfg = self.options.get("global_input_keys", {})
         self.global_output_cfg = self.options.get("global_output_keys", {})
 
+        for attr in ["out_efi", "out_sot"]:
+            location = getattr(args, attr)
+            target = common.io.target_from_location(location)
+            if self.n_par_compute > 1 and type(target) in [common.io.FileTarget, common.io.FileSetTarget]:
+                target.track_truncated = shared_list()
+            self.__setattr__(attr, target)
+
         print(f"Forecast date is {self.fc_date}")
         print(f"Root directory is {self.root_dir}")
 
@@ -203,9 +206,8 @@ def main(args=None):
     )
     args = parser.parse_args(args)
     cfg = ConfigExtreme(args)
-    manager = multiprocessing.Manager()
     recovery = common.Recovery(
-        cfg.root_dir, args.config, cfg.fc_date, args.recover, manager.Lock()
+        cfg.root_dir, args.config, cfg.fc_date, args.recover, shared_lock()
     )
     last_checkpoint = recovery.last_checkpoint()
     executor = (
@@ -213,8 +215,6 @@ def main(args=None):
         if cfg.n_par_compute == 1
         else QueueingExecutor(cfg.n_par_compute, cfg.window_queue_size)
     )
-    out_efi = common.io.target_from_location(args.out_efi)
-    out_sot = common.io.target_from_location(args.out_sot)
 
     with executor:
         for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
@@ -240,7 +240,7 @@ def main(args=None):
                 last_checkpoint = None  # All remaining params have not been run
 
             efi_partial = functools.partial(
-                efi_sot, out_efi, out_sot, param, param_cfg["climatology"], efi_vars, recovery
+                efi_sot, cfg, param, param_cfg["climatology"], efi_vars, recovery
             )
             for step, retrieved_data in parallel_data_retrieval(
                 cfg.n_par_read,

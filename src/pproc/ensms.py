@@ -9,17 +9,13 @@
 # granted to it by virtue of its status as an intergovernmental organisation nor
 # does it submit to any jurisdiction.
 import functools
-import os
 import sys
 from datetime import datetime
-import numpy as np
 import xarray as xr
 import signal
 
-import pyfdb
-
 from pproc import common
-from pproc.common.parallel import parallel_processing, sigterm_handler
+from pproc.common.parallel import parallel_processing, sigterm_handler, shared_list
 
 
 def fdb_request_forecast(cfg, options, steps):
@@ -138,14 +134,21 @@ class ConfigExtreme(common.Config):
 
         self.parameters = self.options['parameters']
 
+        for attr in ["out_eps_mean", "out_eps_std"]:
+            location = getattr(args, attr)
+            target = common.io.target_from_location(location)
+            if self.n_par > 1 and type(target) in [common.io.FileTarget, common.io.FileSetTarget]:
+                target.track_truncated = shared_list()
+            self.__setattr__(attr, target)
+
     @property
     def fdb(self):
         if self._fdb is None:
-            self._fdb = pyfdb.FDB()
+            self._fdb = common.io.fdb()
         return self._fdb
 
 
-def ensms_iteration(config, out_mean, out_std, param, options, window, step):
+def ensms_iteration(config, param, options, window, step):
     param_type = parameters_manager(options)
 
     # calculate mean/stddev of wind speed for type=pf/cf (eps)
@@ -156,13 +159,13 @@ def ensms_iteration(config, out_mean, out_std, param, options, window, step):
         for level in param_type.levels:
             mean_slice = param_type.slice_dataset(mean, level)
             template_mean = template_ensemble(config, param_type, template_ens, step, window.step, level, 'em')
-            common.write_grib(out_mean, template_mean, mean_slice)
+            common.write_grib(config.out_eps_mean, template_mean, mean_slice)
 
             std_slice = param_type.slice_dataset(std, level)
             template_std = template_ensemble(config, param_type, template_ens, step, window.step, level, 'es')
-            common.write_grib(out_std, template_std, std_slice)
+            common.write_grib(config.out_eps_std, template_std, std_slice)
 
-    config.fdb.flush()
+    common.io.fdb().flush()
     return param, window.name, step
 
 
@@ -172,10 +175,10 @@ def main(args=None):
 
     parser = common.default_parser('Calculate mean/standard deviation')
     parser.add_argument(
-        "--out_eps_mean", required=True, help="Target for mean "
+        "--out_eps_mean", required=True, help="Target for mean"
     )
     parser.add_argument(
-        "--out_eps_std", requied=True, help="Target for standard deviation"
+        "--out_eps_std", required=True, help="Target for standard deviation"
     )
     args = parser.parse_args(args)
     cfg = ConfigExtreme(args)
@@ -193,9 +196,7 @@ def main(args=None):
 
                 plan.append((param, options, window, step))
 
-    out_mean = common.io.target_from_location(args.out_eps_mean)
-    out_std = common.io.target_from_location(args.out_eps_std)
-    iteration = functools.partial(ensms_iteration, cfg, out_mean, out_std)
+    iteration = functools.partial(ensms_iteration, cfg)
     parallel_processing(iteration, plan, cfg.n_par, recover)
 
     recover.clean_file()

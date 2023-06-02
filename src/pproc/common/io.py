@@ -309,16 +309,27 @@ class NullTarget(Target):
 class FileTarget(Target):
     def __init__(self, path, mode="wb"):
         self.path = path 
-        self.mode = mode
+        self._mode = mode
         self._file = None
         self._lock = None
+        self.track_truncated = None
+
+    @property
+    def mode(self):
+        if self.track_truncated is None:
+            return self._mode
+        if self.path not in self.track_truncated:
+            self.track_truncated += [self.path]
+            return self._mode
+        return "ab"
 
     @property
     def file(self):
         if self._file is None:
-            self._file = open(self.path, self.mode)
+            with self.lock:
+                self._file = open(self.path, self.mode)
         return self._file
-            
+
     @property
     def lock(self):
         if self._lock is None:
@@ -326,11 +337,9 @@ class FileTarget(Target):
         return self._lock
 
     def __enter__(self):
-        self.lock.acquire()
         return self.file.__enter__()
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.lock.release()
         return self.file.__exit__(exc_type, exc_value, traceback)
 
     def write(self, message):
@@ -341,34 +350,46 @@ class FileTarget(Target):
 class FileSetTarget(Target):
     def __init__(self, location, mode="wb"):
         self.location = location
-        self.mode = mode
+        self._mode = mode
         self.stack = ExitStack()
         self.files = {}
         self.file_locks = {}
+        self.track_truncated = None
+    
+    def mode(self, path):
+        if self.track_truncated is None:
+            return self._mode
+        if path not in self.track_truncated:
+            self.track_truncated += [path]
+            return self._mode
+        return "ab"
 
     def __enter__(self):
-        for lock in self.file_locks.values():
-            lock.acquire()
         self.stack.__enter__()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        for lock in self.file_locks.values():
-            lock.release()
         return self.stack.__exit__(exc_type, exc_value, traceback)
 
     def write(self, message):
         path = self.location.format_map(message)
         if path not in self.files:
-            self.files[path] = self.stack.enter_context(open(path, self.mode))
             self.file_locks[path] = FileLock(path + ".lock")
+            with self.file_locks[path]:
+                self.files[path] = self.stack.enter_context(open(path, self.mode(path)))
         with self.file_locks[path]:
             message.write_to(self.files[path])
 
 
 class FDBTarget(Target):
     def __init__(self, fdb):
-        self.fdb = fdb
+        self._fdb = fdb
+
+    @property
+    def fdb(self):
+        if self._fdb is None:
+            self._fdb = fdb()
+        return self._fdb
 
     def write(self, message):
         self.fdb.archive(message.get_buffer())
@@ -376,7 +397,6 @@ class FDBTarget(Target):
 
 def target_factory(target_option, out_file=None, fdb=None):
     if target_option == 'fdb':
-        assert fdb is not None
         target = FDBTarget(fdb)
     elif target_option == 'file':
         assert out_file is not None
@@ -443,8 +463,7 @@ def target_from_location(loc: Optional[str]):
     ident = ''
     if loc is not None:
         type_, ident = split_location(loc, default='file')
-    fdb_ = fdb() if type_ == 'fdb' else None
-    return target_factory(type_, out_file=ident, fdb=fdb_)
+    return target_factory(type_, out_file=ident)
 
 
 def write_template(filepath, template):

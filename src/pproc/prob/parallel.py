@@ -1,5 +1,3 @@
-import os
-import pyfdb
 import eccodes
 
 from pproc import common
@@ -20,7 +18,6 @@ def prob_iteration(
 ):
 
     with common.ResourceMeter(f"Window {window.name}, computing threshold probs"):
-        fdb = pyfdb.FDB()
         message_template = (
             template_filename
             if isinstance(template_filename, eccodes.highlevel.message.GRIBMessage)
@@ -56,5 +53,5 @@ def prob_iteration(
                 window_probability,
             )
 
-        fdb.flush()
+        common.io.fdb().flush()
         recovery.add_checkpoint(param.name, window_id)

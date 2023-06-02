@@ -2,7 +2,6 @@
 import sys
 from datetime import datetime
 import functools
-import multiprocessing
 import signal
 
 from pproc import common
@@ -11,6 +10,7 @@ from pproc.common.parallel import (
     QueueingExecutor,
     parallel_data_retrieval,
     sigterm_handler,
+    shared_lock,
 )
 from pproc.prob.parallel import prob_iteration
 from pproc.prob.config import ProbConfig
@@ -28,14 +28,15 @@ def main(args=None):
         default="null:",
         help="Target for ensemble members",
     )
-    parser.add_argument("--out_prob", required=True, help="Target for threshold probabilities")
+    parser.add_argument(
+        "--out_prob", required=True, help="Target for threshold probabilities"
+    )
     args = parser.parse_args()
     date = datetime.strptime(args.date, "%Y%m%d%H")
-    cfg = ProbConfig(args)
 
-    manager = multiprocessing.Manager()
+    cfg = ProbConfig(args, ["out_ensemble", "out_prob"])
     recovery = common.Recovery(
-        cfg.options["root_dir"], args.config, date, args.recover, manager.Lock()
+        cfg.options["root_dir"], args.config, date, args.recover, shared_lock()
     )
     last_checkpoint = recovery.last_checkpoint()
     executor = (
@@ -43,8 +44,6 @@ def main(args=None):
         if cfg.n_par_compute == 1
         else QueueingExecutor(cfg.n_par_compute, cfg.window_queue_size)
     )
-    out_ensemble = common.io.target_from_location(args.out_ensemble)
-    out_prob = common.io.target_from_location(args.out_prob)
 
     with executor:
         for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
@@ -68,7 +67,7 @@ def main(args=None):
                 last_checkpoint = None  # All remaining params have not been run
 
             prob_partial = functools.partial(
-                prob_iteration, param, recovery, out_ensemble, out_prob,
+                prob_iteration, param, recovery, cfg.out_ensemble, cfg.out_prob
             )
             for step, retrieved_data in parallel_data_retrieval(
                 cfg.n_par_read,

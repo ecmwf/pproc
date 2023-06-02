@@ -9,7 +9,6 @@
 # granted to it by virtue of its status as an intergovernmental organisation nor
 # does it submit to any jurisdiction.
 import functools
-import os
 import sys
 from io import BytesIO
 from datetime import datetime
@@ -17,11 +16,10 @@ import numpy as np
 import signal
 
 import eccodes
-import pyfdb
 import mir
 
 from pproc import common
-from pproc.common.parallel import parallel_processing, sigterm_handler
+from pproc.common.parallel import parallel_processing, sigterm_handler, shared_list
 
 
 def retrieve_messages(cfg, req, cached_file):
@@ -187,10 +185,17 @@ class ConfigExtreme(common.Config):
 
         self.members = int(self.options["members"]) if "members" in self.options else None
 
+        for attr in ["out_det_ws", "out_eps_ws", "out_eps_mean", "out_eps_std"]:
+            location = getattr(args, attr)
+            target = common.io.target_from_location(location)
+            if self.n_par > 1 and type(target) in [common.io.FileTarget, common.io.FileSetTarget]:
+                target.track_truncated = shared_list()
+            self.__setattr__(attr, target)
+
     @property
     def fdb(self):
         if self._fdb is None:
-            self._fdb = pyfdb.FDB()
+            self._fdb = common.io.fdb()
         return self._fdb
 
 
@@ -233,12 +238,12 @@ def wind_iteration_gen(config, tp, levelist, name, step, out_ws, out_mean=common
             common.write_grib(out_std, template_std, np.std(spd[step], axis=0))
 
 
-def wind_iteration(config, det_ws, eps_ws, eps_mean, eps_std, levelist, name, step):
+def wind_iteration(config, levelist, name, step):
     # calculate wind speed for type=fc (deterministic)
-    wind_iteration_gen(config, "det", levelist, name, step, det_ws, common.io.NullTarget(), common.io.NullTarget())
+    wind_iteration_gen(config, "det", levelist, name, step, config.out_det_ws, common.io.NullTarget(), common.io.NullTarget())
 
     # calculate wind speed, mean/stddev of wind speed for type=pf/cf (eps)
-    wind_iteration_gen(config, "eps", levelist, name, step, eps_ws, eps_mean, eps_std)
+    wind_iteration_gen(config, "eps", levelist, name, step, config.out_eps_ws, config.eps_mean, config.eps_std)
 
     config.fdb.flush()
     return levelist, name, step
@@ -259,7 +264,7 @@ def main(args=None):
         "--out_eps_mean", required=True, help="Target for mean wind speed for type=pf/cf"
     )
     parser.add_argument(
-        "--out_eps_std", requied=True, help="Target for wind speed std for type=pf/cf"
+        "--out_eps_std", required=True, help="Target for wind speed std for type=pf/cf"
     )
     args = parser.parse_args(args)
 
@@ -281,11 +286,7 @@ def main(args=None):
 
                 plan.append((levelist, window.name, step))
 
-    det_ws = common.io.target_from_location(args.out_det_ws)
-    eps_ws = common.io.target_from_location(args.out_eps_ws)
-    eps_mean = common.io.target_from_location(args.out_eps_mean)
-    eps_std = common.io.target_from_location(args.out_eps_std)
-    iteration = functools.partial(wind_iteration, cfg, det_ws, eps_ws, eps_mean, eps_std)
+    iteration = functools.partial(wind_iteration, cfg)
     parallel_processing(iteration, plan, cfg.n_par, recovery)
 
     recovery.clean_file()
