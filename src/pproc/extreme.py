@@ -155,9 +155,9 @@ def efi_sot(cfg, param, climatology, efi_vars, recovery, template_filename, wind
         for perc in efi_vars.sot:
             sot[perc] = extreme.sot(clim, window.step_values, perc, efi_vars.eps)
             template_sot = sot_template(template_extreme, perc)
-            common.write_grib(cfg.sot_target, template_sot, sot[perc])
+            common.write_grib(cfg.out_sot, template_sot, sot[perc])
 
-        common.io.fdb.flush()
+        common.io.fdb().flush()
         recovery.add_checkpoint(param.name, window_id)
 
 
@@ -186,6 +186,9 @@ class ConfigExtreme(common.Config):
             if self.n_par_compute > 1 and type(target) in [common.io.FileTarget, common.io.FileSetTarget]:
                 target.track_truncated = shared_list()
             self.__setattr__(attr, target)
+    
+        print(self.out_efi)
+        print(self.out_sot)
 
         print(f"Forecast date is {self.fc_date}")
         print(f"Root directory is {self.root_dir}")
