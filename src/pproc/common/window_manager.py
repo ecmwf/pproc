@@ -1,4 +1,4 @@
-from typing import Iterator, List, Union
+from typing import Iterator, List, Tuple
 import bisect
 
 import numpy as np
@@ -99,7 +99,7 @@ class WindowManager:
                     raise Exception(f"Duplicate window {window_id}")
                 self.windows[window_id] = new_window
 
-    def update_windows(self, step: AnyStep, data: np.array) -> Iterator[Window]:
+    def update_windows(self, step: AnyStep, data: np.array) -> Iterator[Tuple[str, Window]]:
         """
         Updates all windows that include step with the step data values
 
@@ -111,7 +111,9 @@ class WindowManager:
             window.add_step_values(step, data)
 
             if window.reached_end_step(step):
-                yield identifier, self.windows.pop(identifier)
+                completed = self.windows.pop(identifier)
+                yield identifier, completed
+                del completed
 
     def update_from_checkpoint(self, checkpoint_step: AnyStep) -> List[str]:
         """
