@@ -243,7 +243,7 @@ def wind_iteration(config, levelist, name, step):
     wind_iteration_gen(config, "det", levelist, name, step, config.out_det_ws, common.io.NullTarget(), common.io.NullTarget())
 
     # calculate wind speed, mean/stddev of wind speed for type=pf/cf (eps)
-    wind_iteration_gen(config, "eps", levelist, name, step, config.out_eps_ws, config.eps_mean, config.eps_std)
+    wind_iteration_gen(config, "eps", levelist, name, step, config.out_eps_ws, config.out_eps_mean, config.out_eps_std)
 
     config.fdb.flush()
     return levelist, name, step
