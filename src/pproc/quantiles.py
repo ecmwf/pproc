@@ -13,6 +13,7 @@ from pproc.common.dataset import open_multi_dataset
 from pproc.common.io import Target, missing_to_nan, nan_to_missing, target_from_location
 from pproc.common.resources import ResourceMeter
 from pproc.common.window import Window
+from pproc.common.window_manager import WindowManager
 
 
 def read_ensemble(sources: dict, loc: str, members: int, dtype=np.float32, **kwargs) -> Tuple[eccodes.GRIBMessage, np.ndarray]:
@@ -108,6 +109,7 @@ class ParamConfig:
         self.out_paramid = options.get('out', None)
         self._in_keys = options.get('in_keys', {})
         self._out_keys = options.get('out_keys', {})
+        self._windows = options.get('windows', None)
 
     def in_keys(self, base: Optional[Dict[str, Any]] = None, **kwargs):
         keys = base.copy() if base is not None else {}
@@ -122,6 +124,21 @@ class ParamConfig:
         keys.update(kwargs)
         return keys
 
+    def window_config(self, base: List[dict]):
+        if self._windows is not None:
+            return {"windows": self._windows}
+
+        windows = []
+        for coarse_cfg in base:
+            coarse_window = Window(coarse_cfg)
+            periods = [{"range": [step, step]} for step in coarse_window.steps]
+            windows.append({
+                "window_operation": "sum",
+                "periods": periods,
+            })
+
+        return {"windows": windows}
+
 
 class QuantilesConfig(Config):
     def __init__(self, args: argparse.Namespace, verbose: bool = True):
@@ -133,7 +150,7 @@ class QuantilesConfig(Config):
         self.out_keys = self.options.get('out_keys', {})
 
         self.params = [ParamConfig(pname, popt) for pname, popt in self.options['params'].items()]
-        self.windows = self.options['windows']
+        self.windows = self.options.get('windows', [])
 
         self.sources = self.options.get('sources', {})
 
@@ -146,17 +163,17 @@ def main(args: List[str] = sys.argv[1:]):
     target = target_from_location(args.out_quantiles)
 
     for param in config.params:
-        for win_params in config.windows:
-            window = Window(win_params)
-            for step in window.steps:
-                label = f"{param.name}, step {step}: "
-                in_keys = param.in_keys(step=step)
-                with ResourceMeter(f"{label}Read ensemble"):
-                    template, ens = read_ensemble(config.sources, args.in_ens, config.num_members, **in_keys)
-                with ResourceMeter(f"{label}Quantiles"):
-                    out_keys = param.out_keys(config.out_keys)
-                    do_quantiles(ens, template, target, param.out_paramid, n=config.num_quantiles, out_keys=out_keys)
+        window_manager = WindowManager(param.window_config(config.windows), param.out_keys(config.out_keys))
+        for step in window_manager.unique_steps:
+            in_keys = param.in_keys(step=step)
+            with ResourceMeter(f"{param.name}, step {step}: Read ensemble"):
+                template, ens = read_ensemble(config.sources, args.in_ens, config.num_members, **in_keys)
+                completed_windows = window_manager.update_windows(step, ens)
                 del ens
+
+            for _, window in completed_windows:
+                with ResourceMeter(f"{param.name}, step {window.name}: Quantiles"):
+                    do_quantiles(window.step_values, template, target, param.out_paramid, n=config.num_quantiles, out_keys=window.grib_header())
 
 
 if __name__ == '__main__':
