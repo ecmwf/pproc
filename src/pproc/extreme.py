@@ -202,7 +202,7 @@ def main(args=None):
         "--out_efi", required=True, help="Target for EFI"
     )
     parser.add_argument(
-        "--out_sot", requied=True, help="Target for SOT"
+        "--out_sot", required=True, help="Target for SOT"
     )
     args = parser.parse_args(args)
     cfg = ConfigExtreme(args)
