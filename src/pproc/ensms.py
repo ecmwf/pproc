@@ -165,7 +165,7 @@ def ensms_iteration(config, param, options, window, step):
             template_std = template_ensemble(config, param_type, template_ens, step, window.step, level, 'es')
             common.write_grib(config.out_eps_std, template_std, std_slice)
 
-    common.io.fdb().flush()
+    config.fdb.flush()
     return param, window.name, step
 
 
