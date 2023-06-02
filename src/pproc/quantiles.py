@@ -62,7 +62,7 @@ def read_ensemble(sources: dict, loc: str, members: int, dtype=np.float32, **kwa
     return template, data
 
 
-def do_quantiles(ens: np.ndarray, template: eccodes.GRIBMessage, target: Target, out_paramid: str, n: int = 100, out_keys: Optional[Dict[str, Any]] = None):
+def do_quantiles(ens: np.ndarray, template: eccodes.GRIBMessage, target: Target, out_paramid: Optional[str] = None, n: int = 100, out_keys: Optional[Dict[str, Any]] = None):
     """Compute quantiles
 
     Parameters
@@ -73,6 +73,8 @@ def do_quantiles(ens: np.ndarray, template: eccodes.GRIBMessage, target: Target,
         GRIB template for output
     target: Target
         Target to write to
+    out_paramid: str, optional
+        Parameter ID to set on the output
     n: int
         Number of quantiles (default 100 = percentiles)
     out_keys: dict, optional
@@ -85,7 +87,8 @@ def do_quantiles(ens: np.ndarray, template: eccodes.GRIBMessage, target: Target,
         message.set("type", "pb")
         message.set("numberOfForecastsInEnsemble", n)
         message.set("perturbationNumber", i)
-        message.set("paramId", out_paramid)
+        if out_paramid is not None:
+            message.set("paramId", out_paramid)
         message.set_array("values", nan_to_missing(message, quantile))
         target.write(message)
 
@@ -102,7 +105,7 @@ class ParamConfig:
     def __init__(self, name, options: Dict[str, Any]):
         self.name = name
         self.in_paramid = options['in']
-        self.out_paramid = options.get('out', self.in_paramid)
+        self.out_paramid = options.get('out', None)
         self._in_keys = options.get('in_keys', {})
         self._out_keys = options.get('out_keys', {})
 
