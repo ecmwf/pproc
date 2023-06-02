@@ -186,9 +186,6 @@ class ConfigExtreme(common.Config):
             if self.n_par_compute > 1 and type(target) in [common.io.FileTarget, common.io.FileSetTarget]:
                 target.track_truncated = shared_list()
             self.__setattr__(attr, target)
-    
-        print(self.out_efi)
-        print(self.out_sot)
 
         print(f"Forecast date is {self.fc_date}")
         print(f"Root directory is {self.root_dir}")
