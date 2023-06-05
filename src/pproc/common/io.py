@@ -388,7 +388,7 @@ class FDBTarget(Target):
     @property
     def fdb(self):
         if self._fdb is None:
-            self._fdb = fdb()
+            self._fdb = fdb(create=True)
         return self._fdb
 
     def write(self, message):
