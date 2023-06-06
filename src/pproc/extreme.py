@@ -23,9 +23,9 @@ from pproc.common.parallel import (
     SynchronousExecutor,
     QueueingExecutor,
     parallel_data_retrieval,
-    sigterm_handler, 
-    shared_list, 
-    shared_lock
+    sigterm_handler,
+    shared_list,
+    shared_lock,
 )
 
 
@@ -126,7 +126,8 @@ def sot_template(template, sot):
     return template_sot
 
 
-def efi_sot(cfg, param, climatology, efi_vars, recovery, template_filename, window_id, window
+def efi_sot(
+    cfg, param, climatology, efi_vars, recovery, template_filename, window_id, window
 ):
     with common.ResourceMeter(f"Window {window.suffix}, computing EFI/SOT"):
 
@@ -143,7 +144,9 @@ def efi_sot(cfg, param, climatology, efi_vars, recovery, template_filename, wind
 
         control_index = param.get_type_index("cf", default=None)
         if control_index is not None:
-            efi_control = extreme.efi(clim, window.step_values[control_index], efi_vars.eps)
+            efi_control = extreme.efi(
+                clim, window.step_values[control_index], efi_vars.eps
+            )
             template_efi = efi_template_control(template_extreme)
             common.write_grib(cfg.out_efi, template_efi, efi_control)
 
@@ -168,7 +171,9 @@ class ConfigExtreme(common.Config):
         self.fc_date = datetime.strptime(str(self.options["fc_date"]), "%Y%m%d%H")
 
         if isinstance(self.options["members"], dict):
-            self.members = range(self.options["members"]["start"], self.options["members"]["end"] + 1)
+            self.members = range(
+                self.options["members"]["start"], self.options["members"]["end"] + 1
+            )
         else:
             self.members = int(self.options["members"])
         self.n_par_compute = self.options.get("n_par_compute", 1)
@@ -183,8 +188,11 @@ class ConfigExtreme(common.Config):
         for attr in ["out_efi", "out_sot"]:
             location = getattr(args, attr)
             target = common.io.target_from_location(location)
-            if self.n_par_compute > 1 and type(target) in [common.io.FileTarget, common.io.FileSetTarget]:
-                target.track_truncated = shared_list()
+            if type(target) in [common.io.FileTarget, common.io.FileSetTarget]:
+                if self.n_par_compute > 1:
+                    target.track_truncated = shared_list()
+                if args.recover:
+                    target.enable_recovery()
             self.__setattr__(attr, target)
 
         print(f"Forecast date is {self.fc_date}")
@@ -195,15 +203,9 @@ def main(args=None):
     sys.stdout.reconfigure(line_buffering=True)
     signal.signal(signal.SIGTERM, sigterm_handler)
 
-    parser = common.default_parser(
-        "Compute EFI and SOT from forecast and climatology"
-    )
-    parser.add_argument(
-        "--out_efi", required=True, help="Target for EFI"
-    )
-    parser.add_argument(
-        "--out_sot", required=True, help="Target for SOT"
-    )
+    parser = common.default_parser("Compute EFI and SOT from forecast and climatology")
+    parser.add_argument("--out_efi", required=True, help="Target for EFI")
+    parser.add_argument("--out_sot", required=True, help="Target for SOT")
     args = parser.parse_args(args)
     cfg = ConfigExtreme(args)
     recovery = common.Recovery(
