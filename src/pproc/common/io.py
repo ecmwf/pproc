@@ -293,6 +293,32 @@ def write(target, template, attributes, data_array):
     #                kwargs={'fdb': fdb, 'template': template})
 
 
+def remove_duplicate(path: str, message: eccodes.Message):
+    """
+    Removes existing message in file specified by path if it has mars keys 
+    matching those in message
+    """
+    if os.path.exists(path):
+        mars_keys = ",".join(
+            [f"{key}={value}" for key, value in message.items(namespace="mars")]
+        )
+        file_messages = [
+            ",".join(
+                [f"{key}={value}" for key, value in msg.items(namespace="mars")]
+            )
+            for msg in eccodes.FileReader(path)
+        ]
+        if mars_keys in file_messages:
+            print(f"Deleting duplicate message {mars_keys} in file {path}")
+            duplicate_index = file_messages.index(mars_keys)
+            with open(f"{path}.temp", "wb") as temp_file:
+                for msg_index, msg in enumerate(eccodes.FileReader(path)):
+                    if msg_index == duplicate_index:
+                        continue
+                    msg.write_to(temp_file)
+            os.rename(f"{path}.temp", path)
+
+
 class Target:
     def __enter__(self):
         return self
@@ -331,31 +357,10 @@ class FileTarget(Target):
         self._mode = "ab"
         self.overwrite_existing = True
 
-    def remove_duplicate(self, message):
-        if os.path.exists(self.path):
-            mars_keys = ",".join(
-                [f"{key}={value}" for key, value in message.items(namespace="mars")]
-            )
-            file_messages = [
-                ",".join(
-                    [f"{key}={value}" for key, value in msg.items(namespace="mars")]
-                )
-                for msg in eccodes.FileReader(self.path)
-            ]
-            if mars_keys in file_messages:
-                print(f"Deleting duplicate message {mars_keys}")
-                duplicate_index = file_messages.index(mars_keys)
-                with open(f"{self.path}.temp", "wb") as temp_file:
-                    for msg_index, msg in enumerate(eccodes.FileReader(self.path)):
-                        if msg_index == duplicate_index:
-                            continue
-                        msg.write_to(temp_file)
-                os.rename(f"{self.path}.temp", self.path)
-
     def write(self, message):
         with self.lock:
             if self.overwrite_existing:
-                self.remove_duplicate(message)
+                remove_duplicate(self.path, message)
             with open(self.path, self.mode) as file:
                 message.write_to(file)
 
@@ -378,32 +383,11 @@ class FileSetTarget(Target):
         self._mode = "ab"
         self.overwrite_existing = True
 
-    def remove_duplicate(self, path, message):
-        if os.path.exists(path):
-            mars_keys = ",".join(
-                [f"{key}={value}" for key, value in message.items(namespace="mars")]
-            )
-            file_messages = [
-                ",".join(
-                    [f"{key}={value}" for key, value in msg.items(namespace="mars")]
-                )
-                for msg in eccodes.FileReader(path)
-            ]
-            if mars_keys in file_messages:
-                print(f"Deleting duplicate message {mars_keys} in file {path}")
-                duplicate_index = file_messages.index(mars_keys)
-                with open(f"{path}.temp", "wb") as temp_file:
-                    for msg_index, msg in enumerate(eccodes.FileReader(path)):
-                        if msg_index == duplicate_index:
-                            continue
-                        msg.write_to(temp_file)
-                os.rename(f"{path}.temp", path)
-
     def write(self, message):
         path = self.location.format_map(message)
         with self.file_locks.get(path, FileLock(path + ".lock")):
             if self.overwrite_existing:
-                self.remove_duplicate(path, message)
+                remove_duplicate(path, message)
             with open(path, self.mode(path)) as file:
                 message.write_to(file)
 
