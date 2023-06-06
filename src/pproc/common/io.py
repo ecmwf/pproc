@@ -310,26 +310,16 @@ class FileTarget(Target):
     def __init__(self, path, mode="wb"):
         self.path = path
         self._mode = mode
-        self._file = None
         self._lock = None
-        self.track_truncated = None
+        self.track_truncated = []
         self.overwrite_existing = False
 
     @property
     def mode(self):
-        if self.track_truncated is None:
-            return self._mode
         if self.path not in self.track_truncated:
             self.track_truncated += [self.path]
             return self._mode
         return "ab"
-
-    @property
-    def file(self):
-        if self._file is None:
-            with self.lock:
-                self._file = open(self.path, self.mode)
-        return self._file
 
     @property
     def lock(self):
@@ -337,21 +327,9 @@ class FileTarget(Target):
             self._lock = FileLock(self.path + ".lock")
         return self._lock
 
-    def __enter__(self):
-        return self.file.__enter__()
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        return self.file.__exit__(exc_type, exc_value, traceback)
-
     def enable_recovery(self):
         self._mode = "ab"
         self.overwrite_existing = True
-
-    def close_file(self):
-        if self._file is None:
-            return
-        self._file.close()
-        self._file = None
 
     def remove_duplicate(self, message):
         if os.path.exists(self.path):
@@ -372,55 +350,33 @@ class FileTarget(Target):
                         if msg_index == duplicate_index:
                             continue
                         msg.write_to(temp_file)
-                self.close_file()
                 os.rename(f"{self.path}.temp", self.path)
 
     def write(self, message):
         with self.lock:
             if self.overwrite_existing:
                 self.remove_duplicate(message)
-            message.write_to(self.file)
+            with open(self.path, self.mode) as file:
+                message.write_to(file)
 
 
 class FileSetTarget(Target):
     def __init__(self, location, mode="wb"):
         self.location = location
         self._mode = mode
-        self.stack = ExitStack()
-        self.files = {}
         self.file_locks = {}
-        self.track_truncated = None
+        self.track_truncated = []
         self.overwrite_existing = False
 
     def mode(self, path):
-        if self.track_truncated is None:
-            return self._mode
         if path not in self.track_truncated:
             self.track_truncated += [path]
             return self._mode
         return "ab"
 
-    def __enter__(self):
-        self.stack.__enter__()
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        return self.stack.__exit__(exc_type, exc_value, traceback)
-
     def enable_recovery(self):
         self._mode = "ab"
         self.overwrite_existing = True
-
-    def close_file(self, path):
-        if path not in self.files:
-            return
-        # Remove exit callback from stack
-        for cb in self.stack._exit_callbacks:
-            if cb.__self__ == self.files[path]:
-                break
-        self.stack._exit_callbacks.remove(cb)
-        self.files[path].close()
-        self.files.pop(path)
 
     def remove_duplicate(self, path, message):
         if os.path.exists(path):
@@ -441,7 +397,6 @@ class FileSetTarget(Target):
                         if msg_index == duplicate_index:
                             continue
                         msg.write_to(temp_file)
-                self.close_file(path)
                 os.rename(f"{path}.temp", path)
 
     def write(self, message):
@@ -449,11 +404,8 @@ class FileSetTarget(Target):
         with self.file_locks.get(path, FileLock(path + ".lock")):
             if self.overwrite_existing:
                 self.remove_duplicate(path, message)
-            message.write_to(
-                self.files.get(
-                    path, self.stack.enter_context(open(path, self.mode(path)))
-                )
-            )
+            with open(path, self.mode(path)) as file:
+                message.write_to(file)
 
 
 class FDBTarget(Target):
