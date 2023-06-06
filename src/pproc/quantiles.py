@@ -1,7 +1,8 @@
 
 import argparse
+import functools
 import sys
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -10,8 +11,10 @@ from meteokit.stats import iter_quantiles
 
 from pproc.common.config import Config, default_parser
 from pproc.common.dataset import open_multi_dataset
-from pproc.common.io import Target, missing_to_nan, nan_to_missing, target_from_location
+from pproc.common.io import FileSetTarget, FileTarget, Target, missing_to_nan, nan_to_missing, read_template, target_from_location
+from pproc.common.parallel import QueueingExecutor, SynchronousExecutor, parallel_data_retrieval, shared_list
 from pproc.common.resources import ResourceMeter
+from pproc.common.steps import AnyStep
 from pproc.common.window import Window
 from pproc.common.window_manager import WindowManager
 
@@ -140,6 +143,22 @@ class ParamConfig:
         return {"windows": windows}
 
 
+class ParamRequester:
+    def __init__(self, param: ParamConfig, sources: dict, loc: str, members: int):
+        self.param = param
+        self.sources = sources
+        self.loc = loc
+        self.members = members
+
+    def retrieve_data(self, fdb, step: AnyStep) -> Tuple[eccodes.GRIBMessage, np.ndarray]:
+        in_keys = self.param.in_keys(step=step)
+        return read_ensemble(self.sources, self.loc, self.members, **in_keys)
+
+    @property
+    def name(self):
+        return self.param.name
+
+
 class QuantilesConfig(Config):
     def __init__(self, args: argparse.Namespace, verbose: bool = True):
         super().__init__(args, verbose=verbose)
@@ -154,6 +173,17 @@ class QuantilesConfig(Config):
 
         self.sources = self.options.get('sources', {})
 
+        self.n_par_read = self.options.get("n_par_read", 1)
+        self.n_par_compute = self.options.get("n_par_compute", 1)
+        self.window_queue_size = self.options.get("queue_size", self.n_par_compute)
+
+
+def quantiles_iteration(config: QuantilesConfig, param: ParamConfig, target: Target, template: Union[str, eccodes.GRIBMessage], window: Window):
+    if not isinstance(template, eccodes.GRIBMessage):
+        template = read_template(template)
+    with ResourceMeter(f"{param.name}, step {window.name}: Quantiles"):
+        do_quantiles(window.step_values, template, target, param.out_paramid, n=config.num_quantiles, out_keys=window.grib_header())
+
 
 def main(args: List[str] = sys.argv[1:]):
     sys.stdout.reconfigure(line_buffering=True)
@@ -161,19 +191,33 @@ def main(args: List[str] = sys.argv[1:]):
     args = parser.parse_args(args)
     config = QuantilesConfig(args)
     target = target_from_location(args.out_quantiles)
+    if config.n_par_compute > 1 and isinstance(target, (FileTarget, FileSetTarget)):
+        target.track_truncated = shared_list()
 
-    for param in config.params:
-        window_manager = WindowManager(param.window_config(config.windows), param.out_keys(config.out_keys))
-        for step in window_manager.unique_steps:
-            in_keys = param.in_keys(step=step)
-            with ResourceMeter(f"{param.name}, step {step}: Read ensemble"):
-                template, ens = read_ensemble(config.sources, args.in_ens, config.num_members, **in_keys)
-                completed_windows = window_manager.update_windows(step, ens)
-                del ens
+    executor = (
+        SynchronousExecutor()
+        if config.n_par_compute == 1
+        else QueueingExecutor(config.n_par_compute, config.window_queue_size)
+    )
 
-            for _, window in completed_windows:
-                with ResourceMeter(f"{param.name}, step {window.name}: Quantiles"):
-                    do_quantiles(window.step_values, template, target, param.out_paramid, n=config.num_quantiles, out_keys=window.grib_header())
+    with executor:
+        for param in config.params:
+            requester = ParamRequester(param, config.sources, args.in_ens, config.num_members)
+            window_manager = WindowManager(param.window_config(config.windows), param.out_keys(config.out_keys))
+            quantiles_partial = functools.partial(quantiles_iteration, config, param, target)
+            for step, data in parallel_data_retrieval(
+                config.n_par_read,
+                window_manager.unique_steps,
+                [requester],
+                config.n_par_compute > 1,
+            ):
+                template, ens = data[0]
+                with ResourceMeter(f"{param.name}, step {step}: Compute accumulation"):
+                    completed_windows = window_manager.update_windows(step, ens)
+                    del ens
+                for _, window in completed_windows:
+                    executor.submit(quantiles_partial, template, window)
+            executor.wait()
 
 
 if __name__ == '__main__':
