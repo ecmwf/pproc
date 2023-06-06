@@ -2,7 +2,6 @@
 import sys
 from datetime import datetime
 import functools
-import multiprocessing
 import signal
 
 from pproc import common
@@ -11,6 +10,7 @@ from pproc.common.parallel import (
     QueueingExecutor,
     parallel_data_retrieval,
     sigterm_handler,
+    shared_lock,
 )
 from pproc.prob.parallel import prob_iteration
 from pproc.prob.config import ProbConfig
@@ -24,18 +24,19 @@ def main(args=None):
     parser = common.default_parser("Compute instantaneous and period probabilites")
     parser.add_argument("-d", "--date", required=True, help="Forecast date")
     parser.add_argument(
-        "--write_ensemble",
-        action="store_true",
-        default=False,
-        help="write ensemble members to fdb/file",
+        "--out_ensemble",
+        default="null:",
+        help="Target for ensemble members",
+    )
+    parser.add_argument(
+        "--out_prob", required=True, help="Target for threshold probabilities"
     )
     args = parser.parse_args()
     date = datetime.strptime(args.date, "%Y%m%d%H")
-    cfg = ProbConfig(args)
 
-    manager = multiprocessing.Manager()
+    cfg = ProbConfig(args, ["out_ensemble", "out_prob"])
     recovery = common.Recovery(
-        cfg.options["root_dir"], args.config, date, args.recover, manager.Lock()
+        cfg.options["root_dir"], args.config, date, args.recover, shared_lock()
     )
     last_checkpoint = recovery.last_checkpoint()
     executor = (
@@ -66,7 +67,7 @@ def main(args=None):
                 last_checkpoint = None  # All remaining params have not been run
 
             prob_partial = functools.partial(
-                prob_iteration, cfg, param, recovery, args.write_ensemble
+                prob_iteration, param, recovery, cfg.out_ensemble, cfg.out_prob
             )
             for step, retrieved_data in parallel_data_retrieval(
                 cfg.n_par_read,
