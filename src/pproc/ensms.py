@@ -137,8 +137,11 @@ class ConfigExtreme(common.Config):
         for attr in ["out_eps_mean", "out_eps_std"]:
             location = getattr(args, attr)
             target = common.io.target_from_location(location)
-            if self.n_par > 1 and type(target) in [common.io.FileTarget, common.io.FileSetTarget]:
-                target.track_truncated = shared_list()
+            if type(target) in [common.io.FileTarget, common.io.FileSetTarget]:
+                if self.n_par > 1:
+                    target.track_truncated = shared_list()
+                if args.recover:
+                    target.enable_recovery()
             self.__setattr__(attr, target)
 
     @property

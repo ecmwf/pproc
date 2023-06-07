@@ -293,6 +293,32 @@ def write(target, template, attributes, data_array):
     #                kwargs={'fdb': fdb, 'template': template})
 
 
+def remove_duplicate(path: str, message: eccodes.Message):
+    """
+    Removes existing message in file specified by path if it has mars keys 
+    matching those in message
+    """
+    if os.path.exists(path):
+        mars_keys = ",".join(
+            [f"{key}={value}" for key, value in message.items(namespace="mars")]
+        )
+        file_messages = [
+            ",".join(
+                [f"{key}={value}" for key, value in msg.items(namespace="mars")]
+            )
+            for msg in eccodes.FileReader(path)
+        ]
+        if mars_keys in file_messages:
+            print(f"Deleting duplicate message {mars_keys} in file {path}")
+            duplicate_index = file_messages.index(mars_keys)
+            with open(f"{path}.temp", "wb") as temp_file:
+                for msg_index, msg in enumerate(eccodes.FileReader(path)):
+                    if msg_index == duplicate_index:
+                        continue
+                    msg.write_to(temp_file)
+            os.rename(f"{path}.temp", path)
+
+
 class Target:
     def __enter__(self):
         return self
@@ -308,27 +334,18 @@ class NullTarget(Target):
 
 class FileTarget(Target):
     def __init__(self, path, mode="wb"):
-        self.path = path 
+        self.path = path
         self._mode = mode
-        self._file = None
         self._lock = None
-        self.track_truncated = None
+        self.track_truncated = []
+        self.overwrite_existing = False
 
     @property
     def mode(self):
-        if self.track_truncated is None:
-            return self._mode
         if self.path not in self.track_truncated:
             self.track_truncated += [self.path]
             return self._mode
         return "ab"
-
-    @property
-    def file(self):
-        if self._file is None:
-            with self.lock:
-                self._file = open(self.path, self.mode)
-        return self._file
 
     @property
     def lock(self):
@@ -336,49 +353,43 @@ class FileTarget(Target):
             self._lock = FileLock(self.path + ".lock")
         return self._lock
 
-    def __enter__(self):
-        return self.file.__enter__()
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        return self.file.__exit__(exc_type, exc_value, traceback)
+    def enable_recovery(self):
+        self._mode = "ab"
+        self.overwrite_existing = True
 
     def write(self, message):
         with self.lock:
-            message.write_to(self.file)
+            if self.overwrite_existing:
+                remove_duplicate(self.path, message)
+            with open(self.path, self.mode) as file:
+                message.write_to(file)
 
 
 class FileSetTarget(Target):
     def __init__(self, location, mode="wb"):
         self.location = location
         self._mode = mode
-        self.stack = ExitStack()
-        self.files = {}
         self.file_locks = {}
-        self.track_truncated = None
-    
+        self.track_truncated = []
+        self.overwrite_existing = False
+
     def mode(self, path):
-        if self.track_truncated is None:
-            return self._mode
         if path not in self.track_truncated:
             self.track_truncated += [path]
             return self._mode
         return "ab"
 
-    def __enter__(self):
-        self.stack.__enter__()
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        return self.stack.__exit__(exc_type, exc_value, traceback)
+    def enable_recovery(self):
+        self._mode = "ab"
+        self.overwrite_existing = True
 
     def write(self, message):
         path = self.location.format_map(message)
-        if path not in self.files:
-            self.file_locks[path] = FileLock(path + ".lock")
-            with self.file_locks[path]:
-                self.files[path] = self.stack.enter_context(open(path, self.mode(path)))
-        with self.file_locks[path]:
-            message.write_to(self.files[path])
+        with self.file_locks.get(path, FileLock(path + ".lock")):
+            if self.overwrite_existing:
+                remove_duplicate(path, message)
+            with open(path, self.mode(path)) as file:
+                message.write_to(file)
 
 
 class FDBTarget(Target):

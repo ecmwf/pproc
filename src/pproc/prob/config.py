@@ -14,9 +14,12 @@ class ProbConfig(common.Config):
         for attr in target_types:
             location = getattr(args, attr)
             target = common.io.target_from_location(location)
-            if self.n_par_compute > 1 and type(target) in [
+            if type(target) in [
                 common.io.FileTarget,
                 common.io.FileSetTarget,
             ]:
-                target.track_truncated = common.parallel.shared_list()
+                if self.n_par_compute > 1:
+                    target.track_truncated = common.parallel.shared_list()
+                if args.recover:
+                    target.enable_recovery()
             self.__setattr__(attr, target)
