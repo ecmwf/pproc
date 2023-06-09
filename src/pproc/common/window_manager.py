@@ -26,7 +26,7 @@ def create_window(window_options, window_operation: str, include_start: bool) ->
     :return: instance of the derived Window class for window operation
     :raises: ValueError for unsupported window operation string
     """
-    if window_options["range"][0] == window_options["range"][1]:
+    if window_options["range"][0] == window_options["range"][1] or window_operation == "none":
         return Window(window_options, include_init=True)
     if window_operation == "diff":
         return DiffWindow(window_options)
