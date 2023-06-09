@@ -241,7 +241,7 @@ def wind_iteration_gen(config, tp, levelist, name, step, out_ws, out_mean=common
             common.write_grib(out_std, template_std, np.std(spd[step], axis=0))
 
 
-def wind_iteration(config, levelist, name, step):
+def wind_iteration(config, recovery, levelist, name, step):
     # calculate wind speed for type=fc (deterministic)
     wind_iteration_gen(config, "det", levelist, name, step, config.out_det_ws, common.io.NullTarget(), common.io.NullTarget())
 
@@ -249,7 +249,7 @@ def wind_iteration(config, levelist, name, step):
     wind_iteration_gen(config, "eps", levelist, name, step, config.out_eps_ws, config.out_eps_mean, config.out_eps_std)
 
     config.fdb.flush()
-    return levelist, name, step
+    recovery.add_checkpoint(levelist, name, step)
 
 
 def main(args=None):
@@ -289,8 +289,8 @@ def main(args=None):
 
                 plan.append((levelist, window.name, step))
 
-    iteration = functools.partial(wind_iteration, cfg)
-    parallel_processing(iteration, plan, cfg.n_par, recovery)
+    iteration = functools.partial(wind_iteration, cfg, recovery)
+    parallel_processing(iteration, plan, cfg.n_par)
 
     recovery.clean_file()
 

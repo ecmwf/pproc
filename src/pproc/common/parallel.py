@@ -69,7 +69,7 @@ class QueueingExecutor(fut.ProcessPoolExecutor):
             future.result()
 
 
-def parallel_processing(process, plan, n_par, recovery=None):
+def parallel_processing(process, plan, n_par):
     """Run a processing function in parallel
 
     Parameters
@@ -80,8 +80,6 @@ def parallel_processing(process, plan, n_par, recovery=None):
         Arguments for the processing function
     n_par: int
         Number of parallel processes
-    recovery: Recovery or None
-        If set, add checkpoints when processing succeeds
     """
     executor = (
         SynchronousExecutor()
@@ -92,9 +90,7 @@ def parallel_processing(process, plan, n_par, recovery=None):
         for future in fut.as_completed(
             executor.submit(process, *args) for args in plan
         ):
-            key = future.result()
-            if recovery is not None:
-                recovery.add_checkpoint(*key)
+            future.result()
 
 
 def fdb_retrieve(
@@ -188,13 +184,6 @@ def sigterm_handler(signum, handler):
 
 
 _manager = None
-
-
-def shared_lock():
-    global _manager
-    if _manager is None:
-        _manager = multiprocessing.Manager()
-    return _manager.Lock()
 
 
 def shared_list():
