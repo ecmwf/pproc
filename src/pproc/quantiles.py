@@ -132,10 +132,24 @@ def get_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def parse_paramids(pid):
+    if isinstance(pid, int):
+        return [pid]
+    if isinstance(pid, str):
+        return pid.split("/")
+    if isinstance(pid, list):
+        if not all(isinstance(p, (int, str)) for p in pid):
+            raise TypeError("Lists of paramids can contain only ints or strings")
+        return pid
+    raise TypeError(f"Invalid paramid type {type(pid)}")
+
+
 class ParamConfig:
     def __init__(self, name, options: Dict[str, Any]):
         self.name = name
-        self.in_paramid = options["in"]
+        self.in_paramids = parse_paramids(options["in"])
+        self.combine = options.get("combine_operation", None)
+        self.scale = options.get("scale", 1.0)
         self.out_paramid = options.get("out", None)
         self._in_keys = options.get("in_keys", {})
         self._out_keys = options.get("out_keys", {})
@@ -145,8 +159,11 @@ class ParamConfig:
         keys = base.copy() if base is not None else {}
         keys.update(self._in_keys)
         keys.update(kwargs)
-        keys["param"] = self.in_paramid
-        return keys
+        keys_list = []
+        for pid in self.in_paramids:
+            keys["param"] = pid
+            keys_list.append(keys.copy())
+        return keys_list
 
     def out_keys(self, base: Optional[Dict[str, Any]] = None, **kwargs):
         keys = base.copy() if base is not None else {}
@@ -179,11 +196,26 @@ class ParamRequester:
         self.loc = loc
         self.members = members
 
+    def combine_data(self, data_list: List[np.ndarray]) -> np.ndarray:
+        if self.param.combine is None:
+            assert (
+                len(data_list) == 1
+            ), "Multiple input fields require a combine operation"
+            return data_list[0]
+        if self.param.combine == "norm":
+            return np.linalg.norm(data_list, axis=0)
+        return getattr(np, self.param.combine)(data_list, axis=0)
+
     def retrieve_data(
         self, fdb, step: AnyStep
     ) -> Tuple[eccodes.GRIBMessage, np.ndarray]:
-        in_keys = self.param.in_keys(step=step)
-        return read_ensemble(self.sources, self.loc, self.members, **in_keys)
+        data_list = []
+        for in_keys in self.param.in_keys(step=step):
+            template, data = read_ensemble(
+                self.sources, self.loc, self.members, **in_keys
+            )
+            data_list.append(data)
+        return template, self.combine_data(data_list) * self.param.scale
 
     @property
     def name(self):
