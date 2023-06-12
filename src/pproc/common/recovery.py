@@ -7,11 +7,7 @@ from filelock import FileLock
 
 class Recovery:
     def __init__(
-        self,
-        root_dir: str,
-        config_file: str,
-        date: datetime.datetime,
-        recover: bool
+        self, root_dir: str, config_file: str, date: datetime.datetime, recover: bool
     ):
         """
         Class for writing out checkpoints and recovering computation from checkpoint file. The date and
@@ -43,7 +39,13 @@ class Recovery:
                 self.checkpoints += [x.rstrip("\n") for x in past_checkpoints]
         else:
             self.clean_file()
-        self.lock = FileLock(self.filename + '.lock')
+        self._lock = None
+
+    @property
+    def lock(self):
+        if self._lock is None:
+            self._lock = FileLock(self.filename + ".lock")
+        return self._lock
 
     def existing_checkpoint(self, *checkpoint_identifiers) -> bool:
         """
