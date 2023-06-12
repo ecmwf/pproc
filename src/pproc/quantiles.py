@@ -10,6 +10,7 @@ from meteokit.stats import iter_quantiles
 
 from pproc.common.config import Config, default_parser
 from pproc.common.dataset import open_multi_dataset
+from pproc.common.grib_helpers import construct_message
 from pproc.common.io import (
     FileSetTarget,
     FileTarget,
@@ -110,14 +111,15 @@ def do_quantiles(
         Extra GRIB keys to set on the output
     """
     for i, quantile in enumerate(iter_quantiles(ens, n, method="sort")):
-        message = template.copy()
-        if out_keys is not None:
-            message.set(out_keys)
-        message.set("type", "pb")
-        message.set("numberOfForecastsInEnsemble", n)
-        message.set("perturbationNumber", i)
+        grib_keys = {
+            **out_keys,
+            "type": "pb",
+            "numberOfForecastsInEnsemble": n,
+            "perturbationNumber": i,
+        }
         if out_paramid is not None:
-            message.set("paramId", out_paramid)
+            grib_keys["paramId"] = out_paramid
+        message = construct_message(template, grib_keys)
         message.set_array("values", nan_to_missing(message, quantile))
         target.write(message)
 
