@@ -77,6 +77,7 @@ def main(args=None):
             ):
                 with common.ResourceMeter(f"Process step {step}"):
                     message_template, data = retrieved_data[0]
+                    assert data.ndim == 2
                     clim_grib_header, clim_data = retrieved_data[1]
 
                     completed_windows = window_manager.update_windows(

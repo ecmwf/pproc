@@ -61,7 +61,8 @@ class ParamRequester:
 
 def template_ensemble(cfg, param_type, template, window, level, marstype):
     template_ens = template.copy()
-    param_type.set_level_key(template_ens, level)
+    if param_type.base_request['levtype'] == "pl":
+        template_ens.set('level', level)
 
     if window.size() == 0:
         step = int(window.name)
@@ -84,40 +85,10 @@ def template_ensemble(cfg, param_type, template, window, level, marstype):
         template_ens.set(key, value)
     return template_ens
 
-
-class PressureLevels(ParamRequester):
-    def __init__(self, param, cfg, options):
-        super().__init__(param, cfg, options)
-        self.type = 'pl'
-        self.levels = options['request']['levelist']
-
-    def set_level_key(self, template, level):
-        template.set('level', level)
-
-    def slice_dataset(self, ds, level, **kwargs):
-        return ds.sel(levelist=level, **kwargs).values
-
-
-class SurfaceLevel(ParamRequester):
-    def __init__(self, param, cfg, options):
-        super().__init__(param, cfg, options)
-        self.levtype = 'sfc'
-        self.levels = [0]
-
-    def set_level_key(self, template, level):
-        return
-
-    def slice_dataset(self, ds, level, **kwargs):
-        return ds.sel(**kwargs).values
-
-
-def parameters_manager(param, config, options):
-    if options['request']['levtype'] == 'pl':
-        param_type = PressureLevels(param, config, options)
-    else:
-        param_type = SurfaceLevel(param, config, options)
-    return param_type
-
+def slice_dataset(ds, level_index):
+    if ds.ndim > 1:
+        return ds[level_index]
+    return ds
 
 class ConfigExtreme(common.Config):
     def __init__(self, args):
@@ -158,16 +129,16 @@ def ensms_iteration(config, param_type, recovery, window_id, window, template_en
             if isinstance(template_ens, str):
                 template_ens = common.io.read_template(template_ens)
             ens = window.step_values
-        mean = ens.mean(dim='number')
-        std = ens.std(dim='number')
+        mean = np.mean(ens, axis=0)
+        std = np.std(ens, axis=0)
 
     with common.ResourceMeter(f"Window {window.name}: write output"):
-        for level in param_type.levels:
-            mean_slice = param_type.slice_dataset(mean, level)
+        for level_index, level in enumerate(param_type.levels()):
+            mean_slice = slice_dataset(mean, level_index)
             template_mean = template_ensemble(config, param_type, template_ens, window, level, 'em')
             common.write_grib(config.out_eps_mean, template_mean, mean_slice)
 
-            std_slice = param_type.slice_dataset(std, level)
+            std_slice = slice_dataset(std, level_index)
             template_std = template_ensemble(config, param_type, template_ens, window, level, 'es')
             common.write_grib(config.out_eps_std, template_std, std_slice)
 
@@ -192,7 +163,7 @@ def main(args=None):
     last_checkpoint = recover.last_checkpoint()
 
     for param, options in cfg.parameters.items():
-        param_type = parameters_manager(param, cfg, options)
+        param_type = common.parameter.create_parameter(param, cfg.date, {}, options, cfg.members)
         window_manager = common.WindowManager(options, {})
         iteration = functools.partial(ensms_iteration, cfg, param_type, recover)
 
