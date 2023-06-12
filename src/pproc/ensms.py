@@ -11,7 +11,6 @@
 import functools
 import sys
 from datetime import datetime
-import xarray as xr
 import signal
 import numpy as np
 
@@ -24,39 +23,6 @@ from pproc.common.parallel import (
     QueueingExecutor,
     parallel_data_retrieval
 )
-
-
-class ParamRequester:
-    def __init__(self, param, cfg, options):
-        self.name = param
-        self.date = cfg.date
-        self.members = cfg.members
-        self.options = options
-
-    def retrieve_data(self, fdb, step):
-        req = self.options['request'].copy()
-        req["date"] = self.date.strftime("%Y%m%d")
-        req["time"] = self.date.strftime("%H")+'00'
-        req["step"] = step
-        req["param"] = self.options['paramid']
-
-        req_cf = req.copy()
-        req_cf['type'] = 'cf'
-        print(req_cf)
-        cf = common.fdb_read(fdb, req_cf, mir_options=self.options.get('interpolation_keys', None))
-        cf = cf.expand_dims(dim={'number': 1})
-        cf = cf.assign_coords(number=[0])
-
-        req_pf = req.copy()
-        req_pf['type'] = 'pf'
-        req_pf['number'] = range(1, self.members+1)
-        print(req_pf)
-        pf = common.fdb_read(fdb, req_pf, mir_options=self.options.get('interpolation_keys', None))
-
-        ens = xr.concat([cf, pf], dim='number')
-        template = ens.attrs['grib_template']
-        del ens.attrs['grib_template']
-        return template, ens
 
 
 def template_ensemble(cfg, param_type, template, window, level, marstype):
