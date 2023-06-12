@@ -25,30 +25,24 @@ from pproc.common.parallel import (
 )
 
 
-def template_ensemble(cfg, param_type, template, window, level, marstype):
+def template_ensemble(param_type, template, window, level, marstype):
     template_ens = template.copy()
+
+    grib_sets = window.grib_header()
     if param_type.base_request['levtype'] == "pl":
-        template_ens.set('level', level)
+        grib_sets['level'] = level
 
     if window.size() == 0:
         step = int(window.name)
-        template_ens.set('step', step)
         if step == 0:
-            template_ens.set('timeRangeIndicator', 1)
+            grib_sets['timeRangeIndicator'] = 1
         elif step > 255:
-            template_ens.set('timeRangeIndicator', 10)
+            grib_sets['timeRangeIndicator'] = 10
         else:
-            template_ens.set('timeRangeIndicator', 0)
-    else:
-        template_ens.set({
-            'stepType': 'max',
-            'stepRange': window.name,
-            'timeRangeIndicator': 2
-        })
-       
-    template_ens.set("marsType", marstype)
-    for key, value in cfg.options['grib_set'].items():
-        template_ens.set(key, value)
+            grib_sets['timeRangeIndicator'] = 0
+
+    grib_sets["marsType"] = marstype
+    template_ens.set(grib_sets)
     return template_ens
 
 def slice_dataset(ds, level_index):
@@ -101,11 +95,11 @@ def ensms_iteration(config, param_type, recovery, window_id, window, template_en
     with common.ResourceMeter(f"Window {window.name}: write output"):
         for level_index, level in enumerate(param_type.levels()):
             mean_slice = slice_dataset(mean, level_index)
-            template_mean = template_ensemble(config, param_type, template_ens, window, level, 'em')
+            template_mean = template_ensemble(param_type, template_ens, window, level, 'em')
             common.write_grib(config.out_eps_mean, template_mean, mean_slice)
 
             std_slice = slice_dataset(std, level_index)
-            template_std = template_ensemble(config, param_type, template_ens, window, level, 'es')
+            template_std = template_ensemble(param_type, template_ens, window, level, 'es')
             common.write_grib(config.out_eps_std, template_std, std_slice)
 
     config.fdb.flush()
@@ -130,7 +124,7 @@ def main(args=None):
 
     for param, options in cfg.parameters.items():
         param_type = common.parameter.create_parameter(param, cfg.date, {}, options, cfg.members)
-        window_manager = common.WindowManager(options, {})
+        window_manager = common.WindowManager(options, cfg.options["grib_set"])
         iteration = functools.partial(ensms_iteration, cfg, param_type, recover)
 
         if np.all([len(x.steps) == 1 for x in window_manager.windows.values()]): 
