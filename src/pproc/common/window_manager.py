@@ -26,8 +26,12 @@ def create_window(window_options, window_operation: str, include_start: bool) ->
     :return: instance of the derived Window class for window operation
     :raises: ValueError for unsupported window operation string
     """
-    if window_options["range"][0] == window_options["range"][1] or window_operation == "none":
-        return Window(window_options, include_init=True)
+    if window_operation == "none":
+        include_init = (window_options["range"][0] == window_options["range"][1]) or include_start
+        window = Window(window_options, include_init=include_init)
+        if len(window.steps) > 1:
+          raise ValueError("Window operation can not be none for windows containing more than a single step")  
+        return window
     if window_operation == "diff":
         return DiffWindow(window_options)
     if window_operation in ["minimum", "maximum", "add"]:
@@ -90,7 +94,7 @@ class WindowManager:
             for period in window_config["periods"]:
                 include_start = bool(window_config.get("include_start_step", False))
                 new_window = create_window(
-                    period, window_config["window_operation"], include_start
+                    period, window_config.get("window_operation", "none"), include_start
                 )
                 new_window.config_grib_header = global_config.copy()
                 new_window.config_grib_header.update(window_config.get("grib_set", {}))
