@@ -18,7 +18,6 @@ class Recovery:
         :param date: date and time of run
         :param recover: boolean specifying whether to retrieve checkpoints from file. Otherwise, existing
         checkpoints in the recovery file are deleted.
-        :param lock: lock for writing into recovery file
         """
         os.makedirs(root_dir, exist_ok=True)
         sha256 = hashlib.sha256()
