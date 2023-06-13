@@ -1,7 +1,7 @@
 import eccodes
 
 from pproc import common
-from pproc.prob.grib_helpers import construct_message
+from pproc.common.grib_helpers import construct_message
 from pproc.prob.math import ensemble_probability
 
 
