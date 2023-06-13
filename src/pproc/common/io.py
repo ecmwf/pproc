@@ -3,6 +3,7 @@ from io import BytesIO
 import re
 import yaml
 import os
+from filelock import FileLock
 
 import numpy as np
 import xarray as xr
@@ -292,6 +293,32 @@ def write(target, template, attributes, data_array):
     #                kwargs={'fdb': fdb, 'template': template})
 
 
+def remove_duplicate(path: str, message: eccodes.Message):
+    """
+    Removes existing message in file specified by path if it has mars keys 
+    matching those in message
+    """
+    if os.path.exists(path):
+        mars_keys = ",".join(
+            [f"{key}={value}" for key, value in message.items(namespace="mars")]
+        )
+        file_messages = [
+            ",".join(
+                [f"{key}={value}" for key, value in msg.items(namespace="mars")]
+            )
+            for msg in eccodes.FileReader(path)
+        ]
+        if mars_keys in file_messages:
+            print(f"Deleting duplicate message {mars_keys} in file {path}")
+            duplicate_index = file_messages.index(mars_keys)
+            with open(f"{path}.temp", "wb") as temp_file:
+                for msg_index, msg in enumerate(eccodes.FileReader(path)):
+                    if msg_index == duplicate_index:
+                        continue
+                    msg.write_to(temp_file)
+            os.rename(f"{path}.temp", path)
+
+
 class Target:
     def __enter__(self):
         return self
@@ -307,42 +334,73 @@ class NullTarget(Target):
 
 class FileTarget(Target):
     def __init__(self, path, mode="wb"):
-        self.file = open(path, mode)
+        self.path = path
+        self._mode = mode
+        self._lock = None
+        self.track_truncated = []
+        self.overwrite_existing = False
 
-    def __enter__(self):
-        return self.file.__enter__()
+    @property
+    def mode(self):
+        if self.path not in self.track_truncated:
+            self.track_truncated += [self.path]
+            return self._mode
+        return "ab"
 
-    def __exit__(self, exc_type, exc_value, traceback):
-        return self.file.__exit__(exc_type, exc_value, traceback)
+    @property
+    def lock(self):
+        if self._lock is None:
+            self._lock = FileLock(self.path + ".lock")
+        return self._lock
+
+    def enable_recovery(self):
+        self._mode = "ab"
+        self.overwrite_existing = True
 
     def write(self, message):
-        message.write_to(self.file)
+        with self.lock:
+            if self.overwrite_existing:
+                remove_duplicate(self.path, message)
+            with open(self.path, self.mode) as file:
+                message.write_to(file)
 
 
 class FileSetTarget(Target):
     def __init__(self, location, mode="wb"):
         self.location = location
-        self.mode = mode
-        self.stack = ExitStack()
-        self.files = {}
+        self._mode = mode
+        self.file_locks = {}
+        self.track_truncated = []
+        self.overwrite_existing = False
 
-    def __enter__(self):
-        self.stack.__enter__()
-        return self
+    def mode(self, path):
+        if path not in self.track_truncated:
+            self.track_truncated += [path]
+            return self._mode
+        return "ab"
 
-    def __exit__(self, exc_type, exc_value, traceback):
-        return self.stack.__exit__(exc_type, exc_value, traceback)
+    def enable_recovery(self):
+        self._mode = "ab"
+        self.overwrite_existing = True
 
     def write(self, message):
         path = self.location.format_map(message)
-        if path not in self.files:
-            self.files[path] = self.stack.enter_context(open(path, self.mode))
-        message.write_to(self.files[path])
+        with self.file_locks.get(path, FileLock(path + ".lock")):
+            if self.overwrite_existing:
+                remove_duplicate(path, message)
+            with open(path, self.mode(path)) as file:
+                message.write_to(file)
 
 
 class FDBTarget(Target):
     def __init__(self, fdb):
-        self.fdb = fdb
+        self._fdb = fdb
+
+    @property
+    def fdb(self):
+        if self._fdb is None:
+            self._fdb = fdb(create=True)
+        return self._fdb
 
     def write(self, message):
         self.fdb.archive(message.get_buffer())
@@ -350,7 +408,6 @@ class FDBTarget(Target):
 
 def target_factory(target_option, out_file=None, fdb=None):
     if target_option == 'fdb':
-        assert fdb is not None
         target = FDBTarget(fdb)
     elif target_option == 'file':
         assert out_file is not None
@@ -417,8 +474,7 @@ def target_from_location(loc: Optional[str]):
     ident = ''
     if loc is not None:
         type_, ident = split_location(loc, default='file')
-    fdb_ = fdb() if type_ == 'fdb' else None
-    return target_factory(type_, out_file=ident, fdb=fdb_)
+    return target_factory(type_, out_file=ident)
 
 
 def write_template(filepath, template):

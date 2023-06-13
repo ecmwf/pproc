@@ -170,7 +170,7 @@ class Random:
 
         See also `random.randrange`"""
         if stop is None:
-            start = 1
+            start = 0
             stop = int(start_or_stop)
         else:
             start = int(start_or_stop)
@@ -246,6 +246,7 @@ def select_seeds(ncl, pc, r2seed, d2seed, rand):
         costmax = 0
         cost1 = 1 / jcl
         for _ in range(10):
+            jseed = indexes[jcl-1]
             while jseed in indexes[:jcl]:
                 jseed = rand.randint(nfld)
 
@@ -263,7 +264,7 @@ def select_seeds(ncl, pc, r2seed, d2seed, rand):
                 if d2 > d2seed:
                     costf += cost1
 
-                dotp = pc[0, jseed] * pc[0, kseed] + pc[1, jseed] + pc[1, kseed]
+                dotp = pc[0, jseed] * pc[0, kseed] + pc[1, jseed] * pc[1, kseed]
                 r2k = pc[0, kseed]**2 + pc[1, kseed]**2
                 if dotp < cospn * np.sqrt(r2j * r2k):
                     costf += cost1
@@ -284,8 +285,8 @@ def compute_partition(pc, indexes, max_iter=100):
     ----------
     pc: numpy array (npc, nfld)
         Principal components
-    indexes: numpy array (ncl, dtype=int)
-        Indexes of the seeds in `pc` (second axis)
+    indexes: numpy array (ncl, dtype=int) or (ncl, npc)
+        Indexes of the seeds in `pc` (second axis), or seed vectors in PC space
     max_iter: int
         Maximum number of iterations
 
@@ -301,12 +302,12 @@ def compute_partition(pc, indexes, max_iter=100):
         Cluster centroids in PC space
     """
     _, nfld = pc.shape
-    ncl, = indexes.shape
+    ncl = indexes.shape[0]
 
-    ind_cl = np.zeros(nfld, dtype=int)
+    ind_cl = -np.ones(nfld, dtype=int)
     n_fields = np.zeros(ncl, dtype=int)
 
-    centroids = pc.T[indexes, :]
+    centroids = indexes.copy() if indexes.ndim == 2 else pc.T[indexes, :]
 
     for _ in range(max_iter):
         n_changed = 0
@@ -333,8 +334,8 @@ def compute_partition(pc, indexes, max_iter=100):
         n_fields = np.bincount(ind_cl, minlength=ncl)
         centroids = np.apply_along_axis(
             lambda x: np.bincount(ind_cl, weights=x, minlength=ncl),
-            1,
-            pc,
+            0,
+            pc.T,
         )
         centroids /= n_fields[:, np.newaxis]
 
@@ -352,8 +353,8 @@ def compute_partition_skl(pc, indexes, max_iter=100):
     ----------
     pc: numpy array (npc, nfld)
         Principal components
-    indexes: numpy array (ncl, dtype=int)
-        Indexes of the seeds in `pc` (second axis)
+    indexes: numpy array (ncl, dtype=int) or (ncl, npc)
+        Indexes of the seeds in `pc` (second axis), or seed vectors in PC space
     max_iter: int
         Maximum number of iterations
 
@@ -370,8 +371,8 @@ def compute_partition_skl(pc, indexes, max_iter=100):
     """
     from sklearn.cluster import k_means
 
-    ncl, = indexes.shape
-    init = pc.T[indexes, :]
+    ncl = indexes.shape[0]
+    init = indexes if indexes.ndim == 2 else pc.T[indexes, :]
     centroids, ind_cl, var = k_means(pc.T, ncl, init=init, n_init=1, max_iter=max_iter)
 
     n_fields = np.bincount(ind_cl, minlength=ncl)
@@ -649,7 +650,7 @@ def red_noise_cluster_iteration(ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand):
     Returns
     -------
     numpy array (ncl_max - 1)
-        Variance ratio of the partitions, index is number of clusters - 1
+        Variance ratio of the partitions, index is number of clusters - 2
     """
     ndis = 1
     pc_red = np.empty((npc, nfld))
@@ -692,7 +693,7 @@ def red_noise_cluster(n_samples, ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand, 
     Returns
     -------
     numpy array (n_samples, ncl_max - 1)
-        Variance ratio of the partitions, second index is number of clusters - 1
+        Variance ratio of the partitions, second index is number of clusters - 2
     """
     if n_par == 1:
         noise_var = np.zeros((n_samples, ncl_max - 1))
@@ -1105,6 +1106,8 @@ def get_parser() -> argparse.ArgumentParser:
 
 
 def main(args=sys.argv[1:]):
+    sys.stdout.reconfigure(line_buffering=True)
+
     parser = get_parser()
 
     args = parser.parse_args(args)

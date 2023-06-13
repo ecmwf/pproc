@@ -106,12 +106,19 @@ class FilteredReader(eccodes.reader.ReaderBase):
         if update_func is not None:
             update_func(self.filters)
 
-    def _next_handle(self) -> Optional[int]:
+    def _match(self, message):
         notset = object()  # Should be different to any result of message.get(key)
+        for key, val in self.filters.items():
+            if not isinstance(val, (list, tuple, range)):
+                val = [val]
+            if message.get(key, notset) not in val:
+                return False
+        return True
+
+    def _next_handle(self) -> Optional[int]:
         for handle in iter(self.wrapped._next_handle, None):
             message = eccodes.GRIBMessage(eccodes.codes_clone(handle))
-            matched = all(message.get(key, notset) == val for key, val in self.filters.items())
-            if matched:
+            if self._match(message):
                 return handle
             else:
                 eccodes.codes_release(handle)

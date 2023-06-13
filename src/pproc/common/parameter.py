@@ -15,7 +15,6 @@ def create_parameter(
 ):
     if "input_combine_operation" in param_cfg:
         param_ids = param_cfg["in_paramid"].split("/")
-        assert len(param_ids) == 2
         return CombineParameters(
             name, date, param_ids, global_input_cfg, param_cfg, n_ensembles
         )
@@ -72,6 +71,12 @@ class Parameter:
             message_temp, new_data = common.fdb_read_with_template(
                 fdb, new_request, self.interpolation_keys
             )
+        
+            num_levels = len(self.levels())
+            assert new_data.shape[0] == num_levels*len(new_request.get("number", [0]))
+            if num_levels > 1:
+                new_data = new_data.reshape((int(new_data.shape[0]/num_levels), num_levels, new_data.shape[1]))
+
             if len(combined_data) == 0:
                 combined_data = new_data
             else:
@@ -120,7 +125,12 @@ class Parameter:
                 return range(offset + index, offset + index + 1)
         return range(index, index + 1)
 
-
+    def levels(self):
+        levelist = self.base_request.get("levelist", [0])
+        if isinstance(levelist, int):
+            return [levelist]
+        return levelist
+    
 class CombineParameters(Parameter):
     def __init__(
         self,

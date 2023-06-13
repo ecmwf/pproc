@@ -2,7 +2,7 @@ from pproc import common
 
 
 class ProbConfig(common.Config):
-    def __init__(self, args):
+    def __init__(self, args, target_types):
         super().__init__(args)
         self.n_ensembles = int(self.options.get("number_of_ensembles", 50))
         self.global_input_cfg = self.options.get("global_input_keys", {})
@@ -10,3 +10,16 @@ class ProbConfig(common.Config):
         self.n_par_read = self.options.get("n_par_read", 1)
         self.n_par_compute = self.options.get("n_par_compute", 1)
         self.window_queue_size = self.options.get("queue_size", self.n_par_compute)
+
+        for attr in target_types:
+            location = getattr(args, attr)
+            target = common.io.target_from_location(location)
+            if type(target) in [
+                common.io.FileTarget,
+                common.io.FileSetTarget,
+            ]:
+                if self.n_par_compute > 1:
+                    target.track_truncated = common.parallel.shared_list()
+                if args.recover:
+                    target.enable_recovery()
+            self.__setattr__(attr, target)

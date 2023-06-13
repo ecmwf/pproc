@@ -1,13 +1,14 @@
 import sys
 from datetime import datetime
 import functools
-import multiprocessing
+import signal
 
 from pproc import common
 from pproc.common.parallel import (
     SynchronousExecutor,
     QueueingExecutor,
     parallel_data_retrieval,
+    sigterm_handler
 )
 from pproc.prob.parallel import prob_iteration
 from pproc.prob.config import ProbConfig
@@ -17,18 +18,21 @@ from pproc.prob.climatology import Climatology
 
 def main(args=None):
     sys.stdout.reconfigure(line_buffering=True)
+    signal.signal(signal.SIGTERM, sigterm_handler)
 
     parser = common.default_parser(
         "Compute instantaneous and period probabilites for anomalies"
     )
     parser.add_argument("-d", "--date", required=True, help="Forecast date")
+    parser.add_argument(
+        "--out_prob", required=True, help="Target for threshold probabilities"
+    )
     args = parser.parse_args()
     date = datetime.strptime(args.date, "%Y%m%d%H")
-    cfg = ProbConfig(args)
+    cfg = ProbConfig(args, ["out_prob"])
 
-    manager = multiprocessing.Manager()
     recovery = common.Recovery(
-        cfg.options["root_dir"], args.config, date, args.recover, manager.Lock()
+        cfg.options["root_dir"], args.config, date, args.recover
     )
     last_checkpoint = recovery.last_checkpoint()
     executor = (
@@ -63,7 +67,7 @@ def main(args=None):
                 last_checkpoint = None  # All remaining params have not been run
 
             prob_partial = functools.partial(
-                prob_iteration, cfg, param, recovery, False
+                prob_iteration, param, recovery, common.io.NullTarget(), cfg.out_prob
             )
             for step, retrieved_data in parallel_data_retrieval(
                 cfg.n_par_read,
@@ -73,6 +77,7 @@ def main(args=None):
             ):
                 with common.ResourceMeter(f"Process step {step}"):
                     message_template, data = retrieved_data[0]
+                    assert data.ndim == 2
                     clim_grib_header, clim_data = retrieved_data[1]
 
                     completed_windows = window_manager.update_windows(

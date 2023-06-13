@@ -268,6 +268,7 @@ def write_grib_outputs(inFile, stepStart, stepDelta, anom, clusterAtt, updatedTa
 
 
 def main(sysArgs: List = sys.argv[1:]) -> int:
+    sys.stdout.reconfigure(line_buffering=True)
 
     parser = get_parser()
 

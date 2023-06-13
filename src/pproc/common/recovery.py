@@ -2,24 +2,12 @@ import os
 import datetime
 import hashlib
 from typing import List
-
-
-class TrivialLock(object):
-    def __enter__(self):
-        pass
-
-    def __exit__(*args):
-        pass
+from filelock import FileLock
 
 
 class Recovery:
     def __init__(
-        self,
-        root_dir: str,
-        config_file: str,
-        date: datetime.datetime,
-        recover: bool,
-        lock=TrivialLock(),
+        self, root_dir: str, config_file: str, date: datetime.datetime, recover: bool
     ):
         """
         Class for writing out checkpoints and recovering computation from checkpoint file. The date and
@@ -30,7 +18,6 @@ class Recovery:
         :param date: date and time of run
         :param recover: boolean specifying whether to retrieve checkpoints from file. Otherwise, existing
         checkpoints in the recovery file are deleted.
-        :param lock: lock for writing into recovery file
         """
         os.makedirs(root_dir, exist_ok=True)
         sha256 = hashlib.sha256()
@@ -51,7 +38,13 @@ class Recovery:
                 self.checkpoints += [x.rstrip("\n") for x in past_checkpoints]
         else:
             self.clean_file()
-        self.lock = lock
+        self._lock = None
+
+    @property
+    def lock(self):
+        if self._lock is None:
+            self._lock = FileLock(self.filename + ".lock")
+        return self._lock
 
     def existing_checkpoint(self, *checkpoint_identifiers) -> bool:
         """

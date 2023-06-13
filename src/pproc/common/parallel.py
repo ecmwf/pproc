@@ -1,6 +1,10 @@
 import concurrent.futures as fut
 from typing import List
+import psutil
+import os
 import eccodes
+import sys
+import multiprocessing
 
 from pproc.common import Parameter, ResourceMeter, io
 
@@ -65,7 +69,7 @@ class QueueingExecutor(fut.ProcessPoolExecutor):
             future.result()
 
 
-def parallel_processing(process, plan, n_par, recovery=None):
+def parallel_processing(process, plan, n_par):
     """Run a processing function in parallel
 
     Parameters
@@ -76,8 +80,6 @@ def parallel_processing(process, plan, n_par, recovery=None):
         Arguments for the processing function
     n_par: int
         Number of parallel processes
-    recovery: Recovery or None
-        If set, add checkpoints when processing succeeds
     """
     executor = (
         SynchronousExecutor()
@@ -88,9 +90,7 @@ def parallel_processing(process, plan, n_par, recovery=None):
         for future in fut.as_completed(
             executor.submit(process, *args) for args in plan
         ):
-            key = future.result()
-            if recovery is not None:
-                recovery.add_checkpoint(*key)
+            future.result()
 
 
 def fdb_retrieve(
@@ -124,7 +124,10 @@ def fdb_retrieve(
 
 
 def parallel_data_retrieval(
-    num_processes: int, steps: List[int], data_requesters: List[Parameter], grib_to_file: bool = False
+    num_processes: int,
+    steps: List[int],
+    data_requesters: List[Parameter],
+    grib_to_file: bool = False,
 ):
     """
     Multiprocess retrieve data function from multiple data requests
@@ -166,3 +169,25 @@ def parallel_data_retrieval(
                         if isinstance(result[0], str):
                             data_results[result_index][0] = io.read_template(result[0])
                 yield step, data_results
+
+
+def sigterm_handler(signum, handler):
+    process_id = os.getpid()
+    try:
+        parent = psutil.Process(process_id)
+    except psutil.NoSuchProcess:
+        return
+    children = parent.children(recursive=True)
+    for process in children:
+        process.terminate()
+    sys.exit()
+
+
+_manager = None
+
+
+def shared_list():
+    global _manager
+    if _manager is None:
+        _manager = multiprocessing.Manager()
+    return _manager.list()

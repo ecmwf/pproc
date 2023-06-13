@@ -10,15 +10,12 @@
 # does it submit to any jurisdiction.
 
 
-import os
 import numpy as np
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 import functools
-import concurrent.futures as fut
-import multiprocessing
+import signal
 
-import pyfdb
 import eccodes
 from meteokit import extreme
 from pproc import common
@@ -26,6 +23,8 @@ from pproc.common.parallel import (
     SynchronousExecutor,
     QueueingExecutor,
     parallel_data_retrieval,
+    sigterm_handler,
+    shared_list,
 )
 
 
@@ -131,49 +130,36 @@ def efi_sot(
 ):
     with common.ResourceMeter(f"Window {window.suffix}, computing EFI/SOT"):
 
-        fdb = pyfdb.FDB()
         message_template = (
             template_filename
             if isinstance(template_filename, eccodes.highlevel.message.GRIBMessage)
             else common.io.read_template(template_filename)
         )
 
-        clim, template_clim = read_clim(fdb, climatology, window)
+        clim, template_clim = read_clim(common.io.fdb(), climatology, window)
         print(f"Climatology array: {clim.shape}")
 
         template_extreme = extreme_template(window, message_template, template_clim)
 
         control_index = param.get_type_index("cf", default=None)
         if control_index is not None:
-            efi_control = extreme.efi(clim, window.step_values[control_index], efi_vars.eps)
-            template_efi = efi_template_control(template_extreme)
-
-            out_file = os.path.join(
-                cfg.out_dir, f"efi_control_{param.name}_{window.suffix}.grib"
+            efi_control = extreme.efi(
+                clim, window.step_values[control_index], efi_vars.eps
             )
-            target = common.target_factory(cfg.target, out_file=out_file, fdb=fdb)
-            common.write_grib(target, template_efi, efi_control)
+            template_efi = efi_template_control(template_extreme)
+            common.write_grib(cfg.out_efi, template_efi, efi_control)
 
         efi = extreme.efi(clim, window.step_values, efi_vars.eps)
         template_efi = efi_template(template_extreme)
-
-        out_file = os.path.join(cfg.out_dir, f"efi_{param.name}_{window.suffix}.grib")
-        target = common.target_factory(cfg.target, out_file=out_file, fdb=fdb)
-        common.write_grib(target, template_efi, efi)
+        common.write_grib(cfg.out_efi, template_efi, efi)
 
         sot = {}
         for perc in efi_vars.sot:
-
             sot[perc] = extreme.sot(clim, window.step_values, perc, efi_vars.eps)
             template_sot = sot_template(template_extreme, perc)
+            common.write_grib(cfg.out_sot, template_sot, sot[perc])
 
-            out_file = os.path.join(
-                cfg.out_dir, f"sot{perc}_{param.name}_{window.suffix}.grib"
-            )
-            target = common.target_factory(cfg.target, out_file=out_file, fdb=fdb)
-            common.write_grib(target, template_sot, sot[perc])
-
-        fdb.flush()
+        common.io.fdb().flush()
         recovery.add_checkpoint(param.name, window_id)
 
 
@@ -184,7 +170,9 @@ class ConfigExtreme(common.Config):
         self.fc_date = datetime.strptime(str(self.options["fc_date"]), "%Y%m%d%H")
 
         if isinstance(self.options["members"], dict):
-            self.members = range(self.options["members"]["start"], self.options["members"]["end"] + 1)
+            self.members = range(
+                self.options["members"]["start"], self.options["members"]["end"] + 1
+            )
         else:
             self.members = int(self.options["members"])
         self.n_par_compute = self.options.get("n_par_compute", 1)
@@ -192,13 +180,19 @@ class ConfigExtreme(common.Config):
         self.window_queue_size = self.options.get("queue_size", self.n_par_compute)
 
         self.root_dir = self.options["root_dir"]
-        self.out_dir = os.path.join(
-            self.root_dir, "efi_test", self.fc_date.strftime("%Y%m%d%H")
-        )
 
-        self.target = self.options["target"]
         self.global_input_cfg = self.options.get("global_input_keys", {})
         self.global_output_cfg = self.options.get("global_output_keys", {})
+
+        for attr in ["out_efi", "out_sot"]:
+            location = getattr(args, attr)
+            target = common.io.target_from_location(location)
+            if type(target) in [common.io.FileTarget, common.io.FileSetTarget]:
+                if self.n_par_compute > 1:
+                    target.track_truncated = shared_list()
+                if args.recover:
+                    target.enable_recovery()
+            self.__setattr__(attr, target)
 
         print(f"Forecast date is {self.fc_date}")
         print(f"Root directory is {self.root_dir}")
@@ -206,15 +200,15 @@ class ConfigExtreme(common.Config):
 
 def main(args=None):
     sys.stdout.reconfigure(line_buffering=True)
+    signal.signal(signal.SIGTERM, sigterm_handler)
 
-    parser = common.default_parser(
-        "Compute EFI and SOT from forecast and climatology for one parameter"
-    )
+    parser = common.default_parser("Compute EFI and SOT from forecast and climatology")
+    parser.add_argument("--out_efi", required=True, help="Target for EFI")
+    parser.add_argument("--out_sot", required=True, help="Target for SOT")
     args = parser.parse_args(args)
     cfg = ConfigExtreme(args)
-    manager = multiprocessing.Manager()
     recovery = common.Recovery(
-        cfg.root_dir, args.config, cfg.fc_date, args.recover, manager.Lock()
+        cfg.root_dir, args.config, cfg.fc_date, args.recover
     )
     last_checkpoint = recovery.last_checkpoint()
     executor = (
@@ -257,6 +251,7 @@ def main(args=None):
             ):
                 with common.ResourceMeter(f"Process step {step}"):
                     template, data = retrieved_data[0]
+                    assert data.ndim == 2
 
                     completed_windows = window_manager.update_windows(step, data)
                     for window_id, window in completed_windows:

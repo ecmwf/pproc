@@ -252,6 +252,7 @@ def get_parser() -> argparse.ArgumentParser:
 
 
 def main(cmdArgs=sys.argv[1:]):
+    sys.stdout.reconfigure(line_buffering=True)
 
     parser = get_parser()
     args = parser.parse_args(cmdArgs)
