@@ -284,8 +284,8 @@ def compute_partition(pc, indexes, max_iter=100):
     ----------
     pc: numpy array (npc, nfld)
         Principal components
-    indexes: numpy array (ncl, dtype=int)
-        Indexes of the seeds in `pc` (second axis)
+    indexes: numpy array (ncl, dtype=int) or (ncl, npc)
+        Indexes of the seeds in `pc` (second axis), or seed vectors in PC space
     max_iter: int
         Maximum number of iterations
 
@@ -301,12 +301,12 @@ def compute_partition(pc, indexes, max_iter=100):
         Cluster centroids in PC space
     """
     _, nfld = pc.shape
-    ncl, = indexes.shape
+    ncl = indexes.shape[0]
 
     ind_cl = np.zeros(nfld, dtype=int)
     n_fields = np.zeros(ncl, dtype=int)
 
-    centroids = pc.T[indexes, :]
+    centroids = indexes.copy() if indexes.ndim == 2 else pc.T[indexes, :]
 
     for _ in range(max_iter):
         n_changed = 0
@@ -352,8 +352,8 @@ def compute_partition_skl(pc, indexes, max_iter=100):
     ----------
     pc: numpy array (npc, nfld)
         Principal components
-    indexes: numpy array (ncl, dtype=int)
-        Indexes of the seeds in `pc` (second axis)
+    indexes: numpy array (ncl, dtype=int) or (ncl, npc)
+        Indexes of the seeds in `pc` (second axis), or seed vectors in PC space
     max_iter: int
         Maximum number of iterations
 
@@ -370,8 +370,8 @@ def compute_partition_skl(pc, indexes, max_iter=100):
     """
     from sklearn.cluster import k_means
 
-    ncl, = indexes.shape
-    init = pc.T[indexes, :]
+    ncl = indexes.shape[0]
+    init = indexes if indexes.ndim == 2 else pc.T[indexes, :]
     centroids, ind_cl, var = k_means(pc.T, ncl, init=init, n_init=1, max_iter=max_iter)
 
     n_fields = np.bincount(ind_cl, minlength=ncl)
