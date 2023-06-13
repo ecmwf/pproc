@@ -10,7 +10,6 @@ from pproc.common.parallel import (
     QueueingExecutor,
     parallel_data_retrieval,
     sigterm_handler,
-    shared_lock,
 )
 from pproc.prob.parallel import prob_iteration
 from pproc.prob.config import ProbConfig
@@ -36,7 +35,7 @@ def main(args=None):
 
     cfg = ProbConfig(args, ["out_ensemble", "out_prob"])
     recovery = common.Recovery(
-        cfg.options["root_dir"], args.config, date, args.recover, shared_lock()
+        cfg.options["root_dir"], args.config, date, args.recover
     )
     last_checkpoint = recovery.last_checkpoint()
     executor = (
@@ -77,6 +76,7 @@ def main(args=None):
             ):
                 with common.ResourceMeter(f"Process step {step}"):
                     message_template, data = retrieved_data[0]
+                    assert data.ndim == 2
 
                     completed_windows = window_manager.update_windows(step, data)
                     for window_id, window in completed_windows:

@@ -25,7 +25,6 @@ from pproc.common.parallel import (
     parallel_data_retrieval,
     sigterm_handler,
     shared_list,
-    shared_lock,
 )
 
 
@@ -209,7 +208,7 @@ def main(args=None):
     args = parser.parse_args(args)
     cfg = ConfigExtreme(args)
     recovery = common.Recovery(
-        cfg.root_dir, args.config, cfg.fc_date, args.recover, shared_lock()
+        cfg.root_dir, args.config, cfg.fc_date, args.recover
     )
     last_checkpoint = recovery.last_checkpoint()
     executor = (
@@ -252,6 +251,7 @@ def main(args=None):
             ):
                 with common.ResourceMeter(f"Process step {step}"):
                     template, data = retrieved_data[0]
+                    assert data.ndim == 2
 
                     completed_windows = window_manager.update_windows(step, data)
                     for window_id, window in completed_windows:
