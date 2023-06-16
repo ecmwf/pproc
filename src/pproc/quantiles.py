@@ -153,6 +153,7 @@ class ParamConfig:
         self.out_paramid = options.get("out", None)
         self._in_keys = options.get("in_keys", {})
         self._out_keys = options.get("out_keys", {})
+        self._steps = options.get("steps", None)
         self._windows = options.get("windows", None)
 
     def in_keys(self, base: Optional[Dict[str, Any]] = None, **kwargs):
@@ -171,9 +172,12 @@ class ParamConfig:
         keys.update(kwargs)
         return keys
 
-    def window_config(self, base: List[dict]):
+    def window_config(self, base: List[dict], base_steps: Optional[List[dict]] = None):
         if self._windows is not None:
-            return {"windows": self._windows}
+            config = {"windows": self._windows}
+            if self._steps is not None:
+                config["steps"] = self._steps
+            return config
 
         windows = []
         for coarse_cfg in base:
@@ -181,12 +185,15 @@ class ParamConfig:
             periods = [{"range": [step, step]} for step in coarse_window.steps]
             windows.append(
                 {
-                    "window_operation": "sum",
+                    "window_operation": "add",
                     "periods": periods,
                 }
             )
+        config = {"windows": windows}
+        if base_steps is not None:
+            config["steps"] = base_steps
 
-        return {"windows": windows}
+        return config
 
 
 class ParamRequester:
@@ -210,7 +217,7 @@ class ParamRequester:
         self, fdb, step: AnyStep
     ) -> Tuple[eccodes.GRIBMessage, np.ndarray]:
         data_list = []
-        for in_keys in self.param.in_keys(step=step):
+        for in_keys in self.param.in_keys(step=str(step)):
             template, data = read_ensemble(
                 self.sources, self.loc, self.members, **in_keys
             )
@@ -234,6 +241,7 @@ class QuantilesConfig(Config):
         self.params = [
             ParamConfig(pname, popt) for pname, popt in self.options["params"].items()
         ]
+        self.steps = self.options.get("steps", [])
         self.windows = self.options.get("windows", [])
 
         self.sources = self.options.get("sources", {})
@@ -284,7 +292,7 @@ def main(args: List[str] = sys.argv[1:]):
                 param, config.sources, args.in_ens, config.num_members
             )
             window_manager = WindowManager(
-                param.window_config(config.windows), param.out_keys(config.out_keys)
+                param.window_config(config.windows, config.steps), param.out_keys(config.out_keys)
             )
             quantiles_partial = functools.partial(
                 quantiles_iteration, config, param, target
