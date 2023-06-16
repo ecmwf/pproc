@@ -26,22 +26,26 @@ def create_window(window_options, window_operation: str, include_start: bool) ->
     :return: instance of the derived Window class for window operation
     :raises: ValueError for unsupported window operation string
     """
+    include_init = (
+        window_options["range"][0] == window_options["range"][1]
+    ) or include_start
     if window_operation == "none":
-        include_init = (window_options["range"][0] == window_options["range"][1]) or include_start
         window = Window(window_options, include_init=include_init)
         if len(window.steps) > 1:
-          raise ValueError("Window operation can not be none for windows containing more than a single step")  
+            raise ValueError(
+                "Window operation can not be none for windows containing more than a single step"
+            )
         return window
     if window_operation == "diff":
         return DiffWindow(window_options)
     if window_operation in ["minimum", "maximum", "add"]:
-        return SimpleOpWindow(window_options, window_operation, include_start)
+        return SimpleOpWindow(window_options, window_operation, include_init)
     if window_operation == "weightedsum":
         return WeightedSumWindow(window_options)
     if window_operation == "diffdailyrate":
         return DiffDailyRateWindow(window_options)
     if window_operation == "mean":
-        return MeanWindow(window_options, include_start)
+        return MeanWindow(window_options, include_init)
     if window_operation == "precomputed":
         return PrecomputedWindow(window_options)
     raise ValueError(
