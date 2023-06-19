@@ -276,6 +276,37 @@ def select_seeds(ncl, pc, r2seed, d2seed, rand):
     return indexes
 
 
+def sector_init(X, ncl, random_state, rseed=1.5, dseed=0.5):
+    """Sector-based initialisation for the K-means algorithm
+
+    Wrapper around `select_seeds` for use with `sklearn.cluster.k_means`
+
+    Parameters
+    ----------
+    X: numpy array (nfld, npc)
+        Clustering input (transpose of PC array)
+    ncl: int
+        Number of cluster seeds to produce
+    random_state: `Random` or `numpy.random.RandomState`
+        Random number generator
+    rseed: float
+        Maximum norm of seeds (fraction of total PC variance)
+    dseed: float
+        Minimum distance between seeds (fraction of total PC variance)
+
+    Returns
+    -------
+    numpy array (ncl, npc)
+        Cluster seeds
+    """
+    nfld, _ = X.shape
+    var_tot = np.sum(np.square(X)) / nfld
+    r2seed = rseed**2 * var_tot
+    d2seed = dseed**2 * var_tot
+    indexes = select_seeds(ncl, X.T, r2seed, d2seed, random_state)
+    return X[indexes, :]
+
+
 def compute_partition(pc, indexes, max_iter=100):
     """Compute cluster partition
 
@@ -448,7 +479,7 @@ def full_clustering(ncl, npass, pc, rand, max_iter=100, rseed=1.5, dseed=0.5):
     return ind_cl, n_fields, (var_cen, var, var_ratio), centroids, indexes
 
 
-def full_clustering_skl(ncl, npass, pc, rand, max_iter=100, rseed=1.5, dseed=0.5):
+def full_clustering_skl(ncl, npass, pc, rand, init="k-means++", max_iter=100, rseed=1.5, dseed=0.5):
     """Partition the data into clusters
 
     Several clustering passes (see `compute_partition`) are run with different
@@ -465,12 +496,14 @@ def full_clustering_skl(ncl, npass, pc, rand, max_iter=100, rseed=1.5, dseed=0.5
         Principal components
     rand: `numpy.random.RandomState`
         Random number generator
+    init: str
+        Initialisation method. Currently "k-means++" and "sector" are supported
     max_iter: int
         Maximum number of iterations of the clustering algorithm
     rseed: float
-        For compatibility only
+        Maximum norm of seeds (fraction of total PC variance). Only used when ``init=sector``
     dseed: float
-        For compatibility only
+        Minimum distance between seeds (fraction of total PC variance). Only used when ``init=sector``
 
     Returns
     -------
@@ -489,7 +522,13 @@ def full_clustering_skl(ncl, npass, pc, rand, max_iter=100, rseed=1.5, dseed=0.5
     from sklearn.cluster import k_means
     _, nfld = pc.shape
 
-    centroids, ind_cl, var = k_means(pc.T, ncl, n_init=npass, max_iter=max_iter, random_state=rand)
+    known_init = ["k-means++", "sector"]
+    if init not in known_init:
+        raise ValueError(f"Unknown initial condition generator {init!r}. Should be one of {', '.join(known_init)}")
+    if init == "sector":
+        init = functools.partial(sector_init, rseed=rseed, dseed=dseed)
+
+    centroids, ind_cl, var = k_means(pc.T, ncl, init=init, n_init=npass, max_iter=max_iter, random_state=rand)
 
     n_fields = np.bincount(ind_cl, minlength=ncl)
 
@@ -627,7 +666,7 @@ def gauss_series_np(n, avg, sd, ac, ndis, rand):
     return xs
 
 
-def red_noise_cluster_iteration(ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand):
+def red_noise_cluster_iteration(ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand, init="k-means++"):
     """Perform clustering on a red noise sample
 
     Parameters
@@ -646,6 +685,8 @@ def red_noise_cluster_iteration(ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand):
         Expected autocorrelation of the PCs
     rand: `numpy.random.RandomState`
         Random number generator
+    init: str
+        Initialisation method. Currently "k-means++" and "sector" are supported
 
     Returns
     -------
@@ -661,12 +702,12 @@ def red_noise_cluster_iteration(ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand):
 
     noise_var = np.zeros(ncl_max - 1)
     for ncl in range(2, ncl_max + 1):
-        _, _, var, _, _ = full_clustering_skl(ncl, npass, pc_red, rand)
+        _, _, var, _, _ = full_clustering_skl(ncl, npass, pc_red, rand, init=init)
         noise_var[ncl-2] = var[2]
     return noise_var
 
 
-def red_noise_cluster(n_samples, ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand, n_par=1):
+def red_noise_cluster(n_samples, ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand, n_par=1, init="k-means++"):
     """Perform clustering on red noise samples
 
     Parameters
@@ -689,6 +730,8 @@ def red_noise_cluster(n_samples, ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand, 
         Random number generator
     n_par: int
         Number of parallel processes
+    init: str
+        Initialisation method. Currently "k-means++" and "sector" are supported
 
     Returns
     -------
@@ -698,10 +741,10 @@ def red_noise_cluster(n_samples, ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand, 
     if n_par == 1:
         noise_var = np.zeros((n_samples, ncl_max - 1))
         for i in range(n_samples):
-            noise_var[i, :] = red_noise_cluster_iteration(ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand)
+            noise_var[i, :] = red_noise_cluster_iteration(ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand, init=init)
         return noise_var
     else:
-        sample = functools.partial(red_noise_cluster_iteration, ncl_max, npass, npc, nfld, pc_sd, pc_ac)
+        sample = functools.partial(red_noise_cluster_iteration, ncl_max, npass, npc, nfld, pc_sd, pc_ac, init=init)
         seed = rand.randint((1 << 32) - n_samples)
         with fut.ProcessPoolExecutor(max_workers=n_par) as executor:
             rands = (npr.RandomState(seed + i) for i in range(n_samples))
@@ -803,7 +846,7 @@ def compute_variance_thresholds(ncl_max: int, npc: int, pc_sd: np.ndarray, verbo
     return sig_thr
 
 
-def compute_clusters(ens_anom: np.ndarray, ens_mean: np.ndarray, pc: np.ndarray, ncl_max: int, npass: int, rand: npr.RandomState, verbose: bool = False):
+def compute_clusters(ens_anom: np.ndarray, ens_mean: np.ndarray, pc: np.ndarray, ncl_max: int, npass: int, rand: npr.RandomState, init: str = "k-means++", verbose: bool = False):
     nfld, nstep, ngp = ens_anom.shape
     ind_cl = [None, None]  # [ncl]
     n_fields = [None, None]  # [ncl]
@@ -819,7 +862,7 @@ def compute_clusters(ens_anom: np.ndarray, ens_mean: np.ndarray, pc: np.ndarray,
         for ncl in range(2, ncl_max + 1):
             if i == 0:
                 cur_ind_cl, cur_n_fields, cur_var_opt, cur_centroids, _ = \
-                    full_clustering_skl(ncl, npass, pc, rand)
+                    full_clustering_skl(ncl, npass, pc, rand, init=init)
                 cur_var_opt = (cur_var_opt[0] / nfld, cur_var_opt[1] / nfld, cur_var_opt[2])
                 cur_n_fields, cur_ind_cl, cur_centroids = \
                     sort_clusters(cur_n_fields, cur_ind_cl, cur_centroids)
@@ -1043,7 +1086,7 @@ def do_clustering(config: ClusterConfig, data: dict, npc: int, verbose: bool = F
     rand = init_rand(pc)
 
     # Perform the clustering
-    ind_cl, var_opt, centroids, rep_members, centroids_gp, rep_members_gp = compute_clusters(ens_anom, ens_mean, pc, config.ncl_max, config.npass, rand, verbose=verbose)
+    ind_cl, var_opt, centroids, rep_members, centroids_gp, rep_members_gp = compute_clusters(ens_anom, ens_mean, pc, config.ncl_max, config.npass, rand, init=config.init, verbose=verbose)
 
     # Write out the indexes
     if dump_indexes is not None:
@@ -1051,7 +1094,7 @@ def do_clustering(config: ClusterConfig, data: dict, npc: int, verbose: bool = F
         np.savez_compressed(dump_indexes, **{'ind_cl': np.asarray(ind_cl[1:])})
 
     # Perform a clustering on red noise
-    noise_var = red_noise_cluster(config.nrsamples, config.ncl_max, config.npass, npc, nfld, pc_sd, pc_ac, rand, config.n_par)
+    noise_var = red_noise_cluster(config.nrsamples, config.ncl_max, config.npass, npc, nfld, pc_sd, pc_ac, rand, config.n_par, init=config.init)
 
     # Select optimal partition
     best_ncl = select_optimal_partition(config, var_opt, noise_var, sig_thr, ens_spread, verbose=True)
