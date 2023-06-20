@@ -185,12 +185,12 @@ class ParamConfig:
             periods = [{"range": [step, step]} for step in coarse_window.steps]
             windows.append(
                 {
-                    "window_operation": "add",
+                    "window_operation": "none",
                     "periods": periods,
                 }
             )
         config = {"windows": windows}
-        if base_steps is not None:
+        if base_steps:
             config["steps"] = base_steps
 
         return config
