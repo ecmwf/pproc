@@ -16,6 +16,7 @@ import numpy as np
 import signal
 
 import eccodes
+import pyfdb # Needs to be imported before mir to avoid seg fault
 import mir
 
 from pproc import common
