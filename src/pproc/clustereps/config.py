@@ -82,6 +82,13 @@ class ClusterConfig(ClusterConfigBase):
         # Parallel red-noise sampling
         self.n_par = int(self.options.get('n_par', 1))
 
+        # Initialisation method (k-means++ or sector)
+        self.init = self.options.get('init', "k-means++")
+        if self.init not in ["k-means++", "sector"]:
+            raise RuntimeError(f"Invalid initialisation method {self.init!r}")
+        if verbose:
+            print(f"Initialisation method: {self.init}")
+
 
 class AttributionConfig(ClusterConfigBase):
     def __init__(self, args: argparse.Namespace, verbose: bool = True) -> None:
