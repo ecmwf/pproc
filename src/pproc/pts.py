@@ -65,7 +65,7 @@ def distance_from_overlap(radius, overlap):
     return radius * d.root
 
 
-def parse_range(rstr):
+def parse_range(rstr) -> set:
     s = set()
     for part in rstr.split(","):
         x = part.split("-")
@@ -98,7 +98,7 @@ def main(args=None):
     input.add_argument(
         "--input",
         help="Input format",
-        choices=["tc-tracks", "points"],
+        choices=["tc-tracks", "csv", "points"],
         default="tc-tracks",
         dest="input_format",
     )
@@ -118,7 +118,9 @@ def main(args=None):
     )
 
     filter = parser.add_argument_group("Filtering")
-    filter.add_argument("--filter-number", help="Filter number range", default="1-50")
+    filter.add_argument(
+        "--filter-number", help="Filter number range", default=None, type=parse_range
+    )
 
     filter.add_argument(
         "--filter-wind", help="Filter minimum wind speed", default=0.0, type=float
@@ -163,7 +165,6 @@ def main(args=None):
 
     dist_circle = distance_from_overlap(args.distance, args.overlap)
     basetime = datetime.fromisoformat(args.basetime) if args.basetime else None
-    numbers = parse_range(args.filter_number)
 
     with ExitStack() as stack:
         if pts_home_dir in environ:
@@ -223,19 +224,22 @@ def main(args=None):
             if args.verbosity >= 1:
                 print(f"Created cache file: '{tree_path}'")
 
-        # input (apply filter_number)
+        # input
         if args.input_format == "tc-tracks":
-            d = {col: [] for col in ["lat", "lon", "id", "date", "step", "wind", "msl"]}
+            d = {
+                col: []
+                for col in ["lat", "lon", "number", "id", "date", "step", "wind", "msl"]
+            }
 
             # regex: fixed size (n) " "-padded right-flushed integers
             rd = lambda n: "|".join(" " * i + "\d" * (n - i) for i in range(n))
 
-            re_filename = re.compile(r"^\d{4}(\d{10})_(\d{3}|..)_\d{6}_.{3}$")
+            re_filename = re.compile(r"^\d{4}(\d{10})_(\d{3}|..)_\d+_.{3}$")
             re_split = re.compile(r"^..... ( TD| TS|HR\d)$")
             re_data = re.compile(
-                r"^..... (\d{4}/\d{2}/\d{2})/(\d{2})\*"
-                f"({rd(3)})({rd(4)}) ({rd(3)}) ({rd(4)})\*({rd(3)})({rd(4)})\*"
-                r"\d{5}\d{5}\d{5}\d{5}\*\d{5}\d{5}\d{5}\d{5}\*\d{5}\d{5}\d{5}\d{5}\*$"
+                r"^..... (\d{4}/\d{2}/\d{2})/(\d{2})"
+                f"\*({rd(3)})({rd(4)}) ({rd(3)}) ({rd(4)})\*({rd(3)})({rd(4)})"
+                r"(\*(\d{5})(\d{5})(\d{5})(\d{5})\*(\d{5})(\d{5})(\d{5})(\d{5})\*(\d{5})(\d{5})(\d{5})(\d{5})\*)?$"
             )
 
             if not basetime:
@@ -247,9 +251,6 @@ def main(args=None):
             for fn in args.input:
                 fns = re_filename.search(path.basename(fn))
                 number = int(fns.group(2)) if fns and fns.group(2).isdigit() else 1
-                if number not in numbers:
-                    continue
-
                 flip = fn.endswith(tuple(args.tc_tracks_flip_suffix))
 
                 with open(fn, "r") as file:
@@ -261,12 +262,36 @@ def main(args=None):
                         if data:
                             d["lat"].append((0.1, -0.1)[flip] * float(data.group(3)))
                             d["lon"].append(0.1 * float(data.group(4)))
+                            d["number"].append(number)
                             d["id"].append(id)
                             d["date"].append(data.group(1).replace("/", ""))
                             d["step"].append(data.group(2) + "00")
                             d["wind"].append(float(data.group(5)))
                             d["msl"].append(float(data.group(6)))
             df = pd.DataFrame(d)
+
+        elif args.input_format == "csv":
+            assert len(args.input) == 1, "--input csv takes 1 argument"
+            df = pd.read_csv(
+                args.input[0], usecols=["datetime", "name", "lat_p", "lon_p", "wind"]
+            )
+
+            df.rename(
+                columns={
+                    "name": "id",
+                    "lat_p": "lat",
+                    "lon_p": "lon",
+                },
+                inplace=True,
+            )
+
+            df["number"] = 1
+            df[["date", "step"]] = df.datetime.str.extract(
+                "^(?P<date>\d{4}-\d{2}-\d{2}) (?P<step>\d{2}:\d{2}):\d{2}$"
+            )
+            df.date = df.date.str.replace("-", "")
+            df.step = df.step.str.replace(":", "")
+            df.drop(["datetime"], axis=1, inplace=True)
 
         else:
             assert len(args.input) == 1, "--input points takes 1 argument"
@@ -278,11 +303,13 @@ def main(args=None):
                 names=args.points_columns,
                 usecols=["lat", "lon", "number", "date", "step", "wind", "msl"],
             )
-            df = df[df.number.isin(numbers)]
-            df.rename(columns={"number": "id"}, inplace=True)
+            df["id"] = df.number
 
         # pre-process (apply filter_time and calculate/drop columns)
-        if not df.empty:
+        if df.empty:
+            df[["lat", "lon", "number", "t", "wind", "msl"]] = None
+            print("Warning:", df)
+        else:
             datestep = [
                 datetime.strptime(k, "%Y%m%d%H%M")
                 for k in (
@@ -294,55 +321,98 @@ def main(args=None):
             df["t"] = [delta_hours(ds, basetime) for ds in datestep]
             df = df[(args.filter_time[0] <= df.t) & (df.t <= args.filter_time[1])]
 
-            df["x"], df["y"], df["z"] = ll_to_ecef(df.lat, df.lon)
-            df.drop(["lat", "lon", "date", "step"], axis=1, inplace=True)
+            df.drop(["date", "step"], axis=1, inplace=True)
 
-        if df.empty:
-            print("Warning:", df)
-
-        # probability field
+        # probability field (apply filter_number)
         val = np.zeros(N)
-        for id in set(df.id.tolist()):
-            track = df[df.id == id].sort_values("t")
 
-            # super-sampled time and position (apply filter_wind)
-            ti = np.array([])
-            tend = None
-            npoints = 1
-            for a, b in previous_and_current(track.itertuples()):
-                if a is not None and args.filter_wind <= max(a.wind, b.wind):
-                    tend = b.t
-                    npoints += 1
-                    dist_ab = np.linalg.norm(
-                        np.array([b.x - a.x, b.y - a.y, b.z - a.z])
-                    )
-                    num = max(1, int(np.ceil(dist_ab / dist_circle)))
-                    ti = np.append(ti, np.linspace(a.t, b.t, num=num, endpoint=False))
-            if not tend:
-                continue
-            ti = np.append(ti, tend)
+        if args.filter_number:
+            numbers = args.filter_number
+        else:
+            numbers = sorted(set(df.number.tolist()))
+        if args.verbosity >= 1:
+            print(f"basetime: {basetime}")
+            print(f"len(numbers): {len(numbers)}, numbers: {numbers}")
 
-            if args.verbosity >= 1:
-                print(
-                    f"segments={npoints-1}/{track.shape[0]-1} "
-                    f"len={len(ti)} "
-                    f"ss={round(float(len(ti)) / npoints, 1)}x"
-                )
-
-            xi = np.interp(ti, track.t, track.x)
-            yi = np.interp(ti, track.t, track.y)
-            zi = np.interp(ti, track.t, track.z)
-
-            # track points
+        for number in numbers:
             pts = set()
-            for p in zip(xi, yi, zi):
-                pts.update(tree.query_ball_point(p, r=args.distance))
+
+            tracks = df[df.number == number]
+            for id in set(tracks.id.tolist()):
+                # apply filter_wind
+                track = tracks[
+                    (tracks.id == id) & (args.filter_wind <= tracks.wind)
+                ].sort_values("t")
+
+                # special cases
+                if track.shape[0] == 1:
+                    if args.verbosity >= 1:
+                        print(f"number={number} segments=0 len=1")
+                    p = ll_to_ecef(track.lat.iat[0], track.lon.iat[0])
+                    pts.update(tree.query_ball_point(p, r=args.distance))
+                    continue
+
+                ti = np.array([])
+                tend = None
+                npoints = 1
+                for a, b in previous_and_current(track.itertuples()):
+                    if a is not None:
+                        tend = b.t
+                        npoints += 1
+
+                        # approximate distance(a, b) with Cartesian distance
+                        ax, ay, az = ll_to_ecef(a.lat, a.lon)
+                        bx, by, bz = ll_to_ecef(b.lat, b.lon)
+                        dist_ab = np.linalg.norm(np.array([bx - ax, by - ay, bz - az]))
+
+                        num = max(1, int(np.ceil(dist_ab / dist_circle)))
+                        ti = np.append(
+                            ti, np.linspace(a.t, b.t, num=num, endpoint=False)
+                        )
+                if not tend:
+                    continue
+                ti = np.append(ti, tend)
+
+                assert 0 < npoints == track.shape[0]
+
+                if args.verbosity >= 1:
+                    print(
+                        f"number={number} "
+                        f"segments={track.shape[0]-1} "
+                        f"len={len(ti)} "
+                        f"ss={round(float(len(ti)) / npoints, 1)}x"
+                    )
+
+                lati = np.interp(ti, track.t, track.lat)
+                loni = np.interp(ti, track.t, track.lon)
+
+                # track points
+                x, y, z = ll_to_ecef(lati, loni)
+                for p in zip(x, y, z):
+                    pts.update(tree.query_ball_point(p, r=args.distance))
+
             for i in pts:
                 assert i < N
                 val[i] = val[i] + 1.0
 
         if numbers:
-            val = np.minimum(val / len(numbers), 1.0) * 100.0  # %
+            val = (val / len(numbers)) * 100.0  # %
+
+        if args.verbosity >= 1 and len(numbers) > 1:
+
+            def ranges(i):
+                from itertools import groupby
+
+                for _, b in groupby(enumerate(i), lambda pair: pair[1] - pair[0]):
+                    b = list(b)
+                    yield b[0][1], b[-1][1]
+
+            mx = max(val)
+            print(
+                f"max={mx}, at {list(ranges(idx for idx, item in enumerate(val) if item == mx))}"
+            )
+
+        assert 0 <= min(val) and max(val) <= 100.0
 
         # write results
         if args.grib_accuracy:
