@@ -21,6 +21,8 @@ def threshold_grib_headers(threshold) -> Dict:
         threshold_dict.update(
             {"thresholdIndicator": 1, "lowerThreshold": threshold_value}
         )
+
+    threshold_dict.update(threshold.get("grib_set", {}))
     return threshold_dict
 
 
