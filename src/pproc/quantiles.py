@@ -294,8 +294,11 @@ def main(args: List[str] = sys.argv[1:]):
         recovery = Recovery(config.root_dir, args.config, config.date, args.recover)
         last_checkpoint = recovery.last_checkpoint()
     target = target_from_location(args.out_quantiles)
-    if config.n_par_compute > 1 and isinstance(target, (FileTarget, FileSetTarget)):
-        target.track_truncated = shared_list()
+    if isinstance(target, (FileTarget, FileSetTarget)):
+        if config.n_par_compute > 1:
+            target.track_truncated = shared_list()
+        if recovery is not None and args.recover:
+            target.enable_recovery()
 
     executor = (
         SynchronousExecutor()
