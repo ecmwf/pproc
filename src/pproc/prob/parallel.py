@@ -53,5 +53,5 @@ def prob_iteration(
                 window_probability,
             )
 
-        common.io.fdb().flush()
+        common.io.fdb(create=False).flush()
         recovery.add_checkpoint(param.name, window_id)
