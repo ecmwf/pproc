@@ -159,7 +159,8 @@ def efi_sot(
             template_sot = sot_template(template_extreme, perc)
             common.write_grib(cfg.out_sot, template_sot, sot[perc])
 
-        common.io.fdb(create=False).flush()
+        cfg.out_efi.flush()
+        cfg.out_sot.flush()
         recovery.add_checkpoint(param.name, window_id)
 
 
