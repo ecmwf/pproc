@@ -29,13 +29,14 @@ class QueueingExecutor(fut.ProcessPoolExecutor):
     required for pending futures can be large.
     """
 
-    def __init__(self, n_par: int, queue_size: int = 0):
+    def __init__(self, n_par: int, queue_size: int = 0, initializer = None, 
+                initargs = ()):
         """
         :param n_par: number of processes
         :queue_size: maximum number of allowed pending futures, if 0 then
         no queueing is implemented
         """
-        super().__init__(max_workers=n_par)
+        super().__init__(max_workers=n_par, initializer=initializer, initargs=initargs)
         self.futures = []
         self.queue_size = queue_size
 
@@ -69,7 +70,7 @@ class QueueingExecutor(fut.ProcessPoolExecutor):
             future.result()
 
 
-def parallel_processing(process, plan, n_par):
+def parallel_processing(process, plan, n_par, initializer = None, initargs = ()):
     """Run a processing function in parallel
 
     Parameters
@@ -80,11 +81,16 @@ def parallel_processing(process, plan, n_par):
         Arguments for the processing function
     n_par: int
         Number of parallel processes
+    initializer: func
+        Function to run before creation of each worker
+    initargs: tuple
+        Arguments for initializer
     """
     executor = (
         SynchronousExecutor()
         if n_par == 1
-        else fut.ProcessPoolExecutor(max_workers=n_par)
+        else fut.ProcessPoolExecutor(max_workers=n_par, initializer=initializer, 
+                                     initargs=initargs)
     )
     with executor:
         for future in fut.as_completed(
@@ -128,6 +134,8 @@ def parallel_data_retrieval(
     steps: List[int],
     data_requesters: List[Parameter],
     grib_to_file: bool = False,
+    initializer = None,
+    initargs = ()
 ):
     """
     Multiprocess retrieve data function from multiple data requests
@@ -137,13 +145,17 @@ def parallel_data_retrieval(
     :param num_processes: number of processes to use for data retrieval
     :param steps: steps to retrieve data for
     :param data_requesters: list of Parameter instances
+    :param grib_to_file: boolean specifying whether to write grib template to file
+    :initializer: function to call on the creation of each worker
+    :initargs: arguments to initializer
     :return: iterator over step, retrieved data
     """
     if num_processes == 1:
         for step in steps:
             yield step, fdb_retrieve(step, data_requesters, grib_to_file)
     else:
-        with fut.ProcessPoolExecutor(max_workers=num_processes) as executor:
+        with fut.ProcessPoolExecutor(max_workers=num_processes, initializer=initializer, 
+                                     initargs=initargs) as executor:
             n_initial_submit = min(num_processes, len(steps))
             futures = [
                 executor.submit(
