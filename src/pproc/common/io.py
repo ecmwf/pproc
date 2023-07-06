@@ -326,6 +326,8 @@ class Target:
     def __exit__(self, exc_type, exc_value, traceback):
         return
 
+    def flush(self):
+        return
 
 class NullTarget(Target):
     def write(self, message):
@@ -404,6 +406,9 @@ class FDBTarget(Target):
 
     def write(self, message):
         self.fdb.archive(message.get_buffer())
+
+    def flush(self):
+        self.fdb.flush()
 
 
 def target_factory(target_option, out_file=None, fdb=None):
