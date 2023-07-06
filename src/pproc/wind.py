@@ -291,7 +291,8 @@ def main(args=None):
                 plan.append((levelist, window.name, step))
 
     iteration = functools.partial(wind_iteration, cfg, recovery)
-    parallel_processing(iteration, plan, cfg.n_par)
+    parallel_processing(iteration, plan, cfg.n_par, initializer=signal.signal,
+                        initargs=(signal.SIGTERM, signal.SIG_DFL))
 
     recovery.clean_file()
 

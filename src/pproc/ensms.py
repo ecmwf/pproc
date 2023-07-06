@@ -136,12 +136,14 @@ def main(args=None):
 
                 plan.append((window_id, window))
 
-            parallel_processing(iteration, plan, cfg.n_par)
+            parallel_processing(iteration, plan, cfg.n_par, initializer=signal.signal,
+                                initargs=(signal.SIGTERM, signal.SIG_DFL))
         else:
             executor = (
                 SynchronousExecutor()
                 if cfg.n_par == 1
-                else QueueingExecutor(cfg.n_par, cfg.n_par)
+                else QueueingExecutor(cfg.n_par, cfg.n_par, initializer=signal.signal,
+                                      initargs=(signal.SIGTERM, signal.SIG_DFL))
             )
 
             with executor:
@@ -164,7 +166,9 @@ def main(args=None):
                     cfg.n_par,
                     window_manager.unique_steps,
                     [param_type],
-                    cfg.n_par > 1,
+                    cfg.n_par > 1, 
+                    initializer=signal.signal,
+                    initargs=(signal.SIGTERM, signal.SIG_DFL)
                 ):
                     with common.ResourceMeter(f"Process step {step}"):
                         message_template, data = retrieved_data[0]

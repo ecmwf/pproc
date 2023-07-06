@@ -41,7 +41,8 @@ def main(args=None):
     executor = (
         SynchronousExecutor()
         if cfg.n_par_compute == 1
-        else QueueingExecutor(cfg.n_par_compute, cfg.window_queue_size)
+        else QueueingExecutor(cfg.n_par_compute, cfg.window_queue_size, initializer=signal.signal,
+                              initargs=(signal.SIGTERM, signal.SIG_DFL))
     )
 
     with executor:
@@ -72,7 +73,9 @@ def main(args=None):
                 cfg.n_par_read,
                 window_manager.unique_steps,
                 [param],
-                cfg.n_par_compute > 1,
+                cfg.n_par_compute > 1, 
+                initializer=signal.signal,
+                initargs=(signal.SIGTERM, signal.SIG_DFL)
             ):
                 with common.ResourceMeter(f"Process step {step}"):
                     message_template, data = retrieved_data[0]
