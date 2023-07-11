@@ -130,8 +130,8 @@ def main(args=None):
         if np.all([len(x.steps) == 1 for x in window_manager.windows.values()]): 
             plan = []
             for window_id, window in window_manager.windows.items():
-                if recover.existing_checkpoint(param, window.name):
-                    print(f'Recovery: skipping param {param} window {window.name}')
+                if recover.existing_checkpoint(param, window_id):
+                    print(f'Recovery: skipping param {param} window {window_id}')
                     continue
 
                 plan.append((window_id, window))
