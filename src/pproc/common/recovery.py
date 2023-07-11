@@ -43,6 +43,7 @@ class Recovery:
     @property
     def lock(self):
         if self._lock is None:
+            print(f"Process {os.getpid()} creating recovery lock file")
             self._lock = FileLock(self.filename + ".lock")
         return self._lock
 
@@ -87,6 +88,7 @@ class Recovery:
         # Append new completed step to file
 
         with self.lock:
+            print(f"Process {os.getpid()} adding checkpoint {checkpoint}")
             with open(self.filename, "at") as f:
                 f.write(checkpoint + "\n")
             self.checkpoints.append(checkpoint)
