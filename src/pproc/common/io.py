@@ -338,7 +338,7 @@ class FileTarget(Target):
     def __init__(self, path, mode="wb"):
         self.path = path
         self._mode = mode
-        self._lock = None
+        self.lock = FileLock(self.path + ".lock", thread_local=False)
         self.track_truncated = []
         self.overwrite_existing = False
 
@@ -348,12 +348,6 @@ class FileTarget(Target):
             self.track_truncated += [self.path]
             return self._mode
         return "ab"
-
-    @property
-    def lock(self):
-        if self._lock is None:
-            self._lock = FileLock(self.path + ".lock")
-        return self._lock
 
     def enable_recovery(self):
         self._mode = "ab"
