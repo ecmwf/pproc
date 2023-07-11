@@ -97,3 +97,5 @@ class Recovery:
         """
         if os.path.exists(self.filename):
             os.remove(self.filename)
+        if os.path.exists(self.filename + ".lock"):
+            os.remove(self.filename + ".lock")
