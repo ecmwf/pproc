@@ -38,13 +38,8 @@ class Recovery:
                 self.checkpoints += [x.rstrip("\n") for x in past_checkpoints]
         else:
             self.clean_file()
-        self._lock = None
+        self.lock = FileLock(self.filename + ".lock", thread_local=False)
 
-    @property
-    def lock(self):
-        if self._lock is None:
-            self._lock = FileLock(self.filename + ".lock")
-        return self._lock
 
     def existing_checkpoint(self, *checkpoint_identifiers) -> bool:
         """
@@ -87,6 +82,7 @@ class Recovery:
         # Append new completed step to file
 
         with self.lock:
+            print(f"Adding checkpoint {checkpoint}")
             with open(self.filename, "at") as f:
                 f.write(checkpoint + "\n")
             self.checkpoints.append(checkpoint)
@@ -97,3 +93,5 @@ class Recovery:
         """
         if os.path.exists(self.filename):
             os.remove(self.filename)
+        if os.path.exists(self.filename + ".lock"):
+            os.remove(self.filename + ".lock")

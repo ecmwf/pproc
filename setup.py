@@ -10,6 +10,7 @@ setup(
     package_dir={'': 'src'},
     include_package_data=True,
     install_requires=[
+        "filelock>=3.12.0"
     ],
     tests_require=[
     ],
