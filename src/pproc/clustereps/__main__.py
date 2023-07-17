@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import os
 from os.path import join as pjoin
 import sys
-from typing import List
+from typing import Dict, List
 
 import numpy as np
 
@@ -18,7 +18,7 @@ from pproc.common.dataset import open_dataset
 from pproc.common.io import FDBNotOpenError, fdb, target_from_location
 
 
-def get_mean_spread(sources: dict, locs: List[str], date: datetime, steps: List[int], ndays: int = 31) -> np.ndarray:
+def get_mean_spread(sources: dict, locs: List[str], date: datetime, steps: List[int], ndays: int = 31, overrides: Dict[str, str] = {}) -> np.ndarray:
     """Compute mean spread over the last days
 
     Parameters
@@ -33,6 +33,8 @@ def get_mean_spread(sources: dict, locs: List[str], date: datetime, steps: List[
         Time steps to accumulate
     ndays: int
         Number of days to accumulate (date - ndays, ..., date - 1)
+    overrides: dict[str, str]
+        Override request keys
 
     Returns
     -------
@@ -46,7 +48,7 @@ def get_mean_spread(sources: dict, locs: List[str], date: datetime, steps: List[
         found = False
         for loc in locs:
             try:
-                data = read_steps_grib(sources, loc, steps, date=ret_date.strftime("%Y%m%d"))
+                data = read_steps_grib(sources, loc, steps, date=ret_date.strftime("%Y%m%d"), **overrides)
             except (EOFError, eccodes.IOProblemError, FileNotFoundError, RuntimeError):
                 continue
             print(f"{ret_date:%Y%m%d} {loc:20s} {data.shape!s:20s} {data.min():15g} {data.max():15g}")
@@ -199,12 +201,12 @@ def main(sys_args=None):
     ## Read or compute ensemble stddev
     with ResourceMeter("Ensemble spread"):
         if args.spread is not None:
-            with open_dataset(config.sources, args.spread) as reader:
+            with open_dataset(config.sources, args.spread, **config.override_input) as reader:
                 message = next(reader)
                 # TODO: check param and level
                 spread = message.get_array('values')
         else:
-            spread = get_mean_spread(config.sources, args.spread_compute, args.date, config.steps)
+            spread = get_mean_spread(config.sources, args.spread_compute, args.date, config.steps, overrides=config.override_input)
 
     ## Read mask
     if args.mask is not None:
@@ -214,7 +216,7 @@ def main(sys_args=None):
     ## Read ensemble
     with ResourceMeter("Read ensemble"):
         nexp = config.num_members
-        lat, lon, ens, grib_template = read_ensemble_grib(config.sources, args.ensemble, config.steps, nexp)
+        lat, lon, ens, grib_template = read_ensemble_grib(config.sources, args.ensemble, config.steps, nexp, **config.override_input)
 
     ## Compute PCA
     with ResourceMeter("PCA"):
@@ -243,7 +245,7 @@ def main(sys_args=None):
     ## Find the deterministic forecast
     if args.deterministic is not None:
         with ResourceMeter("Find deterministic"):
-            det = read_steps_grib(config.sources, args.deterministic, config.steps)
+            det = read_steps_grib(config.sources, args.deterministic, config.steps, **config.override_input)
             det_index = cluster.find_cluster(det, ens_mean, pca_data['eof'][:npc, ...], pca_data['weights'], centroids)
     else:
         det_index = 0

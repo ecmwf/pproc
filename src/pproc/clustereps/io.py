@@ -9,7 +9,7 @@ from pproc.clustereps.utils import normalise_angles
 from pproc.common.dataset import open_dataset, open_multi_dataset
 
 
-def read_ensemble_grib(sources: dict, loc: str, steps: List[int], nexp: int) -> \
+def read_ensemble_grib(sources: dict, loc: str, steps: List[int], nexp: int, **kwargs) -> \
         Tuple[np.ndarray, np.ndarray, np.ndarray, eccodes.Message]:
     """Read ensemble data from a GRIB file
 
@@ -23,6 +23,8 @@ def read_ensemble_grib(sources: dict, loc: str, steps: List[int], nexp: int) -> 
         List of steps
     nexp: int
         Number of ensemble members
+    kwargs: any
+        Exta arguments for source backends
 
     Returns
     -------
@@ -42,7 +44,7 @@ def read_ensemble_grib(sources: dict, loc: str, steps: List[int], nexp: int) -> 
     nstep = len(steps)
     ens = None
     template = None
-    readers = open_multi_dataset(sources, loc, step=steps, update=set_number)
+    readers = open_multi_dataset(sources, loc, step=steps, update=set_number, **kwargs)
     first = True
     for reader in readers:
         with reader:
