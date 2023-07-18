@@ -291,7 +291,7 @@ def main(args: List[str] = sys.argv[1:]):
     else:
         recovery = Recovery(config.root_dir, args.config, config.date, args.recover)
         last_checkpoint = recovery.last_checkpoint()
-    target = target_from_location(args.out_quantiles)
+    target = target_from_location(args.out_quantiles, overrides=config.override_output)
     if config.n_par_compute > 1:
         target.enable_parallel(parallel)
     if recovery is not None and args.recover:

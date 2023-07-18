@@ -1041,7 +1041,6 @@ def get_output_keys(config: ClusterConfig, template: GRIBMessage) -> dict:
         steps = [(s, None) for s in config.steps]
 
     keys.update(config.out_keys)
-    keys.update(config.override_output)
 
     return keys, steps
 

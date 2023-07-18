@@ -299,8 +299,8 @@ def main(sys_args=None):
         with ResourceMeter(f"Write {scenario} output"):
             ## Write anomalies and cluster scenarios
             dest, adest = cluster_dests[scenario]
-            target = target_from_location(dest)
-            anom_target = target_from_location(adest)
+            target = target_from_location(dest, overrides=config.override_output)
+            anom_target = target_from_location(adest, overrides=config.override_output)
             keys['type'] = cluster_types[scenario]
             write_cluster_attr_grib(steps, ind_cl, rep_members, det_index, scdata, anom, cluster_att, target, anom_target, keys, ncl_dummy=config.ncl_dummy)
 

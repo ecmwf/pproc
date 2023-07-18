@@ -65,7 +65,7 @@ class ConfigExtreme(common.Config):
 
         for attr in ["out_eps_mean", "out_eps_std"]:
             location = getattr(args, attr)
-            target = common.io.target_from_location(location)
+            target = common.io.target_from_location(location, overrides=self.override_output)
             if self.n_par > 1:
                 target.enable_parallel(parallel)
             if args.recover:

@@ -187,7 +187,7 @@ class ConfigExtreme(common.Config):
 
         for attr in ["out_efi", "out_sot"]:
             location = getattr(args, attr)
-            target = common.io.target_from_location(location)
+            target = common.io.target_from_location(location, overrides=self.override_output)
             if self.n_par_compute > 1:
                 target.enable_parallel(parallel)
             if args.recover:

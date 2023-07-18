@@ -1,14 +1,13 @@
-from contextlib import ExitStack
+from dataclasses import dataclass
 from io import BytesIO
-import re
-import yaml
 import os
-from filelock import FileLock
+import re
+from typing import Optional, Tuple, Union, List, Dict, Any
 
+from filelock import FileLock
 import numpy as np
 import xarray as xr
-from dataclasses import dataclass
-from typing import Optional, Tuple, Union, List, Dict
+import yaml
 
 import eccodes
 import pyfdb
@@ -421,19 +420,49 @@ class FDBTarget(Target):
         self.fdb.flush()
 
 
-def target_factory(target_option, out_file=None, fdb=None):
-    if target_option == 'fdb':
+class OverrideTargetWrapper(Target):
+    def __init__(self, wrapped, overrides):
+        self.wrapped = wrapped
+        self.overrides = overrides
+
+    def __enter__(self):
+        self.wrapped.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        return self.wrapped.__exit__(exc_type, exc_value, traceback)
+
+    def flush(self):
+        return self.wrapped.flush()
+
+    def enable_recovery(self):
+        return self.wrapped.enable_recovery()
+
+    def enable_parallel(self, parallel):
+        return self.wrapped.enable_parallel(parallel)
+
+    def write(self, message):
+        message.set(self.overrides)
+        self.wrapped.write(message)
+
+
+def target_factory(target_option, out_file=None, fdb=None, overrides=None):
+    if target_option == "fdb":
         target = FDBTarget(fdb)
-    elif target_option == 'file':
+    elif target_option == "file":
         assert out_file is not None
         target = FileTarget(out_file)
-    elif target_option == 'fileset':
+    elif target_option == "fileset":
         assert out_file is not None
         target = FileSetTarget(out_file)
-    elif target_option == 'null' or target_option is None:
-        target = NullTarget()
+    elif target_option == "null" or target_option is None:
+        return NullTarget()
     else:
-        raise ValueError(f"Target {target_option} not supported, accepted values are 'fdb' and 'file' ")
+        raise ValueError(
+            f"Target {target_option} not supported, accepted values are 'fdb', 'file', 'fileset', and 'null'"
+        )
+    if overrides:
+        return OverrideTargetWrapper(target, overrides)
     return target
 
     
@@ -484,12 +513,14 @@ def split_location(loc: str, default: Optional[str] = None) -> Tuple[Optional[st
     return m.groups()
 
 
-def target_from_location(loc: Optional[str]):
-    type_ = 'null'
-    ident = ''
+def target_from_location(
+    loc: Optional[str], overrides: Optional[Dict[str, Any]] = None
+):
+    type_ = "null"
+    ident = ""
     if loc is not None:
-        type_, ident = split_location(loc, default='file')
-    return target_factory(type_, out_file=ident)
+        type_, ident = split_location(loc, default="file")
+    return target_factory(type_, out_file=ident, overrides=overrides)
 
 
 def write_template(filepath, template):
