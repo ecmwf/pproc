@@ -145,7 +145,7 @@ def parse_paramids(pid):
 
 
 class ParamConfig:
-    def __init__(self, name, options: Dict[str, Any]):
+    def __init__(self, name, options: Dict[str, Any], overrides: Dict[str, Any] = {}):
         self.name = name
         self.in_paramids = parse_paramids(options["in"])
         self.combine = options.get("combine_operation", None)
@@ -155,11 +155,13 @@ class ParamConfig:
         self._out_keys = options.get("out_keys", {})
         self._steps = options.get("steps", None)
         self._windows = options.get("windows", None)
+        self._in_overrides = overrides
 
     def in_keys(self, base: Optional[Dict[str, Any]] = None, **kwargs):
         keys = base.copy() if base is not None else {}
         keys.update(self._in_keys)
         keys.update(kwargs)
+        keys.update(self._in_overrides)
         keys_list = []
         for pid in self.in_paramids:
             keys["param"] = pid
@@ -239,7 +241,8 @@ class QuantilesConfig(Config):
         self.out_keys = self.options.get("out_keys", {})
 
         self.params = [
-            ParamConfig(pname, popt) for pname, popt in self.options["params"].items()
+            ParamConfig(pname, popt, overrides=self.override_input)
+            for pname, popt in self.options["params"].items()
         ]
         self.steps = self.options.get("steps", [])
         self.windows = self.options.get("windows", [])
