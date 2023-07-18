@@ -1,5 +1,5 @@
 import datetime
-from typing import Dict, List, Union
+from typing import Any, Dict, List, Union
 import numpy as np
 import numexpr
 
@@ -12,11 +12,12 @@ def create_parameter(
     global_input_cfg: Dict,
     param_cfg: Dict,
     n_ensembles: int,
+    overrides: Dict[str, Any] = {},
 ):
     if "input_combine_operation" in param_cfg:
         param_ids = param_cfg["in_paramid"].split("/")
         return CombineParameters(
-            name, date, param_ids, global_input_cfg, param_cfg, n_ensembles
+            name, date, param_ids, global_input_cfg, param_cfg, n_ensembles, overrides
         )
     if "input_filter_operation" in param_cfg:
         return FilterParameter(
@@ -26,9 +27,16 @@ def create_parameter(
             global_input_cfg,
             param_cfg,
             n_ensembles,
+            overrides,
         )
     return Parameter(
-        name, date, param_cfg["in_paramid"], global_input_cfg, param_cfg, n_ensembles
+        name,
+        date,
+        param_cfg["in_paramid"],
+        global_input_cfg,
+        param_cfg,
+        n_ensembles,
+        overrides,
     )
 
 
@@ -45,6 +53,7 @@ class Parameter:
         global_input_cfg,
         param_cfg: Dict,
         n_ensembles: Union[int, range],
+        overrides: Dict[str, Any] = {},
     ):
         self.name = name
         self.base_request = global_input_cfg.copy()
@@ -56,6 +65,7 @@ class Parameter:
             self.base_request["number"] = range(1, n_ensembles + 1)
         self.base_request["date"] = dt.strftime("%Y%m%d")
         self.base_request["time"] = dt.strftime("%H")
+        self.overrides = overrides
         self.interpolation_keys = param_cfg.get("interpolation_keys", None)
         self.scale_data = int(param_cfg.get("scale", 1))
 
@@ -67,6 +77,7 @@ class Parameter:
             new_request["type"] = type
             if type == "cf":
                 new_request.pop("number")
+            new_request.update(self.overrides)
             print("FDB request: ", new_request)
             message_temp, new_data = common.fdb_read_with_template(
                 fdb, new_request, self.interpolation_keys
@@ -140,8 +151,11 @@ class CombineParameters(Parameter):
         global_input_cfg: Dict,
         param_cfg: Dict,
         n_ensembles: int,
+        overrides: Dict[str, Any] = {},
     ):
-        super().__init__(name, dt, 0, global_input_cfg, param_cfg, n_ensembles)
+        super().__init__(
+            name, dt, 0, global_input_cfg, param_cfg, n_ensembles, overrides
+        )
         self.param_ids = param_ids
         self.combine_operation = param_cfg["input_combine_operation"]
 
@@ -179,8 +193,11 @@ class FilterParameter(Parameter):
         global_input_cfg: Dict,
         param_cfg: Dict,
         n_ensembles: int,
+        overrides: Dict[str, Any] = {},
     ):
-        super().__init__(name, dt, param_id, global_input_cfg, param_cfg, n_ensembles)
+        super().__init__(
+            name, dt, param_id, global_input_cfg, param_cfg, n_ensembles, overrides
+        )
         self.param_id = param_id
         self.filter_comparison = param_cfg["input_filter_operation"]["comparison"]
         self.filter_threshold = param_cfg["input_filter_operation"]["threshold"]

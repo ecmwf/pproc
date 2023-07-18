@@ -122,7 +122,9 @@ def main(args=None):
     last_checkpoint = recover.last_checkpoint()
 
     for param, options in cfg.parameters.items():
-        param_type = common.parameter.create_parameter(param, cfg.date, {}, options, cfg.members)
+        param_type = common.parameter.create_parameter(
+            param, cfg.date, {}, options, cfg.members, cfg.override_input
+        )
         window_manager = common.WindowManager(options, cfg.options["grib_set"])
         iteration = functools.partial(ensms_iteration, cfg, param_type, recover)
 
