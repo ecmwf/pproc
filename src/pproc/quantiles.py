@@ -13,19 +13,17 @@ from pproc.common.config import Config, default_parser
 from pproc.common.dataset import open_multi_dataset
 from pproc.common.grib_helpers import construct_message
 from pproc.common.io import (
-    FileSetTarget,
-    FileTarget,
     Target,
     missing_to_nan,
     nan_to_missing,
     read_template,
     target_from_location,
 )
+from pproc.common import parallel
 from pproc.common.parallel import (
     QueueingExecutor,
     SynchronousExecutor,
     parallel_data_retrieval,
-    shared_list,
 )
 from pproc.common.recovery import Recovery
 from pproc.common.resources import ResourceMeter
@@ -294,11 +292,10 @@ def main(args: List[str] = sys.argv[1:]):
         recovery = Recovery(config.root_dir, args.config, config.date, args.recover)
         last_checkpoint = recovery.last_checkpoint()
     target = target_from_location(args.out_quantiles)
-    if isinstance(target, (FileTarget, FileSetTarget)):
-        if config.n_par_compute > 1:
-            target.track_truncated = shared_list()
-        if recovery is not None and args.recover:
-            target.enable_recovery()
+    if config.n_par_compute > 1:
+        target.enable_parallel(parallel)
+    if recovery is not None and args.recover:
+        target.enable_recovery()
 
     executor = (
         SynchronousExecutor()

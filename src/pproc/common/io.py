@@ -329,6 +329,16 @@ class Target:
     def flush(self):
         return
 
+    def write(self, message):
+        raise NotImplementedError
+
+    def enable_recovery(self):
+        pass
+
+    def enable_parallel(self, parallel):
+        pass
+
+
 class NullTarget(Target):
     def write(self, message):
         pass
@@ -352,6 +362,9 @@ class FileTarget(Target):
     def enable_recovery(self):
         self._mode = "ab"
         self.overwrite_existing = True
+
+    def enable_parallel(self, parallel):
+        self.track_truncated = parallel.shared_list()
 
     def write(self, message):
         with self.lock:
@@ -378,6 +391,9 @@ class FileSetTarget(Target):
     def enable_recovery(self):
         self._mode = "ab"
         self.overwrite_existing = True
+
+    def enable_parallel(self, parallel):
+        self.track_truncated = parallel.shared_list()
 
     def write(self, message):
         path = self.location.format_map(message)

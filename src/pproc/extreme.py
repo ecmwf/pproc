@@ -19,12 +19,12 @@ import signal
 import eccodes
 from meteokit import extreme
 from pproc import common
+from pproc.common import parallel
 from pproc.common.parallel import (
     SynchronousExecutor,
     QueueingExecutor,
     parallel_data_retrieval,
     sigterm_handler,
-    shared_list,
 )
 
 
@@ -188,11 +188,10 @@ class ConfigExtreme(common.Config):
         for attr in ["out_efi", "out_sot"]:
             location = getattr(args, attr)
             target = common.io.target_from_location(location)
-            if type(target) in [common.io.FileTarget, common.io.FileSetTarget]:
-                if self.n_par_compute > 1:
-                    target.track_truncated = shared_list()
-                if args.recover:
-                    target.enable_recovery()
+            if self.n_par_compute > 1:
+                target.enable_parallel(parallel)
+            if args.recover:
+                target.enable_recovery()
             self.__setattr__(attr, target)
 
         print(f"Forecast date is {self.fc_date}")

@@ -15,13 +15,13 @@ import signal
 import numpy as np
 
 from pproc import common
+from pproc.common import parallel
 from pproc.common.parallel import (
-    parallel_processing, 
-    sigterm_handler, 
-    shared_list,
+    parallel_processing,
+    sigterm_handler,
     SynchronousExecutor,
     QueueingExecutor,
-    parallel_data_retrieval
+    parallel_data_retrieval,
 )
 
 
@@ -66,11 +66,10 @@ class ConfigExtreme(common.Config):
         for attr in ["out_eps_mean", "out_eps_std"]:
             location = getattr(args, attr)
             target = common.io.target_from_location(location)
-            if type(target) in [common.io.FileTarget, common.io.FileSetTarget]:
-                if self.n_par > 1:
-                    target.track_truncated = shared_list()
-                if args.recover:
-                    target.enable_recovery()
+            if self.n_par > 1:
+                target.enable_parallel(parallel)
+            if args.recover:
+                target.enable_recovery()
             self.__setattr__(attr, target)
 
     @property
