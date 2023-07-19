@@ -25,6 +25,7 @@ from pproc.common.parallel import parallel_processing, sigterm_handler
 
 
 def retrieve_messages(cfg, req, cached_file):
+    req.update(cfg.override_input)
     if cfg.vod2uv:
         print(req)
         common.fdb_read_to_file(cfg.fdb, req, cached_file)
