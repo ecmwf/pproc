@@ -29,7 +29,11 @@ setup(
             "pproc-clustereps-cluster=pproc.clustereps.cluster:main",
             "pproc-clustereps-attr=pproc.clustereps.attribution:main",
             "pproc-anomaly-probabilities=pproc.anomaly_probs:main",
-            "pproc-quantiles=pproc.quantiles:main"
+            "pproc-quantiles=pproc.quantiles:main",
+            "pproc-tcycl-run=pproc.tcycl.tcycl_run:main",
+            "pproc-tcycl-summarise-ibtks=pproc.tcycl.tcycl_summarise_ibtks:main",
+            "pproc-tcycl-summarise-tcycl=pproc.tcycl.tcycl_summarise_tcycl:main",
+            "pproc-tcycl-summarise-trckr=pproc.tcycl.tcycl_summarise_trckr:main",
         ],
     },
 )
