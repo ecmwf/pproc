@@ -48,7 +48,12 @@ def main(args=None):
     with executor:
         for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
             param = common.create_parameter(
-                param_name, date, cfg.global_input_cfg, param_cfg, cfg.n_ensembles
+                param_name,
+                date,
+                cfg.global_input_cfg,
+                param_cfg,
+                cfg.n_ensembles,
+                cfg.override_input,
             )
             window_manager = ThresholdWindowManager(param_cfg, cfg.global_output_cfg)
             if last_checkpoint:

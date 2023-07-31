@@ -45,10 +45,19 @@ def main(args=None):
     with executor:
         for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
             param = common.create_parameter(
-                param_name, date, cfg.global_input_cfg, param_cfg, cfg.n_ensembles
+                param_name,
+                date,
+                cfg.global_input_cfg,
+                param_cfg,
+                cfg.n_ensembles,
+                cfg.override_input,
             )
             clim = Climatology(
-                date, param_cfg["in_paramid"], cfg.global_input_cfg, param_cfg
+                date,
+                param_cfg["in_paramid"],
+                cfg.global_input_cfg,
+                param_cfg,
+                cfg.override_input,
             )
             window_manager = AnomalyWindowManager(param_cfg, cfg.global_output_cfg)
 

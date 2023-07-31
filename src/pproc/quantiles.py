@@ -13,19 +13,17 @@ from pproc.common.config import Config, default_parser
 from pproc.common.dataset import open_multi_dataset
 from pproc.common.grib_helpers import construct_message
 from pproc.common.io import (
-    FileSetTarget,
-    FileTarget,
     Target,
     missing_to_nan,
     nan_to_missing,
     read_template,
     target_from_location,
 )
+from pproc.common import parallel
 from pproc.common.parallel import (
     QueueingExecutor,
     SynchronousExecutor,
     parallel_data_retrieval,
-    shared_list,
 )
 from pproc.common.recovery import Recovery
 from pproc.common.resources import ResourceMeter
@@ -147,7 +145,7 @@ def parse_paramids(pid):
 
 
 class ParamConfig:
-    def __init__(self, name, options: Dict[str, Any]):
+    def __init__(self, name, options: Dict[str, Any], overrides: Dict[str, Any] = {}):
         self.name = name
         self.in_paramids = parse_paramids(options["in"])
         self.combine = options.get("combine_operation", None)
@@ -157,11 +155,13 @@ class ParamConfig:
         self._out_keys = options.get("out_keys", {})
         self._steps = options.get("steps", None)
         self._windows = options.get("windows", None)
+        self._in_overrides = overrides
 
     def in_keys(self, base: Optional[Dict[str, Any]] = None, **kwargs):
         keys = base.copy() if base is not None else {}
         keys.update(self._in_keys)
         keys.update(kwargs)
+        keys.update(self._in_overrides)
         keys_list = []
         for pid in self.in_paramids:
             keys["param"] = pid
@@ -241,7 +241,8 @@ class QuantilesConfig(Config):
         self.out_keys = self.options.get("out_keys", {})
 
         self.params = [
-            ParamConfig(pname, popt) for pname, popt in self.options["params"].items()
+            ParamConfig(pname, popt, overrides=self.override_input)
+            for pname, popt in self.options["params"].items()
         ]
         self.steps = self.options.get("steps", [])
         self.windows = self.options.get("windows", [])
@@ -293,12 +294,11 @@ def main(args: List[str] = sys.argv[1:]):
     else:
         recovery = Recovery(config.root_dir, args.config, config.date, args.recover)
         last_checkpoint = recovery.last_checkpoint()
-    target = target_from_location(args.out_quantiles)
-    if isinstance(target, (FileTarget, FileSetTarget)):
-        if config.n_par_compute > 1:
-            target.track_truncated = shared_list()
-        if recovery is not None and args.recover:
-            target.enable_recovery()
+    target = target_from_location(args.out_quantiles, overrides=config.override_output)
+    if config.n_par_compute > 1:
+        target.enable_parallel(parallel)
+    if recovery is not None and args.recover:
+        target.enable_recovery()
 
     executor = (
         SynchronousExecutor()
