@@ -148,13 +148,52 @@ class TCYCLConfig(JSONConfigurable):
         "cyclone_localizer"
     ]
     
-    _config_file = "tcycl-config.json"
-    _this_dir = os.path.dirname(os.path.realpath(__file__))
-    _config_file_path = os.path.join(_this_dir, _config_file)
-    
-    # default configuration
-    with open(_config_file_path, "r") as f:
-        _default_config = json.load(f)
+    _default_config = {
+      "data_fetching": {
+        "retriever": "fdb",
+        "variables": ["tcw", "100u", "100v", "sp", "sst", "lat", "lon"],
+        "grid_resolution": [0.25, 0.25],
+        "n_prev_steps": 3
+      },
+      "annotations": {
+        "retriever": "fdb",
+        "variables": ["10u", "10v", "sp"],
+        "grid_resolution": [0.25, 0.25],
+        "n_prev_steps": 1,
+        "search_radius": 10
+      },
+      "pre_processing": {
+        "lon_crop_pxl": 40,
+        "lat_crop_pxl": 16,
+        "norm_factor": {
+          "tcw": 55,
+          "100u": 25,
+          "100v": 25,
+          "sp": 100000,
+          "sst": 300,
+          "lat": 90,
+          "lon": 180
+        },
+        "shift_factor": {
+          "tcw": 55,
+          "100u": 0,
+          "100v": 0,
+          "sp": 100000,
+          "sst": 150,
+          "lat": 0,
+          "lon": 0
+        }
+      },
+      "inference": {
+        "model_path": "model.tflite",
+        "model_type": "tflite",
+        "model_output_shape": [1, 640, 1408, 1]
+      },
+      "cyclone_localizer": {
+        "label_threshold": 0.6,
+        "label_radius": 25
+      }
+    }
     
     def __init__(self, config):
         super().__init__(config=config)
