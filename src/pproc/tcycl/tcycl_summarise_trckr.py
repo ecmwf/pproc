@@ -112,8 +112,8 @@ class Experiment:
         
         print(f"Generating summary CSV..")
     
-        dd_from = pd.to_datetime(date_from.split()[0])
-        dd_to = pd.to_datetime(date_to.split()[0])
+        dd_from = pd.to_datetime(date_from)
+        dd_to = pd.to_datetime(date_to)
         by_day = 1
         
         datelist_all = pd.date_range(dd_from, dd_to, freq=str(by_day) + 'D')
