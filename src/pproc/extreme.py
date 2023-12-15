@@ -32,6 +32,9 @@ class ExtremeVariables:
     def __init__(self, efi_cfg):
         self.eps = float(efi_cfg["eps"])
         self.sot = list(map(int, efi_cfg["sot"]))
+        self.compute_efi = efi_cfg.get("compute_efi", True)
+        self.compute_sot = efi_cfg.get("compute_sot", True)
+        self.compute_cpf = efi_cfg.get("compute_cpf", False)
 
 
 def read_clim(fdb, climatology, window, n_clim=101, overrides={}):
@@ -125,10 +128,18 @@ def sot_template(template, sot):
     return template_sot
 
 
+def cpf_template(template):
+    template_cpf = template.copy()
+    template_cpf["number"] = 0
+    template_cpf["bitsPerValue"] = 24
+    # TODO: add proper GRIB labelling once available
+    return template_cpf
+
+
 def efi_sot(
     cfg, param, climatology, efi_vars, recovery, template_filename, window_id, window
 ):
-    with common.ResourceMeter(f"Window {window.suffix}, computing EFI/SOT"):
+    with common.ResourceMeter(f"Window {window.suffix}, computing indices"):
         message_template = (
             template_filename
             if isinstance(template_filename, eccodes.highlevel.message.GRIBMessage)
@@ -142,23 +153,30 @@ def efi_sot(
 
         template_extreme = extreme_template(window, message_template, template_clim)
 
-        control_index = param.get_type_index("cf", default=None)
-        if control_index is not None:
-            efi_control = extreme.efi(
-                clim, window.step_values[control_index], efi_vars.eps
-            )
-            template_efi = efi_template_control(template_extreme)
-            common.write_grib(cfg.out_efi, template_efi, efi_control)
+        if efi_vars.compute_efi:
+            control_index = param.get_type_index("cf", default=None)
+            if control_index is not None:
+                efi_control = extreme.efi(
+                    clim, window.step_values[control_index], efi_vars.eps
+                )
+                template_efi = efi_template_control(template_extreme)
+                common.write_grib(cfg.out_efi, template_efi, efi_control)
 
-        efi = extreme.efi(clim, window.step_values, efi_vars.eps)
-        template_efi = efi_template(template_extreme)
-        common.write_grib(cfg.out_efi, template_efi, efi)
+            efi = extreme.efi(clim, window.step_values, efi_vars.eps)
+            template_efi = efi_template(template_extreme)
+            common.write_grib(cfg.out_efi, template_efi, efi)
 
-        sot = {}
-        for perc in efi_vars.sot:
-            sot[perc] = extreme.sot(clim, window.step_values, perc, efi_vars.eps)
-            template_sot = sot_template(template_extreme, perc)
-            common.write_grib(cfg.out_sot, template_sot, sot[perc])
+        if efi_vars.compute_sot:
+            sot = {}
+            for perc in efi_vars.sot:
+                sot[perc] = extreme.sot(clim, window.step_values, perc, efi_vars.eps)
+                template_sot = sot_template(template_extreme, perc)
+                common.write_grib(cfg.out_sot, template_sot, sot[perc])
+
+        if efi_vars.compute_cpf:
+            cpf = 100 * extreme.cpf(clim.astype(np.float32), window.step_values.astype(np.float32), sort_clim=False, sort_ens=True)
+            template_cpf = cpf_template(template_extreme)
+            common.write_grib(cfg.out_cpf, template_cpf, cpf)
 
         cfg.out_efi.flush()
         cfg.out_sot.flush()
@@ -186,7 +204,7 @@ class ConfigExtreme(common.Config):
         self.global_input_cfg = self.options.get("global_input_keys", {})
         self.global_output_cfg = self.options.get("global_output_keys", {})
 
-        for attr in ["out_efi", "out_sot"]:
+        for attr in ["out_efi", "out_sot", "out_cpf"]:
             location = getattr(args, attr)
             target = common.io.target_from_location(
                 location, overrides=self.override_output
@@ -205,9 +223,10 @@ def main(args=None):
     sys.stdout.reconfigure(line_buffering=True)
     signal.signal(signal.SIGTERM, sigterm_handler)
 
-    parser = common.default_parser("Compute EFI and SOT from forecast and climatology")
+    parser = common.default_parser("Compute extreme indices from forecast and climatology")
     parser.add_argument("--out_efi", required=True, help="Target for EFI")
     parser.add_argument("--out_sot", required=True, help="Target for SOT")
+    parser.add_argument("--out_cpf", default="null:", help="Target for CPF")
     args = parser.parse_args(args)
     cfg = ConfigExtreme(args)
     recovery = common.Recovery(
