@@ -55,7 +55,13 @@ def read_clim(fdb, climatology, window, n_clim=101, overrides={}):
     da_clim_sorted = da_clim.reindex(quantile=[f"{x}:100" for x in range(n_clim)])
     print(da_clim_sorted)
 
-    return np.asarray(da_clim_sorted.values), da_clim.attrs["grib_template"]
+    clim = np.asarray(da_clim_sorted.values)
+
+    scale = climatology.get("scale", None)
+    if scale is not None:
+        clim *= float(scale)
+
+    return clim, da_clim.attrs["grib_template"]
 
 
 def extreme_template(window, template_fc, template_clim):
