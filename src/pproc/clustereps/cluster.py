@@ -1174,7 +1174,7 @@ def main(args=sys.argv[1:]):
 
     # Find the deterministic forecast
     if args.deterministic is not None:
-        det = read_steps_grib(config.sources, args.deterministic, config.steps)
+        det = read_steps_grib(config.sources, args.deterministic, config.steps, **config.override_input)
         det_index = find_cluster(det, ens_mean, data['eof'][:npc, ...], data['weights'], centroids)
     else:
         det_index = 0

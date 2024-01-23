@@ -265,7 +265,7 @@ def main(cmdArgs=sys.argv[1:]):
 
     # Read ensemble
     nexp = config.num_members
-    lat, lon, ens, template = read_ensemble_grib(config.sources, args.ensemble, config.steps, nexp)
+    lat, lon, ens, template = read_ensemble_grib(config.sources, args.ensemble, config.steps, nexp, **config.override_input)
 
     # Read ensemble stddev
     with eccodes.FileReader(args.spread) as reader:

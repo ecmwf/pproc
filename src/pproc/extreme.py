@@ -19,12 +19,12 @@ import signal
 import eccodes
 from meteokit import extreme
 from pproc import common
+from pproc.common import parallel
 from pproc.common.parallel import (
     SynchronousExecutor,
     QueueingExecutor,
     parallel_data_retrieval,
     sigterm_handler,
-    shared_list,
 )
 
 
@@ -34,8 +34,7 @@ class ExtremeVariables:
         self.sot = list(map(int, efi_cfg["sot"]))
 
 
-def read_clim(fdb, climatology, window, n_clim=101):
-
+def read_clim(fdb, climatology, window, n_clim=101, overrides={}):
     req = climatology["clim_keys"].copy()
     assert "date" in req
     req["time"] = "0000"
@@ -44,6 +43,7 @@ def read_clim(fdb, climatology, window, n_clim=101):
         req["step"] = climatology["steps"][window.name]
     else:
         req["step"] = window.name
+    req.update(overrides)
 
     print("Climatology request: ", req)
     da_clim = common.fdb_read(fdb, req)
@@ -129,14 +129,15 @@ def efi_sot(
     cfg, param, climatology, efi_vars, recovery, template_filename, window_id, window
 ):
     with common.ResourceMeter(f"Window {window.suffix}, computing EFI/SOT"):
-
         message_template = (
             template_filename
             if isinstance(template_filename, eccodes.highlevel.message.GRIBMessage)
             else common.io.read_template(template_filename)
         )
 
-        clim, template_clim = read_clim(common.io.fdb(), climatology, window)
+        clim, template_clim = read_clim(
+            common.io.fdb(), climatology, window, overrides=cfg.override_input
+        )
         print(f"Climatology array: {clim.shape}")
 
         template_extreme = extreme_template(window, message_template, template_clim)
@@ -159,7 +160,8 @@ def efi_sot(
             template_sot = sot_template(template_extreme, perc)
             common.write_grib(cfg.out_sot, template_sot, sot[perc])
 
-        common.io.fdb().flush()
+        cfg.out_efi.flush()
+        cfg.out_sot.flush()
         recovery.add_checkpoint(param.name, window_id)
 
 
@@ -186,12 +188,13 @@ class ConfigExtreme(common.Config):
 
         for attr in ["out_efi", "out_sot"]:
             location = getattr(args, attr)
-            target = common.io.target_from_location(location)
-            if type(target) in [common.io.FileTarget, common.io.FileSetTarget]:
-                if self.n_par_compute > 1:
-                    target.track_truncated = shared_list()
-                if args.recover:
-                    target.enable_recovery()
+            target = common.io.target_from_location(
+                location, overrides=self.override_output
+            )
+            if self.n_par_compute > 1:
+                target.enable_parallel(parallel)
+            if args.recover:
+                target.enable_recovery()
             self.__setattr__(attr, target)
 
         print(f"Forecast date is {self.fc_date}")
@@ -214,13 +217,19 @@ def main(args=None):
     executor = (
         SynchronousExecutor()
         if cfg.n_par_compute == 1
-        else QueueingExecutor(cfg.n_par_compute, cfg.window_queue_size)
+        else QueueingExecutor(cfg.n_par_compute, cfg.window_queue_size, initializer=signal.signal,
+                              initargs=(signal.SIGTERM, signal.SIG_DFL))
     )
 
     with executor:
         for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
             param = common.create_parameter(
-                param_name, cfg.fc_date, cfg.global_input_cfg, param_cfg, cfg.members
+                param_name,
+                cfg.fc_date,
+                cfg.global_input_cfg,
+                param_cfg,
+                cfg.members,
+                cfg.override_input,
             )
             window_manager = common.WindowManager(param_cfg, cfg.global_output_cfg)
             efi_vars = ExtremeVariables(param_cfg)
@@ -247,7 +256,9 @@ def main(args=None):
                 cfg.n_par_read,
                 window_manager.unique_steps,
                 [param],
-                cfg.n_par_compute > 1,
+                cfg.n_par_compute > 1, 
+                initializer=signal.signal,
+                initargs=(signal.SIGTERM, signal.SIG_DFL)
             ):
                 with common.ResourceMeter(f"Process step {step}"):
                     template, data = retrieved_data[0]

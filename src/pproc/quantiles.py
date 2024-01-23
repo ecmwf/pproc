@@ -1,4 +1,5 @@
 import argparse
+from datetime import datetime
 import functools
 import sys
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -12,20 +13,19 @@ from pproc.common.config import Config, default_parser
 from pproc.common.dataset import open_multi_dataset
 from pproc.common.grib_helpers import construct_message
 from pproc.common.io import (
-    FileSetTarget,
-    FileTarget,
     Target,
     missing_to_nan,
     nan_to_missing,
     read_template,
     target_from_location,
 )
+from pproc.common import parallel
 from pproc.common.parallel import (
     QueueingExecutor,
     SynchronousExecutor,
     parallel_data_retrieval,
-    shared_list,
 )
+from pproc.common.recovery import Recovery
 from pproc.common.resources import ResourceMeter
 from pproc.common.steps import AnyStep
 from pproc.common.window import Window
@@ -145,7 +145,7 @@ def parse_paramids(pid):
 
 
 class ParamConfig:
-    def __init__(self, name, options: Dict[str, Any]):
+    def __init__(self, name, options: Dict[str, Any], overrides: Dict[str, Any] = {}):
         self.name = name
         self.in_paramids = parse_paramids(options["in"])
         self.combine = options.get("combine_operation", None)
@@ -155,11 +155,13 @@ class ParamConfig:
         self._out_keys = options.get("out_keys", {})
         self._steps = options.get("steps", None)
         self._windows = options.get("windows", None)
+        self._in_overrides = overrides
 
     def in_keys(self, base: Optional[Dict[str, Any]] = None, **kwargs):
         keys = base.copy() if base is not None else {}
         keys.update(self._in_keys)
         keys.update(kwargs)
+        keys.update(self._in_overrides)
         keys_list = []
         for pid in self.in_paramids:
             keys["param"] = pid
@@ -239,12 +241,17 @@ class QuantilesConfig(Config):
         self.out_keys = self.options.get("out_keys", {})
 
         self.params = [
-            ParamConfig(pname, popt) for pname, popt in self.options["params"].items()
+            ParamConfig(pname, popt, overrides=self.override_input)
+            for pname, popt in self.options["params"].items()
         ]
         self.steps = self.options.get("steps", [])
         self.windows = self.options.get("windows", [])
 
         self.sources = self.options.get("sources", {})
+
+        date = self.options.get("date")
+        self.date = None if date is None else datetime.strptime(str(date), "%Y%m%d%H")
+        self.root_dir = self.options.get("root_dir", None)
 
         self.n_par_read = self.options.get("n_par_read", 1)
         self.n_par_compute = self.options.get("n_par_compute", 1)
@@ -255,7 +262,9 @@ def quantiles_iteration(
     config: QuantilesConfig,
     param: ParamConfig,
     target: Target,
+    recovery: Optional[Recovery],
     template: Union[str, eccodes.GRIBMessage],
+    window_id: str,
     window: Window,
 ):
     if not isinstance(template, eccodes.GRIBMessage):
@@ -269,6 +278,8 @@ def quantiles_iteration(
             n=config.num_quantiles,
             out_keys=window.grib_header(),
         )
+    if recovery is not None:
+        recovery.add_checkpoint(param.name, window_id)
 
 
 def main(args: List[str] = sys.argv[1:]):
@@ -276,9 +287,18 @@ def main(args: List[str] = sys.argv[1:]):
     parser = get_parser()
     args = parser.parse_args(args)
     config = QuantilesConfig(args)
-    target = target_from_location(args.out_quantiles)
-    if config.n_par_compute > 1 and isinstance(target, (FileTarget, FileSetTarget)):
-        target.track_truncated = shared_list()
+    if config.root_dir is None or config.date is None:
+        print("Recovery disabled. Set root_dir and date in config to enable.")
+        recovery = None
+        last_checkpoint = None
+    else:
+        recovery = Recovery(config.root_dir, args.config, config.date, args.recover)
+        last_checkpoint = recovery.last_checkpoint()
+    target = target_from_location(args.out_quantiles, overrides=config.override_output)
+    if config.n_par_compute > 1:
+        target.enable_parallel(parallel)
+    if recovery is not None and args.recover:
+        target.enable_recovery()
 
     executor = (
         SynchronousExecutor()
@@ -288,14 +308,29 @@ def main(args: List[str] = sys.argv[1:]):
 
     with executor:
         for param in config.params:
-            requester = ParamRequester(
-                param, config.sources, args.in_ens, config.num_members
-            )
             window_manager = WindowManager(
                 param.window_config(config.windows, config.steps), param.out_keys(config.out_keys)
             )
+            if last_checkpoint:
+                if param.name not in last_checkpoint:
+                    print(f"Recovery: skipping completed param {param.name}")
+                    continue
+                checkpointed_windows = [
+                    recovery.checkpoint_identifiers(x)[1]
+                    for x in recovery.checkpoints
+                    if param.name in x
+                ]
+                window_manager.delete_windows(checkpointed_windows)
+                print(
+                    f"Recovery: param {param.name} looping from step {window_manager.unique_steps[0]}"
+                )
+                last_checkpoint = None  # All remaining params have not been run
+
+            requester = ParamRequester(
+                param, config.sources, args.in_ens, config.num_members
+            )
             quantiles_partial = functools.partial(
-                quantiles_iteration, config, param, target
+                quantiles_iteration, config, param, target, recovery
             )
             for step, data in parallel_data_retrieval(
                 config.n_par_read,
@@ -307,9 +342,12 @@ def main(args: List[str] = sys.argv[1:]):
                 with ResourceMeter(f"{param.name}, step {step}: Compute accumulation"):
                     completed_windows = window_manager.update_windows(step, ens)
                     del ens
-                for _, window in completed_windows:
-                    executor.submit(quantiles_partial, template, window)
+                for window_id, window in completed_windows:
+                    executor.submit(quantiles_partial, template, window_id, window)
             executor.wait()
+
+    if recovery is not None:
+        recovery.clean_file()
 
 
 if __name__ == "__main__":

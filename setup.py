@@ -3,13 +3,14 @@ import os
 
 setup(
     name="pproc",
-    version='1.0.0',
+    version='1.1.0',
     author='ECMWF',
     description="ECMWF Post-processing tools",
     packages=find_packages(where='src'),
     package_dir={'': 'src'},
     include_package_data=True,
     install_requires=[
+        "filelock>=3.12.0"
     ],
     tests_require=[
     ],
@@ -28,7 +29,13 @@ setup(
             "pproc-clustereps-cluster=pproc.clustereps.cluster:main",
             "pproc-clustereps-attr=pproc.clustereps.attribution:main",
             "pproc-anomaly-probabilities=pproc.anomaly_probs:main",
-            "pproc-quantiles=pproc.quantiles:main"
+            "pproc-quantiles=pproc.quantiles:main",
+            "pproc-tcycl-run=pproc.tcycl.tcycl_run:main",
+            "pproc-tcycl-summarise-ibtks=pproc.tcycl.tcycl_summarise_ibtks:main",
+            "pproc-tcycl-summarise-tcycl=pproc.tcycl.tcycl_summarise_tcycl:main",
+            "pproc-tcycl-summarise-trckr=pproc.tcycl.tcycl_summarise_trckr:main",
+            "pproc-tcycl-evaluate=pproc.tcycl.tcycl_evaluate:main",
+            "pproc-thermal-indices=pproc.thermal_indices:main",
         ],
     },
 )

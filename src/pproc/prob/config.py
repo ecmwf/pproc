@@ -1,4 +1,5 @@
 from pproc import common
+from pproc.common import parallel
 
 
 class ProbConfig(common.Config):
@@ -13,13 +14,9 @@ class ProbConfig(common.Config):
 
         for attr in target_types:
             location = getattr(args, attr)
-            target = common.io.target_from_location(location)
-            if type(target) in [
-                common.io.FileTarget,
-                common.io.FileSetTarget,
-            ]:
-                if self.n_par_compute > 1:
-                    target.track_truncated = common.parallel.shared_list()
-                if args.recover:
-                    target.enable_recovery()
+            target = common.io.target_from_location(location, overrides=self.override_output)
+            if self.n_par_compute > 1:
+                target.enable_parallel(parallel)
+            if args.recover:
+                target.enable_recovery()
             self.__setattr__(attr, target)
