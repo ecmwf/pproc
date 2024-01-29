@@ -70,12 +70,12 @@ def extreme_template(window, template_fc, template_clim):
 
     # set clim keys
     clim_keys = [
-        "powerOfTenUsedToScaleClimateWeight",
-        "weightAppliedToClimateMonth1",
-        "firstMonthUsedToBuildClimateMonth1",
-        "lastMonthUsedToBuildClimateMonth1",
-        "firstMonthUsedToBuildClimateMonth2",
-        "lastMonthUsedToBuildClimateMonth2",
+        "versionNumberOfExperimentalSuite",
+        "implementationDateOfModelCycle",
+        "numberOfReforecastYearsInModelClimate",
+        "numberOfDaysInClimateSamplingWindow",
+        "sampleSizeOfModelClimate",
+        "versionOfModelClimate",
         "numberOfBitsContainingEachPackedValue",
     ]
     for key in clim_keys:
