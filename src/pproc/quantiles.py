@@ -108,10 +108,10 @@ def do_quantiles(
     for i, quantile in enumerate(iter_quantiles(ens, n, method="sort")):
         grib_keys = {
             **out_keys,
-            "type": "pb",
-            "numberOfForecastsInEnsemble": n,
+            "totalNumber": n,
             "perturbationNumber": i,
         }
+        grib_keys.setdefault("type", "pb")
         if out_paramid is not None:
             grib_keys["paramId"] = out_paramid
         message = construct_message(template, grib_keys)
