@@ -33,9 +33,9 @@ from pproc.common.window_manager import WindowManager
 
 
 def read_ensemble(
-    sources: dict, loc: str, members: int, dtype=np.float32, **kwargs
+    sources: dict, loc: str, total: int, dtype=np.float32, **kwargs
 ) -> Tuple[eccodes.GRIBMessage, np.ndarray]:
-    """Read data from a GRIB file as a single array
+    """Read GRIB data as a single array, in arbitrary order
 
     Parameters
     ----------
@@ -43,8 +43,8 @@ def read_ensemble(
         Sources configuration
     loc: str
         Location of the data (file path, named fdb request, ...)
-    members: int
-        Number of ensemble members to expect
+    total: int
+        Number of fields to expect
     dtype: numpy data type
         Data type for the result array (default float32)
     kwargs: any
@@ -54,15 +54,11 @@ def read_ensemble(
     -------
     eccodes.GRIBMessage
         GRIB template (first message read)
-    numpy array (nfields, npoints)
+    numpy array (total, npoints)
         Read data
     """
 
-    def set_number(keys):
-        if keys.get("type") == "pf":
-            keys["number"] = range(1, members)
-
-    readers = open_multi_dataset(sources, loc, update=set_number, **kwargs)
+    readers = open_multi_dataset(sources, loc, **kwargs)
     template = None
     data = None
     n_read = 0
@@ -74,14 +70,13 @@ def read_ensemble(
             if template is None:
                 template = message
                 data = np.empty(
-                    (members, template.get("numberOfDataPoints")), dtype=dtype
+                    (total, template.get("numberOfDataPoints")), dtype=dtype
                 )
             for message in reader:
-                i = message.get("perturbationNumber", 0)
-                data[i, :] = missing_to_nan(message)
+                data[n_read, :] = missing_to_nan(message)
                 n_read += 1
-    if n_read != members:
-        raise EOFError(f"Expected {members} fields in {loc!r}, got {n_read}")
+    if n_read != total:
+        raise EOFError(f"Expected {total} fields in {loc!r}, got {n_read}")
     return template, data
 
 
@@ -199,11 +194,23 @@ class ParamConfig:
 
 
 class ParamRequester:
-    def __init__(self, param: ParamConfig, sources: dict, loc: str, members: int):
+    def __init__(
+        self,
+        param: ParamConfig,
+        sources: dict,
+        loc: str,
+        members: int,
+        total: Optional[int] = None,
+    ):
         self.param = param
         self.sources = sources
         self.loc = loc
         self.members = members
+        self.total = total if total is not None else members
+
+    def _set_number(self, keys):
+        if keys.get("type") == "pf":
+            keys["number"] = range(1, self.members)
 
     def combine_data(self, data_list: List[np.ndarray]) -> np.ndarray:
         if self.param.combine is None:
@@ -221,7 +228,7 @@ class ParamRequester:
         data_list = []
         for in_keys in self.param.in_keys(step=str(step)):
             template, data = read_ensemble(
-                self.sources, self.loc, self.members, **in_keys
+                self.sources, self.loc, self.total, update=self._set_number, **in_keys
             )
             data_list.append(data)
         return template, self.combine_data(data_list) * self.param.scale
@@ -237,6 +244,7 @@ class QuantilesConfig(Config):
 
         self.num_members = self.options.get("num_members", 51)
         self.num_quantiles = self.options.get("num_quantiles", 100)
+        self.total_fields = self.options.get("total_fields", self.num_members)
 
         self.out_keys = self.options.get("out_keys", {})
 
@@ -309,7 +317,8 @@ def main(args: List[str] = sys.argv[1:]):
     with executor:
         for param in config.params:
             window_manager = WindowManager(
-                param.window_config(config.windows, config.steps), param.out_keys(config.out_keys)
+                param.window_config(config.windows, config.steps),
+                param.out_keys(config.out_keys),
             )
             if last_checkpoint:
                 if param.name not in last_checkpoint:
@@ -327,7 +336,11 @@ def main(args: List[str] = sys.argv[1:]):
                 last_checkpoint = None  # All remaining params have not been run
 
             requester = ParamRequester(
-                param, config.sources, args.in_ens, config.num_members
+                param,
+                config.sources,
+                args.in_ens,
+                config.num_members,
+                config.total_fields,
             )
             quantiles_partial = functools.partial(
                 quantiles_iteration, config, param, target, recovery
