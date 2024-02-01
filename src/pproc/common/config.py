@@ -90,4 +90,4 @@ class Config:
         self.override_output = parse_var_strs(args.override_output)
 
         if verbose:
-            print(yaml.dump(self.options))
+            print(yaml.dump(self.options, sort_keys=False))
