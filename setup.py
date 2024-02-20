@@ -38,6 +38,7 @@ setup(
             "pproc-tcycl-evaluate=pproc.tcycl.tcycl_evaluate:main",
             "pproc-thermal-indices=pproc.thermal_indices:main",
             "pproc-histogram=pproc.histogram:main",
+            "pproc-accumulate=pproc.accumulate:main",
         ],
     },
 )
