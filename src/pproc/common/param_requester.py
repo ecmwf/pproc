@@ -1,5 +1,7 @@
+from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+import numexpr
 import numpy as np
 
 import eccodes
@@ -82,11 +84,26 @@ def parse_paramids(pid):
     raise TypeError(f"Invalid paramid type {type(pid)}")
 
 
+@dataclass
+class ParamFilter:
+    comparison: str
+    threshold: float
+    param: Optional[str]
+    replacement: float
+
+    @classmethod
+    def from_config(cls, config: Optional[dict]) -> Optional["ParamFilter"]:
+        if config is None:
+            return None
+        return cls(config["comparison"], config["threshold"], config.get("param", None), config.get("replacement", 0.))
+
+
 class ParamConfig:
     def __init__(self, name, options: Dict[str, Any], overrides: Dict[str, Any] = {}):
         self.name = name
         self.in_paramids = parse_paramids(options["in"])
         self.combine = options.get("combine_operation", None)
+        self.filter = ParamFilter.from_config(options.get("input_filter_operation", None))
         self.scale = options.get("scale", 1.0)
         self.out_paramid = options.get("out", None)
         self._in_keys = options.get("in_keys", {})
@@ -157,6 +174,28 @@ class ParamRequester:
         if keys.get("type") == "pf":
             keys["number"] = range(1, self.members)
 
+    def filter_data(self, data: np.ndarray, step: AnyStep) -> np.ndarray:
+        filt = self.param.filter
+        if filt is None:
+            return data
+        fdata = data
+        if filt.param is not None:
+            filt_keys = self.param.in_keys(step=str(step))[0]
+            filt_keys["param"] = filt.param
+            _, fdata = read_ensemble(
+                self.sources,
+                self.loc,
+                self.total,
+                update=self._set_number,
+                index_func=self.index_func,
+                **filt_keys,
+            )
+        comp = numexpr.evaluate(
+            "data " + filt.comparison + str(filt.threshold),
+            local_dict={"data": fdata}
+        )
+        return np.where(comp, filt.replacement, data)
+
     def combine_data(self, data_list: List[np.ndarray]) -> np.ndarray:
         if self.param.combine is None:
             assert (
@@ -184,7 +223,7 @@ class ParamRequester:
                 **in_keys,
             )
             data_list.append(data)
-        return template, self.combine_data(data_list) * self.param.scale
+        return template, self.filter_data(self.combine_data(data_list), step) * self.param.scale
 
     @property
     def name(self):
