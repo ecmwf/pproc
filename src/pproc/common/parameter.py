@@ -3,6 +3,8 @@ from typing import Any, Dict, List, Union
 import numpy as np
 import numexpr
 
+from meteokit.wind import direction
+
 from pproc import common
 
 
@@ -84,7 +86,8 @@ class Parameter:
             )
         
             num_levels = len(self.levels())
-            assert new_data.shape[0] == num_levels*len(new_request.get("number", [0]))
+            expected = num_levels*len(new_request.get("number", [0]))
+            assert new_data.shape[0] == expected, f"Shape mismatch: expected {expected}, got {new_data.shape[0]}"
             if num_levels > 1:
                 new_data = new_data.reshape((int(new_data.shape[0]/num_levels), num_levels, new_data.shape[1]))
 
@@ -162,6 +165,9 @@ class CombineParameters(Parameter):
     def combine_data(self, data_list):
         if self.combine_operation == "norm":
             return np.linalg.norm(data_list, axis=0)
+        if self.combine_operation == "direction":
+            assert len(data_list) == 2, "'direction' requires exactly 2 input fields"
+            return direction(data_list[0], data_list[1], convention="meteo", to_positive=True)
         return getattr(np, self.combine_operation)(data_list, axis=0)
 
     def retrieve_data(self, fdb, step: common.AnyStep):

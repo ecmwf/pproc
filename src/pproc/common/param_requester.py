@@ -3,6 +3,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import numpy as np
 
 import eccodes
+from meteokit.wind import direction
 
 from pproc.common.dataset import open_multi_dataset
 from pproc.common.io import missing_to_nan
@@ -164,6 +165,9 @@ class ParamRequester:
             return data_list[0]
         if self.param.combine == "norm":
             return np.linalg.norm(data_list, axis=0)
+        if self.param.combine == "direction":
+            assert len(data_list) == 2, "'direction' requires exactly 2 input fields"
+            return direction(data_list[0], data_list[1], convention="meteo", to_positive=True)
         return getattr(np, self.param.combine)(data_list, axis=0)
 
     def retrieve_data(
