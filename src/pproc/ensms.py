@@ -12,6 +12,7 @@ import functools
 import sys
 from datetime import datetime
 import signal
+from meters import ResourceMeter
 import numpy as np
 
 from pproc import common
@@ -81,7 +82,7 @@ class ConfigExtreme(common.Config):
 
 def ensms_iteration(config, param_type, recovery, window_id, window, template_ens = None):
     # calculate mean/stddev of wind speed for type=pf/cf (eps)
-    with common.ResourceMeter(f"Window {window.name}: compute mean/stddev"):
+    with ResourceMeter(f"Window {window.name}: compute mean/stddev"):
         if template_ens is None:
             template_ens, ens = param_type.retrieve_data(config.fdb, window.steps[0])
         else:
@@ -91,7 +92,7 @@ def ensms_iteration(config, param_type, recovery, window_id, window, template_en
         mean = np.mean(ens, axis=0)
         std = np.std(ens, axis=0)
 
-    with common.ResourceMeter(f"Window {window.name}: write output"):
+    with ResourceMeter(f"Window {window.name}: write output"):
         for level_index, level in enumerate(param_type.levels()):
             mean_slice = slice_dataset(mean, level_index)
             template_mean = template_ensemble(param_type, template_ens, window, level, 'em')
@@ -171,7 +172,7 @@ def main(args=None):
                     initializer=signal.signal,
                     initargs=(signal.SIGTERM, signal.SIG_DFL)
                 ):
-                    with common.ResourceMeter(f"Process step {step}"):
+                    with ResourceMeter(f"Process step {step}"):
                         message_template, data = retrieved_data[0]
 
                         completed_windows = window_manager.update_windows(
