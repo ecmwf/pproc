@@ -4,6 +4,8 @@ from datetime import datetime
 import functools
 import signal
 
+from meters import ResourceMeter
+
 from pproc import common
 from pproc.common.parallel import (
     SynchronousExecutor,
@@ -82,7 +84,7 @@ def main(args=None):
                 initializer=signal.signal,
                 initargs=(signal.SIGTERM, signal.SIG_DFL)
             ):
-                with common.ResourceMeter(f"Process step {step}"):
+                with ResourceMeter(f"Process step {step}"):
                     message_template, data = retrieved_data[0]
                     assert data.ndim == 2
 

@@ -18,6 +18,7 @@ import signal
 
 import eccodes
 from meteokit import extreme
+from meters import ResourceMeter
 from pproc import common
 from pproc.common import parallel
 from pproc.common.parallel import (
@@ -128,7 +129,7 @@ def sot_template(template, sot):
 def efi_sot(
     cfg, param, climatology, efi_vars, recovery, template_filename, window_id, window
 ):
-    with common.ResourceMeter(f"Window {window.suffix}, computing EFI/SOT"):
+    with ResourceMeter(f"Window {window.suffix}, computing EFI/SOT"):
         message_template = (
             template_filename
             if isinstance(template_filename, eccodes.highlevel.message.GRIBMessage)
@@ -260,7 +261,7 @@ def main(args=None):
                 initializer=signal.signal,
                 initargs=(signal.SIGTERM, signal.SIG_DFL)
             ):
-                with common.ResourceMeter(f"Process step {step}"):
+                with ResourceMeter(f"Process step {step}"):
                     template, data = retrieved_data[0]
                     assert data.ndim == 2
 

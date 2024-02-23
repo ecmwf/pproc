@@ -8,6 +8,7 @@ import numpy as np
 
 import eccodes
 from meteokit.stats import iter_quantiles
+from meters import ResourceMeter
 
 from pproc.common.config import Config, default_parser
 from pproc.common.dataset import open_multi_dataset
@@ -26,7 +27,6 @@ from pproc.common.parallel import (
     parallel_data_retrieval,
 )
 from pproc.common.recovery import Recovery
-from pproc.common.resources import ResourceMeter
 from pproc.common.steps import AnyStep
 from pproc.common.window import Window
 from pproc.common.window_manager import WindowManager
