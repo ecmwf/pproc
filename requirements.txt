@@ -13,3 +13,4 @@ earthkit-data
 earthkit-meteo
 thermofeel
 codetiming
+code-meters
