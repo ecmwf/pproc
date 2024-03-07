@@ -253,14 +253,15 @@ def main(args=None):
             efi_partial = functools.partial(
                 efi_sot, cfg, param, param_cfg["climatology"], efi_vars, recovery
             )
-            for step, retrieved_data in parallel_data_retrieval(
+            for keys, retrieved_data in parallel_data_retrieval(
                 cfg.n_par_read,
-                window_manager.unique_steps,
+                {"step": window_manager.unique_steps},
                 [param],
                 cfg.n_par_compute > 1, 
                 initializer=signal.signal,
                 initargs=(signal.SIGTERM, signal.SIG_DFL)
             ):
+                step = keys["step"]
                 with ResourceMeter(f"Process step {step}"):
                     template, data = retrieved_data[0]
                     assert data.ndim == 2

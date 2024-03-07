@@ -210,10 +210,10 @@ class ParamRequester:
         return getattr(np, self.param.combine)(data_list, axis=0)
 
     def retrieve_data(
-        self, fdb, step: AnyStep
+        self, fdb, step: AnyStep, **kwargs
     ) -> Tuple[eccodes.GRIBMessage, np.ndarray]:
         data_list = []
-        for in_keys in self.param.in_keys(step=str(step)):
+        for in_keys in self.param.in_keys(step=str(step), **kwargs):
             template, data = read_ensemble(
                 self.sources,
                 self.loc,

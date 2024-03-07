@@ -195,12 +195,13 @@ def main(args: List[str] = sys.argv[1:]):
             postproc_partial = functools.partial(
                 postproc_iteration, param, target, recovery
             )
-            for step, data in parallel_data_retrieval(
+            for keys, data in parallel_data_retrieval(
                 config.n_par_read,
-                window_manager.unique_steps,
+                {"step": window_manager.unique_steps},
                 [requester],
                 config.n_par_compute > 1,
             ):
+                step = keys["step"]
                 template, ens = data[0]
                 with ResourceMeter(f"{param.name}, step {step}: Compute accumulation"):
                     completed_windows = window_manager.update_windows(step, ens)

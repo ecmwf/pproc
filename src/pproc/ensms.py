@@ -164,14 +164,15 @@ def main(args=None):
                     )
                     last_checkpoint = None  # All remaining params have not been run
 
-                for step, retrieved_data in parallel_data_retrieval(
+                for keys, retrieved_data in parallel_data_retrieval(
                     cfg.n_par,
-                    window_manager.unique_steps,
+                    {"step": window_manager.unique_steps},
                     [param_type],
                     cfg.n_par > 1, 
                     initializer=signal.signal,
                     initargs=(signal.SIGTERM, signal.SIG_DFL)
                 ):
+                    step = keys["step"]
                     with ResourceMeter(f"Process step {step}"):
                         message_template, data = retrieved_data[0]
 
