@@ -146,7 +146,7 @@ class HistParamRequester(ParamRequester):
         super().__init__(param, sources, loc, 0)
 
     def retrieve_data(
-        self, fdb, step: AnyStep
+        self, fdb, step: AnyStep, **kwargs
     ) -> Tuple[eccodes.GRIBMessage, np.ndarray]:
         assert isinstance(self.param, HistParamConfig)
         iterators = tuple(
@@ -156,7 +156,7 @@ class HistParamRequester(ParamRequester):
                 update=self._set_number,
                 **in_keys,
             )
-            for in_keys in self.param.in_keys(step=str(step))
+            for in_keys in self.param.in_keys(step=str(step), **kwargs)
         )
         nbins = len(self.param.bins) - 1
         template = None
@@ -279,12 +279,13 @@ def main(args: List[str] = sys.argv[1:]):
             write_partial = functools.partial(
                 write_iteration, config, param, target, recovery
             )
-            for step, data in parallel_data_retrieval(
+            for keys, data in parallel_data_retrieval(
                 config.n_par_read,
-                window_manager.unique_steps,
+                {"step": window_manager.unique_steps},
                 [requester],
                 config.n_par_compute > 1,
             ):
+                step = keys["step"]
                 print(f"Processing step {step}")
                 template, hist = data[0]
                 executor.submit(write_partial, template, step, hist)
