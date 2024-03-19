@@ -1,7 +1,32 @@
+from dataclasses import dataclass
 import numpy as np
 from typing import Dict
 
 from pproc.common.steps import AnyStep, Step
+
+
+@dataclass
+class WindowConfig:
+    start: int
+    end: int
+    step: int
+    name: str
+    suffix: str
+    steps: list
+
+
+def parse_window_config(config: dict, include_init: bool = True) -> WindowConfig:
+    start = int(config["range"][0])
+    end = int(config["range"][1])
+    step = int(config["range"][2]) if len(config["range"]) > 2 else 1
+    window_size = end - start
+    name = str(end) if window_size == 0 else f"{start}-{end}"
+    suffix = f"{window_size:0>3}_{start:0>3}h_{end:0>3}h"
+    if include_init:
+        steps = list(range(start, end + 1, step))
+    else:
+        steps = list(range(start + step, end + 1, step))
+    return WindowConfig(start, end, step, name, suffix, steps)
 
 
 class Window:
@@ -10,28 +35,18 @@ class Window:
     """
 
     def __init__(self, window_options, include_init: bool = True):
-
         """
         :param window_options: specifies start and end step of window
         :param include_init: boolean specifying whether to include start step in window
         """
-        self.start = int(window_options["range"][0])
-        self.end = int(window_options["range"][1])
+        config = parse_window_config(window_options, include_init)
+        self.start = config.start
+        self.end = config.end
+        self.step = config.step
+        self.name = config.name
+        self.suffix = config.suffix
+        self.steps = config.steps
         self.include_init = include_init
-        window_size = self.end - self.start
-        self.suffix = f"{window_size:0>3}_{self.start:0>3}h_{self.end:0>3}h"
-        if window_size == 0:
-            self.name = str(self.end)
-        else:
-            self.name = f"{self.start}-{self.end}"
-
-        self.step = (
-            int(window_options["range"][2]) if len(window_options["range"]) > 2 else 1
-        )
-        if include_init:
-            self.steps = list(range(self.start, self.end + 1, self.step))
-        else:
-            self.steps = list(range(self.start + self.step, self.end + 1, self.step))
 
         self.step_values = []
         self.config_grib_header = {}
