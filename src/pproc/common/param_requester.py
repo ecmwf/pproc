@@ -10,7 +10,7 @@ from meteokit.wind import direction
 from pproc.common.dataset import open_multi_dataset
 from pproc.common.io import missing_to_nan
 from pproc.common.steps import AnyStep
-from pproc.common.window import Window
+from pproc.common.window import parse_window_config
 
 
 IndexFunc = Callable[[eccodes.GRIBMessage], int]
@@ -138,7 +138,7 @@ class ParamConfig:
 
         windows = []
         for coarse_cfg in base:
-            coarse_window = Window(coarse_cfg)
+            coarse_window = parse_window_config(coarse_cfg)
             periods = [{"range": [step, step]} for step in coarse_window.steps]
             windows.append(
                 {

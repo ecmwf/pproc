@@ -1,13 +1,14 @@
 import numpy as np
 import pytest
 
-from pproc.common import (
+from pproc.common.window import (
     DiffWindow,
     SimpleOpWindow,
     WeightedSumWindow,
     DiffDailyRateWindow,
     Window,
     MeanWindow,
+    parse_window_config,
 )
 
 
@@ -24,7 +25,7 @@ from pproc.common import (
     ],
 )
 def test_window_steps(steps, include_init, exp):
-    window = Window({"range": steps}, include_init)
+    window = parse_window_config({"range": steps}, include_init)
     assert window.steps == exp
 
 

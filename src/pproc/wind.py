@@ -23,6 +23,7 @@ import mir
 from pproc import common
 from pproc.common import parallel
 from pproc.common.parallel import parallel_processing, sigterm_handler
+from pproc.common.window import parse_window_config
 
 
 def retrieve_messages(cfg, req, cached_file):
@@ -281,12 +282,12 @@ def main(args=None):
     for levelist in cfg.levelist:
         for window_options in cfg.windows:
 
-            window = common.Window(window_options, include_init=True)
+            window = parse_window_config(window_options, include_init=True)
 
             for step in window.steps:
                 if recovery.existing_checkpoint(levelist, window.name, step):
                     print(
-                        f"Recovery: skipping level {levelist} window {window} step {step}"
+                        f"Recovery: skipping level {levelist} window {window.name} step {step}"
                     )
                     continue
 
