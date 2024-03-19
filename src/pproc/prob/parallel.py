@@ -24,7 +24,7 @@ def prob_iteration(
             else common.io.read_template(template_filename)
         )
 
-        ens = accum.get_values()
+        ens = accum.values
         assert ens is not None
 
         if not isinstance(out_ensemble, common.io.NullTarget):

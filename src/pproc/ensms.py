@@ -17,6 +17,7 @@ import numpy as np
 
 from pproc import common
 from pproc.common import parallel
+from pproc.common.accumulation import Accumulator
 from pproc.common.parallel import (
     parallel_processing,
     sigterm_handler,
@@ -150,15 +151,15 @@ def main(args=None):
                         for x in recover.checkpoints
                         if param in x
                     ]
-                    window_manager.delete_windows(checkpointed_windows)
+                    new_start = window_manager.delete_windows(checkpointed_windows)
                     print(
-                        f"Recovery: param {param} looping from step {window_manager.unique_steps[0]}"
+                        f"Recovery: param {param} looping from step {new_start}"
                     )
                     last_checkpoint = None  # All remaining params have not been run
 
                 for keys, retrieved_data in parallel_data_retrieval(
                     cfg.n_par,
-                    {"step": window_manager.unique_steps},
+                    window_manager.dims,
                     [param_type],
                     cfg.n_par > 1, 
                     initializer=signal.signal,
@@ -169,7 +170,7 @@ def main(args=None):
                         message_template, data = retrieved_data[0]
 
                         completed_windows = window_manager.update_windows(
-                            step,
+                            keys,
                             data,
                         )
                         for window_id, accum in completed_windows:

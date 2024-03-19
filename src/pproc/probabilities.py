@@ -67,9 +67,9 @@ def main(args=None):
                     for x in recovery.checkpoints
                     if param_name in x
                 ]
-                window_manager.delete_windows(checkpointed_windows)
+                new_start = window_manager.delete_windows(checkpointed_windows)
                 print(
-                    f"Recovery: param {param_name} looping from step {window_manager.unique_steps[0]}"
+                    f"Recovery: param {param_name} looping from step {new_start}"
                 )
                 last_checkpoint = None  # All remaining params have not been run
 
@@ -78,7 +78,7 @@ def main(args=None):
             )
             for keys, retrieved_data in parallel_data_retrieval(
                 cfg.n_par_read,
-                {"step": window_manager.unique_steps},
+                window_manager.dims,
                 [param],
                 cfg.n_par_compute > 1, 
                 initializer=signal.signal,
@@ -89,7 +89,7 @@ def main(args=None):
                     message_template, data = retrieved_data[0]
                     assert data.ndim == 2
 
-                    completed_windows = window_manager.update_windows(step, data)
+                    completed_windows = window_manager.update_windows(keys, data)
                     for window_id, accum in completed_windows:
                         executor.submit(
                             prob_partial,

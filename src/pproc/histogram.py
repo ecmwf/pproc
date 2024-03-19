@@ -268,9 +268,9 @@ def main(args: List[str] = sys.argv[1:]):
                     for x in recovery.checkpoints
                     if param.name in x
                 ]
-                window_manager.delete_windows(checkpointed_windows)
+                new_start = window_manager.delete_windows(checkpointed_windows)
                 print(
-                    f"Recovery: param {param.name} looping from step {window_manager.unique_steps[0]}"
+                    f"Recovery: param {param.name} looping from step {new_start}"
                 )
                 last_checkpoint = None  # All remaining params have not been run
 
@@ -280,7 +280,7 @@ def main(args: List[str] = sys.argv[1:]):
             )
             for keys, data in parallel_data_retrieval(
                 config.n_par_read,
-                {"step": window_manager.unique_steps},
+                window_manager.dims,
                 [requester],
                 config.n_par_compute > 1,
             ):

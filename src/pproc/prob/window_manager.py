@@ -2,8 +2,8 @@ import bisect
 from typing import Iterator, List, Tuple
 import numpy as np
 
-from pproc.common import WindowManager, create_window, step_to_coord
-from pproc.common.accumulation import Accumulation
+from pproc.common import WindowManager, create_window
+from pproc.common.accumulation import Accumulator, Coord
 
 
 class ThresholdWindowManager(WindowManager):
@@ -74,7 +74,7 @@ class ThresholdWindowManager(WindowManager):
                     window_id = f"{window_name}_{operation}_{window_index}"
                     if window_id in self.windows:
                         raise Exception(f"Duplicate window {window_id}")
-                    self.windows[window_id] = window_acc
+                    self.windows[window_id] = Accumulator({"step": window_acc})
                     self.window_thresholds[window_id] = thresholds
 
     def thresholds(self, identifier):
@@ -83,10 +83,11 @@ class ThresholdWindowManager(WindowManager):
         """
         return self.window_thresholds.pop(identifier)
 
-    def delete_windows(self, window_ids: List[str]):
-        super().delete_windows(window_ids)
+    def delete_windows(self, window_ids: List[str]) -> Coord:
+        new_start = super().delete_windows(window_ids)
         for window_id in window_ids:
             del self.window_thresholds[window_id]
+        return new_start
 
 
 class AnomalyWindowManager(ThresholdWindowManager):
@@ -119,18 +120,19 @@ class AnomalyWindowManager(ThresholdWindowManager):
                         window_id = f"std_{window_name}_{operation}_{window_index}"
                         if window_id in self.windows:
                             raise Exception(f"Duplicate window {window_id}")
-                        self.windows[window_id] = window_acc
+                        self.windows[window_id] = Accumulator({"step": window_acc})
                         self.window_thresholds[window_id] = thresholds
 
     def update_windows(
-        self, step, data: np.array, clim_mean: np.array, clim_std: np.array
-    ) -> Iterator[Tuple[str, Accumulation]]:
+        self, keys: dict, data: np.array, clim_mean: np.array, clim_std: np.array
+    ) -> Iterator[Tuple[str, Accumulator]]:
         """
-        Updates all windows that include step with either the anomaly with clim_mean
-        or standardised anomaly including clim_std. Function modifies input data array.
+        Updates all windows that include the given keys with either the anomaly
+        with clim_mean or standardised anomaly including clim_std. Function
+        modifies input data array.
 
-        :param step: new step
-        :param data: data for step
+        :param keys: keys identifying the new chunk of data
+        :param data: data chunk
         :param clim_mean: mean from climatology
         :param clim_std: standard deviation from climatology
         :return: generator for completed windows
@@ -139,9 +141,10 @@ class AnomalyWindowManager(ThresholdWindowManager):
         std_anomaly = anomaly / clim_std
         for identifier, accum in list(self.windows.items()):
             if identifier.split("_")[0] == "std":
-                accum.feed(step_to_coord(step), std_anomaly)
+                accum.feed(keys, std_anomaly)
             else:
-                accum.feed(step_to_coord(step), anomaly)
+                accum.feed(keys, anomaly)
 
-            if accum.is_complete(step):
-                yield identifier, self.windows.pop(identifier)
+            if accum.is_complete():
+                completed = self.windows.pop(identifier)
+                yield identifier, completed

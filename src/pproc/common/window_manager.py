@@ -1,9 +1,9 @@
-from typing import Iterator, List, Tuple
+from typing import Dict, Iterator, List, Tuple
 import bisect
 
 import numpy as np
 
-from pproc.common.accumulation import Accumulation
+from pproc.common.accumulation import Accumulator, Coord
 from pproc.common.steps import AnyStep, Step, parse_step, step_to_coord
 from pproc.common.window import create_window
 
@@ -12,6 +12,9 @@ class WindowManager:
     """
     Class for creating and managing active windows
     """
+
+    windows: Dict[str, Accumulator]
+    dims: Dict[str, List[Coord]]
 
     def __init__(self, parameter, global_config):
         """
@@ -26,7 +29,7 @@ class WindowManager:
         self.create_windows(parameter, global_config)
         if "steps" not in parameter:
             for accum in self.windows.values():
-                self.unique_steps.update(accum.coords)
+                self.unique_steps.update(accum["step"].coords)
         else:
             for steps in parameter["steps"]:
                 start_step = steps["start_step"]
@@ -43,6 +46,7 @@ class WindowManager:
                         )
 
         self.unique_steps = sorted(self.unique_steps, key=parse_step)
+        self.dims = {"step": self.unique_steps}
 
     def create_windows(self, parameter, global_config):
         """
@@ -63,40 +67,42 @@ class WindowManager:
                 window_id = f"{window_name}_{window_index}"
                 if window_id in self.windows:
                     raise Exception(f"Duplicate window {window_id}")
-                self.windows[window_id] = window_acc
+                self.windows[window_id] = Accumulator({"step": window_acc})
 
     def update_windows(
-        self, step: AnyStep, data: np.array
-    ) -> Iterator[Tuple[str, Accumulation]]:
+        self, keys: Dict[str, Coord], data: np.ndarray
+    ) -> Iterator[Tuple[str, Accumulator]]:
         """
-        Updates all windows that include step with the step data values
+        Updates all windows containing the given keys with the associated data
 
-        :param step: new step
-        :param data: data for step
+        :param keys: keys identifying the new chunk of data
+        :param data: data chunk
         :return: generator for completed windows
         """
         for identifier, accum in list(self.windows.items()):
-            accum.feed(step_to_coord(step), data)
+            accum.feed(keys, data)
 
             if accum.is_complete():
                 completed = self.windows.pop(identifier)
                 yield identifier, completed
                 del completed
 
-    def delete_windows(self, window_ids: List[str]):
+    def delete_windows(self, window_ids: List[str]) -> Coord:
         """
         Remove windows in the list of provided window identifiers and updates steps
         to only those contained in remaining list of windows
 
         :param window_ids: list of identifiers of windows to delete
+        :return: new first step
         """
         for identifier in window_ids:
             del self.windows[identifier]
 
         for step_index, step in enumerate(self.unique_steps):
-            in_any_window = any(step in accum for accum in self.windows.values())
+            in_any_window = any(step in accum["step"] for accum in self.windows.values())
             if in_any_window:
                 # Steps must be processed in order so stop at first step that appears
                 # in remaining window
                 break
         self.unique_steps[:] = self.unique_steps[step_index:]
+        return step

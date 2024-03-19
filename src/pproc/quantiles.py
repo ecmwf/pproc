@@ -10,7 +10,7 @@ import eccodes
 from meteokit.stats import iter_quantiles
 from meters import ResourceMeter
 
-from pproc.common.accumulation import Accumulation
+from pproc.common.accumulation import Accumulator
 from pproc.common.config import Config, default_parser
 from pproc.common.grib_helpers import construct_message
 from pproc.common.io import (
@@ -112,12 +112,12 @@ def quantiles_iteration(
     recovery: Optional[Recovery],
     template: Union[str, eccodes.GRIBMessage],
     window_id: str,
-    accum: Accumulation,
+    accum: Accumulator,
 ):
     if not isinstance(template, eccodes.GRIBMessage):
         template = read_template(template)
     with ResourceMeter(f"{param.name}, step {window_id}: Quantiles"):
-        ens = accum.get_values()
+        ens = accum.values
         assert ens is not None
         do_quantiles(
             ens,
@@ -170,9 +170,9 @@ def main(args: List[str] = sys.argv[1:]):
                     for x in recovery.checkpoints
                     if param.name in x
                 ]
-                window_manager.delete_windows(checkpointed_windows)
+                new_start = window_manager.delete_windows(checkpointed_windows)
                 print(
-                    f"Recovery: param {param.name} looping from step {window_manager.unique_steps[0]}"
+                    f"Recovery: param {param.name} looping from step {new_start}"
                 )
                 last_checkpoint = None  # All remaining params have not been run
 
@@ -188,14 +188,14 @@ def main(args: List[str] = sys.argv[1:]):
             )
             for keys, data in parallel_data_retrieval(
                 config.n_par_read,
-                {"step": window_manager.unique_steps},
+                window_manager.dims,
                 [requester],
                 config.n_par_compute > 1,
             ):
                 step = keys["step"]
                 template, ens = data[0]
                 with ResourceMeter(f"{param.name}, step {step}: Compute accumulation"):
-                    completed_windows = window_manager.update_windows(step, ens)
+                    completed_windows = window_manager.update_windows(keys, ens)
                     del ens
                 for window_id, accum in completed_windows:
                     executor.submit(quantiles_partial, template, window_id, accum)
