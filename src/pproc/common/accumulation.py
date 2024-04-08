@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
+from numpy.typing import DTypeLike
 
 
 NumericCoord = int
@@ -15,8 +16,12 @@ Coords = Union[List[str], NumericCoords]
 class Accumulation(metaclass=ABCMeta):
     values: Optional[np.ndarray]
 
-    def __init__(self, coords: Coords):
+    def __init__(
+        self, coords: Coords, dtype: DTypeLike = np.float32, sequential: bool = False
+    ):
         self.coords = coords
+        self.dtype = dtype
+        self.sequential = sequential
         self.reset(initial=True)
 
     def __contains__(self, coord: Coord):
@@ -30,12 +35,15 @@ class Accumulation(metaclass=ABCMeta):
         if coord not in self.todo:
             return False
         processed = True
+        values = np.asanyarray(values, dtype=self.dtype)
         if self.values is None:
             self.values = values.copy()
         else:
             processed = self.combine(coord, values)
         if processed:
             self.todo.remove(coord)
+            if self.sequential:
+                self.todo.difference_update([t for t in self.todo if t < coord])
         return processed
 
     def is_complete(self) -> bool:
@@ -58,8 +66,14 @@ class Accumulation(metaclass=ABCMeta):
 
 
 class SimpleAccumulation(Accumulation):
-    def __init__(self, operation: str, coords: Coords):
-        super().__init__(coords)
+    def __init__(
+        self,
+        operation: str,
+        coords: Coords,
+        dtype: DTypeLike = np.float32,
+        sequential: bool = False,
+    ):
+        super().__init__(coords, dtype, sequential)
         self.operation = getattr(np, operation)
 
     def combine(self, coord: Coord, values: np.ndarray) -> bool:
@@ -75,9 +89,9 @@ class SimpleAccumulation(Accumulation):
 
 
 class Integral(SimpleAccumulation):
-    def __init__(self, init: int, coords: NumericCoords):
+    def __init__(self, init: int, coords: NumericCoords, dtype: DTypeLike = np.float32):
         self.init = init
-        super().__init__("add", coords)
+        super().__init__("add", coords, dtype, sequential=True)
 
     def reset(self, initial: bool = False) -> None:
         super().reset(initial)
@@ -104,9 +118,11 @@ class Integral(SimpleAccumulation):
 
 
 class Difference(Accumulation):
-    def __init__(self, coords: Coords):
+    def __init__(
+        self, coords: Coords, dtype: DTypeLike = np.float32, sequential: bool = False
+    ):
         assert len(coords) == 2
-        super().__init__(coords)
+        super().__init__(coords, dtype, sequential)
 
     def combine(self, coord: Coord, values: np.ndarray) -> bool:
         assert self.values is not None
@@ -119,8 +135,14 @@ class Difference(Accumulation):
 
 
 class DifferenceRate(Difference):
-    def __init__(self, coords: NumericCoords, factor: float = 1.0):
-        super().__init__(coords)
+    def __init__(
+        self,
+        coords: NumericCoords,
+        factor: float = 1.0,
+        dtype: DTypeLike = np.float32,
+        sequential: bool = False,
+    ):
+        super().__init__(coords, dtype, sequential)
         self.factor = factor
 
     def combine(self, coord: NumericCoord, values: np.ndarray) -> bool:
@@ -139,13 +161,25 @@ class DifferenceRate(Difference):
 
 
 class Mean(SimpleAccumulation):
-    def __init__(self, coords: Coords):
-        super().__init__("add", coords)
+    def __init__(
+        self, coords: Coords, dtype: DTypeLike = np.float32, sequential: bool = False
+    ):
+        super().__init__("add", coords, dtype, sequential)
+
+    def reset(self, initial: bool = False) -> None:
+        super().reset(initial)
+        self.count = 0 if self.sequential else len(self.coords)
+
+    def feed(self, coord: Coord, values: np.ndarray) -> bool:
+        processed = super().feed(coord, values)
+        if self.sequential and processed:
+            self.count += 1
+        return processed
 
     def get_values(self) -> Optional[np.ndarray]:
         if self.values is None:
             return None
-        return self.values / len(self.coords)
+        return self.values / self.count
 
     @classmethod
     def create(cls, operation: str, coords: Coords, config: dict) -> Accumulation:
@@ -153,8 +187,8 @@ class Mean(SimpleAccumulation):
 
 
 class WeightedMean(Integral):
-    def __init__(self, init: int, coords: NumericCoords):
-        super().__init__(init, coords)
+    def __init__(self, init: int, coords: NumericCoords, dtype: DTypeLike = np.float32):
+        super().__init__(init, coords, dtype)
         self.length = coords[-1] - init
 
     def get_values(self) -> Optional[np.ndarray]:
@@ -164,8 +198,10 @@ class WeightedMean(Integral):
 
 
 class Aggregation(Accumulation):
-    def __init__(self, coords: Coords):
-        super().__init__(coords)
+    def __init__(
+        self, coords: Coords, dtype: DTypeLike = np.float32, sequential: bool = False
+    ):
+        super().__init__(coords, dtype, sequential)
         self.lookup = {k: i for i, k in enumerate(coords)}
 
     def feed(self, coord: Coord, values: np.ndarray) -> bool:
