@@ -43,7 +43,7 @@ def test_instantaneous_window():
     [
         ["minimum", [[1, 2, 3], [1, 2, 3]]],
         ["maximum", [[2, 4, 6], [2, 4, 6]]],
-        ["add", [[3, 6, 9], [3, 6, 9]]]
+        ["add", [[3, 6, 9], [3, 6, 9]]],
     ],
 )
 def test_simple_op(window_operation, values):
@@ -83,7 +83,7 @@ def test_window_classes(window_class, end_step, step_increment, values):
     window.add_step_values(0, step_values)
     window.add_step_values(step_increment, step_values)
     window.add_step_values(2 * step_increment, step_values * 2)
-    assert np.all(window.step_values == values)
+    np.testing.assert_almost_equal(window.step_values, values)
 
 
 @pytest.mark.parametrize(

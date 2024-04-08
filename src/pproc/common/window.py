@@ -2,7 +2,15 @@ from dataclasses import dataclass
 import numpy as np
 from typing import Dict
 
-from pproc.common.steps import AnyStep, Step
+from pproc.common.accumulation import (
+    Aggregation,
+    Difference,
+    DifferenceRate,
+    Mean,
+    SimpleAccumulation,
+    WeightedMean,
+)
+from pproc.common.steps import AnyStep, Step, step_to_coord
 
 
 @dataclass
@@ -48,25 +56,17 @@ class Window:
         self.steps = config.steps
         self.include_init = include_init
 
-        self.step_values = []
         self.config_grib_header = {}
-
-    def operation(self, new_step_values: np.array):
-        """
-        Combines data from unprocessed steps with existing step data values,
-        and updates step data values. Any processing involving NaN values
-        must return NaN to be compatible with MARS compute
-
-        :param new_step_values: data from new step
-        """
-        raise NotImplementedError
+        self.acc = Aggregation(
+            [step_to_coord(step) for step in self.steps], sequential=True
+        )
 
     def __contains__(self, step: AnyStep) -> bool:
         """
         :param step: current step
         :return: boolean specifying if step is in window interval
         """
-        return step in self.steps
+        return step_to_coord(step) in self.acc
 
     def add_step_values(self, step: AnyStep, step_values: np.array):
         """
@@ -77,19 +77,21 @@ class Window:
         :param step: step to update window with
         :param step_values: data values for step
         """
-        if step not in self:
-            return
-        if len(self.step_values) == 0:
-            self.step_values = step_values.copy()
-        else:
-            self.operation(step_values)
+        self.acc.feed(step_to_coord(step), step_values)
+
+    @property
+    def step_values(self):
+        values = self.acc.get_values()
+        if values is None:
+            return []
+        return values
 
     def reached_end_step(self, step: AnyStep) -> bool:
         """
         :param step: current step
         :return: boolean specifying if current step is equal to window end step
         """
-        return step == self.end
+        return self.acc.is_complete()
 
     def size(self) -> int:
         """
@@ -133,17 +135,10 @@ class SimpleOpWindow(Window):
         :param include_init: boolean specifying whether to include start step
         """
         super().__init__(window_options, include_init)
-        self.operation_str = window_operation
-
-    def operation(self, new_step_values: np.array):
-        """
-        Combines data from unprocessed steps with existing step data values,
-        and updates step data values
-
-        :param new_step_values: data from new step
-        """
-        self.step_values = getattr(np, self.operation_str)(
-            self.step_values, new_step_values
+        self.acc = SimpleAccumulation(
+            window_operation,
+            [step_to_coord(step) for step in self.steps],
+            sequential=True,
         )
 
 
@@ -156,28 +151,7 @@ class WeightedSumWindow(SimpleOpWindow):
 
     def __init__(self, window_options):
         super().__init__(window_options, "add", include_init=False)
-        self.previous_step = self.start
-
-    def add_step_values(self, step: int, step_values: np.array):
-        """
-        Adds the contributions data_i * dt_i where data_i and dt_i is the data and step duration for step i,
-        if step i is in the window. When final step has been reached, divides sum by the total duration of
-        window.
-
-        :param step: step to update window with
-        :param step_values: data values for step
-        """
-        if step not in self:
-            return
-        step_duration = step - self.previous_step
-        if len(self.step_values) == 0:
-            self.step_values = step_values * step_duration
-        else:
-            self.operation(step_values * step_duration)
-
-        self.previous_step = step
-        if self.reached_end_step(step):
-            self.step_values = self.step_values / self.size()
+        self.acc = WeightedMean(self.start, self.steps)
 
 
 class DiffWindow(Window):
@@ -189,15 +163,9 @@ class DiffWindow(Window):
     def __init__(self, window_options):
         super().__init__(window_options, include_init=True)
         self.steps = [self.start, self.end]
-
-    def operation(self, new_step_values: np.array):
-        """
-        Combines data from unprocessed steps with existing step data values,
-        and updates step data values
-
-        :param new_step_values: data from new step
-        """
-        self.step_values = new_step_values - self.step_values
+        self.acc = Difference(
+            [step_to_coord(step) for step in self.steps], sequential=True
+        )
 
 
 class DiffDailyRateWindow(DiffWindow):
@@ -206,10 +174,9 @@ class DiffDailyRateWindow(DiffWindow):
     by the total number of days in the window. Only accepts data for start and end step
     """
 
-    def operation(self, new_step_values: np.array):
-        num_days = (self.end - self.start) / 24
-        self.step_values = new_step_values - self.step_values
-        self.step_values = self.step_values / num_days
+    def __init__(self, window_options):
+        super().__init__(window_options)
+        self.acc = DifferenceRate(self.steps, 1.0 / 24.0, sequential=True)
 
 
 class MeanWindow(SimpleOpWindow):
@@ -219,28 +186,17 @@ class MeanWindow(SimpleOpWindow):
 
     def __init__(self, window_options, include_init=False):
         super().__init__(window_options, "add", include_init=include_init)
-        self.num_steps = 0
-
-    def add_step_values(self, step: int, step_values: np.array):
-        super().add_step_values(step, step_values)
-        if step in self:
-            self.num_steps += 1
-
-        if self.reached_end_step(step):
-            self.step_values = self.step_values / self.num_steps
+        self.acc = Mean([step_to_coord(step) for step in self.steps], sequential=True)
 
 
 class PrecomputedWindow(Window):
     """
     Window containing a single pre-computed accumulation with the given step range
     """
+
     def __init__(self, window_options):
         super().__init__(window_options, include_init=True)
         self.steps = [Step(self.start, self.end)]
-
-    def reached_end_step(self, step: AnyStep) -> bool:
-        """
-        :param step: current step
-        :return: boolean specifying if current step is equal to window end step
-        """
-        return step == self.steps[0]
+        self.acc = Aggregation(
+            [step_to_coord(step) for step in self.steps], sequential=True
+        )
