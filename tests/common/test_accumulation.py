@@ -166,6 +166,13 @@ def test_convert_coords():
             ],
             id="default",
         ),
+        pytest.param(
+            {"operation": "mean", "coords": {"to": 4}, "sequential": True},
+            Mean,
+            [0, 2, 3, 4],
+            [[3.25, 6.25, 11.25], [3.25, 10.25, 29.25]],
+            id="mean_sequential"
+        ),
     ],
 )
 def test_accumulations(config, acc_cls, used_coords, exp_values):
