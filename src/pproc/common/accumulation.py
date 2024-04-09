@@ -61,7 +61,14 @@ class Accumulation(metaclass=ABCMeta):
 
     @classmethod
     @abstractmethod
-    def create(cls, operation: str, coords: Coords, config: dict) -> "Accumulation":
+    def create(
+        cls,
+        operation: str,
+        coords: Coords,
+        config: dict,
+        dtype: DTypeLike = np.float32,
+        sequential: bool = False,
+    ) -> "Accumulation":
         raise NotImplementedError
 
 
@@ -82,10 +89,17 @@ class SimpleAccumulation(Accumulation):
         return True
 
     @classmethod
-    def create(cls, operation: str, coords: Coords, config: dict) -> Accumulation:
+    def create(
+        cls,
+        operation: str,
+        coords: Coords,
+        config: dict,
+        dtype: DTypeLike = np.float32,
+        sequential: bool = False,
+    ) -> Accumulation:
         if operation == "sum":
             operation = "add"
-        return cls(operation, coords)
+        return cls(operation, coords, dtype=dtype, sequential=sequential)
 
 
 class Integral(SimpleAccumulation):
@@ -106,7 +120,12 @@ class Integral(SimpleAccumulation):
 
     @classmethod
     def create(
-        cls, operation: str, coords: NumericCoords, config: dict
+        cls,
+        operation: str,
+        coords: NumericCoords,
+        config: dict,
+        dtype: DTypeLike = np.float32,
+        sequential: bool = True,
     ) -> Accumulation:
         if isinstance(coords, range):
             init = coords.start
@@ -114,7 +133,7 @@ class Integral(SimpleAccumulation):
         else:
             coords = coords.copy()
             init = coords.pop(0)
-        return cls(init, coords)
+        return cls(init, coords, dtype=dtype)
 
 
 class Difference(Accumulation):
@@ -130,8 +149,15 @@ class Difference(Accumulation):
         return True
 
     @classmethod
-    def create(cls, operation: str, coords: Coords, config: dict) -> Accumulation:
-        return cls(coords)
+    def create(
+        cls,
+        operation: str,
+        coords: Coords,
+        config: dict,
+        dtype: DTypeLike = np.float32,
+        sequential: bool = False,
+    ) -> Accumulation:
+        return cls(coords, dtype=dtype, sequential=sequential)
 
 
 class DifferenceRate(Difference):
@@ -155,9 +181,16 @@ class DifferenceRate(Difference):
 
     @classmethod
     def create(
-        cls, operation: str, coords: NumericCoords, config: dict
+        cls,
+        operation: str,
+        coords: NumericCoords,
+        config: dict,
+        dtype: DTypeLike = np.float32,
+        sequential: bool = False,
     ) -> Accumulation:
-        return cls(coords, factor=config.get("factor", 1.0))
+        return cls(
+            coords, factor=config.get("factor", 1.0), dtype=dtype, sequential=sequential
+        )
 
 
 class Mean(SimpleAccumulation):
@@ -182,8 +215,15 @@ class Mean(SimpleAccumulation):
         return self.values / self.count
 
     @classmethod
-    def create(cls, operation: str, coords: Coords, config: dict) -> Accumulation:
-        return cls(coords)
+    def create(
+        cls,
+        operation: str,
+        coords: Coords,
+        config: dict,
+        dtype: DTypeLike = np.float32,
+        sequential: bool = False,
+    ) -> Accumulation:
+        return cls(coords, dtype=dtype, sequential=sequential)
 
 
 class WeightedMean(Integral):
@@ -221,8 +261,15 @@ class Aggregation(Accumulation):
         return True
 
     @classmethod
-    def create(cls, operation: str, coords: Coords, config: dict) -> Accumulation:
-        return cls(coords)
+    def create(
+        cls,
+        operation: str,
+        coords: Coords,
+        config: dict,
+        dtype: DTypeLike = np.float32,
+        sequential: bool = False,
+    ) -> Accumulation:
+        return cls(coords, dtype=dtype, sequential=sequential)
 
 
 def convert_range(config: dict) -> range:
@@ -246,9 +293,10 @@ def convert_coords(config: Union[dict, list]) -> Coords:
     return coords
 
 
-def create_accumulation(config: dict) -> Accumulation:
+def create_accumulation(config: dict, dtype: DTypeLike = np.float32) -> Accumulation:
     op = config.get("operation", "aggregation")
     coords = convert_coords(config["coords"])
+    sequential = config.get("sequential", False)
     known = {
         "sum": SimpleAccumulation,
         "minimum": SimpleAccumulation,
@@ -263,7 +311,7 @@ def create_accumulation(config: dict) -> Accumulation:
     cls = known.get(op)
     if cls is None:
         raise ValueError(f"Unknown accumulation {op!r}")
-    return cls.create(op, coords, config)
+    return cls.create(op, coords, config, dtype=dtype, sequential=sequential)
 
 
 @dataclass
