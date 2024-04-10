@@ -2,14 +2,7 @@ from dataclasses import dataclass
 import numpy as np
 from typing import Dict
 
-from pproc.common.accumulation import (
-    Aggregation,
-    Difference,
-    DifferenceRate,
-    Mean,
-    SimpleAccumulation,
-    WeightedMean,
-)
+from pproc.common.accumulation import Accumulation, create_accumulation
 from pproc.common.steps import AnyStep, Step, step_to_coord
 
 
@@ -21,6 +14,7 @@ class WindowConfig:
     name: str
     suffix: str
     steps: list
+    include_init: bool
 
 
 def parse_window_config(config: dict, include_init: bool = True) -> WindowConfig:
@@ -34,7 +28,7 @@ def parse_window_config(config: dict, include_init: bool = True) -> WindowConfig
         steps = list(range(start, end + 1, step))
     else:
         steps = list(range(start + step, end + 1, step))
-    return WindowConfig(start, end, step, name, suffix, steps)
+    return WindowConfig(start, end, step, name, suffix, steps, include_init)
 
 
 class Window:
@@ -42,24 +36,22 @@ class Window:
     Class for collating data for all ensembles over an step interval
     """
 
-    def __init__(self, window_options, include_init: bool = True):
+    def __init__(self, window_config, accumulation: Accumulation):
         """
-        :param window_options: specifies start and end step of window
-        :param include_init: boolean specifying whether to include start step in window
+        :param window_config: window step configuration
+        :param accumulation: accumulation done by the window
         """
-        config = parse_window_config(window_options, include_init)
-        self.start = config.start
-        self.end = config.end
-        self.step = config.step
-        self.name = config.name
-        self.suffix = config.suffix
-        self.steps = config.steps
-        self.include_init = include_init
+        self.start = window_config.start
+        self.end = window_config.end
+        self.step = window_config.step
+        self.name = window_config.name
+        self.suffix = window_config.suffix
+        self.steps = window_config.steps
+        self.include_init = window_config.include_init
+
+        self.acc = accumulation
 
         self.config_grib_header = {}
-        self.acc = Aggregation(
-            [step_to_coord(step) for step in self.steps], sequential=True
-        )
 
     def __contains__(self, step: AnyStep) -> bool:
         """
@@ -121,82 +113,73 @@ class Window:
         return header
 
 
-class SimpleOpWindow(Window):
+def create_window(window_options, window_operation: str, include_start: bool) -> Window:
     """
-    Window with operation minimum, maximum, add
-    """
+    Create window for the given operation
 
-    def __init__(
-        self, window_options, window_operation: str, include_init: bool = False
-    ):
-        """
-        :param window_options: config specifying start and end of window
-        :param window_operation: name of reduction operation out of minimum, maximum, add
-        :param include_init: boolean specifying whether to include start step
-        """
-        super().__init__(window_options, include_init)
-        self.acc = SimpleAccumulation(
-            window_operation,
-            [step_to_coord(step) for step in self.steps],
-            sequential=True,
+    :param window_options: window range specification
+    :param window operation: window operation: one of none, diff, add, minimum,
+        maximum, weightedsum, diffdailyrate, mean, precomputed
+    :return: Window instance that performs the operation
+    :raises: ValueError for unsupported window operation string
+    """
+    include_init = (
+        window_options["range"][0] == window_options["range"][1]
+    ) or include_start
+
+    config = None
+    operation = None
+    coords = None
+    extra = {}
+    if window_operation == "none":
+        config = parse_window_config(window_options, include_init)
+        if len(config.steps) > 1:
+            raise ValueError(
+                "Window operation can not be none for windows containing more than a single step"
+            )
+        operation = "aggregation"
+    elif window_operation == "diff":
+        config = parse_window_config(window_options, True)
+        config.steps = [config.start, config.end]
+        operation = "difference"
+    elif window_operation == "add":
+        config = parse_window_config(window_options, include_init)
+        operation = "sum"
+    elif window_operation in ["minimum", "maximum"]:
+        config = parse_window_config(window_options, include_init)
+        operation = window_operation
+    elif window_operation == "weightedsum":
+        config = parse_window_config(window_options, False)
+        operation = "weighted_mean"
+        coords = [config.start] + config.steps
+    elif window_operation == "diffdailyrate":
+        config = parse_window_config(window_options, True)
+        config.steps = [config.start, config.end]
+        extra["factor"] = 1.0 / 24.0
+        operation = "difference_rate"
+    elif window_operation == "mean":
+        config = parse_window_config(window_options, include_init)
+        operation = "mean"
+    elif window_operation == "precomputed":
+        config = parse_window_config(window_options, True)
+        config.steps = [Step(config.start, config.end)]
+        operation = "aggregation"
+
+    if config is None:
+        raise ValueError(
+            f"Unsupported window operation {window_operation}. Supported types: "
+            + "diff, minimum, maximum, add, weightedsum, diffdailyrate, mean and precomputed"
         )
 
+    if coords is None:
+        coords = [step_to_coord(step) for step in config.steps]
 
-class WeightedSumWindow(SimpleOpWindow):
-    """
-    Window with weighted sum operation. Weighted sum is computed by weighting the
-    data for each step by the step duration, and then dividing the sum by the total duration of the
-    window.
-    """
-
-    def __init__(self, window_options):
-        super().__init__(window_options, "add", include_init=False)
-        self.acc = WeightedMean(self.start, self.steps)
-
-
-class DiffWindow(Window):
-    """
-    Window with operation that takes difference between the end and start step. Only accepts data
-    from these two steps
-    """
-
-    def __init__(self, window_options):
-        super().__init__(window_options, include_init=True)
-        self.steps = [self.start, self.end]
-        self.acc = Difference(
-            [step_to_coord(step) for step in self.steps], sequential=True
-        )
-
-
-class DiffDailyRateWindow(DiffWindow):
-    """
-    Window with operation that takes difference between end and start step and then divides difference
-    by the total number of days in the window. Only accepts data for start and end step
-    """
-
-    def __init__(self, window_options):
-        super().__init__(window_options)
-        self.acc = DifferenceRate(self.steps, 1.0 / 24.0, sequential=True)
-
-
-class MeanWindow(SimpleOpWindow):
-    """
-    Window with operation that computes mean over the steps in window
-    """
-
-    def __init__(self, window_options, include_init=False):
-        super().__init__(window_options, "add", include_init=include_init)
-        self.acc = Mean([step_to_coord(step) for step in self.steps], sequential=True)
-
-
-class PrecomputedWindow(Window):
-    """
-    Window containing a single pre-computed accumulation with the given step range
-    """
-
-    def __init__(self, window_options):
-        super().__init__(window_options, include_init=True)
-        self.steps = [Step(self.start, self.end)]
-        self.acc = Aggregation(
-            [step_to_coord(step) for step in self.steps], sequential=True
-        )
+    acc = create_accumulation(
+        {
+            "operation": operation,
+            "coords": coords,
+            "sequential": True,
+            **extra,
+        }
+    )
+    return Window(config, acc)
