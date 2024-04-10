@@ -3,55 +3,7 @@ import bisect
 
 import numpy as np
 
-from pproc.common import (
-    Window,
-    SimpleOpWindow,
-    WeightedSumWindow,
-    DiffWindow,
-    DiffDailyRateWindow,
-    MeanWindow,
-    PrecomputedWindow,
-    AnyStep,
-    Step,
-)
-
-
-def create_window(window_options, window_operation: str, include_start: bool) -> Window:
-    """
-    Create window for specified window operations: min, max, sum, weightedsum and
-    diff.
-
-    :param start_step: start step of window interval
-    :param end_step: end step of window interval
-    :return: instance of the derived Window class for window operation
-    :raises: ValueError for unsupported window operation string
-    """
-    include_init = (
-        window_options["range"][0] == window_options["range"][1]
-    ) or include_start
-    if window_operation == "none":
-        window = Window(window_options, include_init=include_init)
-        if len(window.steps) > 1:
-            raise ValueError(
-                "Window operation can not be none for windows containing more than a single step"
-            )
-        return window
-    if window_operation == "diff":
-        return DiffWindow(window_options)
-    if window_operation in ["minimum", "maximum", "add"]:
-        return SimpleOpWindow(window_options, window_operation, include_init)
-    if window_operation == "weightedsum":
-        return WeightedSumWindow(window_options)
-    if window_operation == "diffdailyrate":
-        return DiffDailyRateWindow(window_options)
-    if window_operation == "mean":
-        return MeanWindow(window_options, include_init)
-    if window_operation == "precomputed":
-        return PrecomputedWindow(window_options)
-    raise ValueError(
-        f"Unsupported window operation {window_operation}. Supported types: "
-        + "diff, minimum, maximum, add, weightedsum, diffdailyrate, mean and precomputed"
-    )
+from pproc.common import Window, AnyStep, Step, create_window
 
 
 class WindowManager:
@@ -107,7 +59,9 @@ class WindowManager:
                     raise Exception(f"Duplicate window {window_id}")
                 self.windows[window_id] = new_window
 
-    def update_windows(self, step: AnyStep, data: np.array) -> Iterator[Tuple[str, Window]]:
+    def update_windows(
+        self, step: AnyStep, data: np.array
+    ) -> Iterator[Tuple[str, Window]]:
         """
         Updates all windows that include step with the step data values
 
@@ -154,7 +108,7 @@ class WindowManager:
         """
         Remove windows in the list of provided window identifiers and updates steps
         to only those contained in remaining list of windows
-        
+
         :param window_ids: list of identifiers of windows to delete
         """
         for identifier in window_ids:

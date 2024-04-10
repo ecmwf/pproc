@@ -1,15 +1,7 @@
 import numpy as np
 import pytest
 
-from pproc.common.window import (
-    DiffWindow,
-    SimpleOpWindow,
-    WeightedSumWindow,
-    DiffDailyRateWindow,
-    Window,
-    MeanWindow,
-    parse_window_config,
-)
+from pproc.common.window import create_window, parse_window_config
 
 
 @pytest.mark.parametrize(
@@ -30,7 +22,7 @@ def test_window_steps(steps, include_init, exp):
 
 
 def test_instantaneous_window():
-    window = Window({"range": [1, 1]}, True)
+    window = create_window({"range": [1, 1]}, "none", True)
     step_values = np.array([[1, 1, 1], [2, 2, 2]])
     window.add_step_values(0, step_values)
     assert len(window.step_values) == 0
@@ -47,7 +39,7 @@ def test_instantaneous_window():
     ],
 )
 def test_simple_op(window_operation, values):
-    window = SimpleOpWindow({"range": [0, 2]}, window_operation, False)
+    window = create_window({"range": [0, 2]}, window_operation, False)
     step_values = np.array([[1, 2, 3], [2, 4, 6]])
     window.add_step_values(0, step_values)
     window.add_step_values(1, step_values)
@@ -56,8 +48,8 @@ def test_simple_op(window_operation, values):
 
 
 def test_multi_windows():
-    window = SimpleOpWindow({"range": [0, 2]}, "add", False)
-    window2 = SimpleOpWindow({"range": [0, 2]}, "add", False)
+    window = create_window({"range": [0, 2]}, "add", False)
+    window2 = create_window({"range": [0, 2]}, "add", False)
     step_values = np.array([[1, 2, 3], [2, 4, 6]])
     window.add_step_values(1, step_values)
     window2.add_step_values(1, step_values)
@@ -69,16 +61,25 @@ def test_multi_windows():
 
 
 @pytest.mark.parametrize(
-    "window_class, end_step, step_increment, values",
+    "operation, include_init, end_step, step_increment, values",
     [
-        [DiffWindow, 2, 1, [[1, 2, 3], [2, 4, 6]]],
-        [WeightedSumWindow, 2, 1, [[1.5, 3, 4.5], [3, 6, 9]]],
-        [DiffDailyRateWindow, 240, 120, np.divide([[1, 2, 3], [2, 4, 6]], 10)],
-        [MeanWindow, 6, 3, [[1.5, 3, 4.5], [3, 6, 9]]],
+        pytest.param("diff", True, 2, 1, [[1, 2, 3], [2, 4, 6]], id="diff"),
+        pytest.param(
+            "weightedsum", False, 2, 1, [[1.5, 3, 4.5], [3, 6, 9]], id="weightedsum"
+        ),
+        pytest.param(
+            "diffdailyrate",
+            True,
+            240,
+            120,
+            np.divide([[1, 2, 3], [2, 4, 6]], 10),
+            id="diffdailyrate",
+        ),
+        pytest.param("mean", False, 6, 3, [[1.5, 3, 4.5], [3, 6, 9]], id="mean"),
     ],
 )
-def test_window_classes(window_class, end_step, step_increment, values):
-    window = window_class({"range": [0, end_step]})
+def test_windows(operation, include_init, end_step, step_increment, values):
+    window = create_window({"range": [0, end_step]}, operation, include_init)
     step_values = np.array([[1, 2, 3], [2, 4, 6]])
     window.add_step_values(0, step_values)
     window.add_step_values(step_increment, step_values)
@@ -87,18 +88,22 @@ def test_window_classes(window_class, end_step, step_increment, values):
 
 
 @pytest.mark.parametrize(
-    "start_end, grib_key_values",
+    "start_end, operation, grib_key_values",
     [
-        [[1, 1], {"step": "1"}],
-        [[1, 2], {"stepRange": "1-2", "stepType": "max"}],
-        [
+        pytest.param([1, 1], "none", {"step": "1"}, id="inst"),
+        pytest.param(
+            [1, 2], "maximum", {"stepRange": "1-2", "stepType": "max"}, id="range"
+        ),
+        pytest.param(
             [320, 360],
+            "maximum",
             {"stepRange": "320-360", "stepType": "max", "unitOfTimeRange": 11},
-        ],
+            id="range-360",
+        ),
     ],
 )
-def test_grib_header(start_end, grib_key_values):
-    window = Window({"range": start_end}, True)
+def test_grib_header(start_end, operation, grib_key_values):
+    window = create_window({"range": start_end}, operation, True)
     header = window.grib_header()
     assert header.keys() == grib_key_values.keys()
     for key, value in grib_key_values.items():
