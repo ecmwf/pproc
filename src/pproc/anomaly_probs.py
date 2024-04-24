@@ -101,12 +101,12 @@ def main(args=None):
                         clim_data[clim.get_type_index("em")],
                         clim_data[clim.get_type_index("es")],
                     )
-                    for window_id, window in completed_windows:
+                    for window_id, accum in completed_windows:
                         executor.submit(
                             prob_partial,
                             message_template,
                             window_id,
-                            window,
+                            accum,
                             window_manager.thresholds(window_id),
                             additional_headers=clim_grib_header,
                         )

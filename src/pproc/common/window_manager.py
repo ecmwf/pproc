@@ -3,7 +3,9 @@ import bisect
 
 import numpy as np
 
-from pproc.common import Window, AnyStep, Step, create_window
+from pproc.common.accumulation import Accumulation
+from pproc.common.steps import AnyStep, Step, parse_step, step_to_coord
+from pproc.common.window import create_window
 
 
 class WindowManager:
@@ -23,8 +25,8 @@ class WindowManager:
         self.unique_steps = set()
         self.create_windows(parameter, global_config)
         if "steps" not in parameter:
-            for window in self.windows.values():
-                self.unique_steps.update(window.steps)
+            for accum in self.windows.values():
+                self.unique_steps.update(accum.coords)
         else:
             for steps in parameter["steps"]:
                 start_step = steps["start_step"]
@@ -33,14 +35,14 @@ class WindowManager:
                 range_len = steps.get("range", None)
 
                 if range_len is None:
-                    for step in range(start_step, end_step + 1, interval):
-                        if step not in self.unique_steps:
-                            self.unique_steps.add(step)
+                    self.unique_steps.update(range(start_step, end_step + 1, interval))
                 else:
                     for sstep in range(start_step, end_step - range_len + 1, interval):
-                        self.unique_steps.add(Step(sstep, sstep + range_len))
+                        self.unique_steps.add(
+                            step_to_coord(Step(sstep, sstep + range_len))
+                        )
 
-        self.unique_steps = sorted(self.unique_steps)
+        self.unique_steps = sorted(self.unique_steps, key=parse_step)
 
     def create_windows(self, parameter, global_config):
         """
@@ -49,19 +51,23 @@ class WindowManager:
         for window_index, window_config in enumerate(parameter["windows"]):
             for period in window_config["periods"]:
                 include_start = bool(window_config.get("include_start_step", False))
-                new_window = create_window(
-                    period, window_config.get("window_operation", "none"), include_start
+                grib_keys = global_config.copy()
+                grib_keys.update(window_config.get("grib_set", {}))
+                window_acc, window_name = create_window(
+                    period,
+                    window_config.get("window_operation", "none"),
+                    include_start,
+                    grib_keys,
+                    return_name=True,
                 )
-                new_window.config_grib_header = global_config.copy()
-                new_window.config_grib_header.update(window_config.get("grib_set", {}))
-                window_id = f"{new_window.name}_{window_index}"
+                window_id = f"{window_name}_{window_index}"
                 if window_id in self.windows:
                     raise Exception(f"Duplicate window {window_id}")
-                self.windows[window_id] = new_window
+                self.windows[window_id] = window_acc
 
     def update_windows(
         self, step: AnyStep, data: np.array
-    ) -> Iterator[Tuple[str, Window]]:
+    ) -> Iterator[Tuple[str, Accumulation]]:
         """
         Updates all windows that include step with the step data values
 
@@ -69,40 +75,13 @@ class WindowManager:
         :param data: data for step
         :return: generator for completed windows
         """
-        for identifier, window in list(self.windows.items()):
-            window.add_step_values(step, data)
+        for identifier, accum in list(self.windows.items()):
+            accum.feed(step_to_coord(step), data)
 
-            if window.reached_end_step(step):
+            if accum.is_complete():
                 completed = self.windows.pop(identifier)
                 yield identifier, completed
                 del completed
-
-    def update_from_checkpoint(self, checkpoint_step: AnyStep) -> List[str]:
-        """
-        Find the earliest start step for windows not completed by
-        checkpoint and update list of unique steps. Remove all
-        completed windows and their associated thresholds.
-
-        :param checkpoint_step: step reached at last checkpoint
-        :return: list of deleted window identifiers
-        """
-        checkpoint_step = Step(checkpoint_step)
-        deleted_windows = []
-        new_start_step = checkpoint_step.next()
-        for identifier, window in list(self.windows.items()):
-            real_start = Step(window.start + int(not window.include_init))
-            if checkpoint_step.start >= window.end or (
-                checkpoint_step.is_range()
-                and checkpoint_step >= Step(window.start, window.end)
-            ):
-                del self.windows[identifier]
-                deleted_windows.append(identifier)
-            elif not checkpoint_step.is_range() and real_start < new_start_step:
-                new_start_step = real_start
-
-        start_index = bisect.bisect_left(self.unique_steps, new_start_step.decay())
-        self.unique_steps = self.unique_steps[start_index:]
-        return deleted_windows
 
     def delete_windows(self, window_ids: List[str]):
         """
@@ -115,7 +94,7 @@ class WindowManager:
             del self.windows[identifier]
 
         for step_index, step in enumerate(self.unique_steps):
-            in_any_window = np.any([step in window for window in self.windows.values()])
+            in_any_window = any(step in accum for accum in self.windows.values())
             if in_any_window:
                 # Steps must be processed in order so stop at first step that appears
                 # in remaining window

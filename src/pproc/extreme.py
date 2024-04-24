@@ -35,15 +35,19 @@ class ExtremeVariables:
         self.sot = list(map(int, efi_cfg["sot"]))
 
 
-def read_clim(fdb, climatology, window, n_clim=101, overrides={}):
+def read_clim(fdb, climatology, accum, n_clim=101, overrides={}):
+    grib_keys = accum.grib_keys()
+    clim_step = grib_keys.get("stepRange", grib_keys.get("step", None))
+    assert clim_step is not None
+
     req = climatology["clim_keys"].copy()
     assert "date" in req
     req["time"] = "0000"
     req["quantile"] = ["{}:100".format(i) for i in range(n_clim)]
-    if window.name in climatology.get("steps", {}):
-        req["step"] = climatology["steps"][window.name]
+    if clim_step in climatology.get("steps", {}):
+        req["step"] = climatology["steps"][clim_step]
     else:
-        req["step"] = window.name
+        req["step"] = clim_step
     req.update(overrides)
 
     print("Climatology request: ", req)
@@ -55,18 +59,15 @@ def read_clim(fdb, climatology, window, n_clim=101, overrides={}):
     return np.asarray(da_clim_sorted.values), da_clim.attrs["grib_template"]
 
 
-def extreme_template(window, template_fc, template_clim):
+def extreme_template(accum, template_fc, template_clim):
 
     template_ext = template_fc.copy()
-
-    for key, value in window.config_grib_header.items():
-        template_ext[key] = value
+    template_ext.update(accum.grib_keys())
 
     # EFI specific stuff
-    template_ext["stepRange"] = window.name
     if int(template_ext["timeRangeIndicator"]) == 3:
         if template_ext["numberIncludedInAverage"] == 0:
-            template_ext["numberIncludedInAverage"] = len(window.steps)
+            template_ext["numberIncludedInAverage"] = len(accum)
         template_ext["numberMissingFromAveragesOrAccumulations"] = 0
 
     # set clim keys
@@ -127,9 +128,9 @@ def sot_template(template, sot):
 
 
 def efi_sot(
-    cfg, param, climatology, efi_vars, recovery, template_filename, window_id, window
+    cfg, param, climatology, efi_vars, recovery, template_filename, window_id, accum
 ):
-    with ResourceMeter(f"Window {window.suffix}, computing EFI/SOT"):
+    with ResourceMeter(f"Window {window_id}, computing EFI/SOT"):
         message_template = (
             template_filename
             if isinstance(template_filename, eccodes.highlevel.message.GRIBMessage)
@@ -137,27 +138,30 @@ def efi_sot(
         )
 
         clim, template_clim = read_clim(
-            common.io.fdb(), climatology, window, overrides=cfg.override_input
+            common.io.fdb(), climatology, accum, overrides=cfg.override_input
         )
         print(f"Climatology array: {clim.shape}")
 
-        template_extreme = extreme_template(window, message_template, template_clim)
+        template_extreme = extreme_template(accum, message_template, template_clim)
+
+        ens = accum.get_values()
+        assert ens is not None
 
         control_index = param.get_type_index("cf", default=None)
         if control_index is not None:
             efi_control = extreme.efi(
-                clim, window.step_values[control_index], efi_vars.eps
+                clim, ens[control_index], efi_vars.eps
             )
             template_efi = efi_template_control(template_extreme)
             common.write_grib(cfg.out_efi, template_efi, efi_control)
 
-        efi = extreme.efi(clim, window.step_values, efi_vars.eps)
+        efi = extreme.efi(clim, ens, efi_vars.eps)
         template_efi = efi_template(template_extreme)
         common.write_grib(cfg.out_efi, template_efi, efi)
 
         sot = {}
         for perc in efi_vars.sot:
-            sot[perc] = extreme.sot(clim, window.step_values, perc, efi_vars.eps)
+            sot[perc] = extreme.sot(clim, ens, perc, efi_vars.eps)
             template_sot = sot_template(template_extreme, perc)
             common.write_grib(cfg.out_sot, template_sot, sot[perc])
 
@@ -267,8 +271,8 @@ def main(args=None):
                     assert data.ndim == 2
 
                     completed_windows = window_manager.update_windows(step, data)
-                    for window_id, window in completed_windows:
-                        executor.submit(efi_partial, template, window_id, window)
+                    for window_id, accum in completed_windows:
+                        executor.submit(efi_partial, template, window_id, accum)
 
             executor.wait()
 

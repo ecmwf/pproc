@@ -28,7 +28,6 @@ from pproc.common.parallel import (
 from pproc.common.param_requester import ParamConfig, ParamRequester
 from pproc.common.recovery import Recovery
 from pproc.common.steps import AnyStep
-from pproc.common.window import Window
 from pproc.common.window_manager import WindowManager
 
 

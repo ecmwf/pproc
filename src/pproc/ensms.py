@@ -26,21 +26,12 @@ from pproc.common.parallel import (
 )
 
 
-def template_ensemble(param_type, template, window, level, marstype):
+def template_ensemble(param_type, template, accum, level, marstype):
     template_ens = template.copy()
 
-    grib_sets = window.grib_header()
+    grib_sets = accum.grib_keys()
     if param_type.base_request['levtype'] == "pl":
         grib_sets['level'] = level
-
-    if window.size() == 0:
-        step = int(window.name)
-        if step == 0:
-            grib_sets['timeRangeIndicator'] = 1
-        elif step > 255:
-            grib_sets['timeRangeIndicator'] = 10
-        else:
-            grib_sets['timeRangeIndicator'] = 0
 
     grib_sets["marsType"] = marstype
     template_ens.set(grib_sets)
@@ -80,26 +71,27 @@ class ConfigExtreme(common.Config):
         return self._fdb
 
 
-def ensms_iteration(config, param_type, recovery, window_id, window, template_ens = None):
+def ensms_iteration(config, param_type, recovery, window_id, accum, template_ens = None):
     # calculate mean/stddev of wind speed for type=pf/cf (eps)
-    with ResourceMeter(f"Window {window.name}: compute mean/stddev"):
+    with ResourceMeter(f"Window {window_id}: compute mean/stddev"):
         if template_ens is None:
-            template_ens, ens = param_type.retrieve_data(config.fdb, window.steps[0])
+            template_ens, ens = param_type.retrieve_data(config.fdb, accum.coords[0])
         else:
             if isinstance(template_ens, str):
                 template_ens = common.io.read_template(template_ens)
-            ens = window.step_values
+            ens = accum.get_values()
+            assert ens is not None
         mean = np.mean(ens, axis=0)
         std = np.std(ens, axis=0)
 
-    with ResourceMeter(f"Window {window.name}: write output"):
+    with ResourceMeter(f"Window {window_id}: write output"):
         for level_index, level in enumerate(param_type.levels()):
             mean_slice = slice_dataset(mean, level_index)
-            template_mean = template_ensemble(param_type, template_ens, window, level, 'em')
+            template_mean = template_ensemble(param_type, template_ens, accum, level, 'em')
             common.write_grib(config.out_eps_mean, template_mean, mean_slice)
 
             std_slice = slice_dataset(std, level_index)
-            template_std = template_ensemble(param_type, template_ens, window, level, 'es')
+            template_std = template_ensemble(param_type, template_ens, accum, level, 'es')
             common.write_grib(config.out_eps_std, template_std, std_slice)
 
     config.fdb.flush()
@@ -129,14 +121,14 @@ def main(args=None):
         window_manager = common.WindowManager(options, cfg.options["grib_set"])
         iteration = functools.partial(ensms_iteration, cfg, param_type, recover)
 
-        if np.all([len(x.steps) == 1 for x in window_manager.windows.values()]): 
+        if np.all([len(x) == 1 for x in window_manager.windows.values()]):
             plan = []
-            for window_id, window in window_manager.windows.items():
+            for window_id, accum in window_manager.windows.items():
                 if recover.existing_checkpoint(param, window_id):
                     print(f'Recovery: skipping param {param} window {window_id}')
                     continue
 
-                plan.append((window_id, window))
+                plan.append((window_id, accum))
 
             parallel_processing(iteration, plan, cfg.n_par, initializer=signal.signal,
                                 initargs=(signal.SIGTERM, signal.SIG_DFL))
@@ -180,11 +172,11 @@ def main(args=None):
                             step,
                             data,
                         )
-                        for window_id, window in completed_windows:
+                        for window_id, accum in completed_windows:
                             executor.submit(
                                 iteration,
                                 window_id,
-                                window, 
+                                accum,
                                 message_template
                             )
                 executor.wait()
