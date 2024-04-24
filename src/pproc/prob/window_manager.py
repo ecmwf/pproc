@@ -1,8 +1,9 @@
 import bisect
-from typing import Iterator, List
+from typing import Iterator, List, Tuple
 import numpy as np
 
-from pproc.common import WindowManager, Window, create_window
+from pproc.common import WindowManager, create_window, step_to_coord
+from pproc.common.accumulation import Accumulation
 
 
 class ThresholdWindowManager(WindowManager):
@@ -65,15 +66,15 @@ class ThresholdWindowManager(WindowManager):
             for operation, thresholds in window_operations.items():
                 for period in window_config["periods"]:
                     include_start = bool(window_config.get("include_start_step", False))
-                    new_window = create_window(period, operation, include_start)
-                    new_window.config_grib_header = global_config.copy()
-                    new_window.config_grib_header.update(
-                        window_config.get("grib_set", {})
+                    grib_keys = global_config.copy()
+                    grib_keys.update(window_config.get("grib_set", {}))
+                    window_acc, window_name = create_window(
+                        period, operation, include_start, grib_keys, return_name=True
                     )
-                    window_id = f"{new_window.name}_{operation}_{window_index}"
+                    window_id = f"{window_name}_{operation}_{window_index}"
                     if window_id in self.windows:
                         raise Exception(f"Duplicate window {window_id}")
-                    self.windows[window_id] = new_window
+                    self.windows[window_id] = window_acc
                     self.window_thresholds[window_id] = thresholds
 
     def thresholds(self, identifier):
@@ -81,18 +82,6 @@ class ThresholdWindowManager(WindowManager):
         Returns thresholds for window and deletes window from window:threshold dictionary
         """
         return self.window_thresholds.pop(identifier)
-
-    def update_from_checkpoint(self, checkpoint_step: int):
-        """
-        Find the earliest start step for windows not completed by
-        checkpoint and update list of unique steps. Remove all
-        completed windows and their associated thresholds.
-
-        :param checkpoint_step: step reached at last checkpoint
-        """
-        deleted_windows = super().update_from_checkpoint(checkpoint_step)
-        for window in deleted_windows:
-            del self.window_thresholds[window]
 
     def delete_windows(self, window_ids: List[str]):
         super().delete_windows(window_ids)
@@ -108,7 +97,9 @@ class AnomalyWindowManager(ThresholdWindowManager):
         super().create_windows(parameter, global_config)
         if "std_anomaly_windows" in parameter:
             # Create windows for standard anomaly
-            for window_index, window_config in enumerate(parameter["std_anomaly_windows"]):
+            for window_index, window_config in enumerate(
+                parameter["std_anomaly_windows"]
+            ):
                 window_operations = self.window_operation_from_config(window_config)
 
                 for operation, thresholds in window_operations.items():
@@ -116,20 +107,24 @@ class AnomalyWindowManager(ThresholdWindowManager):
                         include_start = bool(
                             window_config.get("include_start_step", False)
                         )
-                        new_window = create_window(period, operation, include_start)
-                        new_window.config_grib_header = global_config.copy()
-                        new_window.config_grib_header.update(
-                            window_config.get("grib_set", {})
+                        grib_keys = global_config.copy()
+                        grib_keys.update(window_config.get("grib_set", {}))
+                        window_acc, window_name = create_window(
+                            period,
+                            operation,
+                            include_start,
+                            grib_keys,
+                            return_name=True,
                         )
-                        window_id = f"std_{new_window.name}_{operation}_{window_index}"
+                        window_id = f"std_{window_name}_{operation}_{window_index}"
                         if window_id in self.windows:
                             raise Exception(f"Duplicate window {window_id}")
-                        self.windows[window_id] = new_window
+                        self.windows[window_id] = window_acc
                         self.window_thresholds[window_id] = thresholds
 
     def update_windows(
         self, step, data: np.array, clim_mean: np.array, clim_std: np.array
-    ) -> Iterator[Window]:
+    ) -> Iterator[Tuple[str, Accumulation]]:
         """
         Updates all windows that include step with either the anomaly with clim_mean
         or standardised anomaly including clim_std. Function modifies input data array.
@@ -142,11 +137,11 @@ class AnomalyWindowManager(ThresholdWindowManager):
         """
         anomaly = data - clim_mean
         std_anomaly = anomaly / clim_std
-        for identifier, window in list(self.windows.items()):
-            if identifier.split('_')[0] == "std":
-                window.add_step_values(step, std_anomaly)
+        for identifier, accum in list(self.windows.items()):
+            if identifier.split("_")[0] == "std":
+                accum.feed(step_to_coord(step), std_anomaly)
             else:
-                window.add_step_values(step, anomaly)
+                accum.feed(step_to_coord(step), anomaly)
 
-            if window.reached_end_step(step):
+            if accum.is_complete(step):
                 yield identifier, self.windows.pop(identifier)

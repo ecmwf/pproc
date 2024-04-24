@@ -1,5 +1,6 @@
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
+from math import prod
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
@@ -17,12 +18,20 @@ class Accumulation(metaclass=ABCMeta):
     values: Optional[np.ndarray]
 
     def __init__(
-        self, coords: Coords, dtype: DTypeLike = np.float32, sequential: bool = False
+        self,
+        coords: Coords,
+        dtype: DTypeLike = np.float32,
+        sequential: bool = False,
+        grib_keys: Optional[dict] = None,
     ):
         self.coords = coords
         self.dtype = dtype
         self.sequential = sequential
+        self._grib_keys = {} if grib_keys is None else grib_keys.copy()
         self.reset(initial=True)
+
+    def __len__(self) -> int:
+        return len(self.coords)
 
     def __contains__(self, coord: Coord):
         return coord in self.coords
@@ -53,7 +62,7 @@ class Accumulation(metaclass=ABCMeta):
         return self.values
 
     def grib_keys(self) -> dict:
-        pass  # FIXME
+        return self._grib_keys
 
     @abstractmethod
     def combine(self, coord: Coord, values: np.ndarray) -> bool:
@@ -68,6 +77,7 @@ class Accumulation(metaclass=ABCMeta):
         config: dict,
         dtype: DTypeLike = np.float32,
         sequential: bool = False,
+        grib_keys: Optional[dict] = None,
     ) -> "Accumulation":
         raise NotImplementedError
 
@@ -79,8 +89,9 @@ class SimpleAccumulation(Accumulation):
         coords: Coords,
         dtype: DTypeLike = np.float32,
         sequential: bool = False,
+        grib_keys: Optional[dict] = None,
     ):
-        super().__init__(coords, dtype, sequential)
+        super().__init__(coords, dtype, sequential, grib_keys)
         self.operation = getattr(np, operation)
 
     def combine(self, coord: Coord, values: np.ndarray) -> bool:
@@ -96,16 +107,25 @@ class SimpleAccumulation(Accumulation):
         config: dict,
         dtype: DTypeLike = np.float32,
         sequential: bool = False,
+        grib_keys: Optional[dict] = None,
     ) -> Accumulation:
         if operation == "sum":
             operation = "add"
-        return cls(operation, coords, dtype=dtype, sequential=sequential)
+        return cls(
+            operation, coords, dtype=dtype, sequential=sequential, grib_keys=grib_keys
+        )
 
 
 class Integral(SimpleAccumulation):
-    def __init__(self, init: int, coords: NumericCoords, dtype: DTypeLike = np.float32):
+    def __init__(
+        self,
+        init: int,
+        coords: NumericCoords,
+        dtype: DTypeLike = np.float32,
+        grib_keys: Optional[dict] = None,
+    ):
         self.init = init
-        super().__init__("add", coords, dtype, sequential=True)
+        super().__init__("add", coords, dtype, sequential=True, grib_keys=grib_keys)
 
     def reset(self, initial: bool = False) -> None:
         super().reset(initial)
@@ -126,6 +146,7 @@ class Integral(SimpleAccumulation):
         config: dict,
         dtype: DTypeLike = np.float32,
         sequential: bool = True,
+        grib_keys: Optional[dict] = None,
     ) -> Accumulation:
         if isinstance(coords, range):
             init = coords.start
@@ -133,15 +154,19 @@ class Integral(SimpleAccumulation):
         else:
             coords = coords.copy()
             init = coords.pop(0)
-        return cls(init, coords, dtype=dtype)
+        return cls(init, coords, dtype=dtype, grib_keys=grib_keys)
 
 
 class Difference(Accumulation):
     def __init__(
-        self, coords: Coords, dtype: DTypeLike = np.float32, sequential: bool = False
+        self,
+        coords: Coords,
+        dtype: DTypeLike = np.float32,
+        sequential: bool = False,
+        grib_keys: Optional[dict] = None,
     ):
         assert len(coords) == 2
-        super().__init__(coords, dtype, sequential)
+        super().__init__(coords, dtype, sequential, grib_keys)
 
     def combine(self, coord: Coord, values: np.ndarray) -> bool:
         assert self.values is not None
@@ -156,8 +181,9 @@ class Difference(Accumulation):
         config: dict,
         dtype: DTypeLike = np.float32,
         sequential: bool = False,
+        grib_keys: Optional[dict] = None,
     ) -> Accumulation:
-        return cls(coords, dtype=dtype, sequential=sequential)
+        return cls(coords, dtype=dtype, sequential=sequential, grib_keys=grib_keys)
 
 
 class DifferenceRate(Difference):
@@ -167,8 +193,9 @@ class DifferenceRate(Difference):
         factor: float = 1.0,
         dtype: DTypeLike = np.float32,
         sequential: bool = False,
+        grib_keys: Optional[dict] = None,
     ):
-        super().__init__(coords, dtype, sequential)
+        super().__init__(coords, dtype, sequential, grib_keys)
         self.factor = factor
 
     def combine(self, coord: NumericCoord, values: np.ndarray) -> bool:
@@ -187,17 +214,26 @@ class DifferenceRate(Difference):
         config: dict,
         dtype: DTypeLike = np.float32,
         sequential: bool = False,
+        grib_keys: Optional[dict] = None,
     ) -> Accumulation:
         return cls(
-            coords, factor=config.get("factor", 1.0), dtype=dtype, sequential=sequential
+            coords,
+            factor=config.get("factor", 1.0),
+            dtype=dtype,
+            sequential=sequential,
+            grib_keys=grib_keys,
         )
 
 
 class Mean(SimpleAccumulation):
     def __init__(
-        self, coords: Coords, dtype: DTypeLike = np.float32, sequential: bool = False
+        self,
+        coords: Coords,
+        dtype: DTypeLike = np.float32,
+        sequential: bool = False,
+        grib_keys: Optional[dict] = None,
     ):
-        super().__init__("add", coords, dtype, sequential)
+        super().__init__("add", coords, dtype, sequential, grib_keys)
 
     def reset(self, initial: bool = False) -> None:
         super().reset(initial)
@@ -222,13 +258,20 @@ class Mean(SimpleAccumulation):
         config: dict,
         dtype: DTypeLike = np.float32,
         sequential: bool = False,
+        grib_keys: Optional[dict] = None,
     ) -> Accumulation:
-        return cls(coords, dtype=dtype, sequential=sequential)
+        return cls(coords, dtype=dtype, sequential=sequential, grib_keys=grib_keys)
 
 
 class WeightedMean(Integral):
-    def __init__(self, init: int, coords: NumericCoords, dtype: DTypeLike = np.float32):
-        super().__init__(init, coords, dtype)
+    def __init__(
+        self,
+        init: int,
+        coords: NumericCoords,
+        dtype: DTypeLike = np.float32,
+        grib_keys: Optional[dict] = None,
+    ):
+        super().__init__(init, coords, dtype, grib_keys)
         self.length = coords[-1] - init
 
     def get_values(self) -> Optional[np.ndarray]:
@@ -239,9 +282,13 @@ class WeightedMean(Integral):
 
 class Aggregation(Accumulation):
     def __init__(
-        self, coords: Coords, dtype: DTypeLike = np.float32, sequential: bool = False
+        self,
+        coords: Coords,
+        dtype: DTypeLike = np.float32,
+        sequential: bool = False,
+        grib_keys: Optional[dict] = None,
     ):
-        super().__init__(coords, dtype, sequential)
+        super().__init__(coords, dtype, sequential, grib_keys)
         self.lookup = {k: i for i, k in enumerate(coords)}
 
     def feed(self, coord: Coord, values: np.ndarray) -> bool:
@@ -260,6 +307,11 @@ class Aggregation(Accumulation):
         self.values[i, ...] = values
         return True
 
+    def get_values(self) -> Optional[np.ndarray]:
+        if self.values is None or self.values.shape[0] != 1:
+            return self.values
+        return self.values[0, ...]
+
     @classmethod
     def create(
         cls,
@@ -268,8 +320,9 @@ class Aggregation(Accumulation):
         config: dict,
         dtype: DTypeLike = np.float32,
         sequential: bool = False,
+        grib_keys: Optional[dict] = None,
     ) -> Accumulation:
-        return cls(coords, dtype=dtype, sequential=sequential)
+        return cls(coords, dtype=dtype, sequential=sequential, grib_keys=grib_keys)
 
 
 def convert_range(config: dict) -> range:
@@ -297,6 +350,7 @@ def create_accumulation(config: dict, dtype: DTypeLike = np.float32) -> Accumula
     op = config.get("operation", "aggregation")
     coords = convert_coords(config["coords"])
     sequential = config.get("sequential", False)
+    grib_keys = config.get("grib_keys", {})
     known = {
         "sum": SimpleAccumulation,
         "minimum": SimpleAccumulation,
@@ -311,7 +365,9 @@ def create_accumulation(config: dict, dtype: DTypeLike = np.float32) -> Accumula
     cls = known.get(op)
     if cls is None:
         raise ValueError(f"Unknown accumulation {op!r}")
-    return cls.create(op, coords, config, dtype=dtype, sequential=sequential)
+    return cls.create(
+        op, coords, config, dtype=dtype, sequential=sequential, grib_keys=grib_keys
+    )
 
 
 @dataclass
@@ -345,6 +401,9 @@ class Accumulator:
         self.dims = convert_dims(dims)
         self.values = None
 
+    def __len__(self) -> int:
+        return prod(len(dim.accumulation) for dim in self.dims)
+
     def __contains__(self, keys: Dict[str, Coord]) -> bool:
         return all(keys[dim.key] in dim.accumulation for dim in self.dims)
 
@@ -374,7 +433,10 @@ class Accumulator:
         return self.dims[0].accumulation.is_complete()
 
     def grib_keys(self) -> dict:
-        pass  # FIXME
+        keys = {}
+        for dim in self.dims:
+            keys.update(dim.accumulation.grib_keys())
+        return keys
 
     @classmethod
     def create(cls, config: dict) -> "Accumulator":

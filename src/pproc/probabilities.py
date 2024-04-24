@@ -90,12 +90,12 @@ def main(args=None):
                     assert data.ndim == 2
 
                     completed_windows = window_manager.update_windows(step, data)
-                    for window_id, window in completed_windows:
+                    for window_id, accum in completed_windows:
                         executor.submit(
                             prob_partial,
                             message_template,
                             window_id,
-                            window,
+                            accum,
                             window_manager.thresholds(window_id),
                         )
             executor.wait()

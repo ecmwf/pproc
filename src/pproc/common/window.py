@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 import numpy as np
-from typing import Dict
+from typing import Dict, Optional, Tuple, Union
 
 from pproc.common.accumulation import Accumulation, create_accumulation
 from pproc.common.steps import AnyStep, Step, step_to_coord
@@ -31,96 +31,23 @@ def parse_window_config(config: dict, include_init: bool = True) -> WindowConfig
     return WindowConfig(start, end, step, name, suffix, steps, include_init)
 
 
-class Window:
-    """
-    Class for collating data for all ensembles over an step interval
-    """
-
-    def __init__(self, window_config, accumulation: Accumulation):
-        """
-        :param window_config: window step configuration
-        :param accumulation: accumulation done by the window
-        """
-        self.start = window_config.start
-        self.end = window_config.end
-        self.step = window_config.step
-        self.name = window_config.name
-        self.suffix = window_config.suffix
-        self.steps = window_config.steps
-        self.include_init = window_config.include_init
-
-        self.acc = accumulation
-
-        self.config_grib_header = {}
-
-    def __contains__(self, step: AnyStep) -> bool:
-        """
-        :param step: current step
-        :return: boolean specifying if step is in window interval
-        """
-        return step_to_coord(step) in self.acc
-
-    def add_step_values(self, step: AnyStep, step_values: np.array):
-        """
-        Adds contribution of data values for specified step, if inside window, by computing
-        reduction operation on existing step values and new step values - only the reduction
-        operation on processed steps is stored
-
-        :param step: step to update window with
-        :param step_values: data values for step
-        """
-        self.acc.feed(step_to_coord(step), step_values)
-
-    @property
-    def step_values(self):
-        values = self.acc.get_values()
-        if values is None:
-            return []
-        return values
-
-    def reached_end_step(self, step: AnyStep) -> bool:
-        """
-        :param step: current step
-        :return: boolean specifying if current step is equal to window end step
-        """
-        return self.acc.is_complete()
-
-    def size(self) -> int:
-        """
-        :return: size of window interval
-        """
-        return self.end - self.start
-
-    def grib_header(self) -> Dict:
-        """
-        Returns window specific grib headers, including headers defined in
-        config file
-
-        :return: dictionary of header keys and values
-        """
-        header = {}
-        if self.size() > 0 and self.end >= 256:
-            # The range is encoded as two 8-bit integers
-            header["unitOfTimeRange"] = 11
-
-        header.update(self.config_grib_header)
-        if self.size() == 0:
-            header["step"] = self.name
-        else:
-            header.setdefault("stepType", "max")  # Don't override if set in config
-            header["stepRange"] = self.name
-
-        return header
-
-
-def create_window(window_options, window_operation: str, include_start: bool) -> Window:
+def create_window(
+    window_options,
+    window_operation: str,
+    include_start: bool,
+    grib_keys: Optional[dict] = None,
+    return_name: bool = False,
+) -> Union[Accumulation, Tuple[Accumulation, str]]:
     """
     Create window for the given operation
 
     :param window_options: window range specification
     :param window operation: window operation: one of none, diff, add, minimum,
         maximum, weightedsum, diffdailyrate, mean, precomputed
-    :return: Window instance that performs the operation
+    :param grib_keys: additional grib keys to tie to the window
+    :param return_name: if True, return the window name as well
+    :return: Window instance that performs the operation, window name (only if
+        `return_name` is True)
     :raises: ValueError for unsupported window operation string
     """
     include_init = (
@@ -174,12 +101,38 @@ def create_window(window_options, window_operation: str, include_start: bool) ->
     if coords is None:
         coords = [step_to_coord(step) for step in config.steps]
 
+    grib_header = {}
+    if config.end > config.start and config.end >= 256:
+        # The range is encoded as two 8-bit integers
+        grib_header["unitOfTimeRange"] = 11
+
+    if config.end == config.start:
+        if config.end >= 256:
+            grib_header["timeRangeIndicator"] = 10
+        elif config.end == 0:
+            grib_header["timeRangeIndicator"] = 1
+        else:
+            grib_header["timeRangeIndicator"] = 0
+
+    if grib_keys is not None:
+        grib_header.update(grib_keys)
+
+    if config.end == config.start:
+        grib_header["step"] = config.name
+    else:
+        grib_header.setdefault("stepType", "max")  # Don't override if set in config
+        grib_header["stepRange"] = config.name
+
     acc = create_accumulation(
         {
             "operation": operation,
             "coords": coords,
             "sequential": True,
+            "grib_keys": grib_header,
             **extra,
         }
     )
-    return Window(config, acc)
+
+    if return_name:
+        return acc, config.name
+    return acc

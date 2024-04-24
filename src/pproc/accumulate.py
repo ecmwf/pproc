@@ -9,6 +9,7 @@ import numpy as np
 import eccodes
 from meters import ResourceMeter
 
+from pproc.common.accumulation import Accumulation
 from pproc.common.config import Config, default_parser
 from pproc.common.grib_helpers import construct_message
 from pproc.common.io import (
@@ -25,7 +26,6 @@ from pproc.common.parallel import (
 )
 from pproc.common.param_requester import ParamConfig, ParamRequester
 from pproc.common.recovery import Recovery
-from pproc.common.window import Window
 from pproc.common.window_manager import WindowManager
 
 
@@ -122,19 +122,21 @@ def postproc_iteration(
     recovery: Optional[Recovery],
     template: Union[str, eccodes.GRIBMessage],
     window_id: str,
-    window: Window,
+    accum: Accumulation,
 ):
     if not isinstance(template, eccodes.GRIBMessage):
         template = read_template(template)
-    with ResourceMeter(f"{param.name}, step {window.name}: Post-process"):
+    with ResourceMeter(f"{param.name}, step {window_id}: Post-process"):
+        ens = accum.get_values()
+        assert ens is not None
         postprocess(
-            window.step_values,
+            ens,
             template,
             target,
             vmin=param.vmin,
             vmax=param.vmax,
             out_paramid=param.out_paramid,
-            out_keys=window.grib_header(),
+            out_keys=accum.grib_keys(),
         )
     if recovery is not None:
         recovery.add_checkpoint(param.name, window_id)
@@ -206,8 +208,8 @@ def main(args: List[str] = sys.argv[1:]):
                 with ResourceMeter(f"{param.name}, step {step}: Compute accumulation"):
                     completed_windows = window_manager.update_windows(step, ens)
                     del ens
-                for window_id, window in completed_windows:
-                    executor.submit(postproc_partial, template, window_id, window)
+                for window_id, accum in completed_windows:
+                    executor.submit(postproc_partial, template, window_id, accum)
             executor.wait()
 
     if recovery is not None:
