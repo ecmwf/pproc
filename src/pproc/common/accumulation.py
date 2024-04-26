@@ -407,6 +407,12 @@ class Accumulator:
     def __contains__(self, keys: Dict[str, Coord]) -> bool:
         return all(keys[dim.key] in dim.accumulation for dim in self.dims)
 
+    def __getitem__(self, key: str) -> Accumulation:
+        for dim in self.dims:
+            if dim.key == key:
+                return dim.accumulation
+        raise KeyError(key)
+
     def feed(self, keys: Dict[str, Coord], values: np.ndarray) -> bool:
         if keys not in self:
             return False
