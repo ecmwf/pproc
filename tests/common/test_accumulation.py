@@ -171,7 +171,7 @@ def test_convert_coords():
             Mean,
             [0, 2, 3, 4],
             [[3.25, 6.25, 11.25], [3.25, 10.25, 29.25]],
-            id="mean_sequential"
+            id="mean_sequential",
         ),
     ],
 )
@@ -237,6 +237,23 @@ def test_accumulator_contains():
                 "levelist": SimpleAccumulation("add", [100, 500, 1000]),
             }
         )
+
+
+def test_accumulator_getitem():
+    acc = Accumulator({"step": Mean(range(6, 24, 6))})
+    assert acc["step"] is acc.dims[0].accumulation
+    with pytest.raises(KeyError):
+        acc["date"]
+
+    acc = Accumulator(
+        {
+            "hdate": Aggregation([y * 10000 + 301 for y in range(2010, 2021)]),
+            "step": SimpleAccumulation("maximum", range(0, 24, 3)),
+            "example": Difference(["a", "b"]),
+        }
+    )
+    for dim in acc.dims:
+        assert acc[dim.key] is dim.accumulation
 
 
 def test_accumulator():
