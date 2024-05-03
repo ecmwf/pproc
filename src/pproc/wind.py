@@ -17,6 +17,7 @@ import signal
 
 import eccodes
 import pyfdb # Needs to be imported before mir to avoid seg fault
+from meters import ResourceMeter
 import mir
 
 from pproc import common
@@ -217,15 +218,15 @@ def wind_iteration_gen(config, tp, levelist, name, step, out_ws, out_mean=common
     )
     numbers = [0] if tp == "det" else range(config.members + 1)
 
-    with common.ResourceMeter(
+    with ResourceMeter(
         f"Window {name}, step {step}, {tpname}: read forecast"
     ):
         messages = fdb_req(config, levelist, step, name)
-    with common.ResourceMeter(
+    with ResourceMeter(
         f"Window {name}, step {step}, {tpname}: compute speed"
     ):
         spd = wind_speed(messages)
-    with common.ResourceMeter(
+    with ResourceMeter(
         f"Window {name}, step {step}, {tpname}: write output"
     ):
         template = messages[0]

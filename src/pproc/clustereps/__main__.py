@@ -9,11 +9,12 @@ from typing import Dict, List
 import numpy as np
 
 import eccodes
+from meters import ResourceMeter
 
 from pproc.clustereps import attribution, cluster, pca
 from pproc.clustereps.config import FullClusterConfig
 from pproc.clustereps.io import read_ensemble_grib, read_steps_grib
-from pproc.common import default_parser, ResourceMeter
+from pproc.common import default_parser
 from pproc.common.dataset import open_dataset
 from pproc.common.io import FDBNotOpenError, fdb, target_from_location
 

@@ -1,4 +1,4 @@
-
+import calendar
 from datetime import datetime
 import pytest
 
@@ -20,7 +20,7 @@ def id_tests(val):
 @pytest.mark.parametrize("start, end, year, ename, estart, eend, endays", [
     (10, 4, 2019, "ondjfma", datetime(2018, 10, 1), datetime(2019, 4, 30), 212),
     (5, 9, 2019, "mjjas", datetime(2019, 5, 1), datetime(2019, 9, 30), 153),
-    (10, 4, 2020, "ondjfma", datetime(2019, 10, 1), datetime(2020, 4, 30), 213),
+    (10, 4, 2020, "ondjfma", datetime(2019, 10, 1), datetime(2020, 4, 30), 212),
     (5, 9, 2020, "mjjas", datetime(2020, 5, 1), datetime(2020, 9, 30), 153),
 ], ids=id_tests)
 def test_season(start, end, year, ename, estart, eend, endays):
@@ -29,6 +29,19 @@ def test_season(start, end, year, ename, estart, eend, endays):
     assert season.start == estart
     assert season.end == eend
     assert season.ndays == endays
+
+
+@pytest.mark.parametrize("year", [2019, 2020], ids=["non-leap", "leap"])
+def test_season_dos(year):
+    winter = Season(10, 4, year)
+    assert winter.dos(datetime(year - 1, 11, 1)) == 31
+    assert winter.dos(datetime(year, 2, 28)) == 150
+    assert winter.dos(datetime(year, 3, 1)) == 151
+    if calendar.isleap(year):
+        assert winter.dos(datetime(year, 2, 29)) == 150
+
+    summer = Season(5, 9, year)
+    assert summer.dos(datetime(year, 6, 1)) == 31
 
 
 @pytest.mark.parametrize("date, seasons, eseason", [

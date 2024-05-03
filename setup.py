@@ -3,14 +3,15 @@ import os
 
 setup(
     name="pproc",
-    version='1.0.0',
+    version='1.1.0',
     author='ECMWF',
     description="ECMWF Post-processing tools",
     packages=find_packages(where='src'),
     package_dir={'': 'src'},
     include_package_data=True,
     install_requires=[
-        "filelock>=3.12.0"
+        "filelock>=3.12.0",
+        "code-meters"
     ],
     tests_require=[
     ],
@@ -35,6 +36,7 @@ setup(
             "pproc-tcycl-summarise-tcycl=pproc.tcycl.tcycl_summarise_tcycl:main",
             "pproc-tcycl-summarise-trckr=pproc.tcycl.tcycl_summarise_trckr:main",
             "pproc-tcycl-evaluate=pproc.tcycl.tcycl_evaluate:main",
+            "pproc-thermal-indices=pproc.thermal_indices:main",
         ],
     },
 )
