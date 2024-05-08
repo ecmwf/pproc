@@ -4,6 +4,7 @@ import bisect
 import numpy as np
 
 from pproc.common.accumulation import Accumulator, Coord
+from pproc.common.accumulation_manager import AccumulationManager
 from pproc.common.steps import AnyStep, Step, parse_step, step_to_coord
 from pproc.common.window import create_window
 
@@ -13,9 +14,6 @@ class WindowManager:
     Class for creating and managing active windows
     """
 
-    windows: Dict[str, Accumulator]
-    dims: Dict[str, List[Coord]]
-
     def __init__(self, parameter, global_config):
         """
         Sort steps and create windows by reading in the config for specified parameter
@@ -24,12 +22,11 @@ class WindowManager:
         :param global_config: global dictionary of key values for grib_set in all windows
         :raises: RuntimeError if no window operation was provided, or could be derived
         """
-        self.windows = {}
-        self.unique_steps = set()
-        self.create_windows(parameter, global_config)
+        unique_steps = set()
+        windows = self.create_windows(parameter, global_config)
         if "steps" not in parameter:
-            for accum in self.windows.values():
-                self.unique_steps.update(accum["step"].coords)
+            for accum in windows.values():
+                unique_steps.update(accum["step"].coords)
         else:
             for steps in parameter["steps"]:
                 start_step = steps["start_step"]
@@ -38,20 +35,22 @@ class WindowManager:
                 range_len = steps.get("range", None)
 
                 if range_len is None:
-                    self.unique_steps.update(range(start_step, end_step + 1, interval))
+                    unique_steps.update(range(start_step, end_step + 1, interval))
                 else:
                     for sstep in range(start_step, end_step - range_len + 1, interval):
-                        self.unique_steps.add(
+                        unique_steps.add(
                             step_to_coord(Step(sstep, sstep + range_len))
                         )
 
-        self.unique_steps = sorted(self.unique_steps, key=parse_step)
-        self.dims = {"step": self.unique_steps}
+        self.mgr = AccumulationManager({})
+        self.mgr.accumulations = windows
+        self.mgr.coords = {"step": unique_steps}
 
     def create_windows(self, parameter, global_config):
         """
         Creates windows from parameter config and specified window operation
         """
+        windows = {}
         for window_index, window_config in enumerate(parameter["windows"]):
             for period in window_config["periods"]:
                 include_start = bool(window_config.get("include_start_step", False))
@@ -65,9 +64,20 @@ class WindowManager:
                     return_name=True,
                 )
                 window_id = f"{window_name}_{window_index}"
-                if window_id in self.windows:
+                if window_id in windows:
                     raise Exception(f"Duplicate window {window_id}")
-                self.windows[window_id] = Accumulator({"step": window_acc})
+                windows[window_id] = Accumulator({"step": window_acc})
+        return windows
+
+    @property
+    def dims(self) -> Dict[str, List[Coord]]:
+        sorted_dims = {}
+        for key, coords in self.mgr.coords.items():
+            if key == "step":
+                sorted_dims[key] = sorted(coords, key=parse_step)
+            else:
+                sorted_dims[key] = sorted(coords)
+        return sorted_dims
 
     def update_windows(
         self, keys: Dict[str, Coord], data: np.ndarray
@@ -79,13 +89,7 @@ class WindowManager:
         :param data: data chunk
         :return: generator for completed windows
         """
-        for identifier, accum in list(self.windows.items()):
-            accum.feed(keys, data)
-
-            if accum.is_complete():
-                completed = self.windows.pop(identifier)
-                yield identifier, completed
-                del completed
+        yield from self.mgr.feed(keys, data)
 
     def delete_windows(self, window_ids: List[str]) -> Coord:
         """
@@ -95,14 +99,5 @@ class WindowManager:
         :param window_ids: list of identifiers of windows to delete
         :return: new first step
         """
-        for identifier in window_ids:
-            del self.windows[identifier]
-
-        for step_index, step in enumerate(self.unique_steps):
-            in_any_window = any(step in accum["step"] for accum in self.windows.values())
-            if in_any_window:
-                # Steps must be processed in order so stop at first step that appears
-                # in remaining window
-                break
-        self.unique_steps[:] = self.unique_steps[step_index:]
-        return step
+        self.mgr.delete(window_ids)
+        return min(self.mgr.coords["step"], key=parse_step)

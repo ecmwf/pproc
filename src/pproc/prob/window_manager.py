@@ -60,6 +60,7 @@ class ThresholdWindowManager(WindowManager):
 
     def create_windows(self, parameter, global_config):
 
+        windows = {}
         for window_index, window_config in enumerate(parameter["windows"]):
             window_operations = self.window_operation_from_config(window_config)
 
@@ -72,10 +73,11 @@ class ThresholdWindowManager(WindowManager):
                         period, operation, include_start, grib_keys, return_name=True
                     )
                     window_id = f"{window_name}_{operation}_{window_index}"
-                    if window_id in self.windows:
+                    if window_id in windows:
                         raise Exception(f"Duplicate window {window_id}")
-                    self.windows[window_id] = Accumulator({"step": window_acc})
+                    windows[window_id] = Accumulator({"step": window_acc})
                     self.window_thresholds[window_id] = thresholds
+        return windows
 
     def thresholds(self, identifier):
         """
@@ -95,7 +97,7 @@ class AnomalyWindowManager(ThresholdWindowManager):
         ThresholdWindowManager.__init__(self, parameter, global_config)
 
     def create_windows(self, parameter, global_config):
-        super().create_windows(parameter, global_config)
+        windows = super().create_windows(parameter, global_config)
         if "std_anomaly_windows" in parameter:
             # Create windows for standard anomaly
             for window_index, window_config in enumerate(
@@ -118,10 +120,11 @@ class AnomalyWindowManager(ThresholdWindowManager):
                             return_name=True,
                         )
                         window_id = f"std_{window_name}_{operation}_{window_index}"
-                        if window_id in self.windows:
+                        if window_id in windows:
                             raise Exception(f"Duplicate window {window_id}")
-                        self.windows[window_id] = Accumulator({"step": window_acc})
+                        windows[window_id] = Accumulator({"step": window_acc})
                         self.window_thresholds[window_id] = thresholds
+        return windows
 
     def update_windows(
         self, keys: dict, data: np.array, clim_mean: np.array, clim_std: np.array
@@ -139,12 +142,11 @@ class AnomalyWindowManager(ThresholdWindowManager):
         """
         anomaly = data - clim_mean
         std_anomaly = anomaly / clim_std
-        for identifier, accum in list(self.windows.items()):
+        for identifier, accum in list(self.mgr.accumulations.items()):
             if identifier.split("_")[0] == "std":
-                accum.feed(keys, std_anomaly)
+                processed = accum.feed(keys, std_anomaly)
             else:
-                accum.feed(keys, anomaly)
+                processed = accum.feed(keys, anomaly)
 
-            if accum.is_complete():
-                completed = self.windows.pop(identifier)
-                yield identifier, completed
+            if processed and accum.is_complete():
+                yield identifier, self.mgr.accumulations.pop(identifier)

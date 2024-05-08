@@ -8,7 +8,9 @@ from pproc.common.utils import dict_product
 
 class AccumulationManager:
     accumulations: Dict[str, Accumulator]  # accum name -> accumulator
-    coords: Dict[str, Set[Coord]]  # dimension key -> unique coords for all accumulations
+    coords: Dict[
+        str, Set[Coord]
+    ]  # dimension key -> unique coords for all accumulations
 
     def __init__(self, config: Dict[str, dict]):
         self.coords = {}
@@ -42,10 +44,7 @@ class AccumulationManager:
 
         for key, coords in self.coords.items():
             for coord in coords.copy():
-                found = False
-                for accum in self.accumulations.values():
-                    if coord in accum[key]:
-                        found = True
-                        break
-                if not found:
+                if not any(
+                    coord in accum[key] for accum in self.accumulations.values()
+                ):
                     coords.remove(coord)

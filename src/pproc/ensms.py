@@ -122,9 +122,9 @@ def main(args=None):
         window_manager = common.WindowManager(options, cfg.options["grib_set"])
         iteration = functools.partial(ensms_iteration, cfg, param_type, recover)
 
-        if np.all([len(x) == 1 for x in window_manager.windows.values()]):
+        if np.all([len(x) == 1 for x in window_manager.mgr.accumulations.values()]):
             plan = []
-            for window_id, accum in window_manager.windows.items():
+            for window_id, accum in window_manager.mgr.accumulations.items():
                 if recover.existing_checkpoint(param, window_id):
                     print(f'Recovery: skipping param {param} window {window_id}')
                     continue
