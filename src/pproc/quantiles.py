@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 
 import eccodes
-from meteokit.stats import iter_quantiles
+from earthkit.meteo.stats import iter_quantiles
 from meters import ResourceMeter
 
 from pproc.common.config import Config, default_parser
