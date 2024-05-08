@@ -12,7 +12,7 @@ setup(
     install_requires=[
         "filelock>=3.12.0",
         "code-meters",
-        "earthkit-meteo"
+        "earthkit-meteo>=0.1.0"
     ],
     tests_require=[
     ],
