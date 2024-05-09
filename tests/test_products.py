@@ -1,6 +1,5 @@
 import os
 import shutil
-import sys
 import tempfile
 
 import requests
@@ -8,7 +7,6 @@ import pyfdb
 import eccodes
 import pytest
 import yaml
-from unittest.mock import patch
 
 from pproc.probabilities import main as prob_main
 from pproc.ensms import main as ensms_main
@@ -97,7 +95,7 @@ class TestProducts:
             [
                 "prob",
                 prob_main,
-                ["-d", "2024050712", "--out_prob", "file:{test_dir}/2t_prob.grib"],
+                ["-d", "2024050712", "--out_prob", "fdb:"],
                 False,
             ],
             [
@@ -105,9 +103,9 @@ class TestProducts:
                 ensms_main,
                 [
                     "--out_eps_mean",
-                    "file:{test_dir}/2t_ensms.grib",
+                    "fdb:",
                     "--out_eps_std",
-                    "file:{test_dir}/2t_ensms.grib",
+                    "fdb:",
                 ],
                 False,
             ],
@@ -116,9 +114,9 @@ class TestProducts:
                 extreme_main,
                 [
                     "--out_efi",
-                    "file:{test_dir}/2t_efi.grib",
+                    "fdb:",
                     "--out_sot",
-                    "file:{test_dir}/2t_efi.grib",
+                    "fdb:",
                 ],
                 False,
             ],
@@ -129,7 +127,7 @@ class TestProducts:
                     "--in-ens",
                     "fdb:ens",
                     "--out-quantiles",
-                    "file:{test_dir}/2t_quantiles.grib",
+                    "fdb:",
                 ],
                 True,
             ],
@@ -138,9 +136,9 @@ class TestProducts:
                 wind_main,
                 [
                     "--out_eps_mean",
-                    "file:{test_dir}/wind.grib",
+                    "fdb:",
                     "--out_eps_std",
-                    "file:{test_dir}/wind.grib",
+                    "fdb:",
                 ],
                 False,
             ],
@@ -161,9 +159,9 @@ class TestProducts:
                     "-N",
                     "{test_dir}/NEOF",
                     "--centroids",
-                    "file:{test_dir}/centroids.grib",
+                    "fdb:",
                     "--representative",
-                    "file:{test_dir}/representative.grib",
+                    "fdb:",
                     "--output-root",
                     "{test_dir}",
                     "--cen-anomalies",
@@ -187,17 +185,17 @@ class TestProducts:
             config = yaml.safe_load(file)
         config["root_dir"] = test_dir
         yaml.dump(config, open(f"{test_dir}/{product}.yaml", "w"))
-        args = [product, "-c", f"{test_dir}/{product}.yaml",] + [
+        args = [product, "-c", f"{test_dir}/{product}.yaml"] + [
             x.format_map(
                 {
-                    "test_dir": str(test_dir),
+                    "test_dir": test_dir,
                     "TEST_DIR": str(TEST_DIR),
                 }
             )
             for x in custom_args
         ]
-        with patch("sys.argv", args):
-            if pass_args:
-                main(args[1:])
-            else:
-                main()
+        if pass_args:
+            main(args[1:])
+        else:
+            monkeypatch.setattr("sys.argv", args)
+            main()
