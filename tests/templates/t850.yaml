@@ -69,7 +69,7 @@ parameters:
         typeOfGeneratingProcess: 5
         paramId: 0
         timeIncrement: 12
-        indicatorOfUnitForTimeIncrement: 1
+        # indicatorOfUnitForTimeIncrement: 1 ** Must be omitted when run with pytest **
         typeOfStatisticalProcessing: 10
         packingType: grid_ccsds
         scaleFactorOfUpperLimit: MISSING
