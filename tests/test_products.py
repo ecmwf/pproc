@@ -9,6 +9,7 @@ import pytest
 import yaml
 
 from pproc.probabilities import main as prob_main
+from pproc.anomaly_probs import main as anomaly_prob_main
 from pproc.ensms import main as ensms_main
 from pproc.extreme import main as extreme_main
 from pproc.quantiles import main as quantiles_main
@@ -22,7 +23,7 @@ NEXUS = "https://get.ecmwf.int/test-data/pproc/test-data"
 def download_test_data():
     local_dir = f"{TEST_DIR}/data"
     test_files = {
-        None: ["2t_ens.grib", "2t_clim.grib", "wind.grib", "cluster.grib"],
+        None: ["2t_ens.grib", "2t_clim.grib", "wind.grib", "t850.grib", "cluster.grib"],
         "clustclim": [
             "era_clcen_eof_mjjas.gts",
             "era_clind_mjjas.gts",
@@ -101,6 +102,12 @@ class TestProducts:
                 False,
             ],
             [
+                "t850",
+                anomaly_prob_main,
+                ["-d", "2024050712", "--out_prob", "fdb:"],
+                False,
+            ],
+            [
                 "ensms",
                 ensms_main,
                 [
@@ -174,7 +181,7 @@ class TestProducts:
                 False,
             ],
         ],
-        ids=["prob", "ensms", "extreme", "quantiles", "wind", "clustereps"],
+        ids=["prob", "t850", "ensms", "extreme", "quantiles", "wind", "clustereps"],
     )
     def test_products(self, tmpdir, monkeypatch, product, main, custom_args, pass_args):
         monkeypatch.chdir(tmpdir)  # To avoid polluting cwd with grib templates
