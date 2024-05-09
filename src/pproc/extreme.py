@@ -17,7 +17,7 @@ import functools
 import signal
 
 import eccodes
-from meteokit import extreme
+from earthkit.meteo import extreme
 from meters import ResourceMeter
 from pproc import common
 from pproc.common import parallel
