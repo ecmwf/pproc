@@ -14,6 +14,7 @@ setup(
         "code-meters"
     ],
     tests_require=[
+        "requests",
     ],
     entry_points={
         "console_scripts": [

@@ -18,39 +18,48 @@ from pproc.wind import main as wind_main
 from pproc.clustereps.__main__ import main as clustereps_main
 
 TEST_DIR = os.path.dirname(os.path.realpath(__file__))
+NEXUS = "https://get.ecmwf.int/test-data/pproc/test-data"
 
 
 def download_test_data():
-    for filename in [
-        "2t_ens.grib",
-        "2t_clim.grib",
-        "wind.grib",
-        "cluster.grib",
-        "clustclim",
-    ]:
-        local_directory = f"{TEST_DIR}/data"
-        if not os.path.exists(local_directory):
-            os.makedirs(local_directory)
-        nexus_url = f"https://get.ecmwf.int/test-data/pproc/test-data/{filename}"
-        local_file_path = os.path.join(local_directory, filename)
+    local_dir = f"{TEST_DIR}/data"
+    test_files = {
+        None: ["2t_ens.grib", "2t_clim.grib", "wind.grib", "cluster.grib"],
+        "clustclim": [
+            "era_clcen_eof_mjjas.gts",
+            "era_clind_mjjas.gts",
+            "mjjas_eof.grd",
+            "mjjas_means.grd",
+            "mjjas_pcs.gts",
+            "mjjas_sdv.gts",
+        ],
+    }
+    for dir, files in test_files.items():
+        nexus_dir = NEXUS if dir is None else f"{NEXUS}/{dir}"
+        dir = local_dir if dir is None else os.path.join(local_dir, dir)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+        for filename in files:
+            nexus_url = f"{nexus_dir}/{filename}"
+            local_file_path = os.path.join(dir, filename)
 
-        if not os.path.exists(local_file_path):
-            session = requests.Session()
-            response = session.get(nexus_url)
-            if response.status_code != 200:
-                raise Exception(
-                    f"Error {response.status_code} downloading data file {filename}"
-                )
-            # Save the downloaded data to the local file
-            with open(local_file_path, "wb") as f:
-                f.write(response.content)
+            if not os.path.exists(local_file_path):
+                session = requests.Session()
+                response = session.get(nexus_url)
+                if response.status_code != 200:
+                    raise Exception(
+                        f"Error {response.status_code} downloading data file {filename}"
+                    )
+                with open(local_file_path, "wb") as f:
+                    f.write(response.content)
 
 
 class TestProducts:
     @classmethod
     def setup_class(cls):
-        cls.tmpdir = tempfile.mkdtemp()
+        download_test_data()
 
+        cls.tmpdir = tempfile.mkdtemp()
         os.makedirs(f"{cls.tmpdir}/etc/fdb")
         os.mkdir(f"{cls.tmpdir}/fdb")
         shutil.copyfile(
@@ -70,7 +79,6 @@ class TestProducts:
             )
         os.environ["FDB_HOME"] = str(cls.tmpdir)
         fdb = pyfdb.FDB()
-        download_test_data()
         for file in os.listdir(f"{TEST_DIR}/data"):
             filepath = f"{TEST_DIR}/data/{file}"
             if os.path.isfile(filepath):
@@ -168,9 +176,10 @@ class TestProducts:
         ],
         ids=["prob", "ensms", "extreme", "quantiles", "wind", "clustereps"],
     )
-    def test_products(self, tmpdir, product, main, custom_args, pass_args):
+    def test_products(self, tmpdir, monkeypatch, product, main, custom_args, pass_args):
         test_dir = f"{tmpdir}/{product}"
         os.mkdir(test_dir)
+        monkeypatch.chdir(test_dir)  # To avoid polluting cwd with grib templates
         shutil.copyfile(
             f"{TEST_DIR}/templates/{product}.yaml", f"{test_dir}/{product}.yaml"
         )
@@ -188,7 +197,6 @@ class TestProducts:
             for x in custom_args
         ]
         with patch("sys.argv", args):
-            print("SYS ARGS", sys.argv)
             if pass_args:
                 main(args[1:])
             else:
