@@ -1,4 +1,4 @@
-n_par_compute: 2
+n_par_compute: 1
 n_par_read: 2
 num_members: 6
 num_quantiles: 50

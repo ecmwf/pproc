@@ -3,7 +3,7 @@ grib_edition: 1
 members:
   end: 5
   start: 1
-n_par_compute: 2
+n_par_compute: 1
 n_par_read: 2
 parameters:
   2t:

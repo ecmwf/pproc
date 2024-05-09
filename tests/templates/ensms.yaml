@@ -4,7 +4,7 @@ grib_set:
   numberOfForecastsInEnsemble: 6
   perturbationNumber: 0
 members: 5
-n_par: 2
+n_par: 1
 parameters:
   2t:
     base_request:

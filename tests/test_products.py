@@ -58,6 +58,7 @@ class TestProducts:
         download_test_data()
 
         cls.tmpdir = tempfile.mkdtemp()
+        print("Using temporary directory", cls.tmpdir)
         os.makedirs(f"{cls.tmpdir}/etc/fdb")
         os.mkdir(f"{cls.tmpdir}/fdb")
         shutil.copyfile(
@@ -76,6 +77,7 @@ class TestProducts:
     """
             )
         os.environ["FDB_HOME"] = str(cls.tmpdir)
+        os.environ["FDB_HANDLE_LUSTRE_STRIPE"] = "0"
         fdb = pyfdb.FDB()
         for file in os.listdir(f"{TEST_DIR}/data"):
             filepath = f"{TEST_DIR}/data/{file}"
@@ -175,20 +177,18 @@ class TestProducts:
         ids=["prob", "ensms", "extreme", "quantiles", "wind", "clustereps"],
     )
     def test_products(self, tmpdir, monkeypatch, product, main, custom_args, pass_args):
-        test_dir = f"{tmpdir}/{product}"
-        os.mkdir(test_dir)
-        monkeypatch.chdir(test_dir)  # To avoid polluting cwd with grib templates
+        monkeypatch.chdir(tmpdir)  # To avoid polluting cwd with grib templates
         shutil.copyfile(
-            f"{TEST_DIR}/templates/{product}.yaml", f"{test_dir}/{product}.yaml"
+            f"{TEST_DIR}/templates/{product}.yaml", f"{tmpdir}/{product}.yaml"
         )
-        with open(f"{test_dir}/{product}.yaml", "r") as file:
+        with open(f"{tmpdir}/{product}.yaml", "r") as file:
             config = yaml.safe_load(file)
-        config["root_dir"] = test_dir
-        yaml.dump(config, open(f"{test_dir}/{product}.yaml", "w"))
-        args = [product, "-c", f"{test_dir}/{product}.yaml"] + [
+        config["root_dir"] = str(tmpdir)
+        yaml.dump(config, open(f"{tmpdir}/{product}.yaml", "w"))
+        args = [product, "-c", f"{tmpdir}/{product}.yaml"] + [
             x.format_map(
                 {
-                    "test_dir": test_dir,
+                    "test_dir": str(tmpdir),
                     "TEST_DIR": str(TEST_DIR),
                 }
             )

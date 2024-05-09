@@ -7,7 +7,7 @@ global_output_keys:
   mars.expver: '0001'
   type: ep
 number_of_ensembles: 5
-n_par_compute: 2
+n_par_compute: 1
 n_par_read: 2
 parameters:
   2t:

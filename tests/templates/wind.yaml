@@ -13,7 +13,7 @@ levelist:
 - 250
 - 850
 members: 5
-n_par: 2
+n_par: 1
 request:
   class: od
   domain: g
