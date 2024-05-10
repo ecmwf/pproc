@@ -149,7 +149,7 @@ def setup_fdb(fdb):
                 "--deterministic",
                 "fdb:determ_z500",
                 "--clim-dir",
-                "{TEST_DIR}/data/clustclim",
+                "{DATA_DIR}/clustclim",
                 "-N",
                 "{test_dir}/NEOF",
                 "--centroids",
