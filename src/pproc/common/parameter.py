@@ -81,7 +81,7 @@ class Parameter:
             new_request["step"] = str(step)
             new_request["type"] = type
             if type != "pf":
-                new_request.pop("number")
+                new_request.pop("number", None)
             new_request.update(self.overrides)
             print("FDB request: ", new_request)
             message_temp, new_data = common.fdb_read_with_template(
