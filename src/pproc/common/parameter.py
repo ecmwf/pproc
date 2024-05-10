@@ -68,6 +68,11 @@ class Parameter:
         self.overrides = overrides
         self.interpolation_keys = param_cfg.get("interpolation_keys", None)
         self.scale_data = int(param_cfg.get("scale", 1))
+        self.control_type = None
+        for req_type in self.base_request["type"].split("/"):
+            if req_type in ["cf", "fc"]:
+                self.control_type = req_type 
+                break 
 
     def retrieve_data(self, fdb, step: common.AnyStep):
         combined_data = []
@@ -75,7 +80,7 @@ class Parameter:
             new_request = self.base_request.copy()
             new_request["step"] = str(step)
             new_request["type"] = type
-            if type == "cf":
+            if type != "pf":
                 new_request.pop("number")
             new_request.update(self.overrides)
             print("FDB request: ", new_request)

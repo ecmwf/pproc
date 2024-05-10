@@ -70,7 +70,7 @@ def fdb_request_ens(cfg, levelist, steps, name):
     """
 
     req = cfg.request.copy()
-    req.pop("stream_det")
+    req.pop("stream_det", None)
     req["stream"] = req.pop("stream_ens")
     req["date"] = cfg.date.strftime("%Y%m%d")
     req["time"] = cfg.date.strftime("%H") + "00"
@@ -83,15 +83,13 @@ def fdb_request_ens(cfg, levelist, steps, name):
     except (TypeError, ValueError):
         stepid = steps
 
-    req_cf = req.copy()
-    req_cf["type"] = "cf"
-    messages = retrieve_messages(cfg, req_cf, f"wind_cf_{levelist}_{name}_{stepid}.grb")
-
-    req_pf = req.copy()
-    req_pf["type"] = "pf"
-    req_pf["number"] = range(1, cfg.members + 1)
-    messages += retrieve_messages(cfg, req_pf, f"wind_pf_{levelist}_{name}_{stepid}.grb")
-
+    messages = []
+    for param_type in cfg.ens_types:
+        req_param = req.copy()
+        req_param["type"] = param_type
+        if param_type == "pf":
+            req_param["number"] = range(1, cfg.members + 1)
+        messages += retrieve_messages(cfg, req_param, f"wind_{param_type}_{levelist}_{name}_{stepid}.grb")
     return messages
 
 
@@ -164,7 +162,7 @@ def basic_template(cfg, template, step, marstype):
 
 def eps_speed_template(cfg, template, step, number):
     if number == 0:
-        eps_template = basic_template(cfg, template, step, "cf")
+        eps_template = basic_template(cfg, template, step, cfg.control_type)
     else:
         eps_template = basic_template(cfg, template, step, "pf")
         eps_template.set("number", number)
@@ -182,6 +180,10 @@ class ConfigExtreme(common.Config):
         self._fdb = None
 
         self.request = self.options["request"]
+        self.ens_types = self.request.pop("type_ens", "cf/pf").split("/")
+        if len(self.ens_types) != 2:
+            raise ValueError("Unperturbed and perturbed types expected for ensemble")
+        self.control_type = self.ens_types[(self.ens_types.index("pf") + 1) % 2]
         self.windows = self.options["windows"]
         self.levelist = self.options.get("levelist", [0])
         self.interpolation_keys = self.options.get("interpolation_keys", None)
