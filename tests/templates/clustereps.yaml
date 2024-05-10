@@ -35,7 +35,7 @@ ncl_clim: 4
 ncl_max: 6
 npass: 100
 npc: -1
-nrsamples: 500
+nrsamples: 5 # So that tests run quickly, as results are not important
 num_components: 50
 num_members: 51
 out_keys:
