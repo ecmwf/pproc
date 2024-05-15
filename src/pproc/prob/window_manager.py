@@ -1,9 +1,10 @@
-import bisect
 from typing import Iterator, List, Tuple
 import numpy as np
 
 from pproc.common import WindowManager, create_window
 from pproc.common.accumulation import Accumulator, Coord
+from pproc.common.accumulation_manager import AccumulationManager
+from pproc.common.steps import Step, step_to_coord
 
 
 class ThresholdWindowManager(WindowManager):
@@ -17,7 +18,28 @@ class ThresholdWindowManager(WindowManager):
 
     def __init__(self, parameter, global_config):
         self.window_thresholds = {}
-        WindowManager.__init__(self, parameter, global_config)
+        # WindowManager.__init__(self, parameter, global_config)
+        unique_steps = set()
+        windows = self.create_windows(parameter, global_config)
+        if "steps" not in parameter:
+            for accum in windows.values():
+                unique_steps.update(accum["step"].coords)
+        else:
+            for steps in parameter["steps"]:
+                start_step = steps["start_step"]
+                end_step = steps["end_step"]
+                interval = steps["interval"]
+                range_len = steps.get("range", None)
+
+                if range_len is None:
+                    unique_steps.update(range(start_step, end_step + 1, interval))
+                else:
+                    for sstep in range(start_step, end_step - range_len + 1, interval):
+                        unique_steps.add(step_to_coord(Step(sstep, sstep + range_len)))
+
+        self.mgr = AccumulationManager({})
+        self.mgr.accumulations = windows
+        self.mgr.coords = {"step": unique_steps}
 
     @classmethod
     def window_operation_from_config(cls, window_config) -> str:

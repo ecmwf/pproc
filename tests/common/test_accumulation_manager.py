@@ -49,6 +49,13 @@ CONFIGS = {
             ],
         },
     },
+    "factory-default": {"step": {"type": "default", "coords": [[12], [18]]}},
+    "factory-legacy": {
+        "step": {
+            "type": "legacywindow",
+            "windows": [{"periods": [{"range": [24, 24]}, {"range": [48, 48]}]}],
+        }
+    },
 }
 
 EXPECT_ACCUMS = {
@@ -74,6 +81,8 @@ EXPECT_ACCUMS = {
         "hdate": (Aggregation, [[20200118, 20210118, 20220118, 20230118]]),
         "step": (Mean, [range(i + 6, i + 25, 6) for i in range(0, 25, 12)]),
     },
+    "factory-default": {"step": (Aggregation, [[12], [18]])},
+    "factory-legacy": {"step": (Aggregation, [[24], [48]])},
 }
 
 EXPECT_COORDS = {
@@ -88,6 +97,8 @@ EXPECT_COORDS = {
         "hdate": {20200118, 20210118, 20220118, 20230118},
         "step": {6, 12, 18, 24, 30, 36, 42, 48},
     },
+    "factory-default": {"step": {12, 18}},
+    "factory-legacy": {"step": {24, 48}},
 }
 
 

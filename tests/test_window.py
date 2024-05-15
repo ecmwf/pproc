@@ -1,7 +1,11 @@
 import numpy as np
 import pytest
 
-from pproc.common.window import create_window, parse_window_config
+from pproc.common.window import (
+    create_window,
+    legacy_window_factory,
+    parse_window_config,
+)
 
 
 @pytest.mark.parametrize(
@@ -136,3 +140,404 @@ def test_grib_header(start_end, operation, extra_keys, grib_key_values):
     accum = create_window({"range": start_end}, operation, True, extra_keys)
     header = accum.grib_keys()
     assert header == grib_key_values
+
+
+@pytest.mark.parametrize(
+    "config, grib_keys, expected",
+    [
+        pytest.param(
+            {
+                "windows": [
+                    {
+                        "periods": [
+                            {"range": [120, 120]},
+                            {"range": [123, 123]},
+                            {"range": [126, 126]},
+                            {"range": [129, 129]},
+                            {"range": [132, 132]},
+                            {"range": [360, 360]},
+                        ]
+                    }
+                ]
+            },
+            {"mars.expver": "0001"},
+            {
+                f"{s}_0": {
+                    "operation": "aggregation",
+                    "coords": [s],
+                    "sequential": True,
+                    "grib_keys": {
+                        "mars.expver": "0001",
+                        "timeRangeIndicator": (0 if s < 256 else 10),
+                        "step": str(s),
+                    },
+                }
+                for s in [120, 123, 126, 129, 132, 360]
+            },
+            id="simple",
+        ),
+        pytest.param(
+            {
+                "windows": [
+                    {
+                        "periods": [
+                            {"range": [0, 0, 3]},
+                            {"range": [0, 3, 3]},
+                            {"range": [3, 6, 3]},
+                            {"range": [300, 306, 6]},
+                        ]
+                    }
+                ]
+            },
+            {"timeRangeIndicator": 2},
+            {
+                "0_0": {
+                    "operation": "aggregation",
+                    "coords": [0],
+                    "sequential": True,
+                    "grib_keys": {"timeRangeIndicator": 2, "step": "0"},
+                },
+                "0-3_0": {
+                    "operation": "aggregation",
+                    "coords": [3],
+                    "sequential": True,
+                    "grib_keys": {
+                        "timeRangeIndicator": 2,
+                        "stepRange": "0-3",
+                        "stepType": "max",
+                    },
+                },
+                "3-6_0": {
+                    "operation": "aggregation",
+                    "coords": [6],
+                    "sequential": True,
+                    "grib_keys": {
+                        "timeRangeIndicator": 2,
+                        "stepRange": "3-6",
+                        "stepType": "max",
+                    },
+                },
+                "300-306_0": {
+                    "operation": "aggregation",
+                    "coords": [306],
+                    "sequential": True,
+                    "grib_keys": {
+                        "unitOfTimeRange": 11,
+                        "timeRangeIndicator": 2,
+                        "stepRange": "300-306",
+                        "stepType": "max",
+                    },
+                },
+            },
+            id="simple-range",
+        ),
+        pytest.param(
+            {
+                "windows": [
+                    {
+                        "window_operation": "diff",
+                        "periods": [
+                            {"range": [90, 96]},
+                            {"range": [93, 99]},
+                            {"range": [96, 102]},
+                            {"range": [270, 276]},
+                        ],
+                        "grib_set": {"stepType": "diff", "bitsPerValue": 16},
+                    },
+                    {
+                        "window_operation": "diff",
+                        "periods": [
+                            {"range": [120, 144, 24]},
+                            {"range": [240, 264, 24]},
+                            {"range": [264, 288, 24]},
+                            {"range": [240, 360, 120]},
+                            {"range": [0, 360, 360]},
+                        ],
+                        "grib_set": {
+                            "timeRangeIndicator": 5,
+                            "gribTablesVersionNo": 132,
+                        },
+                    },
+                ]
+            },
+            {},
+            {
+                **{
+                    f"{a}-{b}_0": {
+                        "operation": "difference",
+                        "coords": [a, b],
+                        "sequential": True,
+                        "grib_keys": {
+                            "stepType": "diff",
+                            "bitsPerValue": 16,
+                            "stepRange": f"{a}-{b}",
+                            **({} if b < 256 else {"unitOfTimeRange": 11}),
+                        },
+                    }
+                    for a, b in [(90, 96), (93, 99), (96, 102), (270, 276)]
+                },
+                **{
+                    f"{a}-{b}_1": {
+                        "operation": "difference",
+                        "coords": [a, b],
+                        "sequential": True,
+                        "grib_keys": {
+                            "stepType": "max",
+                            "timeRangeIndicator": 5,
+                            "gribTablesVersionNo": 132,
+                            "stepRange": f"{a}-{b}",
+                            **({} if b < 256 else {"unitOfTimeRange": 11}),
+                        },
+                    }
+                    for a, b in [
+                        (120, 144),
+                        (240, 264),
+                        (264, 288),
+                        (240, 360),
+                        (0, 360),
+                    ]
+                },
+            },
+            id="diff",
+        ),
+        pytest.param(
+            {
+                "windows": [
+                    {
+                        "window_operation": "diff",
+                        "periods": [
+                            {"range": [144, 150]},
+                            {"range": [150, 156]},
+                        ],
+                        "grib_set": {"stepType": "diff", "bitsPerValue": 16},
+                    }
+                ],
+                "steps": [{"start_step": 144, "end_step": 240, "interval": 6}],
+            },
+            {"expver": "0001"},
+            {
+                f"{a}-{b}_0": {
+                    "operation": "difference",
+                    "coords": [a, b],
+                    "sequential": True,
+                    "grib_keys": {
+                        "stepType": "diff",
+                        "bitsPerValue": 16,
+                        "expver": "0001",
+                        "stepRange": f"{a}-{b}",
+                    },
+                }
+                for a, b in [(144, 150), (150, 156)]
+            },
+            id="diff-steps",
+        ),
+        pytest.param(
+            {
+                "windows": [
+                    {
+                        "window_operation": "none",
+                        "periods": [
+                            {"range": [75, 75]},
+                            {"range": [78, 78]},
+                            {"range": [81, 81]},
+                            {"range": [84, 84]},
+                            {"range": [87, 87]},
+                            {"range": [90, 90]},
+                            {"range": [288, 288]},
+                        ],
+                        "grib_set": {"bitsPerValue": 16},
+                    }
+                ]
+            },
+            {"expver": "0001"},
+            {
+                f"{s}_0": {
+                    "operation": "aggregation",
+                    "coords": [s],
+                    "sequential": True,
+                    "grib_keys": {
+                        "bitsPerValue": 16,
+                        "expver": "0001",
+                        "step": str(s),
+                        "timeRangeIndicator": (0 if s < 256 else 10),
+                    },
+                }
+                for s in [75, 78, 81, 84, 87, 90, 288]
+            },
+            id="noop-simple",
+        ),
+        pytest.param(
+            {
+                "windows": [
+                    {
+                        "window_operation": "none",
+                        "include_start_step": False,
+                        "periods": [
+                            {"range": [12, 18, 6]},
+                            {"range": [330, 336, 6]},
+                            {"range": [336, 342, 6]},
+                            {"range": [342, 348, 6]},
+                            {"range": [348, 354, 6]},
+                            {"range": [354, 360, 6]},
+                        ],
+                        "grib_set": {"bitsPerValue": 16},
+                    }
+                ]
+            },
+            {"expver": "0001"},
+            {
+                f"{a}-{b}_0": {
+                    "operation": "aggregation",
+                    "coords": [b],
+                    "sequential": True,
+                    "grib_keys": {
+                        "stepType": "max",
+                        "bitsPerValue": 16,
+                        "expver": "0001",
+                        "stepRange": f"{a}-{b}",
+                        **({} if b < 256 else {"unitOfTimeRange": 11}),
+                    },
+                }
+                for a, b in [
+                    (12, 18),
+                    (330, 336),
+                    (336, 342),
+                    (342, 348),
+                    (348, 354),
+                    (354, 360),
+                ]
+            },
+            id="noop-range",
+        ),
+        pytest.param(
+            {
+                "windows": [
+                    {
+                        "window_operation": "mean",
+                        "periods": [
+                            {"range": [12, 36, 6]},
+                            {"range": [60, 132, 6]},
+                            {"range": [0, 240, 6]},
+                            {"range": [0, 360, 24]},
+                        ],
+                        "grib_set": {"timeRangeIndicator": 3},
+                    }
+                ]
+            },
+            {},
+            {
+                f"{a}-{b}_0": {
+                    "operation": "mean",
+                    "coords": list(range(a + s, b + 1, s)),
+                    "sequential": True,
+                    "grib_keys": {
+                        "timeRangeIndicator": 3,
+                        "stepType": "max",
+                        "stepRange": f"{a}-{b}",
+                        **({} if b < 256 else {"unitOfTimeRange": 11}),
+                    },
+                }
+                for a, b, s in [
+                    (12, 36, 6),
+                    (60, 132, 6),
+                    (0, 240, 6),
+                    (0, 360, 24),
+                ]
+            },
+            id="mean-range",
+        ),
+        pytest.param(
+            {
+                "windows": [
+                    {
+                        "window_operation": "maximum",
+                        "periods": [
+                            {"range": [0, 24, 6]},
+                            {"range": [24, 48, 6]},
+                            {"range": [48, 72, 6]},
+                            {"range": [72, 96, 6]},
+                            {"range": [96, 120, 6]},
+                            {"range": [120, 144, 6]},
+                            {"range": [144, 168, 6]},
+                            {"range": [120, 360, 24]},
+                        ],
+                        "grib_set": {"timeRangeIndicator": 2},
+                    }
+                ]
+            },
+            {},
+            {
+                f"{a}-{b}_0": {
+                    "operation": "maximum",
+                    "coords": list(range(a + s, b + 1, s)),
+                    "sequential": True,
+                    "grib_keys": {
+                        "timeRangeIndicator": 2,
+                        "stepType": "max",
+                        "stepRange": f"{a}-{b}",
+                        **({} if b < 256 else {"unitOfTimeRange": 11}),
+                    },
+                }
+                for a, b, s in [
+                    (0, 24, 6),
+                    (24, 48, 6),
+                    (48, 72, 6),
+                    (72, 96, 6),
+                    (96, 120, 6),
+                    (120, 144, 6),
+                    (144, 168, 6),
+                    (120, 360, 24),
+                ]
+            },
+            id="max-range",
+        ),
+        pytest.param(
+            {
+                "windows": [
+                    {
+                        "window_operation": "minimum",
+                        "periods": [
+                            {"range": [0, 24, 6]},
+                            {"range": [24, 48, 6]},
+                            {"range": [48, 72, 6]},
+                            {"range": [72, 96, 6]},
+                            {"range": [96, 120, 6]},
+                            {"range": [120, 144, 6]},
+                            {"range": [144, 168, 6]},
+                            {"range": [120, 360, 24]},
+                        ],
+                        "grib_set": {"timeRangeIndicator": 2},
+                    }
+                ]
+            },
+            {},
+            {
+                f"{a}-{b}_0": {
+                    "operation": "minimum",
+                    "coords": list(range(a + s, b + 1, s)),
+                    "sequential": True,
+                    "grib_keys": {
+                        "timeRangeIndicator": 2,
+                        "stepType": "max",
+                        "stepRange": f"{a}-{b}",
+                        **({} if b < 256 else {"unitOfTimeRange": 11}),
+                    },
+                }
+                for a, b, s in [
+                    (0, 24, 6),
+                    (24, 48, 6),
+                    (48, 72, 6),
+                    (72, 96, 6),
+                    (96, 120, 6),
+                    (120, 144, 6),
+                    (144, 168, 6),
+                    (120, 360, 24),
+                ]
+            },
+            id="min-range",
+        ),
+    ],
+)
+def test_legacy_window_factory(config, grib_keys, expected):
+    configs = dict(legacy_window_factory(config, grib_keys))
+    assert configs == expected

@@ -395,10 +395,12 @@ def convert_dims(dims: DimensionsLike) -> List[Dimension]:
 
 
 class Accumulator:
+    name: Optional[str]
     values: Optional[np.ndarray]
 
-    def __init__(self, dims: DimensionsLike):
+    def __init__(self, dims: DimensionsLike, name: Optional[str] = None):
         self.dims = convert_dims(dims)
+        self.name = name
         self.values = None
 
     def __len__(self) -> int:
@@ -446,6 +448,19 @@ class Accumulator:
 
     @classmethod
     def create(cls, config: dict) -> "Accumulator":
-        return cls(
-            [(key, create_accumulation(acc_cfg)) for key, acc_cfg in config.items()]
-        )
+        names = {}
+        dims = []
+        for key, acc_cfg in config.items():
+            if isinstance(acc_cfg, tuple):
+                name = acc_cfg[0]
+                if name:
+                    names[key] = name
+                acc_cfg = acc_cfg[1]
+            dims.append((key, create_accumulation(acc_cfg)))
+        if not names:
+            name = None
+        elif len(dims) == 1:
+            name = next(str(v) for v in names.values())
+        else:
+            name = ":".join(f"{k}_{v}" for k, v in names.items())
+        return cls(dims, name)

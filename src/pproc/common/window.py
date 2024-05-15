@@ -1,9 +1,8 @@
 from dataclasses import dataclass
-import numpy as np
-from typing import Dict, Optional, Tuple, Union
+from typing import Iterator, Optional, Tuple, Union
 
 from pproc.common.accumulation import Accumulation, create_accumulation
-from pproc.common.steps import AnyStep, Step, step_to_coord
+from pproc.common.steps import Step, step_to_coord
 
 
 @dataclass
@@ -31,23 +30,20 @@ def parse_window_config(config: dict, include_init: bool = True) -> WindowConfig
     return WindowConfig(start, end, step, name, suffix, steps, include_init)
 
 
-def create_window(
+def translate_window_config(
     window_options,
     window_operation: str,
     include_start: bool,
     grib_keys: Optional[dict] = None,
-    return_name: bool = False,
-) -> Union[Accumulation, Tuple[Accumulation, str]]:
+) -> Tuple[str, dict]:
     """
-    Create window for the given operation
+    Create window configuration for the given operation
 
     :param window_options: window range specification
     :param window operation: window operation: one of none, diff, add, minimum,
         maximum, weightedsum, diffdailyrate, mean, precomputed
     :param grib_keys: additional grib keys to tie to the window
-    :param return_name: if True, return the window name as well
-    :return: Window instance that performs the operation, window name (only if
-        `return_name` is True)
+    :return: Window name, Accumulation configuration dict
     :raises: ValueError for unsupported window operation string
     """
     include_init = (
@@ -123,16 +119,75 @@ def create_window(
         grib_header.setdefault("stepType", "max")  # Don't override if set in config
         grib_header["stepRange"] = config.name
 
-    acc = create_accumulation(
-        {
-            "operation": operation,
-            "coords": coords,
-            "sequential": True,
-            "grib_keys": grib_header,
-            **extra,
-        }
-    )
+    acc_config = {
+        "operation": operation,
+        "coords": coords,
+        "sequential": True,
+        "grib_keys": grib_header,
+        **extra,
+    }
 
+    return config.name, acc_config
+
+
+def create_window(
+    window_options,
+    window_operation: str,
+    include_start: bool,
+    grib_keys: Optional[dict] = None,
+    return_name: bool = False,
+) -> Union[Accumulation, Tuple[Accumulation, str]]:
+    """
+    Create window for the given operation
+
+    :param window_options: window range specification
+    :param window operation: window operation: one of none, diff, add, minimum,
+        maximum, weightedsum, diffdailyrate, mean, precomputed
+    :param grib_keys: additional grib keys to tie to the window
+    :param return_name: if True, return the window name as well
+    :return: Window instance that performs the operation, window name (only if
+        `return_name` is True)
+    :raises: ValueError for unsupported window operation string
+    """
+    name, config = translate_window_config(
+        window_options, window_operation, include_start, grib_keys
+    )
+    acc = create_accumulation(config)
     if return_name:
-        return acc, config.name
+        return acc, name
     return acc
+
+
+def legacy_window_factory(config: dict, grib_keys: dict) -> Iterator[Tuple[str, dict]]:
+    coords_override = None
+    if "steps" in config:
+        coords_override = set()
+        for steps in config["steps"]:
+            start_step = steps["start_step"]
+            end_step = steps["end_step"]
+            interval = steps["interval"]
+            range_len = steps.get("range", None)
+
+            if range_len is None:
+                coords_override.update(range(start_step, end_step + 1, interval))
+            else:
+                for sstep in range(start_step, end_step - range_len + 1, interval):
+                    coords_override.add(step_to_coord(Step(sstep, sstep + range_len)))
+
+    for window_index, window_config in enumerate(config["windows"]):
+        for period in window_config["periods"]:
+            include_start = bool(window_config.get("include_start_step", False))
+            acc_grib_keys = grib_keys.copy()
+            acc_grib_keys.update(window_config.get("grib_set", {}))
+            window_name, acc_config = translate_window_config(
+                period,
+                window_config.get("window_operation", "none"),
+                include_start,
+                acc_grib_keys,
+            )
+            window_id = f"{window_name}_{window_index}"
+            if coords_override is not None:
+                acc_config["coords"] = sorted(
+                    coords_override.intersection(acc_config["coords"])
+                )
+            yield window_id, acc_config

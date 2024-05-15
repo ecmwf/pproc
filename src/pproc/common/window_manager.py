@@ -1,12 +1,11 @@
 from typing import Dict, Iterator, List, Tuple
-import bisect
 
 import numpy as np
 
 from pproc.common.accumulation import Accumulator, Coord
 from pproc.common.accumulation_manager import AccumulationManager
-from pproc.common.steps import AnyStep, Step, parse_step, step_to_coord
-from pproc.common.window import create_window
+from pproc.common.steps import parse_step
+from pproc.common.window import legacy_window_factory
 
 
 class WindowManager:
@@ -24,49 +23,22 @@ class WindowManager:
         """
         unique_steps = set()
         windows = self.create_windows(parameter, global_config)
-        if "steps" not in parameter:
-            for accum in windows.values():
-                unique_steps.update(accum["step"].coords)
-        else:
-            for steps in parameter["steps"]:
-                start_step = steps["start_step"]
-                end_step = steps["end_step"]
-                interval = steps["interval"]
-                range_len = steps.get("range", None)
-
-                if range_len is None:
-                    unique_steps.update(range(start_step, end_step + 1, interval))
-                else:
-                    for sstep in range(start_step, end_step - range_len + 1, interval):
-                        unique_steps.add(
-                            step_to_coord(Step(sstep, sstep + range_len))
-                        )
+        for accum in windows.values():
+            unique_steps.update(accum["step"].coords)
 
         self.mgr = AccumulationManager({})
         self.mgr.accumulations = windows
         self.mgr.coords = {"step": unique_steps}
 
-    def create_windows(self, parameter, global_config):
+    def create_windows(self, parameter, global_config) -> Dict[str, Accumulator]:
         """
         Creates windows from parameter config and specified window operation
         """
         windows = {}
-        for window_index, window_config in enumerate(parameter["windows"]):
-            for period in window_config["periods"]:
-                include_start = bool(window_config.get("include_start_step", False))
-                grib_keys = global_config.copy()
-                grib_keys.update(window_config.get("grib_set", {}))
-                window_acc, window_name = create_window(
-                    period,
-                    window_config.get("window_operation", "none"),
-                    include_start,
-                    grib_keys,
-                    return_name=True,
-                )
-                window_id = f"{window_name}_{window_index}"
-                if window_id in windows:
-                    raise Exception(f"Duplicate window {window_id}")
-                windows[window_id] = Accumulator({"step": window_acc})
+        for window_id, acc_config in legacy_window_factory(parameter, global_config):
+            if window_id in windows:
+                raise Exception(f"Duplicate window {window_id}")
+            windows[window_id] = Accumulator.create({"step": acc_config})
         return windows
 
     @property
