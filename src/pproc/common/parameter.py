@@ -59,20 +59,14 @@ class Parameter:
         self.base_request = global_input_cfg.copy()
         self.base_request.update(param_cfg["base_request"])
         self.base_request["param"] = param_id
-        if isinstance(n_ensembles, range):
-            self.base_request["number"] = n_ensembles
-        else:
-            self.base_request["number"] = range(1, n_ensembles + 1)
+        self.members = (
+            range(1, n_ensembles + 1) if isinstance(n_ensembles, int) else n_ensembles
+        )
         self.base_request["date"] = dt.strftime("%Y%m%d")
         self.base_request["time"] = dt.strftime("%H")
         self.overrides = overrides
         self.interpolation_keys = param_cfg.get("interpolation_keys", None)
         self.scale_data = int(param_cfg.get("scale", 1))
-        self.control_type = None
-        for req_type in self.base_request["type"].split("/"):
-            if req_type in ["cf", "fc"]:
-                self.control_type = req_type 
-                break 
 
     def retrieve_data(self, fdb, step: common.AnyStep):
         combined_data = []
@@ -80,18 +74,20 @@ class Parameter:
             new_request = self.base_request.copy()
             new_request["step"] = str(step)
             new_request["type"] = type
-            if type != "pf":
-                new_request.pop("number", None)
+            if type == "pf":
+                new_request["number"] = self.members
             new_request.update(self.overrides)
             print("FDB request: ", new_request)
             message_temp, new_data = common.fdb_read_with_template(
                 fdb, new_request, self.interpolation_keys
             )
-        
+
             num_levels = len(self.levels())
-            assert new_data.shape[0] == num_levels*len(new_request.get("number", [0]))
+            assert new_data.shape[0] == num_levels * len(new_request.get("number", [0]))
             if num_levels > 1:
-                new_data = new_data.reshape((int(new_data.shape[0]/num_levels), num_levels, new_data.shape[1]))
+                new_data = new_data.reshape(
+                    (int(new_data.shape[0] / num_levels), num_levels, new_data.shape[1])
+                )
 
             if len(combined_data) == 0:
                 combined_data = new_data
@@ -106,7 +102,7 @@ class Parameter:
         """
         types = self.base_request["type"].split("/")
         if "pf" in types:
-            nensembles = len(self.base_request["number"])
+            nensembles = len(self.members)
             pf_start_index = types.index("pf")
             if index < pf_start_index:
                 return types[index], 0
@@ -131,7 +127,7 @@ class Parameter:
             raise
 
         if "pf" in types:
-            nensembles = len(self.base_request["number"])
+            nensembles = len(self.members)
             if type == "pf":
                 pf_start_index = types.index("pf")
                 return range(pf_start_index, pf_start_index + nensembles)
@@ -146,7 +142,8 @@ class Parameter:
         if isinstance(levelist, int):
             return [levelist]
         return levelist
-    
+
+
 class CombineParameters(Parameter):
     def __init__(
         self,

@@ -143,7 +143,9 @@ def efi_sot(
 
         template_extreme = extreme_template(window, message_template, template_clim)
 
-        control_index = param.get_type_index(param.control_type, default=None)
+        ens_types = param.base_request["type"].split("/")
+        control_type = ens_types[(ens_types.index("pf") + 1) % 2]
+        control_index = param.get_type_index(control_type, default=None)
         if control_index is not None:
             efi_control = extreme.efi(
                 clim, window.step_values[control_index], efi_vars.eps
