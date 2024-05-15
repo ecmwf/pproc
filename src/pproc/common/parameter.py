@@ -74,7 +74,7 @@ class Parameter:
             new_request = self.base_request.copy()
             new_request["step"] = str(step)
             new_request["type"] = type
-            if type == "pf":
+            if type in ["pf", "fcmean"]:
                 new_request["number"] = self.members
             new_request.update(self.overrides)
             print("FDB request: ", new_request)
