@@ -13,35 +13,9 @@ from pproc.extreme import main as extreme_main
 from pproc.quantiles import main as quantiles_main
 from pproc.wind import main as wind_main
 from pproc.clustereps.__main__ import main as clustereps_main
-from helpers import NEXUS, DATA_DIR, download_test_data, populate_fdb
+from conftest import DATA_DIR
 
 TEST_DIR = os.path.dirname(os.path.realpath(__file__))
-
-
-@pytest.fixture(autouse=True, scope="module")
-def setup_fdb(fdb):
-    download_test_data(
-        [
-            "era_clcen_eof_mjjas.gts",
-            "era_clind_mjjas.gts",
-            "mjjas_eof.grd",
-            "mjjas_means.grd",
-            "mjjas_pcs.gts",
-            "mjjas_sdv.gts",
-        ],
-        f"{NEXUS}/clustclim",
-        f"{DATA_DIR}/clustclim",
-    )
-    populate_fdb(
-        fdb,
-        [
-            "2t_ens.grib",
-            "2t_clim.grib",
-            "wind.grib",
-            "t850.grib",
-            "cluster.grib",
-        ],
-    )
 
 
 @pytest.mark.parametrize(
@@ -179,7 +153,7 @@ def setup_fdb(fdb):
     ids=["prob", "t850", "ensms", "extreme", "quantiles", "wind", "clustereps"],
 )
 def test_products(
-    tmpdir, monkeypatch, product, main, custom_args, pass_args, req, length
+    tmpdir, monkeypatch, fdb, product, main, custom_args, pass_args, req, length
 ):
     monkeypatch.chdir(tmpdir)  # To avoid polluting cwd with grib templates
     shutil.copyfile(f"{TEST_DIR}/templates/{product}.yaml", f"{tmpdir}/{product}.yaml")
@@ -192,6 +166,7 @@ def test_products(
             {
                 "test_dir": str(tmpdir),
                 "TEST_DIR": str(TEST_DIR),
+                "DATA_DIR": str(DATA_DIR),
             }
         )
         for x in custom_args
