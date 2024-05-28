@@ -33,7 +33,7 @@ def threshold_grib_headers(
         grib_keys = {
             "scaleFactorOfUpperLimit": scale_factor,
             "scaledValueOfUpperLimit": threshold_value,
-            "probabilityType": 4,
+            "probabilityType": 4 if threshold_value >= 0 else 0,
             "scaleFactorOfLowerLimit": "MISSING",
             "scaledValueOfLowerLimit": "MISSING",
             **climatology_headers,
