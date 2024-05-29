@@ -29,13 +29,22 @@ def threshold_grib_headers(
             "thresholdIndicator": 1,
             "lowerThreshold": threshold_value,
         }
-    elif edition == 2 and comparison == "<":
+    elif edition == 2 and comparison == "<" and threshold_value >= 0:
         grib_keys = {
             "scaleFactorOfUpperLimit": scale_factor,
             "scaledValueOfUpperLimit": threshold_value,
-            "probabilityType": 4 if threshold_value >= 0 else 0,
+            "probabilityType": 4,
             "scaleFactorOfLowerLimit": "MISSING",
             "scaledValueOfLowerLimit": "MISSING",
+            **climatology_headers,
+        }
+    elif edition == 2 and comparison == "<" and threshold_value < 0:
+        grib_keys = {
+            "scaleFactorOfLowerLimit": scale_factor,
+            "scaledValueOfLowerLimit": threshold_value,
+            "probabilityType": 0,
+            "scaleFactorOfUpperLimit": "MISSING",
+            "scaledValueOfUpperLimit": "MISSING",
             **climatology_headers,
         }
     elif edition == 2 and comparison == ">":
