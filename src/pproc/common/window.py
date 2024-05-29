@@ -90,9 +90,15 @@ class Window:
         :return: dictionary of header keys and values
         """
         header = {}
+        edition = self.config_grib_header.get("edition", 1)
         if self.size() > 0 and self.end >= 256:
-            # The range is encoded as two 8-bit integers
-            header["unitOfTimeRange"] = 11
+            if edition == 1:
+                # The range is encoded as two 8-bit integers
+                header["unitOfTimeRange"] = 11
+            elif edition == 2:
+                header["indicatorOfUnitOfTimeRange"] = 11
+            else:
+                raise ValueError(f"Unsupported grib edition {edition}")
 
         header.update(self.config_grib_header)
         if self.size() == 0:
@@ -219,6 +225,7 @@ class PrecomputedWindow(Window):
     """
     Window containing a single pre-computed accumulation with the given step range
     """
+
     def __init__(self, window_options):
         super().__init__(window_options, include_init=True)
         self.steps = [Step(self.start, self.end)]
