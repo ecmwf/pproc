@@ -18,19 +18,16 @@ from pproc.thermo.helpers import (
 )
 
 
-def metadata_intensity(fields, **overrides):
-    md = fields.sel(param="2t").metadata()[0]
-    return md.override(**overrides)
+def metadata_intensity(fields):
+    return fields.sel(param="2t").metadata()[0]
 
 
-def metadata_wind(fields, **overrides):
-    md = fields.sel(param="10u").metadata()[0]
-    return md.override(**overrides)
+def metadata_wind(fields):
+    return fields.sel(param="10u").metadata()[0]
 
 
-def metadata_accumulation(fields, **overrides):
-    md = fields.sel(param="fdir").metadata()[0]
-    return md.override(**overrides)
+def metadata_accumulation(fields):
+    return fields.sel(param="fdir").metadata()[0]
 
 
 class ComputeIndices:
@@ -38,6 +35,11 @@ class ComputeIndices:
         self.out_keys = out_keys
         self.results = earthkit.data.FieldList()
         self.misses = {}
+
+    def create_output(self, values, template, paramId):
+        return earthkit.data.FieldList.from_numpy(
+            values, template.override(**self.out_keys, paramId=paramId)
+        )
 
     @Timer(name="cossza", logger=None)
     def calc_cossza_int(self, fields):
@@ -61,9 +63,7 @@ class ComputeIndices:
             integration_order=2,
         )
 
-        return earthkit.data.FieldList.from_numpy(
-            cossza, metadata_intensity(fields, **self.out_keys, paramId="214001")
-        )
+        return self.create_output(cossza, metadata_intensity(fields), "214001")
 
     @Timer(name="ws", logger=None)
     def calc_ws(self, fields):
@@ -71,9 +71,7 @@ class ComputeIndices:
         v10 = field_values(fields, "10v")  # m/s
 
         ws = np.sqrt(u10**2 + v10**2)  # m/s
-        return earthkit.data.FieldList.from_numpy(
-            ws, metadata_wind(fields, **self.out_keys, paramId="10")
-        )
+        return self.create_output(ws, metadata_wind(fields), "10")
 
     @Timer(name="hmdx", logger=None)
     def calc_hmdx(self, fields):
@@ -82,9 +80,7 @@ class ComputeIndices:
 
         hmdx = thermofeel.calculate_humidex(t2_k=t2m, td_k=td)  # Kelvin
 
-        return earthkit.data.FieldList.from_numpy(
-            hmdx, metadata_intensity(fields, **self.out_keys, paramId="261016")
-        )
+        return self.create_output(hmdx, metadata_intensity(fields), "261016")
 
     @Timer(name="rhp", logger=None)
     def calc_rhp(self, fields):
@@ -93,9 +89,7 @@ class ComputeIndices:
 
         rhp = thermofeel.calculate_relative_humidity_percent(t2_k=t2m, td_k=td)  # %
 
-        return earthkit.data.FieldList.from_numpy(
-            rhp, metadata_intensity(fields, **self.out_keys, paramId="260242")
-        )
+        return self.create_output(rhp, metadata_intensity(fields), "260242")
 
     @Timer(name="heatx", logger=None)
     def calc_heatx(self, fields):
@@ -105,9 +99,7 @@ class ComputeIndices:
 
         heatx = thermofeel.calculate_heat_index_adjusted(t2_k=t2m, td_k=td)  # Kelvin
 
-        return earthkit.data.FieldList.from_numpy(
-            heatx, metadata_intensity(fields, **self.out_keys, paramId="260004")
-        )
+        return self.create_output(heatx, metadata_intensity(fields), "260004")
 
     def field_stats(self, name, values):
         if name in self.misses:
@@ -136,9 +128,7 @@ class ComputeIndices:
 
         dsrp = thermofeel.approximate_dsrp(fdir, cossza)
 
-        return earthkit.data.FieldList.from_numpy(
-            dsrp, metadata_accumulation(fields, **self.out_keys, paramId="47")
-        )
+        return self.create_output(dsrp, metadata_accumulation(fields), "47")
 
     def calc_field(self, name, func, fields, **kwargs):
         sel = fields.sel(param=name)
@@ -175,9 +165,7 @@ class ComputeIndices:
         utci[missing] = np.nan
         self.misses["utci"] = missing
 
-        return earthkit.data.FieldList.from_numpy(
-            utci, metadata_intensity(fields, **self.out_keys, paramId="261001")
-        )
+        return self.create_output(utci, metadata_intensity(fields), "261001")
 
     @Timer(name="wbgt", logger=None)
     def calc_wbgt(self, fields):
@@ -189,9 +177,7 @@ class ComputeIndices:
 
         wbgt = thermofeel.calculate_wbgt(t2m, mrt, ws, t2d)  # Kelvin
 
-        return earthkit.data.FieldList.from_numpy(
-            wbgt, metadata_intensity(fields, paramId="261014")
-        )
+        return self.create_output(wbgt, metadata_intensity(fields), "261014")
 
     @Timer(name="gt", logger=None)
     def calc_gt(self, fields):
@@ -202,9 +188,7 @@ class ComputeIndices:
 
         gt = thermofeel.calculate_bgt(t2m, mrt, ws)  # Kelvin
 
-        return earthkit.data.FieldList.from_numpy(
-            gt, metadata_intensity(fields, **self.out_keys, paramId="261015")
-        )
+        return self.create_output(gt, metadata_intensity(fields), "261015")
 
     @Timer(name="wbpt", logger=None)
     def calc_wbpt(self, fields):
@@ -214,9 +198,7 @@ class ComputeIndices:
 
         wbpt = thermofeel.calculate_wbt(t2_k=t2m, rh=rhp)  # Kelvin
 
-        return earthkit.data.FieldList.from_numpy(
-            wbpt, metadata_intensity(fields, **self.out_keys, paramId="261022")
-        )
+        return self.create_output(wbpt, metadata_intensity(fields), "261022")
 
     @Timer(name="nefft", logger=None)
     def calc_nefft(self, fields):
@@ -228,9 +210,7 @@ class ComputeIndices:
             t2m, ws, rhp
         )  # Kelvin
 
-        return earthkit.data.FieldList.from_numpy(
-            nefft, metadata_intensity(fields, **self.out_keys, paramId="261018")
-        )
+        return self.create_output(nefft, metadata_intensity(fields), "261018")
 
     @Timer(name="wcf", logger=None)
     def calc_wcf(self, fields):
@@ -240,9 +220,7 @@ class ComputeIndices:
 
         wcf = thermofeel.calculate_wind_chill(t2m, ws)  # Kelvin
 
-        return earthkit.data.FieldList.from_numpy(
-            wcf, metadata_intensity(fields, **self.out_keys, paramId="260005")
-        )
+        return self.create_output(wcf, metadata_intensity(fields), "260005")
 
     @Timer(name="aptmp", logger=None)
     def calc_aptmp(self, fields):
@@ -254,9 +232,7 @@ class ComputeIndices:
             t2_k=t2m, va=ws, rh=rhp
         )  # Kelvin
 
-        return earthkit.data.FieldList.from_numpy(
-            aptmp, metadata_intensity(fields, **self.out_keys, paramId="260255")
-        )
+        return self.create_output(aptmp, metadata_intensity(fields), "260255")
 
     @Timer(name="mrt", logger=None)
     def calc_mrt(self, fields):
@@ -298,6 +274,4 @@ class ComputeIndices:
             ssrd * f, ssr * f, dsrp * f, strd * f, fdir * f, strr * f, cossza
         )  # Kelvin
 
-        return earthkit.data.FieldList.from_numpy(
-            mrt, metadata_intensity(fields, **self.out_keys, paramId="261002")
-        )
+        return self.create_output(mrt, metadata_intensity(fields), "261002")
