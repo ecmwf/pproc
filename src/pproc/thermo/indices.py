@@ -173,7 +173,7 @@ class ComputeIndices:
             validate_utci(utci, missing, lats, lons)
 
         utci[missing] = np.nan
-        misses["utci"] = missing
+        self.misses["utci"] = missing
 
         return earthkit.data.FieldList.from_numpy(
             utci, metadata_intensity(fields, **self.out_keys, paramId="261001")
