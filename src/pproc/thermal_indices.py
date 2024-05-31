@@ -10,629 +10,178 @@
 
 # Note: This script is intended only as example usage of thermofeel library.
 #       It is designed to be used with ECMWF forecast data.
-#       The function ifs_step_intervals() is used to calculate the time interval based on the forecast step.
-#       This is particular to the IFS model and ECMWF's NWP operational system.
 
-import sys
-import os
 import argparse
-
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from codetiming import Timer
-import psutil
-
-import numpy as np
-import thermofeel as thermofeel
+import os
+import sys
+from typing import List
 
 import earthkit.data
-import earthkit.meteo.solar
+import numpy as np
+import psutil
+import thermofeel as thermofeel
+from codetiming import Timer
+
+from pproc.common import Config, WindowManager, default_parser
+from pproc.common.io import target_from_location
+from pproc.thermo import helpers
+from pproc.thermo.indices import ComputeIndices
 
 __version__ = "2.0.0"
 
-###########################################################################################################
-
-# Constants
-
-UTCI_MIN_VALUE = thermofeel.celsius_to_kelvin(-80)
-UTCI_MAX_VALUE = thermofeel.celsius_to_kelvin(90)
-
-MRT_DIFF_HIGH = 150
-MRT_DIFF_LOW = -30
-
-###########################################################################################################
-
-# parameter to units
-units = {
-    "cossza": "",
-    "2t": "K",
-    "2d": "K",
-    "wcf": "K",
-    "aptmp": "K",
-    "hmdx": "K",
-    "nefft": "K",
-    "wbgt": "K",
-    "wbpt": "K",
-    "gt": "K",
-    "rhp": "%",
-    "ws": "m/s",
-    "mrt": "K",
-    "utci": "K",
-    "heatx": "K",
-    "dsrp": "W/m2",
-    "ssrd": "W/m2",
-    "ssr": "W/m2",
-    "fdir": "W/m2",
-    "strd": "W/m2",
-    "str": "W/m2",
-}    
-
-
-def field_stats(name, values):
-
-    if name in misses:
-        values[misses[name]] = np.nan
-
-    if name in units:
-        unit = units[name]
-    else:
-        print(f"unknown unit for parameter {name}")
-        raise ValueError
-
-    print(
-        f"{name:<8} {unit:<6} min {np.nanmin(values):>16.6f} max {np.nanmax(values):>16.6f} "
-        f"avg {np.nanmean(values):>16.6f} stddev {np.nanstd(values, dtype=np.float64):>16.6f} "
-        f"missing {np.count_nonzero(np.isnan(values)):>8}"
-    )
-
-def field_values(fields, param):
-    assert param in fields.indices()['param']
-    return fields.sel(param=param)[0].values
-
-
-###########################################################################################################
-
-@Timer(name="cossza", logger=None)
-def calc_cossza_int(fields):
-
-    lats, lons = latlon(fields)
-
-    assert lats.size == lons.size
-    assert fields[0].values.size == lats.size
-
-    basetime, validtime = get_datetime(fields)
-
-    integration_start, step, delta = integration_interval(fields) # in hours
-
-    # print(f"integration_start {integration_start} step {step} delta {delta}")
-
-    tbegin = integration_start
-    tend   = step
-
-    dtbegin = validtime - timedelta(hours=delta)
-    dtend = validtime
-
-    # print(f"computing cossza @ {validtime} tbegin {tbegin} tend {tend}")
-
-    cossza = earthkit.meteo.solar.cos_solar_zenith_angle_integrated(
-        latitudes=lats,
-        longitudes=lons,
-        begin_date=dtbegin,
-        end_date=dtend,
-        integration_order=2,
-    )
-
-    return cossza
-
-
-@Timer(name="dsrp", logger=None)
-def approximate_dsrp(fields):
-    """
-    In the absence of dsrp, approximate it with fdir and cossza.
-    Note this introduces some amount of error as cossza approaches zero
-    """
-    fdir = field_values(fields, "fdir")  # W/m2
-    cossza = calc_field("cossza", calc_cossza_int, fields)
-
-    dsrp = thermofeel.approximate_dsrp(fdir, cossza)
-
-    return dsrp
-
-
-@Timer(name="heatx", logger=None)
-def calc_heatx(fields):
-
-    t2m = field_values(fields,"2t")  # Kelvin
-    td  = field_values(fields,"2d")  # Kelvin
-
-    heatx = thermofeel.calculate_heat_index_adjusted(t2_k=t2m, td_k=td)  # Kelvin
-
-    return heatx
-
-
-@Timer(name="aptmp", logger=None)
-def calc_aptmp(fields):
-    t2m = field_values(fields,"2t")  # Kelvin
-    rhp = calc_field("rhp", calc_rhp, fields)  # %
-    ws = calc_field("ws", calc_ws, fields)  # m/s
-
-    aptmp = thermofeel.calculate_apparent_temperature(t2_k=t2m, va=ws, rh=rhp)  # Kelvin
-
-    return aptmp
-
-
-@Timer(name="hmdx", logger=None)
-def calc_hmdx(fields):
-    t2m = field_values(fields,"2t")  # Kelvin
-    td = field_values(fields,"2d")  # Kelvin
-
-    hmdx = thermofeel.calculate_humidex(t2_k=t2m, td_k=td)  # Kelvin
-
-    return hmdx
-
-
-@Timer(name="rhp", logger=None)
-def calc_rhp(fields):
-    t2m = field_values(fields,"2t")  # Kelvin
-    td = field_values(fields,"2d")  # Kelvin
-
-    rhp = thermofeel.calculate_relative_humidity_percent(t2_k=t2m, td_k=td)
-
-    return rhp  # %
-
-
-@Timer(name="mrt", logger=None)
-def calc_mrt(fields):
-    
-    _, _, delta = integration_interval(fields)
-
-    cossza = calc_field("cossza", calc_cossza_int, fields)
-
-    # will use dsrp if available, otherwise approximate it
-    # print(fields.indices()['param'])
-    if 'dsrp' in fields.indices()['param']:
-        dsrp = field_values(fields,"dsrp")
-    else:
-        dsrp = calc_field("dsrp", approximate_dsrp, fields)
-
-    seconds_in_time_step = delta * 3600  # steps are in hours
-
-    f = 1.0 / float(seconds_in_time_step)
-
-    ssrd = field_values(fields,"ssrd")   # W/m2
-    fdir = field_values(fields, "fdir")  # W/m2
-    strd = field_values(fields, "strd")  # W/m2
-    strr = field_values(fields, "str")   # W/m2
-    ssr  = field_values(fields, "ssr")   # W/m2
-
-    field_stats("ssrd", ssrd)
-
-    # remove negative values from deaccumulated solar fields
-    for v in ssrd, fdir, strd, ssr:
-        v[v < 0] = 0
-
-    field_stats("dsrp", dsrp)
-    field_stats("ssrd", ssrd)
-    field_stats("fdir", fdir)
-    field_stats("strd", strd)
-    field_stats("str", strr)
-    field_stats("ssr", ssr)
-
-    mrt = thermofeel.calculate_mean_radiant_temperature(
-        ssrd * f, ssr * f, dsrp * f, strd * f, fdir * f, strr * f, cossza
-    )  # Kelvin
-
-    return mrt
-
-
-def calc_field(name, func, fields):
-    if name in results:
-        return results[name]
-
-    values = func(fields)
-
-    field_stats(name, values)
-    results[name] = values  # cache results -- this should be a FieldList when append works properly
-
-    return values
-
-
-@Timer(name="ws", logger=None)
-def calc_ws(fields):
-    u10 = field_values(fields,"10u")  # m/s
-    v10 = field_values(fields,"10v")  # m/s
-
-    return np.sqrt(u10**2 + v10**2)  # m/s
-
-
-def compute_ehPa_(rh_pc, svp):
-    return svp * rh_pc * 0.01  # / 100.0
-
-
-@Timer(name="ehPa", logger=None)
-def compute_ehPa(t2m, t2d):
-    rh_pc = thermofeel.calculate_relative_humidity_percent(t2m, t2d)
-    svp = thermofeel.calculate_saturation_vapour_pressure(t2m)
-    ehPa = compute_ehPa_(rh_pc, svp)
-    return ehPa
-
-
-def find_utci_missing_values(t2m, va, mrt, ehPa, utci):
-    e_mrt = np.subtract(mrt, t2m)
-
-    misses = np.where(t2m >= thermofeel.celsius_to_kelvin(70))
-    nt2high = len(misses[0])
-    t = np.where(t2m <= thermofeel.celsius_to_kelvin(-70))
-    nt2low = len(t[0])
-    misses = np.union1d(t, misses)
-
-    t = np.where(va >= 25.0)  # 90kph
-    nhighwind = len(t[0])   
-    misses = np.union1d(t, misses)
-
-    t = np.where(ehPa > 50.0)
-    nehpa = len(t[0])
-    misses = np.union1d(t, misses)
-
-    t = np.where(e_mrt >= MRT_DIFF_HIGH)
-    ndiffmrt = len(t[0])
-    misses = np.union1d(t, misses)
-
-    t = np.where(e_mrt <= MRT_DIFF_LOW)
-    ndiffmrtneg = len(t[0])
-    misses = np.union1d(t, misses)
-
-    t = np.where(np.isnan(utci))
-    nnan = len(t[0])
-    misses = np.union1d(t, misses)
-
-    nmisses = len(misses)
-
-    if args.utci_misses:
-        print(
-            f"UTCI nmisses {nmisses} NANs {nnan} T2>70C {nt2high} T2<-70 {nt2low} highwind {nhighwind} nehpa {nehpa} MRT-T2>{MRT_DIFF_HIGH} {ndiffmrt} MRT-T2<{MRT_DIFF_LOW} {ndiffmrtneg}"
-        )
-
-    return misses
-
-
-def validate_utci(utci, misses, lats, lons):
-
-    out_of_bounds = 0
-    nans = 0
-    for i in range(len(utci)):
-        v = utci[i]
-        if v < UTCI_MIN_VALUE or v > UTCI_MAX_VALUE:
-            out_of_bounds += 1
-            print("UTCI [", i, "] = ", utci[i], " : lat/lon ", lats[i], lons[i])
-        if np.isnan(v):
-            nans += 1
-            print("UTCI [", i, "] = ", utci[i], " : lat/lon ", lats[i], lons[i])
-
-    nmisses = len(misses)
-    if nmisses > 0 or out_of_bounds > 0 or nans > 0:
-        print(f"UTCI => nmisses {nmisses} out_of_bounds {out_of_bounds} NANs {nans}")
-
-
-@Timer(name="utci", logger=None)
-def calc_utci(fields):
-
-    lats, lons = latlon(fields)
-
-    t2m = field_values(fields,"2t")  # Kelvin
-    t2d = field_values(fields,"2d")  # Kelvin
-
-    ws = calc_field("ws", calc_ws, fields)  # m/s
-    mrt = calc_field("mrt", calc_mrt, fields)  # Kelvin
-
-    ehPa = compute_ehPa(t2m, t2d)
-
-    utci = thermofeel.calculate_utci(
-        t2_k=t2m, va=ws, mrt=mrt, ehPa=ehPa
-    )  #  Kelvin
-
-    missing = find_utci_missing_values(t2m, ws, mrt, ehPa, utci)
-
-    if args.validateutci:
-        validate_utci(utci, missing, lats, lons)
-
-    utci[missing] = np.nan
-    misses["utci"] = missing
-
-    return utci
-
-
-@Timer(name="wbgt", logger=None)
-def calc_wbgt(fields):
-    t2m = field_values(fields,"2t")  # Kelvin
-    t2d = field_values(fields,"2d")  # Kelvin
-
-    ws = calc_field("ws", calc_ws, fields)  # m/s
-    mrt = calc_field("mrt", calc_mrt, fields)  # Kelvin
-
-    wbgt = thermofeel.calculate_wbgt(t2m, mrt, ws, t2d)  # Kelvin
-
-    return wbgt
-
-
-@Timer(name="gt", logger=None)
-def calc_gt(fields):
-    t2m = field_values(fields,"2t")  # Kelvin
-
-    ws = calc_field("ws", calc_ws, fields)  # m/s
-    mrt = calc_field("mrt", calc_mrt, fields)  # Kelvin
-
-    gt = thermofeel.calculate_bgt(t2m, mrt, ws)  # Kelvin
-
-    return gt
-
-
-@Timer(name="wbpt", logger=None)
-def calc_wbpt(fields):
-    t2m = field_values(fields,"2t")  # Kelvin
-
-    rhp = calc_field("rhp", calc_rhp, fields)  # %
-
-    wbpt = thermofeel.calculate_wbt(t2_k=t2m, rh=rhp)  # Kelvin
-
-    return wbpt
-
-
-@Timer(name="nefft", logger=None)
-def calc_nefft(fields):
-    t2m = field_values(fields,"2t")  # Kelvin
-    ws = calc_field("ws", calc_ws, fields)  # m/s
-    rhp = calc_field("rhp", calc_rhp, fields)  # %
-
-    nefft = thermofeel.calculate_normal_effective_temperature(t2m, ws, rhp)  # Kelvin
-    
-    return nefft
-
-
-@Timer(name="wcf", logger=None)
-def calc_wcf(fields):
-    t2m = field_values(fields,"2t")  # Kelvin
-
-    ws = calc_field("ws", calc_ws, fields)  # m/s
-
-    wcf = thermofeel.calculate_wind_chill(t2m, ws)  # Kelvin
-
-    return wcf
-
-
-###############################################################################
-
-def check_field_sizes(fields):
-    all(f.values.shape == fields[0].values.shape for f in fields)
-
-
-def get_datetime(fields):
-    dt = fields.sel(param='2t').datetime()
-    base_time = dt["base_time"][0]
-    valid_time = dt["valid_time"][0]
-    assert all(x == valid_time for x in fields.datetime()["valid_time"]) # verify valid time all same
-    return base_time, valid_time
-
-
-def append_newfield(output, metadata, paramid, values, missing=None):
-    
-    newmd = metadata.override(edition=2, paramId=paramid)
-    newfield = earthkit.data.FieldList.from_numpy(values, newmd)
-
-    # missing values are set by having a NaN in the values array
-
-    output += newfield
-
-    # print(output.ls(namespace="mars"))
-    return output
-
-def ifs_step_intervals(step, mclass, mstream):
-    """Computes the time integration interval for the IFS forecasting system given a forecast output step"""
-
-    if mclass == "od" and mstream == "oper":
-        assert step <= 240
-        if step > 0:
-            if step <= 90:
-                return step - 1
-            else:
-                if step <= 144:
-                    return step - 3
-                else:
-                    return step - 6
-        else:
-            return step
-
-    if mclass == "od" and mstream == "enfo":
-        # currently setup for 3-hourly post-processing
-        assert step <= 360
-        if step > 0:
-            if step <= 144:
-                return step - 3
-            else:
-                return step - 6
-        else:
-            return step
-
-    if mclass == "od" and mstream == "mmsf":
-        assert step <= 5160
-        if step > 0:
-            return step - 24
-        else:
-            return step
-    
-    if mclass == "ea" and mstream == "oper":
-        # currently setup for 1-hourly post-processing
-        assert step <= 18
-        if step > 0:
-            return step - 1
-        else:
-            return step
-
-    if mclass == "ea" and mstream == "enda":
-        # currently setup for 3-hourly post-processing
-        assert step <= 18
-        if step > 0:
-            return step - 3
-        else:
-            return step
-
-    raise NotImplemented(f"Combination of MARS class {mclass} and stream {mstream} not recognised")
-
-def integration_interval(fields):
-    '''Returns the time interval for the integration of the forecast step'''
-    
-    md = fields.sel(param='2t').metadata(namespace="mars")[0]
-    
-    step = md["step"]  # end of the forecast integration
-    mclass = md["class"]
-    mstream = md["stream"]
-    
-    if args.override_class:
-        mclass = args.override_class
-    if args.override_stream:
-        mstream = args.override_stream
-
-    integration_start = ifs_step_intervals(step, mclass, mstream)  # start of forecast integration step
-    delta = step - integration_start
-
-    return integration_start, step, delta
-
-
-def metadata_intensity(fields):
-    md = fields.sel(param='2t').metadata()[0]
-    return md
-
-def metadata_wind(fields):
-    md = fields.sel(param='10u').metadata()[0]
-    return md
-
-def metadata_accumulation(fields):
-    md = fields.sel(param='fdir').metadata()[0]
-    return md
-
 
 @Timer(name="proc_step", logger=None)
-def process_step(args, fields, output):
+def process_step(args, config, step, fields, target):
 
-    check_field_sizes(fields)
-    basetime, validtime = get_datetime(fields)
-    integration_start, step, delta = integration_interval(fields)
-    
+    helpers.check_field_sizes(fields)
+    basetime, validtime = helpers.get_datetime(fields)
+
     time = basetime.hour
     print(
         f"validtime {validtime.isoformat()} - basetime {basetime.date().isoformat()} : time {time} step {step}"
     )
 
-    global results
-    global misses
-
-    results = {}
-    misses = {}
+    indices = ComputeIndices(config.out_keys)
 
     # Windspeed - shortName ws
     if args.ws:
-        ws = calc_field("ws", calc_ws, fields)
-        output = append_newfield(output, metadata_wind(fields), "10", ws)
+        ws = indices.calc_field("ws", indices.calc_ws, fields)
+        helpers.write(target, ws)
 
     # Cosine of Solar Zenith Angle - shortName uvcossza - ECMWF product
     # TODO: 214001 only exists for GRIB1 -- but here we use it for GRIB2 (waiting for WMO)
     if args.cossza:
-        cossza = calc_field("cossza", calc_cossza_int, fields)
-        output = append_newfield(output, metadata_intensity(fields), "214001", cossza)
+        cossza = indices.calc_field("cossza", indices.calc_cossza_int, fields)
+        helpers.write(target, cossza)
 
     # direct solar radiation - shortName dsrp - ECMWF product
     if args.dsrp:
-        dsrp = calc_field("dsrp", approximate_dsrp, fields)
-        output = append_newfield(output, metadata_accumulation(fields), "47", dsrp)
+        dsrp = indices.calc_field("dsrp", indices.approximate_dsrp, fields)
+        helpers.write(target, dsrp)
 
     # Mean Radiant Temperature - shortName mrt - ECMWF product
     if args.mrt or args.all:
-        mrt = calc_field("mrt", calc_mrt, fields)
-        output = append_newfield(output, metadata_intensity(fields), "261002", mrt)
+        mrt = indices.calc_field("mrt", indices.calc_mrt, fields)
+        helpers.write(target, mrt)
 
     # Univeral Thermal Climate Index - shortName utci - ECMWF product
     if args.utci or args.all:
-        utci = calc_field("utci", calc_utci, fields)
-        output = append_newfield(output, metadata_intensity(fields), "261001", utci)
+        utci = indices.calc_field(
+            "utci",
+            indices.calc_utci,
+            fields,
+            print_misses=args.utci_misses,
+            validate=args.validateutci,
+        )
+        helpers.write(target, utci)
 
     # Heat Index (adjusted) - shortName heatx - ECMWF product
     if args.heatx or args.all:
-        heatx = calc_field("heatx", calc_heatx, fields)
-        output = append_newfield(output, metadata_intensity(fields), "260004", heatx)
+        heatx = indices.calc_field("heatx", indices.calc_heatx, fields)
+        helpers.write(target, heatx)
 
     # Wind Chill factor - shortName wcf - ECMWF product
     if args.wcf or args.all:
-        wcf = calc_field("wcf", calc_wcf, fields)
-        output = append_newfield(output, metadata_intensity(fields), "260005", wcf)
+        wcf = indices.calc_field("wcf", indices.calc_wcf, fields)
+        helpers.write(target, wcf)
 
     # Apparent Temperature - shortName aptmp - ECMWF product
     if args.aptmp or args.all:
-        aptmp = calc_field("aptmp", calc_aptmp, fields)
-        output = append_newfield(output, metadata_intensity(fields), "260255", aptmp)
+        aptmp = indices.calc_field("aptmp", indices.calc_aptmp, fields)
+        helpers.write(target, aptmp)
 
     # Relative humidity percent at 2m - shortName 2r - ECMWF product
     if args.rhp or args.all:
-        rhp = calc_field("rhp", calc_rhp, fields)
-        output = append_newfield(output, metadata_intensity(fields), "260242", rhp)
+        rhp = indices.calc_field("rhp", indices.calc_rhp, fields)
+        helpers.write(target, rhp)
 
-    # Humidex - shortName hmdx 
+    # Humidex - shortName hmdx
     if args.hmdx or args.all:
-        hmdx = calc_field("hmdx", calc_hmdx, fields)
-        output = append_newfield(output, metadata_intensity(fields), "261016", hmdx)
+        hmdx = indices.calc_field("hmdx", indices.calc_hmdx, fields)
+        helpers.write(target, hmdx)
 
-    # Normal Effective Temperature - shortName nefft 
+    # Normal Effective Temperature - shortName nefft
     if args.nefft or args.all:
-        nefft = calc_field("nefft", calc_nefft, fields)
-        output = append_newfield(output, metadata_intensity(fields), "261018", nefft)
+        nefft = indices.calc_field("nefft", indices.calc_nefft, fields)
+        helpers.write(target, nefft)
 
     # Globe Temperature - shortName gt
     if args.gt or args.all:
-        gt = calc_field("gt", calc_gt, fields)
-        output = append_newfield(output, metadata_intensity(fields), "261015", gt)
+        gt = indices.calc_field("gt", indices.calc_gt, fields)
+        helpers.write(target, gt)
 
-    # Wet-bulb potential temperature - shortName wbpt 
+    # Wet-bulb potential temperature - shortName wbpt
     if args.wbpt or args.all:
-        wbpt = calc_field("wbpt", calc_wbpt, fields)
-        output = append_newfield(output, metadata_intensity(fields), "261022", wbpt)
+        wbpt = indices.calc_field("wbpt", indices.calc_wbpt, fields)
+        helpers.write(target, wbpt)
 
-    # Wet Bulb Globe Temperature - shortName wbgt 
+    # Wet Bulb Globe Temperature - shortName wbgt
     if args.wbgt or args.all:  #
-        wbgt = calc_field("wbgt", calc_wbgt, fields)
-        output = append_newfield(output, metadata_intensity(fields), "261014", wbgt)
+        wbgt = indices.calc_field("wbgt", indices.calc_wbgt, fields)
+        helpers.write(target, wbgt)
 
     # effective temperature 261017
     # standard effective temperature 261019
 
-    return output, step
+    target.flush()
 
 
-def load_input():
-    
-    if args.input_file:
-        f = open(args.input_file, "rb")
-        ds = earthkit.data.from_source("stream", f, group_by=["step", "level"]) 
-        return ds
-    
-    if args.input_fdb:
-        req = {k:v.split('/') for k,v in [y.split('=') for y in args.input_fdb.split(',')]}
-        # print(f"Parsed request {args.request} into: {req}")
-        ds = earthkit.data.from_source("fdb", req, stream=True, group_by=["step", "level"])
-        return ds
-    
-    raise ValueError("No input specified")
+class ThermoConfig(Config):
+    def __init__(self, args: argparse.Namespace, verbose: bool = True):
+        super().__init__(args, verbose=verbose)
+
+        self.out_keys = self.options.get("out_keys", {})
+        self.sources = self.options.get("sources", {})
+        self.root_dir = self.options.get("root_dir", None)
 
 
-def save_grib_file(path, output):
-    output.save(path, append=True)
+def load_input(source: str, config: ThermoConfig, step: int):
+    src, param_type = source.split(":")
+    if src == "null":
+        return None
+    req = config.sources[src][param_type].copy()
+    req.update(config.override_input)
+    req["step"] = [step]
+    if src == "fdb":
+        ds = earthkit.data.from_source("fdb", req, stream=True, batch_size=0)
+    elif src == "fileset":
+        loc = req.pop("location")
+        loc.format_map(req)
+        req["paramId"] = req.pop("param")
+        ds = earthkit.data.from_source("file", loc).sel(req)
+    else:
+        raise ValueError(f"Unknown source {source}")
+
+    if len(ds) == 0:
+        raise ValueError(f"No data found for request {req} from source {source}")
+    return earthkit.data.FieldList.from_numpy(ds.values, ds.metadata())
 
 
-def command_line_options():
+def get_parser():
+    parser = default_parser("Compute thermal indices")
 
-    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-a",
+        "--accelerate",
+        help="accelerate computations using JAX JIT",
+        action="store_true",
+    )
 
-    parser.add_argument("-a", "--accelerate", help="accelerate computations using JAX JIT", action="store_true")
-
-    parser.add_argument("output", help="output file with GRIB messages")
+    parser.add_argument(
+        "--in-accum",
+        required=True,
+        type=str,
+        help="Input source for accumulated parameters",
+    )
+    parser.add_argument(
+        "--in-inst",
+        required=True,
+        type=str,
+        help="Input source for instantaneous parameters",
+    )
+    parser.add_argument(
+        "--out-indices", required=True, type=str, help="Target for computed indices"
+    )
 
     parser.add_argument(
         "--all", help="compute all available indices", action="store_true"
@@ -688,25 +237,20 @@ def command_line_options():
         "--wbpt", help="compute Wet Bulb Temperature", action="store_true"
     )
 
-    parser.add_argument("--override-class", help="override MARS class", type=str)
-    parser.add_argument("--override-stream", help="override MARS stream", type=str)
+    parser.add_argument(
+        "--timers",
+        help="print function performance timers at the end",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--usage", help="print cpu and memory usage during run", action="store_true"
+    )
+    parser.add_argument(
+        "--utci-misses", help="print missing values for UTCI", action="store_true"
+    )
 
-    parser.add_argument("--input-file", help="input file with GRIB messages", type=Path)
-    parser.add_argument("--input-fdb", help="input with FDB MARS request, eg. class=od,stream=oper,param=2t/2d", type=str)
+    return parser
 
-    parser.add_argument("--timers", help="print function performance timers at the end", action="store_true")
-    parser.add_argument("--usage", help="print cpu and memory usage during run", action="store_true")
-    parser.add_argument("--utci-misses", help="print missing values for UTCI", action="store_true")
-    
-    return parser.parse_args()
-
-
-def latlon(fields):
-    latlon = fields[0].to_latlon(flatten=True)
-    lat = latlon["lat"]
-    lon = latlon["lon"]
-    assert lat.size == lon.size
-    return lat, lon
 
 def print_timers():
     print("Performance summary:")
@@ -719,60 +263,68 @@ def print_timers():
             tmin = Timer.timers.min(func)
             tmax = Timer.timers.max(func)
             stdev = Timer.timers.stdev(func) if count > 1 else 0.0
-            print(f"{func:<10} calls {count:>4}  --  avg + stdev [{mean:>8.4f} , {stdev:>8.4f}]s  --  min + max [{tmin:>8.4f} , {tmax:>8.4f}] s")
+            print(
+                f"{func:<10} calls {count:>4}  --  avg + stdev [{mean:>8.4f} , {stdev:>8.4f}]s"
+                + f" --  min + max [{tmin:>8.4f} , {tmax:>8.4f}] s"
+            )
 
 
 def print_usage():
     load1, load5, load15 = psutil.getloadavg()
-    cpu_usage = (load5/os.cpu_count()) * 100
-    sysmem = psutil.virtual_memory().used / 1024**3 # in GiB
+    cpu_usage = (load5 / os.cpu_count()) * 100
+    sysmem = psutil.virtual_memory().used / 1024**3  # in GiB
     sysmemperc = psutil.virtual_memory().percent
-    procmem = psutil.Process(os.getpid()).memory_info().rss / 1024 ** 3 # in GiB
+    procmem = psutil.Process(os.getpid()).memory_info().rss / 1024**3  # in GiB
     procmemperc = psutil.Process(os.getpid()).memory_percent()
-    print(f"[INFO] usage: cpu load {cpu_usage:5.1f}% -- proc mem {procmem:3.1f}GiB {procmemperc:3.1f}% -- sys mem {sysmem:3.1f}GiB {sysmemperc}%")
+    print(
+        f"[INFO] usage: cpu load {cpu_usage:5.1f}% -- proc mem {procmem:3.1f}GiB {procmemperc:3.1f}%"
+        + f" -- sys mem {sysmem:3.1f}GiB {sysmemperc}%"
+    )
 
 
-def main():
-
-    global args
-    args = command_line_options()
+def main(args: List[str] = sys.argv[1:]):
+    sys.stdout.reconfigure(line_buffering=True)
+    parser = get_parser()
+    args = parser.parse_args(args)
+    config = ThermoConfig(args)
+    target = target_from_location(args.out_indices, overrides=config.override_output)
 
     print(f"Compute Thermal Indices: {__version__}")
     print(f"thermofeel: {thermofeel.__version__}")
     print(f"earthkit.data: {earthkit.data.__version__}")
     print(f"Numpy: {np.version.version}")
     print(f"Python: {sys.version}")
-    # np.show_config()
-
-    input = load_input()
-
-    if os.path.exists(args.output):
-        os.unlink(args.output)
 
     print("----------------------------------------")
 
+    window_manager = WindowManager(config.options, {})
+    for step in window_manager.unique_steps:
+        accum_data = load_input(args.in_accum, config, step)
+        completed_windows = window_manager.update_windows(
+            step, [] if accum_data is None else accum_data.values
+        )
+        for _, window in completed_windows:
+            if window.size() == 0:
+                fields = load_input(args.in_inst, config, step)
+            else:
+                # Set step range for de-accumulated fields
+                fields = earthkit.data.FieldList.from_numpy(
+                    window.step_values,
+                    [
+                        x.override(stepType="diff", stepRange=window.name)
+                        for x in accum_data.metadata()
+                    ],
+                )
+                fields += load_input(args.in_inst, config, step)
+            print(f"Step {step}, Input:")
+            print(fields.ls(namespace="mars"))
 
-    steps = []
-    for fields in input:
+            process_step(args, config, step, fields, target)
 
-        print('Input:')
-        print(fields.ls(namespace="mars"))
+            if args.usage:
+                print_usage()
 
-        output = earthkit.data.FieldList()
-
-        output, step = process_step(args, fields, output)
-        
-        steps.append(step)
-
-        if args.usage: print_usage()
-            
-        print(f"[INFO] appending {len(output)} fields to {args.output}")
-        save_grib_file(args.output, output)
-        
-        print("----------------------------------------")
-
-
-    print(f"[INFO] Processed steps {steps}\n")
+            print("----------------------------------------")
 
     if args.timers:
         print_timers()
