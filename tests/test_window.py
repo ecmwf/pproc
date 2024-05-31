@@ -235,6 +235,43 @@ def test_grib_header(start_end, operation, extra_keys, grib_key_values):
             {
                 "windows": [
                     {
+                        "window_operation": "precomputed",
+                        "periods": [
+                            {"range": [0, 168]},
+                            {"range": [120, 288]},
+                            {"range": [528, 696]},
+                            {"range": [936, 1104]},
+                        ],
+                        "grib_set": {"timeRangeIndicator": 3},
+                    }
+                ]
+            },
+            {},
+            {
+                f"{a}-{b}_0": {
+                    "operation": "aggregation",
+                    "coords": [f"{a}-{b}"],
+                    "sequential": True,
+                    "grib_keys": {
+                        "timeRangeIndicator": 3,
+                        "stepRange": f"{a}-{b}",
+                        "stepType": "max",
+                        **({} if b < 256 else {"unitOfTimeRange": 11}),
+                    },
+                }
+                for a, b in [
+                    (0, 168),
+                    (120, 288),
+                    (528, 696),
+                    (936, 1104),
+                ]
+            },
+            id="precomputed",
+        ),
+        pytest.param(
+            {
+                "windows": [
+                    {
                         "window_operation": "diff",
                         "periods": [
                             {"range": [90, 96]},
