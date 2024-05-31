@@ -165,11 +165,12 @@ class Difference(Accumulation):
         sequential: bool = False,
         grib_keys: Optional[dict] = None,
     ):
-        assert len(coords) == 2
+        assert len(coords) in {1, 2}
         super().__init__(coords, dtype, sequential, grib_keys)
 
     def combine(self, coord: Coord, values: np.ndarray) -> bool:
         assert self.values is not None
+        assert coord == self.coords[-1]
         np.subtract(values, self.values, out=self.values)
         return True
 
@@ -196,15 +197,13 @@ class DifferenceRate(Difference):
         grib_keys: Optional[dict] = None,
     ):
         super().__init__(coords, dtype, sequential, grib_keys)
-        self.factor = factor
+        length = self.coords[-1] - (self.coords[0] if len(self.coords) == 2 else 0)
+        self.factor = factor * length
 
-    def combine(self, coord: NumericCoord, values: np.ndarray) -> bool:
-        assert coord == self.coords[1]
-        length = self.coords[1] - self.coords[0]
-        processed = super().combine(coord, values)
-        if processed:
-            self.values /= self.factor * length
-        return processed
+    def get_values(self) -> Optional[np.ndarray]:
+        if self.values is None:
+            return None
+        return self.values / self.factor
 
     @classmethod
     def create(

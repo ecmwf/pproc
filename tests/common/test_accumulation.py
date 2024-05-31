@@ -118,6 +118,13 @@ def test_convert_coords():
             id="difference",
         ),
         pytest.param(
+            {"operation": "difference", "coords": [4]},
+            Difference,
+            [4],
+            [[5.0, 8.0, 13.0], [5.0, 12.0, 31.0]],
+            id="difference_nostart",
+        ),
+        pytest.param(
             {"operation": "difference_rate", "coords": [0, 4]},
             DifferenceRate,
             [0, 4],
@@ -130,6 +137,13 @@ def test_convert_coords():
             [0, 4],
             [[2.0, 2.0, 2.0], [2.0, 2.0, 2.0]],
             id="difference_rate_factor",
+        ),
+        pytest.param(
+            {"operation": "difference_rate", "coords": [4], "factor": 0.125},
+            DifferenceRate,
+            [4],
+            [[10.0, 16.0, 26.0], [10.0, 24.0, 62.0]],
+            id="difference_rate_factor_nostart",
         ),
         pytest.param(
             {"operation": "mean", "coords": {"to": 4, "by": 2}},
