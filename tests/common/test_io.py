@@ -4,7 +4,7 @@ import os
 import pytest
 import numpy as np
 
-from pproc.common import io, parallel
+from pproc.common import dataset, io, parallel
 from conftest import DATA_DIR
 
 
@@ -130,13 +130,72 @@ def test_fileset_target(tmpdir):
     assert len(data) == 6
 
 
+def _write(target, message):
+    # Modify parameter to distinguish from data already in FDB
+    message.set("paramId", "228")
+    target.write(message)
+
+
 @pytest.mark.parametrize(
-    "loc", ["fdb:", "file:TMPDIR/test.grib", "fileset:TMPDIR/test_{step}.grib"]
+    "loc, out_loc, reqs",
+    [
+        [
+            "fdb:",
+            "fdb:test",
+            [
+                {
+                    "class": "od",
+                    "expver": "0001",
+                    "stream": "enfo",
+                    "date": "20240507",
+                    "domain": "g",
+                    "time": 12,
+                    "type": "cf",
+                    "levtype": "sfc",
+                    "param": "167.128",
+                    "step": range(12, 37, 6),
+                    "type": "cf",
+                },
+                {
+                    "class": "od",
+                    "expver": "0001",
+                    "stream": "enfo",
+                    "date": "20240507",
+                    "domain": "g",
+                    "time": 12,
+                    "type": "cf",
+                    "levtype": "sfc",
+                    "param": "167.128",
+                    "step": range(12, 37, 6),
+                    "type": "pf",
+                    "number": range(1, 6),
+                },
+            ],
+        ],
+        ["file:TMPDIR/test.grib", None, [{}]],
+        [
+            "fileset:TMPDIR/test_{step}.grib",
+            "fileset:test",
+            [{"step": x} for x in range(12, 37, 6)],
+        ],
+    ],
 )
-def test_target_parallel(tmpdir, fdb, loc):
+def test_target_parallel(tmpdir, fdb, loc, out_loc, reqs):
     loc = loc.replace("TMPDIR", str(tmpdir))
+    if out_loc is None:
+        out_loc = loc
     target = io.target_from_location(loc)
     target.enable_parallel(parallel)
     parallel.parallel_processing(
-        target.write, [(x,) for x in eccodes.FileReader(f"{DATA_DIR}/wind.grib")], 4
+        _write, [(target, x) for x in eccodes.FileReader(f"{DATA_DIR}/2t_ens.grib")], 4
     )
+    target.flush()
+
+    type_, path = loc.split(":")
+    num_messages = 0
+    for req in reqs:
+        if type_ == "fileset":
+            req["location"] = path
+        reader = dataset.open_dataset({type_: {"test": req}}, out_loc)
+        num_messages += len(list(reader))
+    assert num_messages == 30
