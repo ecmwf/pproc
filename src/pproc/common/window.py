@@ -1,7 +1,7 @@
 from dataclasses import dataclass
-from typing import Iterator, Optional, Tuple, Union
+from typing import Dict, Iterator, Optional, Set, Tuple, Union
 
-from pproc.common.accumulation import Accumulation, create_accumulation
+from pproc.common.accumulation import Accumulation, Coord, create_accumulation
 from pproc.common.steps import Step, step_to_coord
 
 
@@ -28,6 +28,41 @@ def parse_window_config(config: dict, include_init: bool = True) -> WindowConfig
     else:
         steps = list(range(start + step, end + 1, step))
     return WindowConfig(start, end, step, name, suffix, steps, include_init)
+
+
+def window_operation_from_config(window_config: dict) -> Dict[str, list]:
+    """
+    Derives window operation from config. If no window operation is explicitly
+    specified then attempts to derive it from the thresholds.
+
+    :param window_config: window configuration dictionary
+    :return: dict mapping window operations to associated thresholds, if any
+    """
+    # Get window operation, or if not provided in config, derive from threshold
+    window_operations = {}
+    if "window_operation" in window_config:
+        thresholds = window_config.get("thresholds", [])
+        for threshold in thresholds:
+            if isinstance(threshold["value"], str):
+                threshold["value"] = float(threshold["value"])
+        window_operations[window_config["window_operation"]] = thresholds
+    elif "thresholds" in window_config:
+        # Derive from threshold comparison parameter
+        for threshold in window_config["thresholds"]:
+            if isinstance(threshold["value"], str):
+                threshold["value"] = float(threshold["value"])
+            comparison = threshold["comparison"]
+            if "<" in comparison:
+                operation = "minimum"
+            elif ">" in comparison:
+                operation = "maximum"
+            else:
+                raise RuntimeError(f"Unknown threshold comparison {comparison}")
+            window_operations.setdefault(operation, []).append(threshold)
+    else:
+        window_operations["none"] = []
+
+    return window_operations
 
 
 def translate_window_config(
@@ -158,6 +193,36 @@ def create_window(
     return acc
 
 
+def _iter_legacy_windows(
+    windows: list,
+    grib_keys: dict,
+    coords_override: Optional[Set[Coord]] = None,
+    prefix: str = "",
+) -> Iterator[Tuple[str, dict]]:
+    for window_index, window_config in enumerate(windows):
+        window_operations = window_operation_from_config(window_config)
+        for operation, thresholds in window_operations.items():
+            for period in window_config["periods"]:
+                include_start = bool(window_config.get("include_start_step", False))
+                acc_grib_keys = grib_keys.copy()
+                acc_grib_keys.update(window_config.get("grib_set", {}))
+                window_name, acc_config = translate_window_config(
+                    period, operation, include_start, acc_grib_keys
+                )
+                window_id = (
+                    f"{prefix}{window_name}_{operation}_{window_index}"
+                    if len(window_operations) > 1
+                    else f"{prefix}{window_name}_{window_index}"
+                )
+                if coords_override is not None:
+                    acc_config["coords"] = sorted(
+                        coords_override.intersection(acc_config["coords"])
+                    )
+                if thresholds:
+                    acc_config["thresholds"] = thresholds
+                yield window_id, acc_config
+
+
 def legacy_window_factory(config: dict, grib_keys: dict) -> Iterator[Tuple[str, dict]]:
     coords_override = None
     if "steps" in config:
@@ -174,20 +239,7 @@ def legacy_window_factory(config: dict, grib_keys: dict) -> Iterator[Tuple[str, 
                 for sstep in range(start_step, end_step - range_len + 1, interval):
                     coords_override.add(step_to_coord(Step(sstep, sstep + range_len)))
 
-    for window_index, window_config in enumerate(config["windows"]):
-        for period in window_config["periods"]:
-            include_start = bool(window_config.get("include_start_step", False))
-            acc_grib_keys = grib_keys.copy()
-            acc_grib_keys.update(window_config.get("grib_set", {}))
-            window_name, acc_config = translate_window_config(
-                period,
-                window_config.get("window_operation", "none"),
-                include_start,
-                acc_grib_keys,
-            )
-            window_id = f"{window_name}_{window_index}"
-            if coords_override is not None:
-                acc_config["coords"] = sorted(
-                    coords_override.intersection(acc_config["coords"])
-                )
-            yield window_id, acc_config
+    yield from _iter_legacy_windows(config["windows"], grib_keys, coords_override)
+    yield from _iter_legacy_windows(
+        config.get("std_anomaly_windows", []), grib_keys, coords_override, prefix="std_"
+    )

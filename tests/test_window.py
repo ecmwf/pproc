@@ -573,6 +573,363 @@ def test_grib_header(start_end, operation, extra_keys, grib_key_values):
             },
             id="min-range",
         ),
+        pytest.param(
+            {
+                "windows": [
+                    {
+                        "thresholds": [
+                            {"comparison": "<=", "value": 273.15},
+                        ],
+                        "periods": [
+                            {"range": [120, 240]},
+                            {"range": [120, 168]},
+                            {"range": [168, 240]},
+                            {"range": [240, 360]},
+                        ],
+                    }
+                ],
+                "steps": [{"start_step": 126, "end_step": 360, "interval": 6}],
+            },
+            {"type": "ep", "localDefinitionNumber": 5},
+            {
+                f"{a}-{b}_0": {
+                    "operation": "minimum",
+                    "coords": list(range(a + s, b + 1, s)),
+                    "sequential": True,
+                    "thresholds": [{"comparison": "<=", "value": 273.15}],
+                    "grib_keys": {
+                        "type": "ep",
+                        "localDefinitionNumber": 5,
+                        "stepType": "max",
+                        "stepRange": f"{a}-{b}",
+                        **({} if b < 256 else {"unitOfTimeRange": 11}),
+                    },
+                }
+                for a, b, s in [
+                    (120, 240, 6),
+                    (120, 168, 6),
+                    (168, 240, 6),
+                    (240, 360, 6),
+                ]
+            },
+            id="simple-threshold-range",
+        ),
+        pytest.param(
+            {
+                "windows": [
+                    {
+                        "thresholds": [
+                            {"comparison": ">=", "value": 15},
+                            {"comparison": ">=", "value": 20},
+                            {"comparison": ">=", "value": 25},
+                        ],
+                        "periods": [
+                            {"range": [0, 24]},
+                            {"range": [12, 36]},
+                            {"range": [336, 360]},
+                        ],
+                    }
+                ],
+                "steps": [{"start_step": 6, "end_step": 360, "interval": 6}],
+            },
+            {"type": "ep", "localDefinitionNumber": 5},
+            {
+                f"{a}-{b}_0": {
+                    "operation": "maximum",
+                    "coords": list(range(a + s, b + 1, s)),
+                    "sequential": True,
+                    "thresholds": [
+                        {"comparison": ">=", "value": 15.0},
+                        {"comparison": ">=", "value": 20.0},
+                        {"comparison": ">=", "value": 25.0},
+                    ],
+                    "grib_keys": {
+                        "type": "ep",
+                        "localDefinitionNumber": 5,
+                        "stepType": "max",
+                        "stepRange": f"{a}-{b}",
+                        **({} if b < 256 else {"unitOfTimeRange": 11}),
+                    },
+                }
+                for a, b, s in [
+                    (0, 24, 6),
+                    (12, 36, 6),
+                    (336, 360, 6),
+                ]
+            },
+            id="multi-threshold-range",
+        ),
+        pytest.param(
+            {
+                "windows": [
+                    {
+                        "window_operation": "diff",
+                        "thresholds": [
+                            {"comparison": ">=", "value": 0.001},
+                            {"comparison": ">=", "value": 0.005},
+                            {"comparison": ">=", "value": 0.01},
+                            {"comparison": ">=", "value": 0.02},
+                        ],
+                        "periods": [
+                            {"range": [0, 24]},
+                            {"range": [12, 36]},
+                            {"range": [336, 360]},
+                        ],
+                        "grib_set": {"stepType": "accum"},
+                    },
+                    {
+                        "window_operation": "diff",
+                        "thresholds": [
+                            {"comparison": ">=", "value": 0.025},
+                            {"comparison": ">=", "value": 0.05},
+                            {"comparison": ">=", "value": 0.1},
+                        ],
+                        "periods": [
+                            {"range": [0, 24]},
+                            {"range": [12, 36]},
+                            {"range": [336, 360]},
+                        ],
+                        "grib_set": {"stepType": "accum"},
+                    },
+                    {
+                        "window_operation": "diffdailyrate",
+                        "thresholds": [
+                            {"comparison": "<", "value": 0.001},
+                            {"comparison": ">=", "value": 0.003},
+                            {"comparison": ">=", "value": 0.005},
+                        ],
+                        "periods": [
+                            {"range": [120, 240]},
+                            {"range": [168, 240]},
+                            {"range": [228, 360]},
+                        ],
+                        "grib_set": {"stepType": "diff"},
+                    },
+                ],
+                "steps": [{"start_step": 6, "end_step": 360, "interval": 6}],
+            },
+            {"type": "ep", "localDefinitionNumber": 5},
+            {
+                **{
+                    f"{a}-{b}_{i}": {
+                        "operation": "difference",
+                        "coords": [a, b] if a >= 6 else [b],
+                        "sequential": True,
+                        "thresholds": [
+                            {"comparison": ">=", "value": thr} for thr in thrs
+                        ],
+                        "grib_keys": {
+                            "type": "ep",
+                            "localDefinitionNumber": 5,
+                            "stepType": "accum",
+                            "stepRange": f"{a}-{b}",
+                            **({} if b < 256 else {"unitOfTimeRange": 11}),
+                        },
+                    }
+                    for i, thrs in enumerate(
+                        [[0.001, 0.005, 0.01, 0.02], [0.025, 0.05, 0.1]]
+                    )
+                    for a, b in [
+                        (0, 24),
+                        (12, 36),
+                        (336, 360),
+                    ]
+                },
+                **{
+                    f"{a}-{b}_2": {
+                        "operation": "difference_rate",
+                        "factor": 1.0 / 24.0,
+                        "coords": [a, b],
+                        "sequential": True,
+                        "thresholds": [
+                            {"comparison": cmp, "value": val}
+                            for cmp, vals in [("<", [0.001]), (">=", [0.003, 0.005])]
+                            for val in vals
+                        ],
+                        "grib_keys": {
+                            "type": "ep",
+                            "localDefinitionNumber": 5,
+                            "stepType": "diff",
+                            "stepRange": f"{a}-{b}",
+                            **({} if b < 256 else {"unitOfTimeRange": 11}),
+                        },
+                    }
+                    for a, b in [
+                        (120, 240),
+                        (168, 240),
+                        (228, 360),
+                    ]
+                },
+            },
+            id="diffs-threshold-range",
+        ),
+        pytest.param(
+            {
+                "windows": [
+                    {
+                        "window_operation": "mean",
+                        "include_start_step": True,
+                        "thresholds": [
+                            {"comparison": "<", "value": -2},
+                            {"comparison": ">=", "value": 2},
+                        ],
+                        "periods": [
+                            {"range": [120, 168]},
+                            {"range": [168, 240]},
+                            {"range": [240, 360]},
+                        ],
+                        "grib_set": {"bitsPerValue": 24},
+                    }
+                ],
+                "steps": [{"start_step": 0, "end_step": 360, "interval": 12}],
+            },
+            {"type": "ep", "localDefinitionNumber": 5, "bitsPerValue": 8},
+            {
+                f"{a}-{b}_0": {
+                    "operation": "mean",
+                    "coords": list(range(a, b + 1, s)),
+                    "sequential": True,
+                    "thresholds": [
+                        {"comparison": "<", "value": -2},
+                        {"comparison": ">=", "value": 2},
+                    ],
+                    "grib_keys": {
+                        "type": "ep",
+                        "localDefinitionNumber": 5,
+                        "bitsPerValue": 24,
+                        "stepType": "max",
+                        "stepRange": f"{a}-{b}",
+                        **({} if b < 256 else {"unitOfTimeRange": 11}),
+                    },
+                }
+                for a, b, s in [
+                    (120, 168, 12),
+                    (168, 240, 12),
+                    (240, 360, 12),
+                ]
+            },
+            id="mean-threshold-range",
+        ),
+        pytest.param(
+            {
+                "windows": [
+                    {
+                        "thresholds": [
+                            {"comparison": "<", "value": -8},
+                            {"comparison": "<", "value": -4},
+                            {"comparison": ">", "value": 4},
+                            {"comparison": ">", "value": 8},
+                        ],
+                        "periods": [
+                            {"range": [0, 0]},
+                            {"range": [12, 12]},
+                            {"range": [360, 360]},
+                        ],
+                        "grib_set": {"bitsPerValue": 24},
+                    },
+                    {
+                        "window_operation": "mean",
+                        "include_start_step": True,
+                        "thresholds": [
+                            {"comparison": "<", "value": -4},
+                            {"comparison": ">=", "value": 2},
+                        ],
+                        "periods": [
+                            {"range": [120, 240]},
+                            {"range": [336, 360]},
+                        ],
+                        "grib_set": {"bitsPerValue": 24},
+                    },
+                ],
+                "std_anomaly_windows": [
+                    {
+                        "thresholds": [
+                            {"comparison": ">", "value": 1},
+                            {"comparison": "<", "value": -1.5},
+                        ],
+                        "periods": [
+                            {"range": [0, 0]},
+                            {"range": [12, 12]},
+                            {"range": [300, 300]},
+                        ],
+                        "grib_set": {
+                            "localDefinitionNumber": 30,
+                            "bitsPerValue": 24,
+                        },
+                    }
+                ],
+                "steps": [{"start_step": 0, "end_step": 360, "interval": 12}],
+            },
+            {"type": "ep", "localDefinitionNumber": 5, "bitsPerValue": 8},
+            {
+                **{
+                    f"{s}_{op}_0": {
+                        "operation": op,
+                        "coords": [s],
+                        "sequential": True,
+                        "thresholds": [
+                            {"comparison": cmp, "value": val} for val in vals
+                        ],
+                        "grib_keys": {
+                            "type": "ep",
+                            "localDefinitionNumber": 5,
+                            "bitsPerValue": 24,
+                            "step": str(s),
+                            "timeRangeIndicator": tri,
+                        },
+                    }
+                    for cmp, op, vals in [
+                        ("<", "minimum", [-8, -4]),
+                        (">", "maximum", [4, 8]),
+                    ]
+                    for s, tri in [(0, 1), (12, 0), (360, 10)]
+                },
+                **{
+                    f"{a}-{b}_1": {
+                        "operation": "mean",
+                        "coords": list(range(a, b + 1, s)),
+                        "sequential": True,
+                        "thresholds": [
+                            {"comparison": "<", "value": -4},
+                            {"comparison": ">=", "value": 2},
+                        ],
+                        "grib_keys": {
+                            "type": "ep",
+                            "localDefinitionNumber": 5,
+                            "bitsPerValue": 24,
+                            "stepType": "max",
+                            "stepRange": f"{a}-{b}",
+                            **({} if b < 256 else {"unitOfTimeRange": 11}),
+                        },
+                    }
+                    for a, b, s in [
+                        (120, 240, 12),
+                        (336, 360, 12),
+                    ]
+                },
+                **{
+                    f"std_{s}_{op}_0": {
+                        "operation": op,
+                        "coords": [s],
+                        "sequential": True,
+                        "thresholds": [{"comparison": cmp, "value": val}],
+                        "grib_keys": {
+                            "type": "ep",
+                            "localDefinitionNumber": 30,
+                            "bitsPerValue": 24,
+                            "step": str(s),
+                            "timeRangeIndicator": tri,
+                        },
+                    }
+                    for cmp, op, val in [
+                        (">", "maximum", 1),
+                        ("<", "minimum", -1.5),
+                    ]
+                    for s, tri in [(0, 1), (12, 0), (300, 10)]
+                },
+            },
+            id="multi-anomaly",
+        ),
     ],
 )
 def test_legacy_window_factory(config, grib_keys, expected):
