@@ -269,6 +269,7 @@ def test_create(config, expected, exp_coords):
     assert set(acc_mgr.accumulations.keys()) == set(expected.keys())
     for name in expected:
         accum = acc_mgr.accumulations[name]
+        assert accum.name == name
         assert len(accum.dims) == 1
         assert accum.dims[0].key == "step"
         assert type(accum.dims[0].accumulation) == expected[name]

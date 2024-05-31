@@ -1,4 +1,4 @@
-from typing import Dict, Iterator, List, Tuple
+from typing import Dict, Iterable, Iterator, List, Tuple
 
 import numpy as np
 
@@ -21,25 +21,14 @@ class WindowManager:
         :param global_config: global dictionary of key values for grib_set in all windows
         :raises: RuntimeError if no window operation was provided, or could be derived
         """
-        unique_steps = set()
-        windows = self.create_windows(parameter, global_config)
-        for accum in windows.values():
-            unique_steps.update(accum["step"].coords)
+        accum_configs = {"step": self.create_windows(parameter, global_config)}
+        self.mgr = AccumulationManager(accum_configs)
 
-        self.mgr = AccumulationManager({})
-        self.mgr.accumulations = windows
-        self.mgr.coords = {"step": unique_steps}
-
-    def create_windows(self, parameter, global_config) -> Dict[str, Accumulator]:
+    def create_windows(self, parameter, global_config) -> Iterable[Tuple[str, dict]]:
         """
         Creates windows from parameter config and specified window operation
         """
-        windows = {}
-        for window_id, acc_config in legacy_window_factory(parameter, global_config):
-            if window_id in windows:
-                raise Exception(f"Duplicate window {window_id}")
-            windows[window_id] = Accumulator.create({"step": acc_config})
-        return windows
+        yield from legacy_window_factory(parameter, global_config)
 
     @property
     def dims(self) -> Dict[str, List[Coord]]:

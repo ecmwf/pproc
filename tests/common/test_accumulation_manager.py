@@ -110,7 +110,7 @@ EXPECT_COORDS = {
     ],
 )
 def test_create(config, accums, coords):
-    mgr = AccumulationManager(config)
+    mgr = AccumulationManager.create(config)
     assert mgr.coords == coords
     acc_coords_all = list(dict_product({key: coo for key, (_, coo) in accums.items()}))
     for acc in mgr.accumulations.values():
@@ -179,7 +179,7 @@ def assert_empty(it: Iterator) -> None:
     ],
 )
 def test_feed_singledim(config, checkpoints):
-    mgr = AccumulationManager(config)
+    mgr = AccumulationManager.create(config)
     assert len(mgr.accumulations) == sum(len(chp) for chp in checkpoints.values())
     todo = set(mgr.accumulations.keys())
     sorted_steps = sorted(mgr.coords["step"])
@@ -255,7 +255,7 @@ def test_feed_singledim(config, checkpoints):
     ],
 )
 def test_feed_multidim(config, checkpoints):
-    mgr = AccumulationManager(config)
+    mgr = AccumulationManager.create(config)
     assert len(mgr.accumulations) == sum(len(chp) for chp in checkpoints.values())
     todo = set(mgr.accumulations.keys())
     sorted_coords = {key: sorted(coords) for key, coords in mgr.coords.items()}
@@ -301,7 +301,7 @@ def test_feed_multidim(config, checkpoints):
     ],
 )
 def test_delete(config, todel, rest, coords):
-    mgr = AccumulationManager(config)
+    mgr = AccumulationManager.create(config)
     mgr.delete(todel)
     assert sorted(mgr.accumulations.keys()) == rest
     assert mgr.coords == coords

@@ -20,16 +20,12 @@ class ThresholdWindowManager(WindowManager):
         WindowManager.__init__(self, parameter, global_config)
 
     def create_windows(self, parameter, global_config):
-        windows = {}
         for window_id, acc_config in legacy_window_factory(parameter, global_config):
-            if window_id in windows:
-                raise Exception(f"Duplicate window {window_id}")
             thresholds = acc_config.pop("thresholds", [])
             if not thresholds:
                 raise RuntimeError("Window with no operation specified, or none could be derived")
-            windows[window_id] = Accumulator.create({"step": acc_config})
             self.window_thresholds[window_id] = thresholds
-        return windows
+            yield (window_id, acc_config)
 
     def thresholds(self, identifier):
         """

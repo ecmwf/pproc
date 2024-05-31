@@ -36,13 +36,8 @@ class AccumulationManager:
         str, Set[Coord]
     ]  # dimension key -> unique coords for all accumulations
 
-    def __init__(self, config: Dict[str, dict], grib_keys: Optional[dict] = None):
-        self.coords = {}
-        accum_configs = {}
-        grib_keys = {} if grib_keys is None else grib_keys
-        for key, acc_config in config.items():
-            self.coords[key] = set()
-            accum_configs[key] = _make_accumulation_configs(acc_config, grib_keys)
+    def __init__(self, accum_configs: Dict[str, Iterator[Tuple[str, dict]]]):
+        self.coords = {key: set() for key in accum_configs.keys()}
         self.accumulations = {}
         for i, accum_config in enumerate(dict_product(accum_configs)):
             new_accum = Accumulator.create(accum_config)
@@ -71,3 +66,11 @@ class AccumulationManager:
                     coord in accum[key] for accum in self.accumulations.values()
                 ):
                     coords.remove(coord)
+
+    @classmethod
+    def create(cls, config: Dict[str, dict], grib_keys: Optional[dict] = None):
+        grib_keys = {} if grib_keys is None else grib_keys
+        accum_configs = {}
+        for key, acc_config in config.items():
+            accum_configs[key] = _make_accumulation_configs(acc_config, grib_keys)
+        return cls(accum_configs)

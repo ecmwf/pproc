@@ -185,6 +185,7 @@ def test_create_threshold(config, expected, exp_coords):
     assert set(win_mgr.window_thresholds.keys()) == set(expected.keys())
     for name in expected:
         accum = acc_mgr.accumulations[name]
+        assert accum.name == name
         assert len(accum.dims) == 1
         assert accum.dims[0].key == "step"
         assert type(accum.dims[0].accumulation) == expected[name][0]
@@ -286,6 +287,7 @@ def test_create_anomaly(config, expected, exp_coords):
     assert set(win_mgr.window_thresholds.keys()) == set(expected.keys())
     for name in expected:
         accum = acc_mgr.accumulations[name]
+        assert accum.name == name
         assert len(accum.dims) == 1
         assert accum.dims[0].key == "step"
         assert type(accum.dims[0].accumulation) == expected[name][0]
