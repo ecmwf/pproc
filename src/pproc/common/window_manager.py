@@ -25,7 +25,7 @@ class WindowManager:
             step_config["type"] = "legacywindow"
             config = {"step": step_config}
         else:
-            config = parameter
+            config = parameter["accumulations"]
         self.mgr = AccumulationManager.create(config, global_config)
 
     @property

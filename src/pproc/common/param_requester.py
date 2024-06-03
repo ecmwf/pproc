@@ -95,7 +95,12 @@ class ParamFilter:
     def from_config(cls, config: Optional[dict]) -> Optional["ParamFilter"]:
         if config is None:
             return None
-        return cls(config["comparison"], config["threshold"], config.get("param", None), config.get("replacement", 0.))
+        return cls(
+            config["comparison"],
+            config["threshold"],
+            config.get("param", None),
+            config.get("replacement", 0.0),
+        )
 
 
 class ParamConfig:
@@ -103,13 +108,16 @@ class ParamConfig:
         self.name = name
         self.in_paramids = parse_paramids(options["in"])
         self.combine = options.get("combine_operation", None)
-        self.filter = ParamFilter.from_config(options.get("input_filter_operation", None))
+        self.filter = ParamFilter.from_config(
+            options.get("input_filter_operation", None)
+        )
         self.scale = options.get("scale", 1.0)
         self.out_paramid = options.get("out", None)
         self._in_keys = options.get("in_keys", {})
         self._out_keys = options.get("out_keys", {})
         self._steps = options.get("steps", None)
         self._windows = options.get("windows", None)
+        self._accumulations = options.get("accumulations", None)
         self._in_overrides = overrides
 
     def in_keys(self, base: Optional[Dict[str, Any]] = None, **kwargs):
@@ -130,6 +138,9 @@ class ParamConfig:
         return keys
 
     def window_config(self, base: List[dict], base_steps: Optional[List[dict]] = None):
+        if self._accumulations is not None:
+            return {"accumulations": self._accumulations}
+
         if self._windows is not None:
             config = {"windows": self._windows}
             if self._steps is not None:
@@ -191,8 +202,7 @@ class ParamRequester:
                 **filt_keys,
             )
         comp = numexpr.evaluate(
-            "data " + filt.comparison + str(filt.threshold),
-            local_dict={"data": fdata}
+            "data " + filt.comparison + str(filt.threshold), local_dict={"data": fdata}
         )
         return np.where(comp, filt.replacement, data)
 
@@ -206,7 +216,9 @@ class ParamRequester:
             return np.linalg.norm(data_list, axis=0)
         if self.param.combine == "direction":
             assert len(data_list) == 2, "'direction' requires exactly 2 input fields"
-            return direction(data_list[0], data_list[1], convention="meteo", to_positive=True)
+            return direction(
+                data_list[0], data_list[1], convention="meteo", to_positive=True
+            )
         return getattr(np, self.param.combine)(data_list, axis=0)
 
     def retrieve_data(
@@ -223,7 +235,10 @@ class ParamRequester:
                 **in_keys,
             )
             data_list.append(data)
-        return template, self.filter_data(self.combine_data(data_list), step) * self.param.scale
+        return (
+            template,
+            self.filter_data(self.combine_data(data_list), step) * self.param.scale,
+        )
 
     @property
     def name(self):

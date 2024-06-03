@@ -279,23 +279,25 @@ def test_create(config, expected, exp_coords):
 
 def test_create_multidim():
     config = {
-        "step": {
-            "type": "legacywindow",
-            "windows": [
-                {
-                    "window_operation": "mean",
-                    "periods": [
-                        {"range": [0, 24, 6]},
-                        {"range": [12, 36, 6]},
-                        {"range": [24, 48, 6]},
-                    ],
-                }
-            ],
-        },
-        "hdate": {
-            "operation": "aggregation",
-            "coords": [[20200218, 20210218, 20230218]],
-        },
+        "accumulations": {
+            "step": {
+                "type": "legacywindow",
+                "windows": [
+                    {
+                        "window_operation": "mean",
+                        "periods": [
+                            {"range": [0, 24, 6]},
+                            {"range": [12, 36, 6]},
+                            {"range": [24, 48, 6]},
+                        ],
+                    }
+                ],
+            },
+            "hdate": {
+                "operation": "aggregation",
+                "coords": [[20200218, 20210218, 20230218]],
+            },
+        }
     }
     expected_accums = ["step_0-24_0", "step_12-36_0", "step_24-48_0"]
     expected_dims = [("step", Mean), ("hdate", Aggregation)]
