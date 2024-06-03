@@ -1,4 +1,4 @@
-from typing import Dict, Iterator, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Tuple
 
 import numpy as np
 
@@ -7,7 +7,9 @@ from pproc.common.utils import dict_product
 from pproc.common.window import legacy_window_factory
 
 
-def _default_accumulation_factory(config: dict, grib_keys: dict) -> Iterator[Tuple[str, dict]]:
+def _default_accumulation_factory(
+    config: dict, grib_keys: dict
+) -> Iterator[Tuple[str, dict]]:
     for coords in config["coords"]:
         acc_config = config.copy()
         acc_config["coords"] = coords
@@ -18,7 +20,9 @@ def _default_accumulation_factory(config: dict, grib_keys: dict) -> Iterator[Tup
         yield "", acc_config
 
 
-def _make_accumulation_configs(config: dict, grib_keys: dict) -> Iterator[Tuple[str, dict]]:
+def _make_accumulation_configs(
+    config: dict, grib_keys: dict
+) -> Iterator[Tuple[str, dict]]:
     tp = config.get("type", "default")
     known = {
         "default": _default_accumulation_factory,
@@ -47,6 +51,17 @@ class AccumulationManager:
             self.accumulations[acc_name] = new_accum
             for dim in new_accum.dims:
                 self.coords[dim.key].update(dim.accumulation.coords)
+
+    def sorted_coords(
+        self, sortkeys: Dict[str, Callable[[Coord], Any]] = {}
+    ) -> Dict[str, List[Coord]]:
+        sc = {}
+        for key, coords in self.coords.items():
+            sortkey = sortkeys.get(key, None)
+            if sortkey is None:
+                sc[key] = sorted(coords)
+            else:
+                sc[key] = sorted(coords, key=sortkey)
 
     def feed(
         self, keys: Dict[str, Coord], values: np.ndarray

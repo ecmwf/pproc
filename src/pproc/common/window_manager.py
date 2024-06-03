@@ -1,11 +1,10 @@
-from typing import Dict, Iterable, Iterator, List, Tuple
+from typing import Dict, Iterator, List, Tuple
 
 import numpy as np
 
 from pproc.common.accumulation import Accumulator, Coord
 from pproc.common.accumulation_manager import AccumulationManager
 from pproc.common.steps import parse_step
-from pproc.common.window import legacy_window_factory
 
 
 class WindowManager:
@@ -21,24 +20,17 @@ class WindowManager:
         :param global_config: global dictionary of key values for grib_set in all windows
         :raises: RuntimeError if no window operation was provided, or could be derived
         """
-        accum_configs = {"step": self.create_windows(parameter, global_config)}
-        self.mgr = AccumulationManager(accum_configs)
-
-    def create_windows(self, parameter, global_config) -> Iterable[Tuple[str, dict]]:
-        """
-        Creates windows from parameter config and specified window operation
-        """
-        yield from legacy_window_factory(parameter, global_config)
+        if "windows" in parameter:
+            step_config = parameter.copy()
+            step_config["type"] = "legacywindow"
+            config = {"step": step_config}
+        else:
+            config = parameter
+        self.mgr = AccumulationManager.create(config, global_config)
 
     @property
     def dims(self) -> Dict[str, List[Coord]]:
-        sorted_dims = {}
-        for key, coords in self.mgr.coords.items():
-            if key == "step":
-                sorted_dims[key] = sorted(coords, key=parse_step)
-            else:
-                sorted_dims[key] = sorted(coords)
-        return sorted_dims
+        return self.mgr.sorted_coords({"step": parse_step})
 
     def update_windows(
         self, keys: Dict[str, Coord], data: np.ndarray

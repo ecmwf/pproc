@@ -275,3 +275,45 @@ def test_create(config, expected, exp_coords):
         assert type(accum.dims[0].accumulation) == expected[name]
     assert set(acc_mgr.coords.keys()) == {"step"}
     assert acc_mgr.coords["step"] == exp_coords
+
+
+def test_create_multidim():
+    config = {
+        "step": {
+            "type": "legacywindow",
+            "windows": [
+                {
+                    "window_operation": "mean",
+                    "periods": [
+                        {"range": [0, 24, 6]},
+                        {"range": [12, 36, 6]},
+                        {"range": [24, 48, 6]},
+                    ],
+                }
+            ],
+        },
+        "hdate": {
+            "operation": "aggregation",
+            "coords": [[20200218, 20210218, 20230218]],
+        },
+    }
+    expected_accums = ["step_0-24_0", "step_12-36_0", "step_24-48_0"]
+    expected_dims = [("step", Mean), ("hdate", Aggregation)]
+    expected_coords = {
+        "step": set(range(6, 49, 6)),
+        "hdate": {20200218, 20210218, 20230218},
+    }
+
+    win_mgr = WindowManager(config, {})
+    acc_mgr = win_mgr.mgr
+    assert set(acc_mgr.accumulations.keys()) == set(expected_accums)
+    for name in expected_accums:
+        accum = acc_mgr.accumulations[name]
+        assert accum.name == name
+        assert len(accum.dims) == len(expected_dims)
+        for i, (dim, tp) in enumerate(expected_dims):
+            assert accum.dims[i].key == dim
+            assert type(accum.dims[i].accumulation) == tp
+    assert set(acc_mgr.coords.keys()) == set(expected_coords.keys())
+    for dim, exp_coords in expected_coords.items():
+        assert acc_mgr.coords[dim] == exp_coords

@@ -3,6 +3,7 @@ import numpy as np
 
 from pproc.common import WindowManager
 from pproc.common.accumulation import Accumulator, Coord
+from pproc.common.accumulation_manager import AccumulationManager
 from pproc.common.window import legacy_window_factory
 
 
@@ -17,7 +18,8 @@ class ThresholdWindowManager(WindowManager):
 
     def __init__(self, parameter, global_config):
         self.window_thresholds = {}
-        WindowManager.__init__(self, parameter, global_config)
+        accum_configs = {"step": self.create_windows(parameter, global_config)}
+        self.mgr = AccumulationManager(accum_configs)
 
     def create_windows(self, parameter, global_config):
         for window_id, acc_config in legacy_window_factory(parameter, global_config):
