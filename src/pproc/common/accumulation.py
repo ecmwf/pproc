@@ -279,6 +279,74 @@ class WeightedMean(Integral):
         return self.values / self.length
 
 
+class Histogram(SimpleAccumulation):
+    def __init__(
+        self,
+        coords: Coords,
+        bins: Union[np.ndarray, List[float]],
+        mod: Optional[float] = None,
+        normalise: bool = True,
+        scale_out: Optional[float] = None,
+        dtype: DTypeLike = np.float32,
+        sequential: bool = False,
+        grib_keys: Optional[dict] = None,
+    ):
+        super().__init__("add", coords, np.int64, sequential, grib_keys)
+        self.bins = np.asarray(bins)
+        self.mod = mod
+        self.normalise = normalise
+        self.scale_out = scale_out
+        self.out_dtype = dtype
+
+    def feed(self, coord: Coord, values: np.ndarray) -> bool:
+        if coord not in self.todo:
+            return False
+
+        nbins = len(self.bins) - 1
+        if self.mod is not None:
+            values %= self.mod
+        ind = np.digitize(values, self.bins) - 1
+        if self.mod is not None:
+            ind[ind < 0] = nbins - 1
+            ind[ind >= nbins] = 0
+
+        hist_values = np.zeros((nbins,) + values.shape, dtype=self.dtype)
+        for i in range(nbins):
+            hist_values[i, ind == i] += 1
+        return super().feed(coord, hist_values)
+
+    def get_values(self) -> Optional[np.ndarray]:
+        if self.values is None:
+            return None
+        values = self.values.astype(self.out_dtype)
+        if self.normalise:
+            values /= values.sum(axis=0)
+        if self.scale_out is not None:
+            values *= self.scale_out
+        return values
+
+    @classmethod
+    def create(
+        cls,
+        operation: str,
+        coords: Coords,
+        config: dict,
+        dtype: DTypeLike = np.float32,
+        sequential: bool = False,
+        grib_keys: Optional[dict] = None,
+    ) -> Accumulation:
+        return cls(
+            coords,
+            bins=np.asarray(config["bins"]),
+            mod=config.get("mod"),
+            normalise=config.get("normalise", True),
+            scale_out=config.get("scale_out"),
+            dtype=dtype,
+            sequential=sequential,
+            grib_keys=grib_keys,
+        )
+
+
 class Aggregation(Accumulation):
     def __init__(
         self,
@@ -359,6 +427,7 @@ def create_accumulation(config: dict, dtype: DTypeLike = np.float32) -> Accumula
         "difference_rate": DifferenceRate,
         "mean": Mean,
         "weighted_mean": WeightedMean,
+        "histogram": Histogram,
         "aggregation": Aggregation,
     }
     cls = known.get(op)
