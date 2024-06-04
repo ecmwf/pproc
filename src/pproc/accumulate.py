@@ -42,8 +42,8 @@ def postprocess(
 
     Parameters
     ----------
-    ens: numpy array (nens, npoints)
-        Ensemble data
+    ens: numpy array (..., npoints)
+        Ensemble data (all dimensions but the last are squashed together)
     template: eccodes.GRIBMessage
         GRIB template for output
     target: Target
@@ -57,7 +57,7 @@ def postprocess(
     out_keys: dict, optional
         Extra GRIB keys to set on the output
     """
-    for i, field in enumerate(ens):
+    for i, field in enumerate(ens.reshape((-1, ens.shape[-1]))):
         if vmin is not None or vmax is not None:
             np.clip(field, vmin, vmax, out=field)
 
@@ -182,9 +182,7 @@ def main(args: List[str] = sys.argv[1:]):
                     if param.name in x
                 ]
                 new_start = window_manager.delete_windows(checkpointed_windows)
-                print(
-                    f"Recovery: param {param.name} looping from step {new_start}"
-                )
+                print(f"Recovery: param {param.name} looping from step {new_start}")
                 last_checkpoint = None  # All remaining params have not been run
 
             requester = ParamRequester(

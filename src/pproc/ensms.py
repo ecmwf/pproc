@@ -82,8 +82,9 @@ def ensms_iteration(config, param_type, recovery, window_id, accum, template_ens
                 template_ens = common.io.read_template(template_ens)
             ens = accum.get_values()
             assert ens is not None
-        mean = np.mean(ens, axis=0)
-        std = np.std(ens, axis=0)
+        axes = tuple(range(ens.ndim - 1))
+        mean = np.mean(ens, axis=axes)
+        std = np.std(ens, axis=axes)
 
     with ResourceMeter(f"Window {window_id}: write output"):
         for level_index, level in enumerate(param_type.levels()):

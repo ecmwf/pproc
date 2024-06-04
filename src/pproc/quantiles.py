@@ -42,8 +42,8 @@ def do_quantiles(
 
     Parameters
     ----------
-    ens: numpy array (nens, npoints)
-        Ensemble data
+    ens: numpy array (..., npoints)
+        Ensemble data (all dimensions but the last are squashed together)
     template: eccodes.GRIBMessage
         GRIB template for output
     target: Target
@@ -55,7 +55,9 @@ def do_quantiles(
     out_keys: dict, optional
         Extra GRIB keys to set on the output
     """
-    for i, quantile in enumerate(iter_quantiles(ens, n, method="sort")):
+    for i, quantile in enumerate(
+        iter_quantiles(ens.reshape((-1, ens.shape[-1])), n, method="sort")
+    ):
         grib_keys = {
             **out_keys,
             "totalNumber": n,
@@ -171,9 +173,7 @@ def main(args: List[str] = sys.argv[1:]):
                     if param.name in x
                 ]
                 new_start = window_manager.delete_windows(checkpointed_windows)
-                print(
-                    f"Recovery: param {param.name} looping from step {new_start}"
-                )
+                print(f"Recovery: param {param.name} looping from step {new_start}")
                 last_checkpoint = None  # All remaining params have not been run
 
             requester = ParamRequester(
