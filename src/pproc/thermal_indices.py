@@ -45,13 +45,13 @@ def process_step(args, config, step, fields, target):
 
     # Windspeed - shortName ws
     if args.ws:
-        ws = indices.calc_field("ws", indices.calc_ws, fields)
+        ws = indices.calc_field("10si", indices.calc_ws, fields)
         helpers.write(target, ws)
 
     # Cosine of Solar Zenith Angle - shortName uvcossza - ECMWF product
     # TODO: 214001 only exists for GRIB1 -- but here we use it for GRIB2 (waiting for WMO)
     if args.cossza:
-        cossza = indices.calc_field("cossza", indices.calc_cossza_int, fields)
+        cossza = indices.calc_field("uvcossza", indices.calc_cossza_int, fields)
         helpers.write(target, cossza)
 
     # direct solar radiation - shortName dsrp - ECMWF product
@@ -92,7 +92,7 @@ def process_step(args, config, step, fields, target):
 
     # Relative humidity percent at 2m - shortName 2r - ECMWF product
     if args.rhp or args.all:
-        rhp = indices.calc_field("rhp", indices.calc_rhp, fields)
+        rhp = indices.calc_field("2r", indices.calc_rhp, fields)
         helpers.write(target, rhp)
 
     # Humidex - shortName hmdx
@@ -194,7 +194,7 @@ def get_parser():
     )
 
     parser.add_argument(
-        "--ws", help="compute wind speed from components", action="store_true"
+        "--ws", help="compute 10m wind speed from components", action="store_true"
     )
     parser.add_argument(
         "--cossza",
