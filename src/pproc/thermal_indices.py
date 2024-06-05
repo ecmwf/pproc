@@ -31,7 +31,7 @@ __version__ = "2.0.0"
 
 
 @Timer(name="proc_step", logger=None)
-def process_step(args, config, step, fields, target):
+def process_step(args, config, step, fields):
 
     helpers.check_field_sizes(fields)
     basetime, validtime = helpers.get_datetime(fields)
@@ -44,28 +44,28 @@ def process_step(args, config, step, fields, target):
     indices = ComputeIndices(config.out_keys)
 
     # Windspeed - shortName ws
-    if args.ws:
+    if {"ws", "10si"} & config.output_params:
         ws = indices.calc_field("10si", indices.calc_ws, fields)
-        helpers.write(target, ws)
+        helpers.write(config.target, ws)
 
     # Cosine of Solar Zenith Angle - shortName uvcossza - ECMWF product
     # TODO: 214001 only exists for GRIB1 -- but here we use it for GRIB2 (waiting for WMO)
-    if args.cossza:
+    if {"cossza", "uvcossza"} & config.output_params:
         cossza = indices.calc_field("uvcossza", indices.calc_cossza_int, fields)
-        helpers.write(target, cossza)
+        helpers.write(config.target, cossza)
 
     # direct solar radiation - shortName dsrp - ECMWF product
-    if args.dsrp:
+    if {"dsrp"} & config.output_params:
         dsrp = indices.calc_field("dsrp", indices.approximate_dsrp, fields)
-        helpers.write(target, dsrp)
+        helpers.write(config.target, dsrp)
 
     # Mean Radiant Temperature - shortName mrt - ECMWF product
-    if args.mrt or args.all:
+    if {"mrt", "all"} & config.output_params:
         mrt = indices.calc_field("mrt", indices.calc_mrt, fields)
-        helpers.write(target, mrt)
+        helpers.write(config.target, mrt)
 
     # Univeral Thermal Climate Index - shortName utci - ECMWF product
-    if args.utci or args.all:
+    if {"utci", "all"} & config.output_params:
         utci = indices.calc_field(
             "utci",
             indices.calc_utci,
@@ -73,57 +73,57 @@ def process_step(args, config, step, fields, target):
             print_misses=args.utci_misses,
             validate=args.validateutci,
         )
-        helpers.write(target, utci)
+        helpers.write(config.target, utci)
 
     # Heat Index (adjusted) - shortName heatx - ECMWF product
-    if args.heatx or args.all:
+    if {"heatx", "all"} & config.output_params:
         heatx = indices.calc_field("heatx", indices.calc_heatx, fields)
-        helpers.write(target, heatx)
+        helpers.write(config.target, heatx)
 
     # Wind Chill factor - shortName wcf - ECMWF product
-    if args.wcf or args.all:
+    if {"wcf", "all"} & config.output_params:
         wcf = indices.calc_field("wcf", indices.calc_wcf, fields)
-        helpers.write(target, wcf)
+        helpers.write(config.target, wcf)
 
     # Apparent Temperature - shortName aptmp - ECMWF product
-    if args.aptmp or args.all:
+    if {"aptmp", "all"} & config.output_params:
         aptmp = indices.calc_field("aptmp", indices.calc_aptmp, fields)
-        helpers.write(target, aptmp)
+        helpers.write(config.target, aptmp)
 
     # Relative humidity percent at 2m - shortName 2r - ECMWF product
-    if args.rhp or args.all:
+    if {"rhp", "2r", "all"} & config.output_params:
         rhp = indices.calc_field("2r", indices.calc_rhp, fields)
-        helpers.write(target, rhp)
+        helpers.write(config.target, rhp)
 
     # Humidex - shortName hmdx
-    if args.hmdx or args.all:
+    if {"hmdx", "all"} & config.output_params:
         hmdx = indices.calc_field("hmdx", indices.calc_hmdx, fields)
-        helpers.write(target, hmdx)
+        helpers.write(config.target, hmdx)
 
     # Normal Effective Temperature - shortName nefft
-    if args.nefft or args.all:
+    if {"nefft", "all"} & config.output_params:
         nefft = indices.calc_field("nefft", indices.calc_nefft, fields)
-        helpers.write(target, nefft)
+        helpers.write(config.target, nefft)
 
     # Globe Temperature - shortName gt
-    if args.gt or args.all:
+    if {"gt", "all"} & config.output_params:
         gt = indices.calc_field("gt", indices.calc_gt, fields)
-        helpers.write(target, gt)
+        helpers.write(config.target, gt)
 
     # Wet-bulb potential temperature - shortName wbpt
-    if args.wbpt or args.all:
+    if {"wbpt", "all"} & config.output_params:
         wbpt = indices.calc_field("wbpt", indices.calc_wbpt, fields)
-        helpers.write(target, wbpt)
+        helpers.write(config.target, wbpt)
 
     # Wet Bulb Globe Temperature - shortName wbgt
-    if args.wbgt or args.all:  #
+    if {"wbgt", "all"} & config.output_params:  #
         wbgt = indices.calc_field("wbgt", indices.calc_wbgt, fields)
-        helpers.write(target, wbgt)
+        helpers.write(config.target, wbgt)
 
     # effective temperature 261017
     # standard effective temperature 261019
 
-    target.flush()
+    config.target.flush()
 
 
 class ThermoConfig(Config):
@@ -133,19 +133,24 @@ class ThermoConfig(Config):
         self.out_keys = self.options.get("out_keys", {})
         self.sources = self.options.get("sources", {})
         self.root_dir = self.options.get("root_dir", None)
+        target = self.options.get("targets", {})
+        self.output_params = set(target.get("params", []))
+        self.target = target_from_location(target.get("target", "null:"), overrides=self.override_output)
 
 
 def load_input(source: str, config: ThermoConfig, step: int):
-    src, param_type = source.split(":")
-    if src == "null":
+    req = config.sources.get(source, {}).copy()
+    if len(req) == 0:
         return None
-    req = config.sources[src][param_type].copy()
     req.update(config.override_input)
     req["step"] = [step]
-    if src == "fdb":
+
+    src = req.pop("source")
+    if ":" in src:
+        src, loc = src.split(":")
+    if src == "fdb":    
         ds = earthkit.data.from_source("fdb", req, stream=True, batch_size=0)
     elif src == "fileset":
-        loc = req.pop("location")
         loc.format_map(req)
         req["paramId"] = req.pop("param")
         ds = earthkit.data.from_source("file", loc).sel(req)
@@ -165,76 +170,6 @@ def get_parser():
         "--accelerate",
         help="accelerate computations using JAX JIT",
         action="store_true",
-    )
-
-    parser.add_argument(
-        "--in-accum",
-        required=True,
-        type=str,
-        help="Input source for accumulated parameters",
-    )
-    parser.add_argument(
-        "--in-inst",
-        required=True,
-        type=str,
-        help="Input source for instantaneous parameters",
-    )
-    parser.add_argument(
-        "--out-indices", required=True, type=str, help="Target for computed indices"
-    )
-
-    parser.add_argument(
-        "--all", help="compute all available indices", action="store_true"
-    )
-
-    parser.add_argument(
-        "--validateutci",
-        help="validate utci by detecting nans and out of bounds values. NOT to use in production. Very verbose option.",
-        action="store_true",
-    )
-
-    parser.add_argument(
-        "--ws", help="compute 10m wind speed from components", action="store_true"
-    )
-    parser.add_argument(
-        "--cossza",
-        help="compute Cosine of Solar Zenith Angle (cossza)",
-        action="store_true",
-    )
-    parser.add_argument(
-        "--dsrp",
-        help="compute dsrp (approximated)",
-        action="store_true",
-    )
-    parser.add_argument("--mrt", help="compute mrt", action="store_true")
-    parser.add_argument(
-        "--utci",
-        help="compute UTCI Universal Thermal Climate Index",
-        action="store_true",
-    )
-    parser.add_argument(
-        "--heatx", help="compute Heat Index (adjusted)", action="store_true"
-    )
-    parser.add_argument("--wcf", help="compute wcf factor", action="store_true")
-    parser.add_argument(
-        "--aptmp", help="compute Apparent Temperature", action="store_true"
-    )
-    parser.add_argument(
-        "--rhp", help="compute relative humidity percent", action="store_true"
-    )
-
-    parser.add_argument("--hmdx", help="compute humidex", action="store_true")
-    parser.add_argument(
-        "--nefft", help="compute net effective temperature", action="store_true"
-    )
-
-    # TODO: these outputs are not yet in WMO GRIB2 recognised parameters
-    parser.add_argument(
-        "--wbgt", help="compute Wet Bulb Globe Temperature", action="store_true"
-    )
-    parser.add_argument("--gt", help="compute  Globe Temperature", action="store_true")
-    parser.add_argument(
-        "--wbpt", help="compute Wet Bulb Temperature", action="store_true"
     )
 
     parser.add_argument(
@@ -287,7 +222,6 @@ def main(args: List[str] = sys.argv[1:]):
     parser = get_parser()
     args = parser.parse_args(args)
     config = ThermoConfig(args)
-    target = target_from_location(args.out_indices, overrides=config.override_output)
 
     print(f"Compute Thermal Indices: {__version__}")
     print(f"thermofeel: {thermofeel.__version__}")
@@ -299,13 +233,13 @@ def main(args: List[str] = sys.argv[1:]):
 
     window_manager = WindowManager(config.options, {})
     for step in window_manager.unique_steps:
-        accum_data = load_input(args.in_accum, config, step)
+        accum_data = load_input("accum", config, step)
         completed_windows = window_manager.update_windows(
             step, [] if accum_data is None else accum_data.values
         )
         for _, window in completed_windows:
             if window.size() == 0:
-                fields = load_input(args.in_inst, config, step)
+                fields = load_input("inst", config, step)
             else:
                 # Set step range for de-accumulated fields
                 fields = earthkit.data.FieldList.from_numpy(
@@ -315,11 +249,11 @@ def main(args: List[str] = sys.argv[1:]):
                         for x in accum_data.metadata()
                     ],
                 )
-                fields += load_input(args.in_inst, config, step)
+                fields += load_input("inst", config, step)
             print(f"Step {step}, Input:")
             print(fields.ls(namespace="mars"))
 
-            process_step(args, config, step, fields, target)
+            process_step(args, config, step, fields)
 
             if args.usage:
                 print_usage()
