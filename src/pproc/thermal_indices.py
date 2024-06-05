@@ -187,7 +187,11 @@ def get_parser():
         help="accelerate computations using JAX JIT",
         action="store_true",
     )
-
+    parser.add_argument(
+        "--validateutci",
+        help="validate utci by detecting nans and out of bounds values. NOT to use in production. Very verbose option.",
+        action="store_true",
+    )
     parser.add_argument(
         "--timers",
         help="print function performance timers at the end",
