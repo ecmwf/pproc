@@ -159,6 +159,13 @@ def step_interval(fields) -> int:
     return delta
 
 
-def write(target: common.io.Target, ds: earthkit.data.FieldList):
-    message = ds.metadata()[0]._handle
-    common.io.write_grib(target, message, ds[0].values)
+def write(
+    target: common.io.Target,
+    ds: "earthkit.data.FieldList | earthkit.data.core.fieldlist.Field",
+):
+    if isinstance(ds, earthkit.data.FieldList):
+        if len(ds) != 1:
+            raise ValueError("Expected a single field, got multiple")
+        ds = ds[0]
+    message = ds.metadata()._handle
+    common.io.write_grib(target, message, ds.values)

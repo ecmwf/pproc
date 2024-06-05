@@ -14,7 +14,7 @@
 import argparse
 import os
 import sys
-from typing import List
+from typing import List, Set
 
 import earthkit.data
 import numpy as np
@@ -44,28 +44,28 @@ def process_step(args, config, step, fields):
     indices = ComputeIndices(config.out_keys)
 
     # Windspeed - shortName ws
-    if {"ws", "10si"} & config.output_params:
+    if config.is_target_param("intermediate", {"ws", "10si"}):
         ws = indices.calc_field("10si", indices.calc_ws, fields)
-        helpers.write(config.target, ws)
+        helpers.write(config.target("intermediate"), ws)
 
     # Cosine of Solar Zenith Angle - shortName uvcossza - ECMWF product
     # TODO: 214001 only exists for GRIB1 -- but here we use it for GRIB2 (waiting for WMO)
-    if {"cossza", "uvcossza"} & config.output_params:
+    if config.is_target_param("intermediate", {"cossza", "uvcossza"}):
         cossza = indices.calc_field("uvcossza", indices.calc_cossza_int, fields)
-        helpers.write(config.target, cossza)
+        helpers.write(config.target("intermediate"), cossza)
 
     # direct solar radiation - shortName dsrp - ECMWF product
-    if {"dsrp"} & config.output_params:
+    if config.is_target_param("intermediate", {"dsrp"}):
         dsrp = indices.calc_field("dsrp", indices.approximate_dsrp, fields)
-        helpers.write(config.target, dsrp)
+        helpers.write(config.target("intermediate"), dsrp)
 
     # Mean Radiant Temperature - shortName mrt - ECMWF product
-    if {"mrt", "all"} & config.output_params:
+    if config.is_target_param("indices", {"mrt"}):
         mrt = indices.calc_field("mrt", indices.calc_mrt, fields)
-        helpers.write(config.target, mrt)
+        helpers.write(config.target("indices"), mrt)
 
     # Univeral Thermal Climate Index - shortName utci - ECMWF product
-    if {"utci", "all"} & config.output_params:
+    if config.is_target_param("indices", {"utci"}):
         utci = indices.calc_field(
             "utci",
             indices.calc_utci,
@@ -73,57 +73,57 @@ def process_step(args, config, step, fields):
             print_misses=args.utci_misses,
             validate=args.validateutci,
         )
-        helpers.write(config.target, utci)
+        helpers.write(config.target("indices"), utci)
 
     # Heat Index (adjusted) - shortName heatx - ECMWF product
-    if {"heatx", "all"} & config.output_params:
+    if config.is_target_param("indices", {"heatx"}):
         heatx = indices.calc_field("heatx", indices.calc_heatx, fields)
-        helpers.write(config.target, heatx)
+        helpers.write(config.target("indices"), heatx)
 
     # Wind Chill factor - shortName wcf - ECMWF product
-    if {"wcf", "all"} & config.output_params:
+    if config.is_target_param("indices", {"wcf"}):
         wcf = indices.calc_field("wcf", indices.calc_wcf, fields)
-        helpers.write(config.target, wcf)
+        helpers.write(config.target("indices"), wcf)
 
     # Apparent Temperature - shortName aptmp - ECMWF product
-    if {"aptmp", "all"} & config.output_params:
+    if config.is_target_param("indices", {"aptmp"}):
         aptmp = indices.calc_field("aptmp", indices.calc_aptmp, fields)
-        helpers.write(config.target, aptmp)
+        helpers.write(config.target("indices"), aptmp)
 
     # Relative humidity percent at 2m - shortName 2r - ECMWF product
-    if {"rhp", "2r", "all"} & config.output_params:
+    if config.is_target_param("indices", {"rhp", "2r"}):
         rhp = indices.calc_field("2r", indices.calc_rhp, fields)
-        helpers.write(config.target, rhp)
+        helpers.write(config.target("indices"), rhp)
 
     # Humidex - shortName hmdx
-    if {"hmdx", "all"} & config.output_params:
+    if config.is_target_param("indices", {"hmdx"}):
         hmdx = indices.calc_field("hmdx", indices.calc_hmdx, fields)
-        helpers.write(config.target, hmdx)
+        helpers.write(config.target("indices"), hmdx)
 
     # Normal Effective Temperature - shortName nefft
-    if {"nefft", "all"} & config.output_params:
+    if config.is_target_param("indices", {"nefft"}):
         nefft = indices.calc_field("nefft", indices.calc_nefft, fields)
-        helpers.write(config.target, nefft)
+        helpers.write(config.target("indices"), nefft)
 
     # Globe Temperature - shortName gt
-    if {"gt", "all"} & config.output_params:
+    if config.is_target_param("indices", {"gt"}):
         gt = indices.calc_field("gt", indices.calc_gt, fields)
-        helpers.write(config.target, gt)
+        helpers.write(config.target("indices"), gt)
 
     # Wet-bulb potential temperature - shortName wbpt
-    if {"wbpt", "all"} & config.output_params:
+    if config.is_target_param("indices", {"wbpt"}):
         wbpt = indices.calc_field("wbpt", indices.calc_wbpt, fields)
-        helpers.write(config.target, wbpt)
+        helpers.write(config.target("indices"), wbpt)
 
     # Wet Bulb Globe Temperature - shortName wbgt
-    if {"wbgt", "all"} & config.output_params:  #
+    if config.is_target_param("indices", {"wbgt"}):  #
         wbgt = indices.calc_field("wbgt", indices.calc_wbgt, fields)
-        helpers.write(config.target, wbgt)
+        helpers.write(config.target("indices"), wbgt)
 
     # effective temperature 261017
     # standard effective temperature 261019
 
-    config.target.flush()
+    config.flush_targets()
 
 
 class ThermoConfig(Config):
@@ -133,9 +133,25 @@ class ThermoConfig(Config):
         self.out_keys = self.options.get("out_keys", {})
         self.sources = self.options.get("sources", {})
         self.root_dir = self.options.get("root_dir", None)
-        target = self.options.get("targets", {})
-        self.output_params = set(target.get("params", []))
-        self.target = target_from_location(target.get("target", "null:"), overrides=self.override_output)
+        self.targets = {}
+        for param_type in ["indices", "intermediate", "accum"]:
+            target = self.options.get("targets", {}).get(param_type, {})
+            self.targets[param_type] = {
+                "params": set(target.get("params", [])),
+                "target": target_from_location(
+                    target.get("target", "null:"), overrides=self.override_output
+                ),
+            }
+
+    def target(self, param_type: str):
+        return self.targets[param_type]["target"]
+
+    def is_target_param(self, param_type: str, valid_names: Set[str]) -> bool:
+        return bool(self.targets[param_type]["params"] & valid_names.union({"all"}))
+
+    def flush_targets(self):
+        for param_target in self.targets.values():
+            param_target["target"].flush()
 
 
 def load_input(source: str, config: ThermoConfig, step: int):
@@ -148,7 +164,7 @@ def load_input(source: str, config: ThermoConfig, step: int):
     src = req.pop("source")
     if ":" in src:
         src, loc = src.split(":")
-    if src == "fdb":    
+    if src == "fdb":
         ds = earthkit.data.from_source("fdb", req, stream=True, batch_size=0)
     elif src == "fileset":
         loc.format_map(req)
@@ -249,6 +265,14 @@ def main(args: List[str] = sys.argv[1:]):
                         for x in accum_data.metadata()
                     ],
                 )
+                for field in fields:
+                    metadata = field.metadata()
+                    if config.is_target_param(
+                        "accum", {metadata.get("shortName"), metadata.get("paramId")}
+                    ):
+                        helpers.write(config.target("accum"), field)
+                config.target("accum").flush()
+
                 fields += load_input("inst", config, step)
             print(f"Step {step}, Input:")
             print(fields.ls(namespace="mars"))
