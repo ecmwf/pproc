@@ -122,6 +122,7 @@ def do_quantiles(
         message = construct_message(template, grib_keys)
         message.set_array("values", nan_to_missing(message, quantile))
         target.write(message)
+        target.flush()
 
 
 def get_parser() -> argparse.ArgumentParser:

@@ -17,6 +17,7 @@ setup(
         "thermofeel>=2.0.0"
     ],
     tests_require=[
+        "requests",
     ],
     entry_points={
         "console_scripts": [

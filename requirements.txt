@@ -13,3 +13,4 @@ earthkit-meteo>=0.1.0
 thermofeel
 codetiming
 code-meters
+requests
