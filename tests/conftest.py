@@ -95,6 +95,7 @@ spaces:
             "t850.grib",
             "cluster.grib",
             "has_missing.grib",
+            "thermo.grib",
         ],
     )
 
