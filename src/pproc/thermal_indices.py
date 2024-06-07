@@ -15,6 +15,9 @@ import argparse
 import os
 import sys
 from typing import List, Set
+import signal
+import functools
+from datetime import datetime
 
 import earthkit.data
 import numpy as np
@@ -22,19 +25,27 @@ import psutil
 import thermofeel as thermofeel
 from codetiming import Timer
 
-from pproc.common import Config, WindowManager, default_parser
+from pproc.common import Config, WindowManager, default_parser, Recovery, parallel
 from pproc.common.io import target_from_location
+from pproc.common.parallel import (
+    SynchronousExecutor,
+    QueueingExecutor,
+)
 from pproc.thermo import helpers
 from pproc.thermo.indices import ComputeIndices
+from pproc.thermo.wrappers import ArrayFieldList
 
 __version__ = "2.0.0"
 
 
 @Timer(name="proc_step", logger=None)
-def process_step(args, config, step, fields):
-
+def process_step(args, config, window_id, fields, recovery):
     helpers.check_field_sizes(fields)
     basetime, validtime = helpers.get_datetime(fields)
+    step = helpers.get_step(fields)
+
+    print(f"Step {step}, Input:")
+    print(fields.ls(namespace="mars"))
 
     time = basetime.hour
     print(
@@ -124,23 +135,37 @@ def process_step(args, config, step, fields):
     # standard effective temperature 261019
 
     config.flush_targets()
+    recovery.add_checkpoint(window_id)
+
+    if args.usage:
+        print_usage()
+
+    print("----------------------------------------")
 
 
 class ThermoConfig(Config):
     def __init__(self, args: argparse.Namespace, verbose: bool = True):
         super().__init__(args, verbose=verbose)
 
+        self.date = datetime.strptime(str(self.options["fc_date"]), "%Y%m%d%H")
         self.out_keys = self.options.get("out_keys", {})
         self.sources = self.options.get("sources", {})
         self.root_dir = self.options.get("root_dir", None)
+        self.n_par_compute = self.options.get("n_par_compute", 1)
+        self.window_queue_size = self.options.get("queue_size", self.n_par_compute)
         self.targets = {}
         for param_type in ["indices", "intermediate", "accum"]:
-            target = self.options.get("targets", {}).get(param_type, {})
+            target_options = self.options.get("targets", {}).get(param_type, {})
+            target = target_from_location(
+                target_options.get("target", "null:"), overrides=self.override_output
+            )
+            if self.n_par_compute > 1:
+                target.enable_parallel(parallel)
+            if args.recover:
+                target.enable_recovery()
             self.targets[param_type] = {
-                "params": set(target.get("params", [])),
-                "target": target_from_location(
-                    target.get("target", "null:"), overrides=self.override_output
-                ),
+                "params": set(target_options.get("params", [])),
+                "target": target,
             }
 
     def target(self, param_type: str):
@@ -242,6 +267,18 @@ def main(args: List[str] = sys.argv[1:]):
     parser = get_parser()
     args = parser.parse_args(args)
     config = ThermoConfig(args)
+    recovery = Recovery(config.root_dir, args.config, config.date, args.recover)
+    last_checkpoint = recovery.last_checkpoint()
+    executor = (
+        SynchronousExecutor()
+        if config.n_par_compute == 1
+        else QueueingExecutor(
+            config.n_par_compute,
+            config.window_queue_size,
+            initializer=signal.signal,
+            initargs=(signal.SIGTERM, signal.SIG_DFL),
+        )
+    )
 
     print(f"Compute Thermal Indices: {__version__}")
     print(f"thermofeel: {thermofeel.__version__}")
@@ -252,41 +289,49 @@ def main(args: List[str] = sys.argv[1:]):
     print("----------------------------------------")
 
     window_manager = WindowManager(config.options, {})
-    for step in window_manager.unique_steps:
-        accum_data = load_input("accum", config, step)
-        completed_windows = window_manager.update_windows(
-            step, [] if accum_data is None else accum_data.values
-        )
-        for _, window in completed_windows:
-            if window.size() == 0:
-                fields = load_input("inst", config, step)
-            else:
-                # Set step range for de-accumulated fields
-                fields = earthkit.data.FieldList.from_numpy(
-                    window.step_values,
-                    [
-                        x.override(stepType="diff", stepRange=window.name)
-                        for x in accum_data.metadata()
-                    ],
-                )
-                for field in fields:
-                    metadata = field.metadata()
-                    if config.is_target_param(
-                        "accum", {metadata.get("shortName"), metadata.get("paramId")}
-                    ):
-                        helpers.write(config.target("accum"), field)
-                config.target("accum").flush()
+    if last_checkpoint is not None:
+        checkpointed_windows = [
+            recovery.checkpoint_identifiers(x)[0] for x in recovery.checkpoints
+        ]
+        window_manager.delete_windows(checkpointed_windows)
+        print(f"Recovery: looping from step {window_manager.unique_steps[0]}")
+    thermo_partial = functools.partial(process_step, args, config, recovery=recovery)
+    with executor:
+        for step in window_manager.unique_steps:
+            accum_data = load_input("accum", config, step)
+            completed_windows = window_manager.update_windows(
+                step, [] if accum_data is None else accum_data.values
+            )
+            for window_id, window in completed_windows:
+                if window.size() == 0:
+                    fields = load_input("inst", config, step)
+                else:
+                    # Set step range for de-accumulated fields
+                    fields = earthkit.data.FieldList.from_numpy(
+                        window.step_values,
+                        [
+                            x.override(stepType="diff", stepRange=window.name)
+                            for x in accum_data.metadata()
+                        ],
+                    )
+                    for field in fields:
+                        metadata = field.metadata()
+                        if config.is_target_param(
+                            "accum",
+                            {metadata.get("shortName"), metadata.get("paramId")},
+                        ):
+                            helpers.write(config.target("accum"), field)
+                    config.target("accum").flush()
 
                 fields += load_input("inst", config, step)
-            print(f"Step {step}, Input:")
-            print(fields.ls(namespace="mars"))
 
-            process_step(args, config, step, fields)
+                executor.submit(
+                    thermo_partial,
+                    window_id,
+                    ArrayFieldList(fields.values, fields.metadata()),
+                )
 
-            if args.usage:
-                print_usage()
-
-            print("----------------------------------------")
+        executor.wait()
 
     if args.timers:
         print_timers()

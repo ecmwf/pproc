@@ -118,6 +118,11 @@ def get_datetime(fields: earthkit.data.FieldList):
     return base_time, valid_time
 
 
+def get_step(fields: earthkit.data.FieldList):
+    temp = fields.sel(param="2t")
+    return temp[0].metadata().get("step")
+
+
 def latlon(fields: earthkit.data.FieldList):
     latlon = fields[0].to_latlon(flatten=True)
     lat = latlon["lat"]
