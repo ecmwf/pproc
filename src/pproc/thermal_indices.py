@@ -12,6 +12,7 @@
 #       It is designed to be used with ECMWF forecast data.
 
 import argparse
+import logging
 import os
 import sys
 from typing import List, Set
@@ -23,7 +24,7 @@ import earthkit.data
 import numpy as np
 import psutil
 import thermofeel as thermofeel
-from codetiming import Timer
+from meters import ResourceMeter, metered
 
 from pproc.common import Config, WindowManager, default_parser, Recovery, parallel
 from pproc.common.io import target_from_location
@@ -35,23 +36,24 @@ from pproc.thermo import helpers
 from pproc.thermo.indices import ComputeIndices
 from pproc.thermo.wrappers import ArrayFieldList
 
+logging.getLogger("pproc").setLevel(os.environ.get("PPROC_LOGLEVEL", "INFO").upper())
+logging.basicConfig(format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+logger = logging.getLogger(__name__)
 __version__ = "2.0.0"
 
 
-@Timer(name="proc_step", logger=None)
+@metered("Process step", out=logger.info)
 def process_step(args, config, window_id, fields, recovery):
     helpers.check_field_sizes(fields)
     basetime, validtime = helpers.get_datetime(fields)
     step = helpers.get_step(fields)
-
-    print(f"Step {step}, Input:")
-    print(fields.ls(namespace="mars"))
-
     time = basetime.hour
-    print(
-        f"validtime {validtime.isoformat()} - basetime {basetime.date().isoformat()} : time {time} step {step}"
-    )
 
+    logger.info(
+        f"Compute indices step {step}, validtime {validtime.isoformat()} - "
+        + f"basetime {basetime.date().isoformat()}, time {time}"
+    )
+    logger.debug(f"Inputs \n {fields.ls(namespace='mars')}")
     indices = ComputeIndices(config.out_keys)
 
     # Windspeed - shortName ws
@@ -140,8 +142,6 @@ def process_step(args, config, window_id, fields, recovery):
     if args.usage:
         print_usage()
 
-    print("----------------------------------------")
-
 
 class ThermoConfig(Config):
     def __init__(self, args: argparse.Namespace, verbose: bool = True):
@@ -200,7 +200,7 @@ def load_input(source: str, config: ThermoConfig, step: int):
 
     if len(ds) == 0:
         raise ValueError(f"No data found for request {req} from source {source}")
-    return earthkit.data.FieldList.from_numpy(ds.values, ds.metadata())
+    return earthkit.data.FieldList.from_array(ds.values, ds.metadata())
 
 
 def get_parser():
@@ -256,8 +256,8 @@ def print_usage():
     sysmemperc = psutil.virtual_memory().percent
     procmem = psutil.Process(os.getpid()).memory_info().rss / 1024**3  # in GiB
     procmemperc = psutil.Process(os.getpid()).memory_percent()
-    print(
-        f"[INFO] usage: cpu load {cpu_usage:5.1f}% -- proc mem {procmem:3.1f}GiB {procmemperc:3.1f}%"
+    logger.info(
+        f"Usage: cpu load {cpu_usage:5.1f}% -- proc mem {procmem:3.1f}GiB {procmemperc:3.1f}%"
         + f" -- sys mem {sysmem:3.1f}GiB {sysmemperc}%"
     )
 
@@ -280,13 +280,14 @@ def main(args: List[str] = sys.argv[1:]):
         )
     )
 
-    print(f"Compute Thermal Indices: {__version__}")
-    print(f"thermofeel: {thermofeel.__version__}")
-    print(f"earthkit.data: {earthkit.data.__version__}")
-    print(f"Numpy: {np.version.version}")
-    print(f"Python: {sys.version}")
-
-    print("----------------------------------------")
+    logger.info(f"Compute Thermal Indices: {__version__}")
+    logger.info(f"thermofeel: {thermofeel.__version__}")
+    logger.info(f"earthkit.data: {earthkit.data.__version__}")
+    logger.info(f"Numpy: {np.version.version}")
+    logger.info(f"Python: {sys.version}")
+    logger.debug(
+        f"Parallel processes: {config.n_par_compute}, queue size: {config.window_queue_size}"
+    )
 
     window_manager = WindowManager(config.options, {})
     if last_checkpoint is not None:
@@ -294,7 +295,7 @@ def main(args: List[str] = sys.argv[1:]):
             recovery.checkpoint_identifiers(x)[0] for x in recovery.checkpoints
         ]
         window_manager.delete_windows(checkpointed_windows)
-        print(f"Recovery: looping from step {window_manager.unique_steps[0]}")
+        logger.info(f"Recovery: looping from step {window_manager.unique_steps[0]}")
     thermo_partial = functools.partial(process_step, args, config, recovery=recovery)
     with executor:
         for step in window_manager.unique_steps:
@@ -307,7 +308,7 @@ def main(args: List[str] = sys.argv[1:]):
                     fields = load_input("inst", config, step)
                 else:
                     # Set step range for de-accumulated fields
-                    fields = earthkit.data.FieldList.from_numpy(
+                    fields = earthkit.data.FieldList.from_array(
                         window.step_values,
                         [
                             x.override(stepType="diff", stepRange=window.name)

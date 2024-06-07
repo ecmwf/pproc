@@ -2,7 +2,7 @@ from earthkit.data.readers.grib import metadata
 from earthkit.data.readers.grib import memory
 from earthkit.data.readers.grib import codes
 from earthkit.data import FieldList
-from earthkit.data.sources import numpy_list
+from earthkit.data.sources import array_list
 
 
 class GribMetadata(metadata.GribMetadata):
@@ -28,7 +28,7 @@ class GribMetadata(metadata.GribMetadata):
         return self
 
 
-class ArrayFieldList(numpy_list.NumpyFieldList):
+class ArrayFieldList(array_list.ArrayFieldList):
     def __init__(self, array, metadata):
         metadata = [GribMetadata(x._handle) for x in metadata]
         super().__init__(array, metadata)
@@ -40,6 +40,6 @@ class ArrayFieldList(numpy_list.NumpyFieldList):
         }
 
     def __setstate__(self, state: dict):
-        new_fieldlist = FieldList.from_numpy(state["array"], state["metadata"])
+        new_fieldlist = FieldList.from_array(state["array"], state["metadata"])
         self.__dict__.update(new_fieldlist.__dict__)
         del new_fieldlist

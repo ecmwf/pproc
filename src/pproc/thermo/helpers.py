@@ -1,9 +1,12 @@
 import earthkit.data
+import logging
 import numpy as np
 import thermofeel
-from codetiming import Timer
+from meters import metered
 
 from pproc import common
+
+logger = logging.getLogger(__name__)
 
 # Constants
 UTCI_MIN_VALUE = thermofeel.celsius_to_kelvin(-80)
@@ -42,7 +45,7 @@ def compute_ehPa_(rh_pc, svp):
     return svp * rh_pc * 0.01  # / 100.0
 
 
-@Timer(name="ehPa", logger=None)
+@metered("ehPa", out=logger.debug)
 def compute_ehPa(t2m, t2d):
     rh_pc = thermofeel.calculate_relative_humidity_percent(t2m, t2d)
     svp = thermofeel.calculate_saturation_vapour_pressure(t2m)
@@ -98,14 +101,16 @@ def validate_utci(utci, misses, lats, lons):
         v = utci[i]
         if v < UTCI_MIN_VALUE or v > UTCI_MAX_VALUE:
             out_of_bounds += 1
-            print("UTCI [", i, "] = ", utci[i], " : lat/lon ", lats[i], lons[i])
+            logger.info("UTCI [", i, "] = ", utci[i], " : lat/lon ", lats[i], lons[i])
         if np.isnan(v):
             nans += 1
-            print("UTCI [", i, "] = ", utci[i], " : lat/lon ", lats[i], lons[i])
+            logger.info("UTCI [", i, "] = ", utci[i], " : lat/lon ", lats[i], lons[i])
 
     nmisses = len(misses)
     if nmisses > 0 or out_of_bounds > 0 or nans > 0:
-        print(f"UTCI => nmisses {nmisses} out_of_bounds {out_of_bounds} NANs {nans}")
+        logger.info(
+            f"UTCI => nmisses {nmisses} out_of_bounds {out_of_bounds} NANs {nans}"
+        )
 
 
 def get_datetime(fields: earthkit.data.FieldList):

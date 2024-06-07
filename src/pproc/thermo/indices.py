@@ -1,10 +1,11 @@
 from datetime import timedelta
+import logging
+import numpy as np
 
 import earthkit.data
 import earthkit.meteo.solar
-import numpy as np
 import thermofeel
-from codetiming import Timer
+from meters import metered
 
 from pproc.thermo.helpers import (
     compute_ehPa,
@@ -16,6 +17,8 @@ from pproc.thermo.helpers import (
     units,
     validate_utci,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def metadata_intensity(fields):
@@ -37,11 +40,11 @@ class ComputeIndices:
         self.misses = {}
 
     def create_output(self, values, template, paramId):
-        return earthkit.data.FieldList.from_numpy(
+        return earthkit.data.FieldList.from_array(
             values, template.override(**self.out_keys, paramId=paramId)
         )
 
-    @Timer(name="cossza", logger=None)
+    @metered("cossza", out=logger.debug)
     def calc_cossza_int(self, fields):
 
         lats, lons = latlon(fields)
@@ -53,8 +56,6 @@ class ComputeIndices:
         dtbegin = validtime - timedelta(hours=delta)
         dtend = validtime
 
-        # print(f"computing cossza @ {validtime} tbegin {tbegin} tend {tend}")
-
         cossza = earthkit.meteo.solar.cos_solar_zenith_angle_integrated(
             latitudes=lats,
             longitudes=lons,
@@ -65,7 +66,7 @@ class ComputeIndices:
 
         return self.create_output(cossza, metadata_intensity(fields), "214001")
 
-    @Timer(name="ws", logger=None)
+    @metered("ws", out=logger.debug)
     def calc_ws(self, fields):
         u10 = field_values(fields, "10u")  # m/s
         v10 = field_values(fields, "10v")  # m/s
@@ -73,7 +74,7 @@ class ComputeIndices:
         ws = np.sqrt(u10**2 + v10**2)  # m/s
         return self.create_output(ws, metadata_wind(fields), "207")
 
-    @Timer(name="hmdx", logger=None)
+    @metered("hmdx", out=logger.debug)
     def calc_hmdx(self, fields):
         t2m = field_values(fields, "2t")  # Kelvin
         td = field_values(fields, "2d")  # Kelvin
@@ -82,7 +83,7 @@ class ComputeIndices:
 
         return self.create_output(hmdx, metadata_intensity(fields), "261016")
 
-    @Timer(name="rhp", logger=None)
+    @metered("rhp", out=logger.debug)
     def calc_rhp(self, fields):
         t2m = field_values(fields, "2t")  # Kelvin
         td = field_values(fields, "2d")  # Kelvin
@@ -91,7 +92,7 @@ class ComputeIndices:
 
         return self.create_output(rhp, metadata_intensity(fields), "260242")
 
-    @Timer(name="heatx", logger=None)
+    @metered("heatx", out=logger.debug)
     def calc_heatx(self, fields):
 
         t2m = field_values(fields, "2t")  # Kelvin
@@ -105,19 +106,18 @@ class ComputeIndices:
         if name in self.misses:
             values[self.misses[name]] = np.nan
 
-        if name in units:
+        try:
             unit = units[name]
-        else:
-            print(f"unknown unit for parameter {name}")
-            raise ValueError
+        except:
+            raise ValueError(f"No units specified for parameter {name}")
 
-        print(
+        logger.debug(
             f"{name:<8} {unit:<6} min {np.nanmin(values):>16.6f} max {np.nanmax(values):>16.6f} "
             f"avg {np.nanmean(values):>16.6f} stddev {np.nanstd(values, dtype=np.float64):>16.6f} "
             f"missing {np.count_nonzero(np.isnan(values)):>8}"
         )
 
-    @Timer(name="dsrp", logger=None)
+    @metered("dsrp", out=logger.debug)
     def approximate_dsrp(self, fields):
         """
         In the absence of dsrp, approximate it with fdir and cossza.
@@ -147,7 +147,7 @@ class ComputeIndices:
 
         return res
 
-    @Timer(name="utci", logger=None)
+    @metered("utci", out=logger.debug)
     def calc_utci(self, fields, *, print_misses=True, validate=True):
 
         lats, lons = latlon(fields)
@@ -172,7 +172,7 @@ class ComputeIndices:
 
         return self.create_output(utci, metadata_intensity(fields), "261001")
 
-    @Timer(name="wbgt", logger=None)
+    @metered("wbgt", out=logger.debug)
     def calc_wbgt(self, fields):
         t2m = field_values(fields, "2t")  # Kelvin
         t2d = field_values(fields, "2d")  # Kelvin
@@ -184,7 +184,7 @@ class ComputeIndices:
 
         return self.create_output(wbgt, metadata_intensity(fields), "261014")
 
-    @Timer(name="gt", logger=None)
+    @metered("gt", out=logger.debug)
     def calc_gt(self, fields):
         t2m = field_values(fields, "2t")  # Kelvin
 
@@ -195,7 +195,7 @@ class ComputeIndices:
 
         return self.create_output(gt, metadata_intensity(fields), "261015")
 
-    @Timer(name="wbpt", logger=None)
+    @metered("wbpt", out=logger.debug)
     def calc_wbpt(self, fields):
         t2m = field_values(fields, "2t")  # Kelvin
 
@@ -205,7 +205,7 @@ class ComputeIndices:
 
         return self.create_output(wbpt, metadata_intensity(fields), "261022")
 
-    @Timer(name="nefft", logger=None)
+    @metered("nefft", out=logger.debug)
     def calc_nefft(self, fields):
         t2m = field_values(fields, "2t")  # Kelvin
         ws = self.calc_field("10si", self.calc_ws, fields)[0].values  # m/s
@@ -217,7 +217,7 @@ class ComputeIndices:
 
         return self.create_output(nefft, metadata_intensity(fields), "261018")
 
-    @Timer(name="wcf", logger=None)
+    @metered("wcf", out=logger.debug)
     def calc_wcf(self, fields):
         t2m = field_values(fields, "2t")  # Kelvin
 
@@ -227,7 +227,7 @@ class ComputeIndices:
 
         return self.create_output(wcf, metadata_intensity(fields), "260005")
 
-    @Timer(name="aptmp", logger=None)
+    @metered("aptmp", out=logger.debug)
     def calc_aptmp(self, fields):
         t2m = field_values(fields, "2t")  # Kelvin
         rhp = self.calc_field("2r", self.calc_rhp, fields)[0].values  # %
@@ -239,13 +239,12 @@ class ComputeIndices:
 
         return self.create_output(aptmp, metadata_intensity(fields), "260255")
 
-    @Timer(name="mrt", logger=None)
+    @metered("mrt", out=logger.debug)
     def calc_mrt(self, fields):
 
         cossza = self.calc_field("uvcossza", self.calc_cossza_int, fields)[0].values
 
         # will use dsrp if available, otherwise approximate it
-        # print(fields.indices()['param'])
         if "dsrp" in fields.indices()["param"]:
             dsrp = field_values(fields, "dsrp")
         else:
