@@ -35,7 +35,7 @@ class ExtremeVariables:
         self.sot = list(map(int, efi_cfg["sot"]))
 
 
-def read_clim(fdb, climatology, window, n_clim=101, overrides={}):
+def read_clim(fdb, climatology, window, n_clim=101, overrides={}, mir_options=None):
     req = climatology["clim_keys"].copy()
     assert "date" in req
     req["time"] = "0000"
@@ -46,8 +46,8 @@ def read_clim(fdb, climatology, window, n_clim=101, overrides={}):
         req["step"] = window.name
     req.update(overrides)
 
-    print("Climatology request: ", req)
-    da_clim = common.fdb_read(fdb, req)
+    print("Climatology request: ", req, {"interpolate": mir_options})
+    da_clim = common.fdb_read(fdb, req, mir_options=mir_options)
     assert da_clim.values.shape[0] == n_clim
     da_clim_sorted = da_clim.reindex(quantile=[f"{x}:100" for x in range(n_clim)])
     print(da_clim_sorted)
@@ -137,7 +137,11 @@ def efi_sot(
         )
 
         clim, template_clim = read_clim(
-            common.io.fdb(), climatology, window, overrides=cfg.override_input
+            common.io.fdb(),
+            climatology,
+            window,
+            overrides=cfg.override_input,
+            mir_options=param.interpolation_keys,
         )
         print(f"Climatology array: {clim.shape}")
 
@@ -213,15 +217,17 @@ def main(args=None):
     parser.add_argument("--out_sot", required=True, help="Target for SOT")
     args = parser.parse_args(args)
     cfg = ConfigExtreme(args)
-    recovery = common.Recovery(
-        cfg.root_dir, args.config, cfg.fc_date, args.recover
-    )
+    recovery = common.Recovery(cfg.root_dir, args.config, cfg.fc_date, args.recover)
     last_checkpoint = recovery.last_checkpoint()
     executor = (
         SynchronousExecutor()
         if cfg.n_par_compute == 1
-        else QueueingExecutor(cfg.n_par_compute, cfg.window_queue_size, initializer=signal.signal,
-                              initargs=(signal.SIGTERM, signal.SIG_DFL))
+        else QueueingExecutor(
+            cfg.n_par_compute,
+            cfg.window_queue_size,
+            initializer=signal.signal,
+            initargs=(signal.SIGTERM, signal.SIG_DFL),
+        )
     )
 
     with executor:
@@ -259,9 +265,9 @@ def main(args=None):
                 cfg.n_par_read,
                 window_manager.unique_steps,
                 [param],
-                cfg.n_par_compute > 1, 
+                cfg.n_par_compute > 1,
                 initializer=signal.signal,
-                initargs=(signal.SIGTERM, signal.SIG_DFL)
+                initargs=(signal.SIGTERM, signal.SIG_DFL),
             ):
                 with ResourceMeter(f"Process step {step}"):
                     template, data = retrieved_data[0]
