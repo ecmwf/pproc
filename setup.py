@@ -10,7 +10,7 @@ setup(
     package_dir={'': 'src'},
     include_package_data=True,
     install_requires=[
-        "filelock>=3.12.0",
+        "filelock==3.12.0",
         "code-meters",
         "earthkit-meteo>=0.1.0"
     ],
