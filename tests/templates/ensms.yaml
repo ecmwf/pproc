@@ -1,0 +1,25 @@
+fc_date: '2024050712'
+grib_set:
+  mars.expver: '0001'
+  numberOfForecastsInEnsemble: 6
+  perturbationNumber: 0
+members: 5
+n_par: 1
+parameters:
+  2t:
+    base_request:
+      class: od
+      domain: g
+      expver: '0001'
+      levtype: sfc
+      stream: enfo
+      type: cf/pf
+    in_paramid: '167.128'
+    windows:
+    - periods:
+      - range:
+        - 12
+        - 12
+      - range:
+        - 36
+        - 36
