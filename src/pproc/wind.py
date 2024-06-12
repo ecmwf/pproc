@@ -146,17 +146,25 @@ def wind_speed(messages):
 
 def basic_template(cfg, template, step, marstype):
     new_template = template.copy()
-    new_template.set("bitsPerValue", 24)
-    new_template.set("marsType", marstype)
-    new_template.set("step", step)
+    grib_sets = {
+        "bitsPerValue": 24,
+        "marsType": marstype,
+        "step": step,
+        **cfg.options.get("grib_set", {})
+    }
     if step == 0:
-        new_template.set("timeRangeIndicator", 1)
+        grib_sets["timeRangeIndicator"] = 1
     elif step > 255:
-        new_template.set('timeRangeIndicator', 10)
+        grib_sets["timeRangeIndicator"] = 10
     else:
-        new_template.set("timeRangeIndicator", 0)
-    for key, value in cfg.options["grib_set"].items():
-        new_template.set(key, value)
+        grib_sets["timeRangeIndicator"] = 0
+    
+    if new_template["edition"] == 2 or grib_sets.get("edition", 1) == 2:
+        grib_sets["productDefinitionTemplateNumber"] = 2
+        if marstype in ["es", "em"]:
+            grib_sets["derivedForecast"] = 3 if marstype == "es" else 0
+    
+    new_template.set(grib_sets)
     return new_template
 
 
