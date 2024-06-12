@@ -83,7 +83,9 @@ class Parameter:
             )
 
             num_levels = len(self.levels())
-            assert new_data.shape[0] == num_levels * len(new_request.get("number", [0]))
+            expected = num_levels * len(new_request.get("number", [0]))
+            if new_data.shape[0] != expected:
+                raise ValueError(f"Expected {expected}, but got {new_data.shape[0]}")
             if num_levels > 1:
                 new_data = new_data.reshape(
                     (int(new_data.shape[0] / num_levels), num_levels, new_data.shape[1])
