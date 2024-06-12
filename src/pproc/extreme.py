@@ -61,68 +61,117 @@ def extreme_template(window, template_fc, template_clim):
 
     for key, value in window.config_grib_header.items():
         template_ext[key] = value
-
-    # EFI specific stuff
     template_ext["stepRange"] = window.name
-    if int(template_ext["timeRangeIndicator"]) == 3:
-        if template_ext["numberIncludedInAverage"] == 0:
-            template_ext["numberIncludedInAverage"] = len(window.steps)
-        template_ext["numberMissingFromAveragesOrAccumulations"] = 0
 
-    # set clim keys
-    clim_keys = [
-        "versionNumberOfExperimentalSuite",
-        "implementationDateOfModelCycle",
-        "numberOfReforecastYearsInModelClimate",
-        "numberOfDaysInClimateSamplingWindow",
-        "sampleSizeOfModelClimate",
-        "versionOfModelClimate",
-        "numberOfBitsContainingEachPackedValue",
-    ]
-    for key in clim_keys:
-        template_ext[key] = template_clim[key]
+    edition = template_ext["edition"]
+    clim_edition = template_clim["edition"]
+    if edition == 1 and clim_edition == 1:
+        # EFI specific stuff
+        if int(template_ext["timeRangeIndicator"]) == 3:
+            if template_ext["numberIncludedInAverage"] == 0:
+                template_ext["numberIncludedInAverage"] = len(window.steps)
+            template_ext["numberMissingFromAveragesOrAccumulations"] = 0
 
-    # set fc keys
-    fc_keys = [
-        "date",
-        "subCentre",
-        "totalNumber",
-    ]
-    for key in fc_keys:
-        template_ext[key] = template_fc[key]
+        # set clim keys
+        clim_keys = [
+            "versionNumberOfExperimentalSuite",
+            "implementationDateOfModelCycle",
+            "numberOfReforecastYearsInModelClimate",
+            "numberOfDaysInClimateSamplingWindow",
+            "sampleSizeOfModelClimate",
+            "versionOfModelClimate",
+            "numberOfBitsContainingEachPackedValue",
+        ]
+        for key in clim_keys:
+            template_ext[key] = template_clim[key]
+
+        # set fc keys
+        fc_keys = [
+            "date",
+            "subCentre",
+            "totalNumber",
+        ]
+        for key in fc_keys:
+            template_ext[key] = template_fc[key]
+    elif edition == 2 and clim_edition == 2:
+        clim_keys = [
+            "yearOfStartOfReferencePeriod",
+            "dayOfStartOfReferencePeriod",
+            "monthOfStartOfReferencePeriod",
+            "hourOfStartOfReferencePeriod",
+            "minuteOfStartOfReferencePeriod",
+            "secondOfStartOfReferencePeriod",
+        ]
+        grib_keys = {
+            "productDefinitionTemplateNumber": 105,
+            **{key: template_clim[key] for key in clim_keys},
+        }
+        template_ext.set(grib_keys)
+    else:
+        raise Exception(
+            f"Unsupported GRIB edition {edition} and clim edition {clim_edition}"
+        )
 
     return template_ext
 
 
 def efi_template(template):
     template_efi = template.copy()
-    template_efi["marsType"] = 27
-    template_efi["efiOrder"] = 0
-    template_efi["number"] = 0
+    edition = template_efi["edition"]
+    if edition == 1:
+        template_efi["marsType"] = 27
+        template_efi["efiOrder"] = 0
+        template_efi["number"] = 0
+    elif edition == 2:
+        grib_set = {"typeOfRelationToReferenceDataset": 20, "typeOfProcessedData": 5}
+        template_efi.set(grib_set)
+    else:
+        raise Exception(f"Unsupported GRIB edition {edition}")
     return template_efi
 
 
 def efi_template_control(template):
     template_efi = template.copy()
-    template_efi["marsType"] = 28
-    template_efi["efiOrder"] = 0
-    template_efi["totalNumber"] = 1
-    template_efi["number"] = 0
+    edition = template_efi["edition"]
+    if edition == 1:
+        template_efi["marsType"] = 28
+        template_efi["efiOrder"] = 0
+        template_efi["totalNumber"] = 1
+        template_efi["number"] = 0
+    elif edition == 2:
+        grib_set = {"typeOfRelationToReferenceDataset": 20, "typeOfProcessedData": 3}
+        template_efi.set(grib_set)
+    else:
+        raise Exception(f"Unsupported GRIB edition {edition}")
     return template_efi
 
 
 def sot_template(template, sot):
     template_sot = template.copy()
-    template_sot["marsType"] = 38
-    template_sot["number"] = sot
     if sot == 90:
-        template_sot["efiOrder"] = 99
+        efi_order = 99
     elif sot == 10:
-        template_sot["efiOrder"] = 1
+        efi_order = 1
     else:
         raise Exception(
-            "SOT value '{sot}' not supported in template! Only accepting 10 and 90"
+            f"SOT value '{sot}' not supported in template! Only accepting 10 and 90"
         )
+    edition = template_sot["edition"]
+    if edition == 1:
+        template_sot["marsType"] = 38
+        template_sot["number"] = sot
+        template_sot["efiOrder"] = efi_order
+    elif edition == 2:
+        grib_set = {
+            "typeOfRelationToReferenceDataset": 21,
+            "typeOfProcessedData": 5,
+            "numberOfAdditionalParametersForReferencePeriod": 2,
+            "scaleFactorOfAdditionalParameterForReferencePeriod": sot,
+            "scaledValueOfAdditionalParameterForReferencePeriod": efi_order,
+        }
+        template_sot.set(grib_set)
+    else:
+        raise Exception(f"Unsupported GRIB edition {edition}")
     return template_sot
 
 
