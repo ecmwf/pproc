@@ -90,7 +90,7 @@ def do_quantiles(
     template: eccodes.GRIBMessage,
     target: Target,
     out_paramid: Optional[str] = None,
-    n: int = 100,
+    n: Union[int, List[float]] = 100,
     out_keys: Optional[Dict[str, Any]] = None,
 ):
     """Compute quantiles
@@ -105,17 +105,22 @@ def do_quantiles(
         Target to write to
     out_paramid: str, optional
         Parameter ID to set on the output
-    n: int
-        Number of quantiles (default 100 = percentiles)
+    n: int or list of floats
+        List of quantiles to compute, e.g. `[0., 0.25, 0.5, 0.75, 1.]`, or
+        number of evenly-spaced intervals (default 100 = percentiles).
     out_keys: dict, optional
         Extra GRIB keys to set on the output
     """
+    even_spacing = isinstance(n, int) or np.all(np.diff(n) == n[1] - n[0])
+    num_quantiles = n if isinstance(n, int) else (len(n) - 1)
+    total_number = num_quantiles if even_spacing else 100
     for i, quantile in enumerate(iter_quantiles(ens, n, method="sort")):
+        pert_number = i if even_spacing else int(n[i] * 100)
         grib_keys = {
             **out_keys,
             "type": "pb",
-            "numberOfForecastsInEnsemble": n,
-            "perturbationNumber": i,
+            "numberOfForecastsInEnsemble": total_number,
+            "perturbationNumber": pert_number,
         }
         if out_paramid is not None:
             grib_keys["paramId"] = out_paramid
@@ -237,7 +242,12 @@ class QuantilesConfig(Config):
         super().__init__(args, verbose=verbose)
 
         self.num_members = self.options.get("num_members", 51)
-        self.num_quantiles = self.options.get("num_quantiles", 100)
+        if "quantiles" in self.options:
+            if "num_quantiles" in self.options:
+                raise ValueError("Cannot specify both num_quantiles and quantiles")
+            self.quantiles = self.options["quantiles"]
+        else:
+            self.quantiles = self.options.get("num_quantiles", 100)
 
         self.out_keys = self.options.get("out_keys", {})
 
@@ -276,7 +286,7 @@ def quantiles_iteration(
             template,
             target,
             param.out_paramid,
-            n=config.num_quantiles,
+            n=config.quantiles,
             out_keys=window.grib_header(),
         )
     if recovery is not None:
@@ -310,7 +320,8 @@ def main(args: List[str] = sys.argv[1:]):
     with executor:
         for param in config.params:
             window_manager = WindowManager(
-                param.window_config(config.windows, config.steps), param.out_keys(config.out_keys)
+                param.window_config(config.windows, config.steps),
+                param.out_keys(config.out_keys),
             )
             if last_checkpoint:
                 if param.name not in last_checkpoint:
