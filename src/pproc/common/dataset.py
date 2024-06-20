@@ -111,7 +111,7 @@ class FilteredReader(eccodes.reader.ReaderBase):
         for key, val in self.filters.items():
             if not isinstance(val, (list, tuple, range)):
                 val = [val]
-            if message.get(key, notset) not in val:
+            if message.get(key, notset, type(val[0])) not in val:
                 return False
         return True
 
