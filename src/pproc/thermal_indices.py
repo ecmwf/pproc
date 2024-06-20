@@ -476,15 +476,6 @@ def ifs_step_intervals(step, mclass, mstream):
         else:
             return step
 
-    if mclass == "ai" and mstream == "oper":
-        # currently setup for 6-hourly post-processing
-        assert step <= 360 
-        if step > 0:
-            return step - 6
-        else:
-            return step
-
-
     raise NotImplemented(f"Combination of MARS class {mclass} and stream {mstream} not recognised")
 
 def integration_interval(fields):
