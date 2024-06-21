@@ -17,7 +17,7 @@ Install pproc-bundle
 Clone the bundle https://git.ecmwf.int/projects/ECSDK/repos/pproc-bundle/browse. On the ECMWF HPC, load the following 
 modules::
 
-  module load intel/2021.4.0  hpcx-openmpi/2.9.0  python3/3.10.10-01 fftw/3.3.9  aec/1.0.6  openblas/0.3.13 tflite/2.13.0
+  module load intel/2021.4.0 hpcx-openmpi/2.9.0 python3/3.10.10-01 fftw/3.3.9 aec/1.0.6 openblas/0.3.13 tflite/2.13.0
 
 Build and install the underlying C/C++ software stack::
 
