@@ -74,7 +74,7 @@ Run the tests to check everything is working::
 Examples
 ========
 
-To use pproc you will need to add the libraries in the pproc-bundle to your `LD_LIBRARY_PATH`::
+To use pproc you will need to add the path to the libraries in the pproc-bundle to your `LD_LIBRARY_PATH`::
 
   export LD_LIBRARY_PATH=/path/to/pproc-bundle/install/lib64:$LD_LIBRARY_PATH
 
