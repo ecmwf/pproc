@@ -12,6 +12,7 @@ from pproc.ensms import main as ensms_main
 from pproc.extreme import main as extreme_main
 from pproc.quantiles import main as quantiles_main
 from pproc.wind import main as wind_main
+from pproc.thermal_indices import main as thermo_main
 from pproc.clustereps.__main__ import main as clustereps_main
 from conftest import DATA_DIR
 
@@ -111,6 +112,32 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
             6,
         ],
         [
+            "thermo",
+            thermo_main,
+            [],
+            True,
+            {
+                "type": "fc",
+                "stream": "oper",
+                "date": 20240605,
+                "time": 00,
+                "param": [
+                    261002,
+                    261001,
+                    260004,
+                    260005,
+                    260255,
+                    261016,
+                    261018,
+                    261015,
+                    261022,
+                    261014,
+                ],
+                "step": list(range(1, 4)),
+            },
+            30,
+        ],
+        [
             "clustereps",
             clustereps_main,
             [
@@ -150,7 +177,16 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
             18,
         ],
     ],
-    ids=["prob", "t850", "ensms", "extreme", "quantiles", "wind", "clustereps"],
+    ids=[
+        "prob",
+        "t850",
+        "ensms",
+        "extreme",
+        "quantiles",
+        "wind",
+        "thermofeel",
+        "clustereps",
+    ],
 )
 def test_products(
     tmpdir, monkeypatch, fdb, product, main, custom_args, pass_args, req, length
