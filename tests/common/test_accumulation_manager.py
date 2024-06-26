@@ -112,6 +112,7 @@ EXPECT_COORDS = {
 def test_create(config, accums, coords):
     mgr = AccumulationManager.create(config)
     assert mgr.coords == coords
+    assert mgr.sorted_coords() == {key: sorted(coo) for key, coo in coords.items()}
     acc_coords_all = list(dict_product({key: coo for key, (_, coo) in accums.items()}))
     for acc in mgr.accumulations.values():
         matched = True

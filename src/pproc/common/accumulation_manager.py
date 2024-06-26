@@ -62,6 +62,7 @@ class AccumulationManager:
                 sc[key] = sorted(coords)
             else:
                 sc[key] = sorted(coords, key=sortkey)
+        return sc
 
     def feed(
         self, keys: Dict[str, Coord], values: np.ndarray
