@@ -299,7 +299,11 @@ def test_create_multidim():
             },
         }
     }
-    expected_accums = ["step_0-24_0", "step_12-36_0", "step_24-48_0"]
+    expected_accums = [
+        "step_0-24_0:hdate_20200218-20230218",
+        "step_12-36_0:hdate_20200218-20230218",
+        "step_24-48_0:hdate_20200218-20230218",
+    ]
     expected_dims = [("step", Mean), ("hdate", Aggregation)]
     expected_coords = {
         "step": set(range(6, 49, 6)),

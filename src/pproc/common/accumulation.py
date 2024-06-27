@@ -413,6 +413,12 @@ def convert_coords(config: Union[dict, list]) -> Coords:
     return coords
 
 
+def coords_extent(config: Union[dict, list]) -> Tuple[Coord, Coord]:
+    if isinstance(config, dict):
+        return config.get("from", 0), config["to"]
+    return min(config), max(config)
+
+
 def create_accumulation(config: dict, dtype: DTypeLike = np.float32) -> Accumulation:
     op = config.get("operation", "aggregation")
     coords = convert_coords(config["coords"])

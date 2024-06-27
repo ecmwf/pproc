@@ -2,7 +2,7 @@ from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Tuple
 
 import numpy as np
 
-from pproc.common.accumulation import Accumulator, Coord
+from pproc.common.accumulation import Accumulator, Coord, coords_extent
 from pproc.common.utils import dict_product
 from pproc.common.window import legacy_window_factory
 
@@ -13,11 +13,13 @@ def _default_accumulation_factory(
     for coords in config["coords"]:
         acc_config = config.copy()
         acc_config["coords"] = coords
+        min_coord, max_coord = coords_extent(coords)
+        name = f"{min_coord}" if min_coord == max_coord else f"{min_coord}-{max_coord}"
         acc_grib_keys = grib_keys.copy()
         acc_grib_keys.update(acc_config.get("grib_keys", {}))
         if acc_grib_keys:
             acc_config["grib_keys"] = acc_grib_keys
-        yield "", acc_config
+        yield name, acc_config
 
 
 def _make_accumulation_configs(
