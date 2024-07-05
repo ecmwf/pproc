@@ -193,9 +193,9 @@ def main(args: List[str] = sys.argv[1:]):
                 [requester],
                 config.n_par_compute > 1,
             ):
-                step = keys["step"]
+                ids = ", ".join(f"{k}={v}" for k, v in keys.items())
                 template, ens = data[0]
-                with ResourceMeter(f"{param.name}, step {step}: Compute accumulation"):
+                with ResourceMeter(f"{param.name}, {ids}: Compute accumulation"):
                     completed_windows = window_manager.update_windows(keys, ens)
                     del ens
                 for window_id, accum in completed_windows:
