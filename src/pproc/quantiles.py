@@ -129,6 +129,7 @@ def quantiles_iteration(
             n=config.num_quantiles,
             out_keys=accum.grib_keys(),
         )
+        target.flush()
     if recovery is not None:
         recovery.add_checkpoint(param.name, window_id)
 

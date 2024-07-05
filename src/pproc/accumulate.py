@@ -138,6 +138,7 @@ def postproc_iteration(
             out_paramid=param.out_paramid,
             out_keys=accum.grib_keys(),
         )
+        target.flush()
     if recovery is not None:
         recovery.add_checkpoint(param.name, window_id)
 
