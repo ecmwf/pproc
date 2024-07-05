@@ -190,7 +190,7 @@ def load_input(source: str, config: ThermoConfig, step: int):
     if ":" in src:
         src, loc = src.split(":")
     if src == "fdb":
-        ds = earthkit.data.from_source("fdb", req, stream=True, batch_size=0)
+        ds = earthkit.data.from_source("fdb", req, stream=True, read_all=True)
     elif src == "fileset":
         loc.format_map(req)
         req["paramId"] = req.pop("param")
