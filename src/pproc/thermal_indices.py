@@ -153,8 +153,13 @@ class ThermoConfig(Config):
         self.root_dir = self.options.get("root_dir", None)
         self.n_par_compute = self.options.get("n_par_compute", 1)
         self.window_queue_size = self.options.get("queue_size", self.n_par_compute)
+        self._parse_windows()
         self.targets = {}
-        for param_type in ["indices", "intermediate", "accum"]:
+        for param_type, target_options in self.options.get("targets", {}).items():
+            if param_type not in ["indices", "intermediate", "accum"]:
+                raise ValueError(
+                    f"Unknown target type {param_type}. Must be indices, intermediate or accum"
+                )
             target_options = self.options.get("targets", {}).get(param_type, {})
             target = target_from_location(
                 target_options.get("target", "null:"), overrides=self.override_output
@@ -177,6 +182,25 @@ class ThermoConfig(Config):
     def flush_targets(self):
         for param_target in self.targets.values():
             param_target["target"].flush()
+
+    def _parse_windows(self):
+        window_config = self.options.pop("windows")
+        periods = []
+        for roptions in window_config["ranges"]:
+            periods += [
+                {"range": [x, x + roptions["interval"]]}
+                for x in range(
+                    roptions["start_step"],
+                    roptions["end_step"] + 1,
+                    roptions["interval"],
+                )
+            ]
+        self.options["windows"] = [
+            {
+                "window_operation": window_config["operation"],
+                "periods": periods,
+            }
+        ]
 
 
 def load_input(source: str, config: ThermoConfig, step: int):
@@ -342,5 +366,4 @@ def main(args: List[str] = sys.argv[1:]):
     return 0
 
 
-if __name__ == "__main__":
-    sys.exit(main())
+if __name
