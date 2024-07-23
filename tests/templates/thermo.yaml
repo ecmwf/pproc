@@ -1,6 +1,8 @@
 out_keys:        
-  edition: 2                            
+  edition: 2    
+  bitsPerValue: 16                        
   typeOfGeneratingProcess: 2
+  packingType: grid_ccsds
 fc_date: '2024060500'
 n_par_compute: 1
 defs: 
@@ -50,8 +52,8 @@ targets:
       - wbgt
     target: "fdb:"
 windows:                                 
-- window_operation: diff
-  periods:
-  - range: [0, 1]
-  - range: [1, 2]
-  - range: [2, 3]
+  operation: diff
+  ranges:
+  - start_step: 0
+    end_step: 2
+    interval: 1
