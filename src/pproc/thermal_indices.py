@@ -27,7 +27,7 @@ import thermofeel as thermofeel
 from meters import ResourceMeter, metered
 
 from pproc.common import Config, WindowManager, default_parser, Recovery, parallel
-from pproc.common.io import target_from_location
+from pproc.common.io import target_from_location, NullTarget
 from pproc.common.parallel import (
     SynchronousExecutor,
     QueueingExecutor,
@@ -160,23 +160,26 @@ class ThermoConfig(Config):
                 raise ValueError(
                     f"Unknown target type {param_type}. Must be indices, intermediate or accum"
                 )
-            target_options = self.options.get("targets", {}).get(param_type, {})
             target = target_from_location(
-                target_options.get("target", "null:"), overrides=self.override_output
+                target_options["target"], overrides=self.override_output
             )
             if self.n_par_compute > 1:
                 target.enable_parallel(parallel)
             if args.recover:
                 target.enable_recovery()
             self.targets[param_type] = {
-                "params": set(target_options.get("params", [])),
+                "params": set(target_options["params"]),
                 "target": target,
             }
 
     def target(self, param_type: str):
+        if param_type not in self.targets:
+            return NullTarget()
         return self.targets[param_type]["target"]
 
     def is_target_param(self, param_type: str, valid_names: Set[str]) -> bool:
+        if param_type not in self.targets:
+            return False
         return bool(self.targets[param_type]["params"] & valid_names.union({"all"}))
 
     def flush_targets(self):
