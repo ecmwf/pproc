@@ -195,6 +195,8 @@ def load_input(source: str, config: ThermoConfig, step: int):
         loc.format_map(req)
         req["paramId"] = req.pop("param")
         ds = earthkit.data.from_source("file", loc).sel(req)
+    elif src == "mars":
+        ds = earthkit.data.from_source("mars", req)
     else:
         raise ValueError(f"Unknown source {source}")
 
