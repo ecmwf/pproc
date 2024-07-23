@@ -366,4 +366,5 @@ def main(args: List[str] = sys.argv[1:]):
     return 0
 
 
-if __name
+if __name__ == "__main__":
+    sys.exit(main())
