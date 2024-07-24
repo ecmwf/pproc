@@ -26,10 +26,6 @@ def metadata_intensity(fields):
     return fields.sel(param="2t").metadata()[0]
 
 
-def metadata_wind(fields):
-    return fields.sel(param="10u").metadata()[0]
-
-
 def metadata_accumulation(fields):
     return fields.sel(param="fdir").metadata()[0]
 
@@ -50,10 +46,10 @@ class ComputeIndices:
         grib_set = copy.deepcopy(self.out_keys)
         grib_set.update(overrides)
         template = template.override(
-            **grib_set, 
-            typeOfFirstFixedSurface=1, 
+            **grib_set,
+            typeOfFirstFixedSurface=1,
             scaleFactorOfFirstFixedSurface="MISSING",
-            scaledValueOfFirstFixedSurface="MISSING"
+            scaledValueOfFirstFixedSurface="MISSING",
         )
         return earthkit.data.FieldList.from_array(values, template)
 
@@ -83,12 +79,13 @@ class ComputeIndices:
     def calc_ws(self, fields):
         if "10si" in fields.indices()["param"]:
             return fields.sel(param="10si")
-            
+
         u10 = field_values(fields, "10u")  # m/s
         v10 = field_values(fields, "10v")  # m/s
 
         ws = np.sqrt(u10**2 + v10**2)  # m/s
-        return self.create_output(ws, metadata_wind(fields), paramId="207")
+        template = fields.sel(param="10u").metadata()[0]
+        return self.create_output(ws, template, paramId="207")
 
     @metered("hmdx", out=logger.debug)
     def calc_hmdx(self, fields):
@@ -97,7 +94,9 @@ class ComputeIndices:
 
         hmdx = thermofeel.calculate_humidex(t2_k=t2m, td_k=td)  # Kelvin
 
-        return self.create_surface_output(hmdx, metadata_intensity(fields), paramId="261016")
+        return self.create_surface_output(
+            hmdx, metadata_intensity(fields), paramId="261016"
+        )
 
     @metered("rhp", out=logger.debug)
     def calc_rhp(self, fields):
@@ -116,7 +115,9 @@ class ComputeIndices:
 
         heatx = thermofeel.calculate_heat_index_adjusted(t2_k=t2m, td_k=td)  # Kelvin
 
-        return self.create_surface_output(heatx, metadata_intensity(fields), paramId="260004")
+        return self.create_surface_output(
+            heatx, metadata_intensity(fields), paramId="260004"
+        )
 
     def field_stats(self, name, values):
         if name in self.misses:
@@ -186,7 +187,9 @@ class ComputeIndices:
         utci[missing] = np.nan
         self.misses["utci"] = missing
 
-        return self.create_surface_output(utci, metadata_intensity(fields), paramId="261001")
+        return self.create_surface_output(
+            utci, metadata_intensity(fields), paramId="261001"
+        )
 
     @metered("wbgt", out=logger.debug)
     def calc_wbgt(self, fields):
@@ -198,7 +201,9 @@ class ComputeIndices:
 
         wbgt = thermofeel.calculate_wbgt(t2m, mrt, ws, t2d)  # Kelvin
 
-        return self.create_surface_output(wbgt, metadata_intensity(fields), paramId="261014")
+        return self.create_surface_output(
+            wbgt, metadata_intensity(fields), paramId="261014"
+        )
 
     @metered("gt", out=logger.debug)
     def calc_gt(self, fields):
@@ -209,7 +214,9 @@ class ComputeIndices:
 
         gt = thermofeel.calculate_bgt(t2m, mrt, ws)  # Kelvin
 
-        return self.create_surface_output(gt, metadata_intensity(fields), paramId="261015")
+        return self.create_surface_output(
+            gt, metadata_intensity(fields), paramId="261015"
+        )
 
     @metered("wbpt", out=logger.debug)
     def calc_wbpt(self, fields):
@@ -219,7 +226,9 @@ class ComputeIndices:
 
         wbpt = thermofeel.calculate_wbt(t2_k=t2m, rh=rhp)  # Kelvin
 
-        return self.create_surface_output(wbpt, metadata_intensity(fields), paramId="261022")
+        return self.create_surface_output(
+            wbpt, metadata_intensity(fields), paramId="261022"
+        )
 
     @metered("nefft", out=logger.debug)
     def calc_nefft(self, fields):
@@ -231,7 +240,9 @@ class ComputeIndices:
             t2m, ws, rhp
         )  # Kelvin
 
-        return self.create_surface_output(nefft, metadata_intensity(fields), paramId="261018")
+        return self.create_surface_output(
+            nefft, metadata_intensity(fields), paramId="261018"
+        )
 
     @metered("wcf", out=logger.debug)
     def calc_wcf(self, fields):
@@ -241,7 +252,9 @@ class ComputeIndices:
 
         wcf = thermofeel.calculate_wind_chill(t2m, ws)  # Kelvin
 
-        return self.create_surface_output(wcf, metadata_intensity(fields), paramId="260005")
+        return self.create_surface_output(
+            wcf, metadata_intensity(fields), paramId="260005"
+        )
 
     @metered("aptmp", out=logger.debug)
     def calc_aptmp(self, fields):
@@ -253,7 +266,9 @@ class ComputeIndices:
             t2_k=t2m, va=ws, rh=rhp
         )  # Kelvin
 
-        return self.create_surface_output(aptmp, metadata_intensity(fields), paramId="260255")
+        return self.create_surface_output(
+            aptmp, metadata_intensity(fields), paramId="260255"
+        )
 
     @metered("mrt", out=logger.debug)
     def calc_mrt(self, fields):
@@ -294,4 +309,6 @@ class ComputeIndices:
             ssrd * f, ssr * f, dsrp * f, strd * f, fdir * f, strr * f, cossza
         )  # Kelvin
 
-        return self.create_surface_output(mrt, metadata_intensity(fields), paramId="261002")
+        return self.create_surface_output(
+            mrt, metadata_intensity(fields), paramId="261002"
+        )
