@@ -27,7 +27,7 @@ import thermofeel as thermofeel
 from meters import ResourceMeter, metered
 
 from pproc.common import Config, WindowManager, default_parser, Recovery, parallel
-from pproc.common.io import target_from_location
+from pproc.common.io import target_from_location, NullTarget
 from pproc.common.parallel import (
     SynchronousExecutor,
     QueueingExecutor,
@@ -153,25 +153,55 @@ class ThermoConfig(Config):
         self.root_dir = self.options.get("root_dir", None)
         self.n_par_compute = self.options.get("n_par_compute", 1)
         self.window_queue_size = self.options.get("queue_size", self.n_par_compute)
+        self._parse_windows()
+        self._create_targets(args.recover)
+
+    def _parse_windows(self):
+        window_config = self.options.pop("windows")
+        periods = []
+        for roptions in window_config["ranges"]:
+            periods += [
+                {"range": [x, x + roptions["interval"]]}
+                for x in range(
+                    roptions["start_step"],
+                    roptions["end_step"] + 1,
+                    roptions["interval"],
+                )
+            ]
+        self.options["windows"] = [
+            {
+                "window_operation": window_config["operation"],
+                "periods": periods,
+            }
+        ]
+
+    def _create_targets(self, recover: bool):
         self.targets = {}
-        for param_type in ["indices", "intermediate", "accum"]:
-            target_options = self.options.get("targets", {}).get(param_type, {})
+        for param_type, target_options in self.options.get("targets", {}).items():
+            if param_type not in ["indices", "intermediate", "accum"]:
+                raise ValueError(
+                    f"Unknown target type {param_type}. Must be indices, intermediate or accum"
+                )
             target = target_from_location(
-                target_options.get("target", "null:"), overrides=self.override_output
+                target_options["target"], overrides=self.override_output
             )
             if self.n_par_compute > 1:
                 target.enable_parallel(parallel)
-            if args.recover:
+            if recover:
                 target.enable_recovery()
             self.targets[param_type] = {
-                "params": set(target_options.get("params", [])),
+                "params": set(target_options["params"]),
                 "target": target,
             }
 
     def target(self, param_type: str):
+        if param_type not in self.targets:
+            return NullTarget()
         return self.targets[param_type]["target"]
 
     def is_target_param(self, param_type: str, valid_names: Set[str]) -> bool:
+        if param_type not in self.targets:
+            return False
         return bool(self.targets[param_type]["params"] & valid_names.union({"all"}))
 
     def flush_targets(self):
@@ -195,6 +225,8 @@ def load_input(source: str, config: ThermoConfig, step: int):
         loc.format_map(req)
         req["paramId"] = req.pop("param")
         ds = earthkit.data.from_source("file", loc).sel(req)
+    elif src == "mars":
+        ds = earthkit.data.from_source("mars", req)
     else:
         raise ValueError(f"Unknown source {source}")
 
