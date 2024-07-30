@@ -9,7 +9,7 @@ import select
 import shlex
 import subprocess
 from tempfile import NamedTemporaryFile, mktemp
-from typing import List, Union
+from typing import List, Union, AnyStr
 
 
 def _mkftemp(dir=None, mode=0o600, num_attempts=1000):
@@ -158,14 +158,15 @@ def _val_to_mars(val):
     return val.encode("utf-8")
 
 
-def _to_mars(verb: bytes, req: dict) -> bytes:
+def to_mars(verb: str, req: dict, return_bytes: bool = False) -> AnyStr:
     def _gen_req():
-        yield verb
+        yield verb.encode("utf-8")
         for key, val in req.items():
             key = key.encode("utf-8")
             val = _val_to_mars(val)
             yield key + b"=" + val
-    return b",".join(_gen_req())
+    ret = b",".join(_gen_req())
+    return ret if return_bytes else ret.decode("utf-8")
 
 
 def mars_retrieve(req: dict, mars_cmd: Union[str, List[str]] = "mars", tmpdir=None) -> MARSReader:
@@ -174,7 +175,7 @@ def mars_retrieve(req: dict, mars_cmd: Union[str, List[str]] = "mars", tmpdir=No
         req_file = stack.enter_context(NamedTemporaryFile(dir=tmpdir))
         fifo = stack.enter_context(FIFO(dir=tmpdir))
         req['target'] = '"' + fifo.path + '"'
-        req_s = _to_mars(b"retrieve", req)
+        req_s = to_mars("retrieve", req, return_bytes=True)
         req_file.write(req_s + b"\n")
         req_file.flush()
         cmd = shlex.split(mars_cmd) if isinstance(mars_cmd, str) else mars_cmd
