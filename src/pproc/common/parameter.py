@@ -87,7 +87,7 @@ class Parameter:
             number = len(new_request.get("number", [0]))
             assert (
                 new_data.shape[0] == num_levels * number
-            ), f"Incorrect number of messages retrieved. Expected ({num_levels} levels x {number}) messages, got {new_data.shape[0]}."
+            ), f"Incorrect number of messages retrieved. Expected {num_levels * number} messages, got {new_data.shape[0]}."
             if num_levels > 1:
                 new_data = new_data.reshape(
                     (int(new_data.shape[0] / num_levels), num_levels, new_data.shape[1])
