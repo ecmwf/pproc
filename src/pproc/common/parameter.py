@@ -82,11 +82,16 @@ class Parameter:
             message_temp, new_data = common.fdb_read_with_template(
                 fdb, new_request, self.interpolation_keys
             )
-        
+
             num_levels = len(self.levels())
-            assert new_data.shape[0] == num_levels*len(new_request.get("number", [0]))
+            number = len(new_request.get("number", [0]))
+            assert (
+                new_data.shape[0] == num_levels * number
+            ), f"Incorrect number of messages retrieved. Expected ({num_levels} levels x {number}) messages, got {new_data.shape[0]}."
             if num_levels > 1:
-                new_data = new_data.reshape((int(new_data.shape[0]/num_levels), num_levels, new_data.shape[1]))
+                new_data = new_data.reshape(
+                    (int(new_data.shape[0] / num_levels), num_levels, new_data.shape[1])
+                )
 
             if len(combined_data) == 0:
                 combined_data = new_data
@@ -141,7 +146,8 @@ class Parameter:
         if isinstance(levelist, int):
             return [levelist]
         return levelist
-    
+
+
 class CombineParameters(Parameter):
     def __init__(
         self,
