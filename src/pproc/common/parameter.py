@@ -85,9 +85,11 @@ class Parameter:
 
             num_levels = len(self.levels())
             number = len(new_request.get("number", [0]))
-            assert (
-                new_data.shape[0] == num_levels * number
-            ), f"Incorrect number of messages retrieved. Expected {num_levels * number} messages, got {new_data.shape[0]}."
+            assert new_data.shape[0] == num_levels * number, (
+                "Incorrect number of messages retrieved for request: "
+                + f"{common.io.mars_str(new_request)}. "
+                + f"Expected {num_levels * number} messages, got {new_data.shape[0]}."
+            )
             if num_levels > 1:
                 new_data = new_data.reshape(
                     (int(new_data.shape[0] / num_levels), num_levels, new_data.shape[1])

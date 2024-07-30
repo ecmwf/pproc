@@ -534,3 +534,12 @@ def write_template(filepath, template):
 def read_template(filepath):
     assert isinstance(filepath, str)
     return list(eccodes.FileReader(filepath))[0]
+
+
+def mars_str(request: dict) -> str:
+    ret = ""
+    for key, value in request.items():
+        if isinstance(value, (list, range)):
+            value = "/".join(map(str, value))
+        ret += f"{key}={value},"
+    return ret[:-1]
