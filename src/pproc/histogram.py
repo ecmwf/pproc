@@ -9,6 +9,7 @@ import numpy as np
 import eccodes
 from meters import ResourceMeter
 
+from pproc.common.accumulation import Accumulator
 from pproc.common.config import Config, default_parser
 from pproc.common.dataset import open_multi_dataset
 from pproc.common.grib_helpers import construct_message
@@ -209,12 +210,14 @@ def write_iteration(
     target: Target,
     recovery: Optional[Recovery],
     template: Union[str, eccodes.GRIBMessage],
-    step: AnyStep,
-    hist: np.ndarray,
+    window_id: str,
+    accum: Accumulator,
 ):
     if not isinstance(template, eccodes.GRIBMessage):
         template = read_template(template)
-    with ResourceMeter(f"{param.name}, step {step!s}: Write histogram"):
+    with ResourceMeter(f"{param.name}, window {window_id!s}: Write histogram"):
+        hist = accum.values
+        assert hist is not None
         write_histogram(
             hist,
             template,
@@ -225,7 +228,7 @@ def write_iteration(
             out_keys=param.out_keys(config.out_keys),
         )
     if recovery is not None:
-        recovery.add_checkpoint(param.name, str(step))
+        recovery.add_checkpoint(param.name, str(window_id))
 
 
 def main(args: List[str] = sys.argv[1:]):
@@ -284,10 +287,14 @@ def main(args: List[str] = sys.argv[1:]):
                 [requester],
                 config.n_par_compute > 1,
             ):
-                step = keys["step"]
-                print(f"Processing step {step}")
-                template, hist = data[0]
-                executor.submit(write_partial, template, step, hist)
+                ids = ", ".join(f"{k}={v}" for k, v in keys.items())
+                template, ens = data[0]
+                with ResourceMeter(f"{param.name}, {ids}: Compute accumulation"):
+                    completed_windows = window_manager.update_windows(keys, ens)
+                    del ens
+                for window_id, accum in completed_windows:
+                    executor.submit(write_partial, template, window_id, accum)
+
             executor.wait()
 
     if recovery is not None:
