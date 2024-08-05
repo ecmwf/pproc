@@ -103,7 +103,7 @@ def translate_window_config(
     elif window_operation == "add":
         config = parse_window_config(window_options, include_init)
         operation = "sum"
-    elif window_operation in ["minimum", "maximum"]:
+    elif window_operation in ["minimum", "maximum", "mean", "aggregation"]:
         config = parse_window_config(window_options, include_init)
         operation = window_operation
     elif window_operation == "weightedsum":
@@ -115,9 +115,6 @@ def translate_window_config(
         config.steps = [config.start, config.end]
         extra["factor"] = 1.0 / 24.0
         operation = "difference_rate"
-    elif window_operation == "mean":
-        config = parse_window_config(window_options, include_init)
-        operation = "mean"
     elif window_operation == "precomputed":
         config = parse_window_config(window_options, True)
         config.steps = [Step(config.start, config.end)]
@@ -126,7 +123,8 @@ def translate_window_config(
     if config is None:
         raise ValueError(
             f"Unsupported window operation {window_operation}. Supported types: "
-            + "diff, minimum, maximum, add, weightedsum, diffdailyrate, mean and precomputed"
+            + "diff, minimum, maximum, add, weightedsum, diffdailyrate, mean, "
+            + "aggregation and precomputed"
         )
 
     if coords is None:
