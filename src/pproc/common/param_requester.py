@@ -185,13 +185,13 @@ class ParamRequester:
         if keys.get("type") == "pf":
             keys["number"] = range(1, self.members)
 
-    def filter_data(self, data: np.ndarray, step: AnyStep) -> np.ndarray:
+    def filter_data(self, data: np.ndarray, step: AnyStep, **kwargs) -> np.ndarray:
         filt = self.param.filter
         if filt is None:
             return data
         fdata = data
         if filt.param is not None:
-            filt_keys = self.param.in_keys(step=str(step))[0]
+            filt_keys = self.param.in_keys(step=str(step), **kwargs)[0]
             filt_keys["param"] = filt.param
             _, fdata = read_ensemble(
                 self.sources,
@@ -237,7 +237,7 @@ class ParamRequester:
             data_list.append(data)
         return (
             template,
-            self.filter_data(self.combine_data(data_list), step) * self.param.scale,
+            self.filter_data(self.combine_data(data_list), step, **kwargs) * self.param.scale,
         )
 
     @property
