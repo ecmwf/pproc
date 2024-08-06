@@ -143,7 +143,7 @@ def field_values(fields: earthkit.data.FieldList, param: str) -> np.ndarray:
         raise ValueError(
             f"Field {param} not found in fields {fields.ls(namespace='mars')}"
         )
-    return sel[0].values
+    return sel.to_numpy()
 
 
 def check_field_sizes(fields: earthkit.data.FieldList):
@@ -174,8 +174,9 @@ def write(
     ds: "earthkit.data.FieldList | earthkit.data.core.fieldlist.Field",
 ):
     if isinstance(ds, earthkit.data.FieldList):
-        if len(ds) != 1:
-            raise ValueError("Expected a single field, got multiple")
-        ds = ds[0]
-    message = ds.metadata()._handle
-    common.io.write_grib(target, message, ds.values)
+        for f in ds:
+            message = f.metadata()._handle
+            common.io.write_grib(target, message, f.values)
+    else:
+        message = ds.metadata()._handle
+        common.io.write_grib(target, message, ds.values)
