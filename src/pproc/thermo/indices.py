@@ -142,7 +142,7 @@ class ComputeIndices:
         Note this introduces some amount of error as cossza approaches zero
         """
         fdir = field_values(fields, "fdir")  # W/m2
-        cossza = self.calc_field("uvcossza", self.calc_cossza_int, fields)[0].values
+        cossza = self.calc_field("uvcossza", self.calc_cossza_int, fields).to_array()
 
         dsrp = thermofeel.approximate_dsrp(fdir, cossza)
 
@@ -156,7 +156,7 @@ class ComputeIndices:
 
         res = func(fields, **kwargs)
 
-        self.field_stats(name, res[0].values)
+        self.field_stats(name, res.to_array())
         if self.results is None:
             self.results = res
         else:
@@ -173,8 +173,8 @@ class ComputeIndices:
         t2m = field_values(fields, "2t")  # Kelvin
         t2d = field_values(fields, "2d")  # Kelvin
 
-        ws = self.calc_field("10si", self.calc_ws, fields)[0].values  # m/s
-        mrt = self.calc_field("mrt", self.calc_mrt, fields)[0].values  # Kelvin
+        ws = self.calc_field("10si", self.calc_ws, fields).to_array()  # m/s
+        mrt = self.calc_field("mrt", self.calc_mrt, fields).to_array() # Kelvin
 
         ehPa = compute_ehPa(t2m, t2d)
 
@@ -204,8 +204,8 @@ class ComputeIndices:
         t2m = field_values(fields, "2t")  # Kelvin
         t2d = field_values(fields, "2d")  # Kelvin
 
-        ws = self.calc_field("10si", self.calc_ws, fields)[0].values  # m/s
-        mrt = self.calc_field("mrt", self.calc_mrt, fields)[0].values  # Kelvin
+        ws = self.calc_field("10si", self.calc_ws, fields).to_array()  # m/s
+        mrt = self.calc_field("mrt", self.calc_mrt, fields).to_array() # Kelvin
 
         wbgt = thermofeel.calculate_wbgt(t2m, mrt, ws, t2d)  # Kelvin
 
@@ -217,8 +217,8 @@ class ComputeIndices:
     def calc_gt(self, fields):
         t2m = field_values(fields, "2t")  # Kelvin
 
-        ws = self.calc_field("10si", self.calc_ws, fields)[0].values  # m/s
-        mrt = self.calc_field("mrt", self.calc_mrt, fields)[0].values  # Kelvin
+        ws = self.calc_field("10si", self.calc_ws, fields).to_array()  # m/s
+        mrt = self.calc_field("mrt", self.calc_mrt, fields).to_array()  # Kelvin
 
         gt = thermofeel.calculate_bgt(t2m, mrt, ws)  # Kelvin
 
@@ -230,7 +230,7 @@ class ComputeIndices:
     def calc_wbpt(self, fields):
         t2m = field_values(fields, "2t")  # Kelvin
 
-        rhp = self.calc_field("2r", self.calc_rhp, fields)[0].values  # %
+        rhp = self.calc_field("2r", self.calc_rhp, fields).to_array()  # %
 
         wbpt = thermofeel.calculate_wbt(t2_k=t2m, rh=rhp)  # Kelvin
 
@@ -241,8 +241,8 @@ class ComputeIndices:
     @metered("nefft", out=logger.debug)
     def calc_nefft(self, fields):
         t2m = field_values(fields, "2t")  # Kelvin
-        ws = self.calc_field("10si", self.calc_ws, fields)[0].values  # m/s
-        rhp = self.calc_field("2r", self.calc_rhp, fields)[0].values  # %
+        ws = self.calc_field("10si", self.calc_ws, fields).to_array()  # m/s
+        rhp = self.calc_field("2r", self.calc_rhp, fields).to_array()  # %
 
         nefft = thermofeel.calculate_normal_effective_temperature(
             t2m, ws, rhp
@@ -256,7 +256,7 @@ class ComputeIndices:
     def calc_wcf(self, fields):
         t2m = field_values(fields, "2t")  # Kelvin
 
-        ws = self.calc_field("10si", self.calc_ws, fields)[0].values  # m/s
+        ws = self.calc_field("10si", self.calc_ws, fields).to_array()  # m/s
 
         wcf = thermofeel.calculate_wind_chill(t2m, ws)  # Kelvin
 
@@ -267,8 +267,8 @@ class ComputeIndices:
     @metered("aptmp", out=logger.debug)
     def calc_aptmp(self, fields):
         t2m = field_values(fields, "2t")  # Kelvin
-        rhp = self.calc_field("2r", self.calc_rhp, fields)[0].values  # %
-        ws = self.calc_field("10si", self.calc_ws, fields)[0].values  # m/s
+        rhp = self.calc_field("2r", self.calc_rhp, fields).to_array()  # %
+        ws = self.calc_field("10si", self.calc_ws, fields).to_array()  # m/s
 
         aptmp = thermofeel.calculate_apparent_temperature(
             t2_k=t2m, va=ws, rh=rhp
@@ -281,13 +281,13 @@ class ComputeIndices:
     @metered("mrt", out=logger.debug)
     def calc_mrt(self, fields):
 
-        cossza = self.calc_field("uvcossza", self.calc_cossza_int, fields)[0].values
+        cossza = self.calc_field("uvcossza", self.calc_cossza_int, fields).to_array()
 
         # will use dsrp if available, otherwise approximate it
         if "dsrp" in fields.indices()["param"]:
             dsrp = field_values(fields, "dsrp")
         else:
-            dsrp = self.calc_field("dsrp", self.approximate_dsrp, fields)[0].values
+            dsrp = self.calc_field("dsrp", self.approximate_dsrp, fields).to_array()
 
         delta = step_interval(fields)
         seconds_in_time_step = delta * 3600  # steps are in hours

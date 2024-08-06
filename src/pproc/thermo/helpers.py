@@ -143,7 +143,7 @@ def field_values(fields: earthkit.data.FieldList, param: str) -> np.ndarray:
         raise ValueError(
             f"Field {param} not found in fields {fields.ls(namespace='mars')}"
         )
-    return sel.to_numpy()
+    return sel.to_array()
 
 
 def check_field_sizes(fields: earthkit.data.FieldList):
