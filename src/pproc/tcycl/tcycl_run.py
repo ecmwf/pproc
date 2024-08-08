@@ -18,7 +18,21 @@ class Utils:
     """
     A collection of generic TC utils
     """
-    
+
+    @staticmethod
+    def to_lon_180(lon):
+        """
+        Convert lon from [0,360] to [-180,180]
+        """
+        return lon - lon // 180 * 360
+
+    @staticmethod
+    def to_lon_360(lon):
+        """
+        Convert lon from [-180,180] to [0,360]
+        """
+        return lon + 360 * (lon < 0)
+
     @staticmethod
     def ifs_steps(max_step):
         """
@@ -32,7 +46,7 @@ class Utils:
                list(range(144, min(246, max_step + 1), 6))
     
     @staticmethod
-    def pxl_2_lat_lon(pixel_indexes, fields_metadata):
+    def pxl_2_lat_lon(pixel_indexes, fields_metadata, output_lon_format_180=False):
         """
         From pixel indexes (+ fields info) to lat/lon coordinates
         """
@@ -44,14 +58,18 @@ class Utils:
         
         for tc in pixel_indexes:
             lat = lat_max - tc[0] / field_shape[0] * (lat_max - lat_min)
+
             lon = lon_min + tc[1] / field_shape[1] * (lon_max - lon_min)
-            lon = lon - lon // 180 * 360
+
+            if output_lon_format_180:
+                lon = Utils.to_lon_180(lon)
+
             coords.append((lat, lon))
         
         return coords
     
     @staticmethod
-    def lat_lon_2_pxl(lat_lon, fields_metadata):
+    def lat_lon_2_pxl(lat_lon, fields_metadata, input_lon_format_180=False):
         """
         Function that maps lat/lon to pixel indexes
         (according to size and area range)
@@ -63,6 +81,11 @@ class Utils:
         
         pxl_idxs = []
         for lat, lon in lat_lon:
+
+            # Convert from [180,180] to [0,360]
+            if input_lon_format_180:
+                lon = Utils.to_lon_360(lon)
+
             pxl_x = int((lon - lon_min) / (lon_max - lon_min) * shape_x)
             pxl_x = min(max(0, pxl_x), shape_x - 1)
             
