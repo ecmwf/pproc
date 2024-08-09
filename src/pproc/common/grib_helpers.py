@@ -41,26 +41,30 @@ def construct_message(
     for missing_key in set_missing:
         key_values.pop(missing_key)
 
-    # Set grib 1 and grib 2 keys separately as value check can fail when
-    # grib 1 keys are removed in the switch to grib 2
     if key_values.get("edition", 1) == 2:
         if threshold:
             key_values.update({"paramId": threshold["out_paramid"]})
         if climatology_headers:
             key_values.update(climatology_headers)
-        keys = list(key_values.keys())
-        grib2_start_index = keys.index("edition")
-        out_grib.set(
-            {key: key_values[key] for key in keys[:grib2_start_index]},
-            check_values=True,
-        )
-        out_grib.set(
-            {key: key_values[key] for key in keys[grib2_start_index:]},
-            check_values=True,
-        )
     else:
         if threshold:
             key_values.update(threshold_grib_headers(threshold))
+
+    template_edition = out_grib.get("edition")
+    if key_values.get("edition", template_edition) != template_edition:
+        # Set grib 1 and grib 2 keys separately as value check can fail when
+        # grib 1 keys are removed in the switch to grib 2, or vice versa
+        keys = list(key_values.keys())
+        edition_index = keys.index("edition")
+        out_grib.set(
+            {key: key_values[key] for key in keys[:edition_index]},
+            check_values=True,
+        )
+        out_grib.set(
+            {key: key_values[key] for key in keys[edition_index:]},
+            check_values=True,
+        )
+    else:
         out_grib.set(key_values, check_values=True)
 
     for missing_key in set_missing:
