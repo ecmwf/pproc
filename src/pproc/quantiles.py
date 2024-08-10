@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Union
 import numpy as np
 
 import eccodes
-from meteokit.stats import iter_quantiles
+from earthkit.meteo.stats import iter_quantiles
 from meters import ResourceMeter
 
 from pproc.common.accumulation import Accumulator
@@ -35,7 +35,7 @@ def do_quantiles(
     template: eccodes.GRIBMessage,
     target: Target,
     out_paramid: Optional[str] = None,
-    n: int = 100,
+    n: Union[int, List[float]] = 100,
     out_keys: Optional[Dict[str, Any]] = None,
 ):
     """Compute quantiles
@@ -50,18 +50,21 @@ def do_quantiles(
         Target to write to
     out_paramid: str, optional
         Parameter ID to set on the output
-    n: int
-        Number of quantiles (default 100 = percentiles)
+    n: int or list of floats
+        List of quantiles to compute, e.g. `[0., 0.25, 0.5, 0.75, 1.]`, or
+        number of evenly-spaced intervals (default 100 = percentiles).
     out_keys: dict, optional
         Extra GRIB keys to set on the output
     """
-    for i, quantile in enumerate(
-        iter_quantiles(ens.reshape((-1, ens.shape[-1])), n, method="sort")
-    ):
+    even_spacing = isinstance(n, int) or np.all(np.diff(n) == n[1] - n[0])
+    num_quantiles = n if isinstance(n, int) else (len(n) - 1)
+    total_number = num_quantiles if even_spacing else 100
+    for i, quantile in enumerate(iter_quantiles(ens.reshape((-1, ens.shape[-1])), n, method="sort")):
+        pert_number = i if even_spacing else int(n[i] * 100)
         grib_keys = {
             **out_keys,
-            "totalNumber": n,
-            "perturbationNumber": i,
+            "totalNumber": total_number,
+            "perturbationNumber": pert_number,
         }
         grib_keys.setdefault("type", "pb")
         if out_paramid is not None:
@@ -69,6 +72,7 @@ def do_quantiles(
         message = construct_message(template, grib_keys)
         message.set_array("values", nan_to_missing(message, quantile))
         target.write(message)
+        target.flush()
 
 
 def get_parser() -> argparse.ArgumentParser:
@@ -84,7 +88,12 @@ class QuantilesConfig(Config):
         super().__init__(args, verbose=verbose)
 
         self.num_members = self.options.get("num_members", 51)
-        self.num_quantiles = self.options.get("num_quantiles", 100)
+        if "quantiles" in self.options:
+            if "num_quantiles" in self.options:
+                raise ValueError("Cannot specify both num_quantiles and quantiles")
+            self.quantiles = self.options["quantiles"]
+        else:
+            self.quantiles = self.options.get("num_quantiles", 100)
         self.total_fields = self.options.get("total_fields", self.num_members)
 
         self.out_keys = self.options.get("out_keys", {})
@@ -126,7 +135,7 @@ def quantiles_iteration(
             template,
             target,
             param.out_paramid,
-            n=config.num_quantiles,
+            n=config.quantiles,
             out_keys=accum.grib_keys(),
         )
         target.flush()

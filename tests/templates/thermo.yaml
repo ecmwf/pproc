@@ -1,0 +1,57 @@
+out_keys:        
+  edition: 2                       
+  typeOfGeneratingProcess: 2
+fc_date: '2024060500'
+n_par_compute: 1
+defs: 
+  base_request: &base_request                                   
+      class: od
+      domain: g
+      expver: '0001'
+      levtype: sfc
+      time: 0000
+      stream: oper
+      type: fc
+  accum_params: &accum_params
+      - 47
+      - 228021
+      - 169
+      - 175
+      - 176
+      - 177
+  inst_params: &inst_params
+      - 165
+      - 166
+      - 167
+      - 168
+sources:     
+  accum:                     
+    <<: *base_request
+    date: 20240605
+    param: *accum_params
+    source: fdb
+  inst:
+    <<: *base_request
+    date: 20240605
+    param: *inst_params
+    source: fdb
+targets:
+  indices:
+    params:
+      - mrt
+      - utci
+      - heatx
+      - wcf
+      - aptmp
+      - hmdx
+      - nefft
+      - gt
+      - wbpt
+      - wbgt
+    target: "fdb:"
+windows:                                 
+  operation: diff
+  ranges:
+  - start_step: 0
+    end_step: 2
+    interval: 1

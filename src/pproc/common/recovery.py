@@ -1,9 +1,11 @@
 import os
 import datetime
 import hashlib
+import logging
 from typing import List
 from filelock import FileLock
 
+logger = logging.getLogger(__name__)
 
 class Recovery:
     def __init__(
@@ -27,7 +29,7 @@ class Recovery:
             root_dir, f"{date.strftime('%Y%m%d%H')}{sha256.hexdigest()}.txt"
         )
         self.checkpoints = []
-        print(
+        logger.info(
             f"Recovery: checkpoint file {self.filename}. Start from checkpoints: {recover}"
         )
         if recover:
@@ -82,7 +84,7 @@ class Recovery:
         # Append new completed step to file
 
         with self.lock:
-            print(f"Adding checkpoint {checkpoint}")
+            logger.info(f"Adding checkpoint {checkpoint}")
             with open(self.filename, "at") as f:
                 f.write(checkpoint + "\n")
             self.checkpoints.append(checkpoint)

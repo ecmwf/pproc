@@ -76,11 +76,11 @@ def ensms_iteration(config, param_type, recovery, window_id, accum, template_ens
     # calculate mean/stddev of wind speed for type=pf/cf (eps)
     with ResourceMeter(f"Window {window_id}: compute mean/stddev"):
         if template_ens is None:
-            template_ens, ens = param_type.retrieve_data(config.fdb, accum.coords[0])
+            template_ens, ens = param_type.retrieve_data(config.fdb, accum.dims[0].accumulation.coords[0])
         else:
             if isinstance(template_ens, str):
                 template_ens = common.io.read_template(template_ens)
-            ens = accum.get_values()
+            ens = accum.values
             assert ens is not None
         axes = tuple(range(ens.ndim - 1))
         mean = np.mean(ens, axis=axes)

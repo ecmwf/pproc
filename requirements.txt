@@ -6,11 +6,11 @@ pyyaml
 numexpr
 scikit-learn
 git+ssh://git@git.ecmwf.int/mars/pyfdb.git@develop
-git+ssh://git@git.ecmwf.int/ecsdk/meteokit.git
 psutil
 filelock>=3.12.0
 earthkit-data
-earthkit-meteo
+earthkit-meteo>=0.1.0
 thermofeel
 codetiming
 code-meters
+requests
