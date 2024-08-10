@@ -62,7 +62,9 @@ def read_clim(fdb, climatology, accum, n_clim=101, overrides={}):
 def extreme_template(accum, template_fc, template_clim):
 
     template_ext = template_fc.copy()
-    template_ext.set(accum.grib_keys())
+    template_ext = common.grib_helpers.construct_message(
+        template_ext, accum.grib_keys
+    )
 
     # EFI specific stuff
     if int(template_ext["timeRangeIndicator"]) == 3:
