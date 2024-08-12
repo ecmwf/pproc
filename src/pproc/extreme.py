@@ -20,6 +20,7 @@ import eccodes
 from earthkit.meteo import extreme
 from meters import ResourceMeter
 from pproc import common
+from pproc.common.grib_helpers import construct_message
 from pproc.common import parallel
 from pproc.common.parallel import (
     SynchronousExecutor,
@@ -61,10 +62,7 @@ def read_clim(fdb, climatology, accum, n_clim=101, overrides={}):
 
 def extreme_template(accum, template_fc, template_clim):
 
-    template_ext = template_fc.copy()
-    template_ext = common.grib_helpers.construct_message(
-        template_ext, accum.grib_keys
-    )
+    template_ext = construct_message(template_fc, accum.grib_keys())
 
     # EFI specific stuff
     if int(template_ext["timeRangeIndicator"]) == 3:
