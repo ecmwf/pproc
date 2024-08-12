@@ -41,6 +41,8 @@ def template_ensemble(param_type, template, accum, level, marstype):
 def slice_dataset(ds, level_index):
     if ds.ndim > 1:
         return ds[level_index]
+    if level_index > 0:
+        raise ValueError(f"Invalid level index {level_index} for array with shape {ds.shape}")
     return ds
 
 class ConfigExtreme(common.Config):
@@ -82,9 +84,8 @@ def ensms_iteration(config, param_type, recovery, window_id, accum, template_ens
                 template_ens = common.io.read_template(template_ens)
             ens = accum.values
             assert ens is not None
-        axes = tuple(range(ens.ndim - 1))
-        mean = np.mean(ens, axis=axes)
-        std = np.std(ens, axis=axes)
+        mean = np.mean(ens, axis=0)
+        std = np.std(ens, axis=0)
 
     with ResourceMeter(f"Window {window_id}: write output"):
         for level_index, level in enumerate(param_type.levels()):
