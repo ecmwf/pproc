@@ -131,7 +131,11 @@ def translate_window_config(
         coords = [step_to_coord(step) for step in config.steps]
 
     grib_header = {}
-    if config.end > config.start and config.end >= 256:
+    if (
+        config.end > config.start
+        and config.end >= 256
+        and "unitOfTimeRange" not in grib_keys
+    ):
         # The range is encoded as two 8-bit integers
         grib_header["unitOfTimeRange"] = 11
 
