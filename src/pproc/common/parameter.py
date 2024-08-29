@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Union
 import numpy as np
 import numexpr
 
-from meteokit.wind import direction
+from eartkit.meteo.wind import direction
 
 from pproc import common
 
