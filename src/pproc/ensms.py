@@ -35,6 +35,10 @@ def template_ensemble(param_type, template, accum, level, marstype):
         grib_sets['level'] = level
 
     grib_sets["marsType"] = marstype
+    if template_ens["edition"] == 2 or grib_sets.get("edition", 1) == 2:
+        grib_sets["productDefinitionTemplateNumber"] = 2
+        if marstype in ["em", "es"]:
+            grib_sets["derivedForecast"] = 2 if marstype == "es" else 0
     template_ens.set(grib_sets)
     return template_ens
 

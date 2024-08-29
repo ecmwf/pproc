@@ -108,7 +108,7 @@ def main(args=None):
                             window_id,
                             accum,
                             window_manager.thresholds(window_id),
-                            additional_headers=clim_grib_header,
+                            clim_grib_header,
                         )
 
             executor.wait()

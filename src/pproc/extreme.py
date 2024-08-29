@@ -36,7 +36,7 @@ class ExtremeVariables:
         self.sot = list(map(int, efi_cfg["sot"]))
 
 
-def read_clim(fdb, climatology, accum, n_clim=101, overrides={}):
+def read_clim(fdb, climatology, accum, n_clim=101, overrides={}, mir_options=None):
     grib_keys = accum.grib_keys()
     clim_step = grib_keys.get("stepRange", grib_keys.get("step", None))
     assert clim_step is not None
@@ -51,8 +51,8 @@ def read_clim(fdb, climatology, accum, n_clim=101, overrides={}):
         req["step"] = clim_step
     req.update(overrides)
 
-    print("Climatology request: ", req)
-    da_clim = common.fdb_read(fdb, req)
+    print("Climatology request: ", req, {"interpolate": mir_options})
+    da_clim = common.fdb_read(fdb, req, mir_options=mir_options)
     assert da_clim.values.shape[0] == n_clim
     da_clim_sorted = da_clim.reindex(quantile=[f"{x}:100" for x in range(n_clim)])
     print(da_clim_sorted)
@@ -64,66 +64,115 @@ def extreme_template(accum, template_fc, template_clim):
 
     template_ext = construct_message(template_fc, accum.grib_keys())
 
-    # EFI specific stuff
-    if int(template_ext["timeRangeIndicator"]) == 3:
-        if template_ext["numberIncludedInAverage"] == 0:
-            template_ext["numberIncludedInAverage"] = len(accum)
-        template_ext["numberMissingFromAveragesOrAccumulations"] = 0
+    edition = template_ext["edition"]
+    clim_edition = template_clim["edition"]
+    if edition == 1 and clim_edition == 1:
+        # EFI specific stuff
+        if int(template_ext["timeRangeIndicator"]) == 3:
+            if template_ext["numberIncludedInAverage"] == 0:
+                template_ext["numberIncludedInAverage"] = len(accum)
+            template_ext["numberMissingFromAveragesOrAccumulations"] = 0
 
-    # set clim keys
-    clim_keys = [
-        "versionNumberOfExperimentalSuite",
-        "implementationDateOfModelCycle",
-        "numberOfReforecastYearsInModelClimate",
-        "numberOfDaysInClimateSamplingWindow",
-        "sampleSizeOfModelClimate",
-        "versionOfModelClimate",
-        "numberOfBitsContainingEachPackedValue",
-    ]
-    for key in clim_keys:
-        template_ext[key] = template_clim[key]
+        # set clim keys
+        clim_keys = [
+            "versionNumberOfExperimentalSuite",
+            "implementationDateOfModelCycle",
+            "numberOfReforecastYearsInModelClimate",
+            "numberOfDaysInClimateSamplingWindow",
+            "sampleSizeOfModelClimate",
+            "versionOfModelClimate",
+            "numberOfBitsContainingEachPackedValue",
+        ]
+        for key in clim_keys:
+            template_ext[key] = template_clim[key]
 
-    # set fc keys
-    fc_keys = [
-        "date",
-        "subCentre",
-        "totalNumber",
-    ]
-    for key in fc_keys:
-        template_ext[key] = template_fc[key]
+        # set fc keys
+        fc_keys = [
+            "date",
+            "subCentre",
+            "totalNumber",
+        ]
+        for key in fc_keys:
+            template_ext[key] = template_fc[key]
+    elif edition == 2 and clim_edition == 2:
+        clim_keys = [
+            "yearOfStartOfReferencePeriod",
+            "dayOfStartOfReferencePeriod",
+            "monthOfStartOfReferencePeriod",
+            "hourOfStartOfReferencePeriod",
+            "minuteOfStartOfReferencePeriod",
+            "secondOfStartOfReferencePeriod",
+        ]
+        grib_keys = {
+            "productDefinitionTemplateNumber": 105,
+            **{key: template_clim[key] for key in clim_keys},
+        }
+        template_ext.set(grib_keys)
+    else:
+        raise Exception(
+            f"Unsupported GRIB edition {edition} and clim edition {clim_edition}"
+        )
 
     return template_ext
 
 
 def efi_template(template):
     template_efi = template.copy()
-    template_efi["marsType"] = 27
-    template_efi["efiOrder"] = 0
-    template_efi["number"] = 0
+    edition = template_efi["edition"]
+    if edition == 1:
+        template_efi["marsType"] = 27
+        template_efi["efiOrder"] = 0
+        template_efi["number"] = 0
+    elif edition == 2:
+        grib_set = {"typeOfRelationToReferenceDataset": 20, "typeOfProcessedData": 5}
+        template_efi.set(grib_set)
+    else:
+        raise Exception(f"Unsupported GRIB edition {edition}")
     return template_efi
 
 
 def efi_template_control(template):
     template_efi = template.copy()
-    template_efi["marsType"] = 28
-    template_efi["efiOrder"] = 0
-    template_efi["totalNumber"] = 1
-    template_efi["number"] = 0
+    edition = template_efi["edition"]
+    if edition == 1:
+        template_efi["marsType"] = 28
+        template_efi["efiOrder"] = 0
+        template_efi["totalNumber"] = 1
+        template_efi["number"] = 0
+    elif edition == 2:
+        grib_set = {"typeOfRelationToReferenceDataset": 20, "typeOfProcessedData": 3}
+        template_efi.set(grib_set)
+    else:
+        raise Exception(f"Unsupported GRIB edition {edition}")
     return template_efi
 
 
 def sot_template(template, sot):
     template_sot = template.copy()
-    template_sot["marsType"] = 38
-    template_sot["number"] = sot
     if sot == 90:
-        template_sot["efiOrder"] = 99
+        efi_order = 99
     elif sot == 10:
-        template_sot["efiOrder"] = 1
+        efi_order = 1
     else:
         raise Exception(
-            "SOT value '{sot}' not supported in template! Only accepting 10 and 90"
+            f"SOT value '{sot}' not supported in template! Only accepting 10 and 90"
         )
+    edition = template_sot["edition"]
+    if edition == 1:
+        template_sot["marsType"] = 38
+        template_sot["number"] = sot
+        template_sot["efiOrder"] = efi_order
+    elif edition == 2:
+        grib_set = {
+            "typeOfRelationToReferenceDataset": 21,
+            "typeOfProcessedData": 5,
+            "numberOfAdditionalParametersForReferencePeriod": 2,
+            "scaleFactorOfAdditionalParameterForReferencePeriod": sot,
+            "scaledValueOfAdditionalParameterForReferencePeriod": efi_order,
+        }
+        template_sot.set(grib_set)
+    else:
+        raise Exception(f"Unsupported GRIB edition {edition}")
     return template_sot
 
 
@@ -138,7 +187,11 @@ def efi_sot(
         )
 
         clim, template_clim = read_clim(
-            common.io.fdb(), climatology, accum, overrides=cfg.override_input
+            common.io.fdb(),
+            climatology,
+            accum,
+            overrides=cfg.override_input,
+            mir_options=param.interpolation_keys,
         )
         print(f"Climatology array: {clim.shape}")
 
@@ -147,11 +200,11 @@ def efi_sot(
         ens = accum.values
         assert ens is not None
 
-        control_index = param.get_type_index("cf", default=None)
-        if control_index is not None:
-            efi_control = extreme.efi(
-                clim, ens[control_index], efi_vars.eps
-            )
+        ens_types = param.base_request["type"].split("/")
+        if len(ens_types) > 1 and "pf" in ens_types:
+            control_type = ens_types[(ens_types.index("pf") + 1) % 2]
+            control_index = param.get_type_index(control_type)
+            efi_control = extreme.efi(clim, ens[control_index], efi_vars.eps)
             template_efi = efi_template_control(template_extreme)
             common.write_grib(cfg.out_efi, template_efi, efi_control)
 
@@ -215,15 +268,17 @@ def main(args=None):
     parser.add_argument("--out_sot", required=True, help="Target for SOT")
     args = parser.parse_args(args)
     cfg = ConfigExtreme(args)
-    recovery = common.Recovery(
-        cfg.root_dir, args.config, cfg.fc_date, args.recover
-    )
+    recovery = common.Recovery(cfg.root_dir, args.config, cfg.fc_date, args.recover)
     last_checkpoint = recovery.last_checkpoint()
     executor = (
         SynchronousExecutor()
         if cfg.n_par_compute == 1
-        else QueueingExecutor(cfg.n_par_compute, cfg.window_queue_size, initializer=signal.signal,
-                              initargs=(signal.SIGTERM, signal.SIG_DFL))
+        else QueueingExecutor(
+            cfg.n_par_compute,
+            cfg.window_queue_size,
+            initializer=signal.signal,
+            initargs=(signal.SIGTERM, signal.SIG_DFL),
+        )
     )
 
     with executor:
@@ -249,9 +304,7 @@ def main(args=None):
                     if param_name in x
                 ]
                 new_start = window_manager.delete_windows(checkpointed_windows)
-                print(
-                    f"Recovery: param {param_name} looping from step {new_start}"
-                )
+                print(f"Recovery: param {param_name} looping from step {new_start}")
                 last_checkpoint = None  # All remaining params have not been run
 
             efi_partial = functools.partial(
@@ -261,9 +314,9 @@ def main(args=None):
                 cfg.n_par_read,
                 window_manager.dims,
                 [param],
-                cfg.n_par_compute > 1, 
+                cfg.n_par_compute > 1,
                 initializer=signal.signal,
-                initargs=(signal.SIGTERM, signal.SIG_DFL)
+                initargs=(signal.SIGTERM, signal.SIG_DFL),
             ):
                 step = keys["step"]
                 with ResourceMeter(f"Process step {step}"):

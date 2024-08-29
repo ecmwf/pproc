@@ -21,7 +21,6 @@ class Climatology(Parameter):
         Parameter.__init__(
             self, "clim", dt, param_id, global_input_cfg, param_cfg, 0, overrides
         )
-        self.base_request.pop("number")
         self.base_request["time"] = "00"
         assert "date" in param_cfg["climatology"]["clim_keys"]
         for key, value in param_cfg["climatology"]["clim_keys"].items():
