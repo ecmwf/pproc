@@ -59,13 +59,23 @@ def do_quantiles(
     even_spacing = isinstance(n, int) or np.all(np.diff(n) == n[1] - n[0])
     num_quantiles = n if isinstance(n, int) else (len(n) - 1)
     total_number = num_quantiles if even_spacing else 100
+    edition = out_keys.get("edition", template.get("edition"))
+    if edition not in (1, 2):
+        raise ValueError(f"Unsupported GRIB edition {edition}")
     for i, quantile in enumerate(iter_quantiles(ens.reshape((-1, ens.shape[-1])), n, method="sort")):
         pert_number = i if even_spacing else int(n[i] * 100)
-        grib_keys = {
-            **out_keys,
-            "totalNumber": total_number,
-            "perturbationNumber": pert_number,
-        }
+        if edition == 1:
+            grib_keys = {
+                **out_keys,
+                "totalNumber": total_number,
+                "perturbationNumber": pert_number,
+            }
+        else:
+            grib_keys = {
+                **out_keys,
+                "totalNumberOfQuantile": total_number,
+                "quantileValue": pert_number,
+            }
         grib_keys.setdefault("type", "pb")
         if out_paramid is not None:
             grib_keys["paramId"] = out_paramid
