@@ -133,14 +133,9 @@ def translate_window_config(
     grib_header = {} if grib_keys is None else grib_keys.copy()
 
     if config.end > config.start and config.end >= 256:
-        edition = grib_header.get("edition", 1)
-        if edition == 1:
+        if grib_header.get("edition", 1) == 1:
             # The range is encoded as two 8-bit integers
             grib_header.setdefault("unitOfTimeRange", 11)
-        elif edition == 2:
-            grib_header.setdefault("indicatorOfUnitOfTimeRange", 11)
-        else:
-            raise ValueError(f"Unsupported grib edition {edition}")
 
     if config.end == config.start and "timeRangeIndicator" not in grib_header:
         if config.end >= 256:
