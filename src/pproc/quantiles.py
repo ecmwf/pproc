@@ -73,7 +73,7 @@ def do_quantiles(
         else:
             grib_keys = {
                 **out_keys,
-                "totalNumberOfQuantile": total_number,
+                "totalNumberOfQuantiles": total_number,
                 "quantileValue": pert_number,
             }
         grib_keys.setdefault("type", "pb")
