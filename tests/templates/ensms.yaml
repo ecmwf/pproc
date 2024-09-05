@@ -3,11 +3,11 @@ out_keys:
   mars.expver: '0001'
   numberOfForecastsInEnsemble: 6
   perturbationNumber: 0
-members: 5
+num_members: 5
 n_par_compute: 1
 n_par_read: 1
 queue_size: 2
-parameters:
+params:
   2t:
     in: '167.128'
 sources:
