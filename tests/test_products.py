@@ -48,9 +48,11 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
             "ensms",
             ensms_main,
             [
-                "--out_eps_mean",
+                "--in-ens",
+                "fdb:ens",
+                "--out-mean",
                 "fdb:",
-                "--out_eps_std",
+                "--out-std",
                 "fdb:",
             ],
             False,

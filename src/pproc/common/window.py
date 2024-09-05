@@ -134,10 +134,10 @@ def translate_window_config(
     if (
         config.end > config.start
         and config.end >= 256
-        and "unitOfTimeRange" not in grib_keys
     ):
-        # The range is encoded as two 8-bit integers
-        grib_header["unitOfTimeRange"] = 11
+        if grib_keys is None or "unitOfTimeRange" not in grib_keys:
+            # The range is encoded as two 8-bit integers
+            grib_header["unitOfTimeRange"] = 11
 
     if config.end == config.start:
         if config.end >= 256:
