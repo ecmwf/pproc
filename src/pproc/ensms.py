@@ -102,6 +102,7 @@ def ensms_iteration(
     ens = accum.values
     assert ens is not None
 
+    # Compute mean/std over all dimensions except last
     axes = tuple(range(ens.ndim - 1))
     with ResourceMeter(f"Window {window_id}: write mean output"):
         mean = np.mean(ens, axis=axes)
@@ -111,7 +112,7 @@ def ensms_iteration(
         config.out_mean.flush()
 
     with ResourceMeter(f"Window {window_id}: write std output"):
-        std = np.std(ens, axis=axes)
+        std = np.std(ens, axis=axes, dtype=np.float32)
         template_std = template_ensemble(param, template_ens, accum, "es")
         template_std.set_array("values", common.io.nan_to_missing(template_std, std))
         config.out_std.write(template_std)
