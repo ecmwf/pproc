@@ -197,4 +197,5 @@ def main(args=None):
     recover.clean_file()
 
 
-if
+if __name__ == "__main__":
+    main(sys.argv)
