@@ -14,6 +14,9 @@ from datetime import datetime
 import signal
 from meters import ResourceMeter
 import numpy as np
+from typing import Union
+
+import eccodes
 
 from pproc import common
 from pproc.common import parallel
@@ -28,7 +31,12 @@ from pproc.common.parallel import (
 from pproc.common.param_requester import ParamConfig, ParamRequester
 
 
-def template_ensemble(param_type, template, accum, marstype):
+def template_ensemble(
+    param_type: ParamConfig,
+    template: eccodes.GRIBMessage,
+    accum: Accumulator,
+    marstype: str,
+):
     template_ens = template.copy()
 
     grib_sets = accum.grib_keys()
@@ -80,34 +88,36 @@ class EnsmsConfig(common.Config):
         return self._fdb
 
 
-def ensms_iteration(config, param_type, recovery, window_id, accum, template_ens=None):
-    # calculate mean/stddev of wind speed for type=pf/cf (eps)
-    with ResourceMeter(f"Window {window_id}: compute mean/stddev"):
-        if template_ens is None:
-            template_ens, ens = param_type.retrieve_data(
-                config.fdb, accum.dims[0].accumulation.coords[0]
-            )
-        else:
-            if isinstance(template_ens, str):
-                template_ens = common.io.read_template(template_ens)
-            ens = accum.values
-            assert ens is not None
+def ensms_iteration(
+    config: EnsmsConfig,
+    param: ParamConfig,
+    recovery: common.Recovery,
+    window_id: str,
+    accum: Accumulator,
+    template=Union[str, eccodes.GRIBMessage],
+):
+    if not isinstance(template, eccodes.GRIBMessage):
+        template_ens = common.io.read_template(template)
+
+    ens = accum.values
+    assert ens is not None
 
     axes = tuple(range(ens.ndim - 1))
     with ResourceMeter(f"Window {window_id}: write mean output"):
         mean = np.mean(ens, axis=axes)
-        template_mean = template_ensemble(param_type, template_ens, accum, "em")
-        common.write_grib(config.out_mean, template_mean, mean)
-        del mean 
+        template_mean = template_ensemble(param, template_ens, accum, "em")
+        template_mean.set_array("values", common.io.nan_to_missing(template_mean, mean))
+        config.out_mean.write(template_mean)
+        config.out_mean.flush()
 
     with ResourceMeter(f"Window {window_id}: write std output"):
         std = np.std(ens, axis=axes)
-        template_std = template_ensemble(param_type, template_ens, accum, "es")
-        common.write_grib(config.out_std, template_std, std)
-        del std
+        template_std = template_ensemble(param, template_ens, accum, "es")
+        template_std.set_array("values", common.io.nan_to_missing(template_std, std))
+        config.out_std.write(template_std)
+        config.out_std.flush()
 
-    config.fdb.flush()
-    recovery.add_checkpoint(param_type.name, window_id)
+    recovery.add_checkpoint(param.name, window_id)
 
 
 def main(args=None):
@@ -187,5 +197,4 @@ def main(args=None):
     recover.clean_file()
 
 
-if __name__ == "__main__":
-    main(sys.argv)
+if
