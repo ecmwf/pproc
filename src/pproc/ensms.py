@@ -96,9 +96,11 @@ def ensms_iteration(config, param_type, recovery, window_id, accum, template_ens
     with ResourceMeter(f"Window {window_id}: write output"):
         axes = tuple(range(ens.ndim - 1))
         mean = np.mean(ens, axis=axes)
-        std = np.std(ens, axis=axes)
         template_mean = template_ensemble(param_type, template_ens, accum, "em")
         common.write_grib(config.out_mean, template_mean, mean)
+        del mean 
+
+        std = np.std(ens, axis=axes)
         template_std = template_ensemble(param_type, template_ens, accum, "es")
         common.write_grib(config.out_std, template_std, std)
 
