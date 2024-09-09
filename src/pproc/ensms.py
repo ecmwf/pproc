@@ -113,7 +113,7 @@ def ensms_iteration(
 
     with ResourceMeter(f"Window {window_id}: write std output"):
         std = np.std(ens, axis=axes, dtype=np.float32)
-        missing = np.isnan(ens).any(axis=axes)
+        missing = np.isnan(mean)
         std[missing] = np.nan
         template_std = template_ensemble(param, template_ens, accum, "es")
         template_std.set_array("values", common.io.nan_to_missing(template_std, std))
