@@ -149,9 +149,10 @@ def main(args=None):
 
     with executor:
         for param in cfg.parameters:
+            out_key_kwargs = {"paramId": param.out_paramid} if param.out_paramid else {}
             window_manager = common.WindowManager(
                 param.window_config(cfg.windows, cfg.steps),
-                param.out_keys(cfg.out_keys),
+                param.out_keys(cfg.out_keys, **out_key_kwargs),
             )
 
             if last_checkpoint:
