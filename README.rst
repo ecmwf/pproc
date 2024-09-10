@@ -21,6 +21,7 @@ modules::
 
 Build and install the underlying C/C++ software stack::
 
+  export CMAKE_PREFIX_PATH=$openblas_DIR:$CMAKE_PREFIX_PATH
   cd pproc-bundle
   ./pproc-bundle create
   ./pproc-bundle build
