@@ -112,7 +112,7 @@ def ensms_iteration(
         config.out_mean.flush()
 
     with ResourceMeter(f"Window {window_id}: write std output"):
-        std = np.std(ens, axis=axes, dtype=np.float32)
+        std = np.std(ens, axis=axes)
         template_std = template_ensemble(param, template_ens, accum, "es")
         template_std.set_array("values", common.io.nan_to_missing(template_std, std))
         config.out_std.write(template_std)
