@@ -154,6 +154,7 @@ class HistParamRequester(ParamRequester):
                 self.sources,
                 self.loc,
                 update=self._set_number,
+                dtype=self.param.dtype,
                 **in_keys,
             )
             for in_keys in self.param.in_keys(step=str(step), **kwargs)
