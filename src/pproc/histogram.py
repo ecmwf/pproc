@@ -206,7 +206,6 @@ class HistogramConfig(Config):
 
 
 def write_iteration(
-    config: HistogramConfig,
     param: HistParamConfig,
     target: Target,
     recovery: Optional[Recovery],
@@ -226,7 +225,7 @@ def write_iteration(
             param.normalise,
             param.scale_out,
             param.out_paramid,
-            out_keys=param.out_keys(config.out_keys),
+            out_keys=accum.grib_keys(),
         )
     if recovery is not None:
         recovery.add_checkpoint(param.name, str(window_id))
@@ -280,7 +279,7 @@ def main(args: List[str] = sys.argv[1:]):
 
             requester = HistParamRequester(param, config.sources, args.in_ens)
             write_partial = functools.partial(
-                write_iteration, config, param, target, recovery
+                write_iteration, param, target, recovery
             )
             for keys, data in parallel_data_retrieval(
                 config.n_par_read,
