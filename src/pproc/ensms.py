@@ -156,7 +156,7 @@ def main(args=None):
             )
 
             if last_checkpoint:
-                if param not in last_checkpoint:
+                if param.name not in last_checkpoint:
                     print(f"Recovery: skipping completed param {param.name}")
                     continue
                 checkpointed_windows = [
