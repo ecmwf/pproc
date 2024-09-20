@@ -119,6 +119,7 @@ class ParamConfig:
         self._windows = options.get("windows", None)
         self._accumulations = options.get("accumulations", None)
         self._in_overrides = overrides
+        self.dtype = np.dtype(options.get("dtype", "float32")).type
 
     def in_keys(self, base: Optional[Dict[str, Any]] = None, **kwargs):
         keys = base.copy() if base is not None else {}
@@ -197,12 +198,16 @@ class ParamRequester:
                 self.sources,
                 self.loc,
                 self.total,
+                dtype=self.param.dtype,
                 update=self._set_number,
                 index_func=self.index_func,
                 **filt_keys,
             )
         comp = numexpr.evaluate(
-            "data " + filt.comparison + str(filt.threshold), local_dict={"data": fdata}
+            "data " + filt.comparison + " threshold", local_dict={
+                "data": fdata,
+                "threshold": np.asarray(filt.threshold, dtype=fdata.dtype),
+                }
         )
         return np.where(comp, filt.replacement, data)
 
@@ -218,7 +223,7 @@ class ParamRequester:
             assert len(data_list) == 2, "'direction' requires exactly 2 input fields"
             return direction(
                 data_list[0], data_list[1], convention="meteo", to_positive=True
-            )
+            ).astype(self.param.dtype)
         return getattr(np, self.param.combine)(data_list, axis=0)
 
     def retrieve_data(
@@ -230,6 +235,7 @@ class ParamRequester:
                 self.sources,
                 self.loc,
                 self.total,
+                dtype=self.param.dtype,
                 update=self._set_number,
                 index_func=self.index_func,
                 **in_keys,
