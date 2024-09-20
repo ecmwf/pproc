@@ -39,6 +39,7 @@ parameters:
         localDefinitionNumber: 19
         mars.expver: '0001'
         timeRangeIndicator: 3
+        stepType: avg
       periods:
       - range:
         - 12

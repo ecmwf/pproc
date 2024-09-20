@@ -1,4 +1,3 @@
-
 from dataclasses import dataclass
 from typing import Union
 
@@ -53,3 +52,12 @@ def parse_step(s) -> AnyStep:
     if not sep:
         return int(start)
     return Step(int(start), int(end))
+
+
+def step_to_coord(s: AnyStep) -> Union[int, str]:
+    if isinstance(s, int):
+        return s
+    assert isinstance(s, Step)
+    if s.is_range():
+        return str(s)
+    return int(s)

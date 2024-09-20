@@ -326,24 +326,24 @@ def main(args: List[str] = sys.argv[1:]):
         checkpointed_windows = [
             recovery.checkpoint_identifiers(x)[0] for x in recovery.checkpoints
         ]
-        window_manager.delete_windows(checkpointed_windows)
-        logger.info(f"Recovery: looping from step {window_manager.unique_steps[0]}")
+        new_start = window_manager.delete_windows(checkpointed_windows)
+        logger.info(f"Recovery: looping from step {new_start}")
     thermo_partial = functools.partial(process_step, args, config, recovery=recovery)
     with executor:
-        for step in window_manager.unique_steps:
+        for step in window_manager.dims["step"]:
             accum_data = load_input("accum", config, step)
             completed_windows = window_manager.update_windows(
-                step, [] if accum_data is None else accum_data.values
+                {"step": step}, [] if accum_data is None else accum_data.values
             )
-            for window_id, window in completed_windows:
-                if window.size() == 0:
+            for window_id, accum in completed_windows:
+                if len(accum) == 0:
                     fields = load_input("inst", config, step)
                 else:
                     # Set step range for de-accumulated fields
                     fields = earthkit.data.FieldList.from_array(
-                        window.step_values,
+                        accum.values,
                         [
-                            x.override(stepType="diff", stepRange=window.name)
+                            x.override(stepType="diff", stepRange=window_id)
                             for x in accum_data.metadata()
                         ],
                     )

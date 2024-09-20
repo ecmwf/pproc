@@ -13,41 +13,43 @@ def prob_iteration(
     out_prob,
     template_filename,
     window_id,
-    window,
+    accum,
     thresholds,
     additional_headers={},
 ):
-
-    with ResourceMeter(f"Window {window.name}, computing threshold probs"):
+    with ResourceMeter(f"Window {window_id}, computing threshold probs"):
         message_template = (
             template_filename
             if isinstance(template_filename, eccodes.highlevel.message.GRIBMessage)
             else common.io.read_template(template_filename)
         )
 
+        ens = accum.values
+        assert ens is not None
+
         if not isinstance(out_ensemble, common.io.NullTarget):
-            for index in range(len(window.step_values)):
+            for index in range(len(ens)):
                 data_type, number = param.type_and_number(index)
                 print(
                     f"Writing window values for param {param.name} and output "
-                    + f"type {data_type}, number {number} for step(s) {window.name}"
+                    + f"type {data_type}, number {number} for step(s) {window_id}"
                 )
-                template = construct_message(message_template, window.grib_header())
+                template = construct_message(message_template, accum.grib_keys())
                 template.set({"type": data_type, "number": number})
-                common.write_grib(out_ensemble, template, window.step_values[index])
+                common.write_grib(out_ensemble, template, ens[index])
 
         for threshold in thresholds:
-            window_probability = ensemble_probability(window.step_values, threshold)
+            window_probability = ensemble_probability(ens, threshold)
 
             print(
                 f"Writing probability for input param {param.name} and output "
-                + f"param {threshold['out_paramid']} for step(s) {window.name}"
+                + f"param {threshold['out_paramid']} for step(s) {window_id}"
             )
             common.write_grib(
                 out_prob,
                 construct_message(
                     message_template,
-                    window.grib_header(),
+                    accum.grib_keys(),
                     threshold,
                     additional_headers,
                 ),

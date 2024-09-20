@@ -7,7 +7,6 @@ from typing import Any, Dict, List, Optional, Union
 import numpy as np
 
 import eccodes
-from earthkit.meteo.stats import iter_quantiles
 from meters import ResourceMeter
 
 from pproc.common.accumulation import Accumulator
@@ -30,15 +29,16 @@ from pproc.common.recovery import Recovery
 from pproc.common.window_manager import WindowManager
 
 
-def do_quantiles(
+def postprocess(
     ens: np.ndarray,
     template: eccodes.GRIBMessage,
     target: Target,
+    vmin: Optional[float] = None,
+    vmax: Optional[float] = None,
     out_paramid: Optional[str] = None,
-    n: Union[int, List[float]] = 100,
     out_keys: Optional[Dict[str, Any]] = None,
 ):
-    """Compute quantiles
+    """Post-process data and write to target
 
     Parameters
     ----------
@@ -48,58 +48,58 @@ def do_quantiles(
         GRIB template for output
     target: Target
         Target to write to
+    vmin: float, optional
+        Minimum output value
+    vmax: float, optional
+        Maximum output value
     out_paramid: str, optional
         Parameter ID to set on the output
-    n: int or list of floats
-        List of quantiles to compute, e.g. `[0., 0.25, 0.5, 0.75, 1.]`, or
-        number of evenly-spaced intervals (default 100 = percentiles).
     out_keys: dict, optional
         Extra GRIB keys to set on the output
     """
-    even_spacing = isinstance(n, int) or np.all(np.diff(n) == n[1] - n[0])
-    num_quantiles = n if isinstance(n, int) else (len(n) - 1)
-    total_number = num_quantiles if even_spacing else 100
-    for i, quantile in enumerate(iter_quantiles(ens.reshape((-1, ens.shape[-1])), n, method="sort")):
-        pert_number = i if even_spacing else int(n[i] * 100)
+    for i, field in enumerate(ens.reshape((-1, ens.shape[-1]))):
+        if vmin is not None or vmax is not None:
+            np.clip(field, vmin, vmax, out=field)
+
         grib_keys = {
             **out_keys,
-            "totalNumber": total_number,
-            "perturbationNumber": pert_number,
+            "perturbationNumber": i,
         }
-        grib_keys.setdefault("type", "pb")
+        if template.get("type") == "cf" and i > 0:
+            grib_keys.setdefault("type", "pf")
         if out_paramid is not None:
             grib_keys["paramId"] = out_paramid
         message = construct_message(template, grib_keys)
-        message.set_array("values", nan_to_missing(message, quantile))
+        message.set_array("values", nan_to_missing(message, field))
         target.write(message)
-        target.flush()
 
 
 def get_parser() -> argparse.ArgumentParser:
-    description = "Compute quantiles of an ensemble"
+    description = "Compute accumulations"
     parser = default_parser(description=description)
     parser.add_argument("--in-ens", required=True, help="Input ensemble source")
-    parser.add_argument("--out-quantiles", required=True, help="Output target")
+    parser.add_argument("--out-accum", required=True, help="Output target")
     return parser
 
 
-class QuantilesConfig(Config):
+class AccumParamConfig(ParamConfig):
+    def __init__(self, name, options: Dict[str, Any], overrides: Dict[str, Any] = {}):
+        super().__init__(name, options, overrides)
+        self.vmin = options.get("vmin", None)
+        self.vmax = options.get("vmax", None)
+
+
+class AccumConfig(Config):
     def __init__(self, args: argparse.Namespace, verbose: bool = True):
         super().__init__(args, verbose=verbose)
 
         self.num_members = self.options.get("num_members", 51)
-        if "quantiles" in self.options:
-            if "num_quantiles" in self.options:
-                raise ValueError("Cannot specify both num_quantiles and quantiles")
-            self.quantiles = self.options["quantiles"]
-        else:
-            self.quantiles = self.options.get("num_quantiles", 100)
         self.total_fields = self.options.get("total_fields", self.num_members)
 
         self.out_keys = self.options.get("out_keys", {})
 
         self.params = [
-            ParamConfig(pname, popt, overrides=self.override_input)
+            AccumParamConfig(pname, popt, overrides=self.override_input)
             for pname, popt in self.options["params"].items()
         ]
         self.steps = self.options.get("steps", [])
@@ -116,9 +116,8 @@ class QuantilesConfig(Config):
         self.window_queue_size = self.options.get("queue_size", self.n_par_compute)
 
 
-def quantiles_iteration(
-    config: QuantilesConfig,
-    param: ParamConfig,
+def postproc_iteration(
+    param: AccumParamConfig,
     target: Target,
     recovery: Optional[Recovery],
     template: Union[str, eccodes.GRIBMessage],
@@ -127,15 +126,16 @@ def quantiles_iteration(
 ):
     if not isinstance(template, eccodes.GRIBMessage):
         template = read_template(template)
-    with ResourceMeter(f"{param.name}, step {window_id}: Quantiles"):
+    with ResourceMeter(f"{param.name}, step {window_id}: Post-process"):
         ens = accum.values
         assert ens is not None
-        do_quantiles(
+        postprocess(
             ens,
             template,
             target,
-            param.out_paramid,
-            n=config.quantiles,
+            vmin=param.vmin,
+            vmax=param.vmax,
+            out_paramid=param.out_paramid,
             out_keys=accum.grib_keys(),
         )
         target.flush()
@@ -147,7 +147,7 @@ def main(args: List[str] = sys.argv[1:]):
     sys.stdout.reconfigure(line_buffering=True)
     parser = get_parser()
     args = parser.parse_args(args)
-    config = QuantilesConfig(args)
+    config = AccumConfig(args)
     if config.root_dir is None or config.date is None:
         print("Recovery disabled. Set root_dir and date in config to enable.")
         recovery = None
@@ -155,7 +155,7 @@ def main(args: List[str] = sys.argv[1:]):
     else:
         recovery = Recovery(config.root_dir, args.config, config.date, args.recover)
         last_checkpoint = recovery.last_checkpoint()
-    target = target_from_location(args.out_quantiles, overrides=config.override_output)
+    target = target_from_location(args.out_accum, overrides=config.override_output)
     if config.n_par_compute > 1:
         target.enable_parallel(parallel)
     if recovery is not None and args.recover:
@@ -193,8 +193,8 @@ def main(args: List[str] = sys.argv[1:]):
                 config.num_members,
                 config.total_fields,
             )
-            quantiles_partial = functools.partial(
-                quantiles_iteration, config, param, target, recovery
+            postproc_partial = functools.partial(
+                postproc_iteration, param, target, recovery
             )
             for keys, data in parallel_data_retrieval(
                 config.n_par_read,
@@ -208,7 +208,7 @@ def main(args: List[str] = sys.argv[1:]):
                     completed_windows = window_manager.update_windows(keys, ens)
                     del ens
                 for window_id, accum in completed_windows:
-                    executor.submit(quantiles_partial, template, window_id, accum)
+                    executor.submit(postproc_partial, template, window_id, accum)
             executor.wait()
 
     if recovery is not None:
