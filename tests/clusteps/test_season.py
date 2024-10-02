@@ -20,7 +20,7 @@ def id_tests(val):
 @pytest.mark.parametrize("start, end, year, ename, estart, eend, endays", [
     (10, 4, 2019, "ondjfma", datetime(2018, 10, 1), datetime(2019, 4, 30), 212),
     (5, 9, 2019, "mjjas", datetime(2019, 5, 1), datetime(2019, 9, 30), 153),
-    (10, 4, 2020, "ondjfma", datetime(2019, 10, 1), datetime(2020, 4, 30), 213),
+    (10, 4, 2020, "ondjfma", datetime(2019, 10, 1), datetime(2020, 4, 30), 212),
     (5, 9, 2020, "mjjas", datetime(2020, 5, 1), datetime(2020, 9, 30), 153),
 ], ids=id_tests)
 def test_season(start, end, year, ename, estart, eend, endays):
@@ -55,3 +55,33 @@ def test_get_season(date, seasons, eseason):
     assert season.name == eseason.name
     assert season.start == eseason.start
     assert season.end == eseason.end
+
+
+@pytest.mark.parametrize("date, seasons, edos", [
+    (datetime(2022, 10, 1), SEASONS, 0),
+    (datetime(2022, 10, 31), SEASONS, 30),
+    (datetime(2022, 11, 12), SEASONS, 42),
+    (datetime(2023, 3, 20), SEASONS, 170),
+    (datetime(2023, 4, 30), SEASONS, 211),
+    (datetime(2023, 5, 1), SEASONS, 0),
+    (datetime(2023, 5, 31), SEASONS, 30),
+    (datetime(2023, 8, 17), SEASONS, 108),
+    (datetime(2023, 9, 30), SEASONS, 152),
+    (datetime(2024, 2, 28), SEASONS, 150),
+    (datetime(2024, 2, 29), SEASONS, 150),
+    (datetime(2024, 4, 30), SEASONS, 211),
+    (datetime(2024, 5, 1), SEASONS, 0),
+    (datetime(2024, 5, 31), SEASONS, 30),
+    (datetime(2024, 8, 17), SEASONS, 108),
+    (datetime(2024, 9, 30), SEASONS, 152),
+    (datetime(2024, 10, 1), SEASONS, 0),
+    (datetime(2024, 10, 31), SEASONS, 30),
+    (datetime(2024, 11, 12), SEASONS, 42),
+    (datetime(2025, 3, 20), SEASONS, 170),
+    (datetime(2025, 4, 30), SEASONS, 211),
+], ids=id_tests)
+def test_dos(date, seasons, edos):
+    config = SeasonConfig(seasons)
+    season = config.get_season(date)
+    assert date in season
+    assert season.dos(date) == edos
