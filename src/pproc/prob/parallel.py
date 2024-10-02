@@ -1,4 +1,5 @@
 import eccodes
+from meters import ResourceMeter
 
 from pproc import common
 from pproc.common.grib_helpers import construct_message
@@ -17,7 +18,7 @@ def prob_iteration(
     additional_headers={},
 ):
 
-    with common.ResourceMeter(f"Window {window.name}, computing threshold probs"):
+    with ResourceMeter(f"Window {window.name}, computing threshold probs"):
         message_template = (
             template_filename
             if isinstance(template_filename, eccodes.highlevel.message.GRIBMessage)

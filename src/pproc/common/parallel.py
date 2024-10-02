@@ -5,8 +5,9 @@ import os
 import eccodes
 import sys
 import multiprocessing
+from meters import ResourceMeter
 
-from pproc.common import Parameter, ResourceMeter, io
+from pproc.common import Parameter, io
 
 
 class SynchronousExecutor(fut.Executor):

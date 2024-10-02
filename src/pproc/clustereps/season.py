@@ -1,6 +1,7 @@
 
 from datetime import datetime, timedelta
 from typing import List, Tuple
+import calendar
 
 
 MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
@@ -32,13 +33,22 @@ class Season:
 
     @property
     def ndays(self) -> int:
-        return (self.end - self.start).days + 1
+        count = (self.end - self.start).days + 1
+        if 2 in self.months:
+            feb_year = self.start.year if self.start.month <= 2 else self.end.year
+            if calendar.isleap(feb_year):
+                return count - 1
+        return count
 
     @property
     def doys(self) -> List[int]:
         return [(self.start + timedelta(days=i)).timetuple().tm_yday - 1 for i in range(self.ndays)]
 
     def dos(self, date: datetime) -> int:
+        if calendar.isleap(date.year) and 2 in self.months:
+            feb_non_leap = datetime(date.year, 2, 28)
+            if date > feb_non_leap:
+                return (date - self.start).days - 1
         return (date - self.start).days
 
     def __len__(self) -> int:
