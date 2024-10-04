@@ -100,6 +100,8 @@ def ensms_iteration(
 ):
     if not isinstance(template, eccodes.GRIBMessage):
         template_ens = common.io.read_template(template)
+    else:
+        template_ens = template
 
     ens = accum.values
     assert ens is not None
