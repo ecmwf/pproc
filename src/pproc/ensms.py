@@ -96,12 +96,10 @@ def ensms_iteration(
     recovery: common.Recovery,
     window_id: str,
     accum: Accumulator,
-    template=Union[str, eccodes.GRIBMessage],
+    template_ens=Union[str, eccodes.GRIBMessage],
 ):
-    if not isinstance(template, eccodes.GRIBMessage):
-        template_ens = common.io.read_template(template)
-    else:
-        template_ens = template
+    if not isinstance(template_ens, eccodes.GRIBMessage):
+        template_ens = common.io.read_template(template_ens)
 
     ens = accum.values
     assert ens is not None
