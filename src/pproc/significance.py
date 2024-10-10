@@ -80,6 +80,14 @@ def signi(
     pvalue = result.pvalue
     pvalue *= 100.0
 
+    # If there is no signal whatsoever (e.g. forecast and climatology all zero)
+    # the variance of the test will be zero, leading to the p-value being
+    # undefined (NaN). We set it to 0 instead.
+    zero_variance = np.logical_and(np.isnan(pvalue), np.logical_not(np.isnan(result.statistic)))
+    pvalue[zero_variance] = 0.
+
+    if out_keys is None:
+        out_keys = {}
     grib_keys = out_keys.copy()
     grib_keys.setdefault("type", "taem")
     if out_paramid is not None:
