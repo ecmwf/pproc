@@ -185,6 +185,8 @@ class ParamRequester:
     def _set_number(self, keys):
         if keys.get("type") == "pf":
             keys["number"] = range(1, self.members)
+        elif keys.get("type") == "fcmean":
+            keys["number"] = range(self.members)
 
     def filter_data(self, data: np.ndarray, step: AnyStep, **kwargs) -> np.ndarray:
         filt = self.param.filter
