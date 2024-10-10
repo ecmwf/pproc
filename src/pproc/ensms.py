@@ -66,6 +66,8 @@ class EnsmsConfig(common.Config):
         self._fdb = None
 
         self.out_keys = self.options.get("out_keys", {})
+        self.type_em = self.options.get("type_em", "em")
+        self.type_es = self.options.get("type_es", "es")
 
         self.parameters = [
             ParamConfig(pname, popt, overrides=self.override_input)
@@ -98,10 +100,10 @@ def ensms_iteration(
     recovery: common.Recovery,
     window_id: str,
     accum: Accumulator,
-    template=Union[str, eccodes.GRIBMessage],
+    template_ens=Union[str, eccodes.GRIBMessage],
 ):
-    if not isinstance(template, eccodes.GRIBMessage):
-        template_ens = common.io.read_template(template)
+    if not isinstance(template_ens, eccodes.GRIBMessage):
+        template_ens = common.io.read_template(template_ens)
 
     ens = accum.values
     assert ens is not None
@@ -110,14 +112,14 @@ def ensms_iteration(
     axes = tuple(range(ens.ndim - 1))
     with ResourceMeter(f"Window {window_id}: write mean output"):
         mean = np.mean(ens, axis=axes)
-        template_mean = template_ensemble(param, template_ens, accum, "em")
+        template_mean = template_ensemble(param, template_ens, accum, config.type_em)
         template_mean.set_array("values", common.io.nan_to_missing(template_mean, mean))
         config.out_mean.write(template_mean)
         config.out_mean.flush()
 
     with ResourceMeter(f"Window {window_id}: write std output"):
         std = np.std(ens, axis=axes)
-        template_std = template_ensemble(param, template_ens, accum, "es")
+        template_std = template_ensemble(param, template_ens, accum, config.type_es)
         template_std.set_array("values", common.io.nan_to_missing(template_std, std))
         config.out_std.write(template_std)
         config.out_std.flush()
