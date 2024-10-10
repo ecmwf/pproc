@@ -34,6 +34,7 @@ def signi(
     out_paramid: Optional[str] = None,
     out_keys: Optional[Dict[str, Any]] = None,
     epsilon: Optional[float] = None,
+    epsilon_is_abs: bool = True,
 ):
     """Compute significance
 
@@ -61,14 +62,21 @@ def signi(
         Extra GRIB keys to set on the output
     epsilon: float, optional
         If set, set forecast and climatology values below this threshold to 0
+    epsilon_is_abs: bool
+        If True (default), the absolute value of the forecast and climatology is
+        compared to ``epsilon``. Otherwise, the signed value is compared.
     """
     assert (
         fc.shape[-1] == clim.shape[-1]
     ), "Forecast and climatology are on different grids"
 
     if epsilon is not None:
-        fc[fc <= epsilon] = 0.
-        clim[clim <= epsilon] = 0.
+        if epsilon_is_abs:
+            fc[np.abs(fc) <= epsilon] = 0.0
+            clim[np.abs(clim) <= epsilon] = 0.0
+        else:
+            fc[fc <= epsilon] = 0.0
+            clim[clim <= epsilon] = 0.0
 
     result = mannwhitneyu(
         fc.reshape((-1, fc.shape[-1])),
@@ -83,8 +91,10 @@ def signi(
     # If there is no signal whatsoever (e.g. forecast and climatology all zero)
     # the variance of the test will be zero, leading to the p-value being
     # undefined (NaN). We set it to 0 instead.
-    zero_variance = np.logical_and(np.isnan(pvalue), np.logical_not(np.isnan(result.statistic)))
-    pvalue[zero_variance] = 0.
+    zero_variance = np.logical_and(
+        np.isnan(pvalue), np.logical_not(np.isnan(result.statistic))
+    )
+    pvalue[zero_variance] = 0.0
 
     if out_keys is None:
         out_keys = {}
@@ -129,6 +139,7 @@ class SigniParamConfig(ParamConfig):
         self.epsilon = options.get("epsilon", None)
         if self.epsilon is not None:
             self.epsilon = float(self.epsilon)
+        self.epsilon_is_abs = options.get("epsilon_is_abs", True)
 
 
 class SigniConfig(Config):
@@ -250,6 +261,7 @@ def signi_iteration(
             out_paramid=param.out_paramid,
             out_keys=accum.grib_keys(),
             epsilon=param.epsilon,
+            epsilon_is_abs=param.epsilon_is_abs,
         )
         target.flush()
     if recovery is not None:
