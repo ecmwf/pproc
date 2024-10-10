@@ -65,6 +65,39 @@ CONFIGS = {
             ],
         },
     },
+    "factory-dateseq-bracket": {
+        "date": {
+            "type": "dateseq",
+            "sequence": "ecmwf-mon-thu",
+            "coords": [
+                {
+                    "bracket": {
+                        "before": 2,
+                        "after": 2,
+                        "date": "20240718",
+                        "strict": False,
+                    }
+                },
+                {"bracket": {"before": 2, "after": 2, "date": "20240725"}},
+            ],
+        },
+        "step": {"coords": [[24]]},
+    },
+    "factory-dateseq-range": {
+        "date": {
+            "type": "dateseq",
+            "operation": "mean",
+            "sequence": {
+                "type": "monthly",
+                "days": [5, 13, 17, 29],
+            },
+            "coords": [
+                {"range": {"from": "20240820", "to": "20240920"}},
+                {"range": {"from": "20240905", "to": "20241005", "include_end": False}},
+            ],
+        },
+        "step": {"coords": [[24]]},
+    },
 }
 
 EXPECT_ACCUMS = {
@@ -96,6 +129,26 @@ EXPECT_ACCUMS = {
         "hdate": (Aggregation, [[20220610], [20230610]]),
         "step": (Mean, [[6, 12, 18, 24]]),
     },
+    "factory-dateseq-bracket": {
+        "date": (
+            Aggregation,
+            [
+                ["20240711", "20240715", "20240718", "20240722", "20240725"],
+                ["20240718", "20240722", "20240729", "20240801"],
+            ],
+        ),
+        "step": (Aggregation, [[24]]),
+    },
+    "factory-dateseq-range": {
+        "date": (
+            Mean,
+            [
+                ["20240829", "20240905", "20240913", "20240917"],
+                ["20240905", "20240913", "20240917", "20240929"],
+            ],
+        ),
+        "step": (Aggregation, [[24]]),
+    },
 }
 
 EXPECT_COORDS = {
@@ -113,6 +166,28 @@ EXPECT_COORDS = {
     "factory-default": {"step": {12, 18}},
     "factory-legacy": {"step": {24, 48}},
     "factory-multidim": {"hdate": {20220610, 20230610}, "step": {6, 12, 18, 24}},
+    "factory-dateseq-bracket": {
+        "date": {
+            "20240711",
+            "20240715",
+            "20240718",
+            "20240722",
+            "20240725",
+            "20240729",
+            "20240801",
+        },
+        "step": {24},
+    },
+    "factory-dateseq-range": {
+        "date": {
+            "20240829",
+            "20240905",
+            "20240913",
+            "20240917",
+            "20240929",
+        },
+        "step": {24},
+    },
 }
 
 

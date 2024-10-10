@@ -14,7 +14,9 @@ setup(
         "code-meters",
         "earthkit-meteo>=0.1.0",
         "earthkit-data>=0.8.0",
-        "thermofeel>=2.0.0"
+        "earthkit-time>=0.1.3",
+        "thermofeel>=2.0.0",
+        "scipy>=1.8",
     ],
     tests_require=[
         "requests",
@@ -43,6 +45,7 @@ setup(
             "pproc-thermal-indices=pproc.thermal_indices:main",
             "pproc-histogram=pproc.histogram:main",
             "pproc-accumulate=pproc.accumulate:main",
+            "pproc-significance=pproc.significance:main",
         ],
     },
 )
