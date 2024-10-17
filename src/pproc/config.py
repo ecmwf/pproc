@@ -11,7 +11,6 @@ def config_from_outputs(args):
     config = config_generator.from_outputs(
         args.inputs, args.template, args.schema
     ).model_dump(exclude_none=True, by_alias=True)
-    config.update(args.overrides)
     with open(args.out_config, "w") as f:
         yaml.dump(config, f, sort_keys=False)
 
@@ -21,7 +20,6 @@ def config_from_inputs(args):
     config = config_generator.from_inputs(
         args.inputs, args.template, args.schema
     ).model_dump(exclude_none=True, by_alias=True)
-    config.update(args.overrides)
     with open(args.out_config, "w") as f:
         yaml.dump(config, f, sort_keys=False)
 
@@ -40,9 +38,6 @@ def main(args: List[str] = sys.argv[1:]):
         type=str,
         required=True,
         help="Path to output configuration file",
-    )
-    parser.add_argument(
-        "--overrides", default={}, help="Overrides to apply to the configuration"
     )
 
     subparsers = parser.add_subparsers(required=True)
