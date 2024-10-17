@@ -94,7 +94,7 @@ class BaseConfig(BaseModel):
         with open(template_path, "r") as template_file:
             base_config = yaml.safe_load(template_file)
             param_templates = base_config.pop("params", {})
-            base_accum = base_config.pop("accumulations", {})
+            default_param = param_templates.pop("default", {"accumulations": {}})
             config = cls(**base_config)
 
         if schema_path:
@@ -102,8 +102,8 @@ class BaseConfig(BaseModel):
 
         total_fields = None
         for param, preqs in param_requests.items():
-            param_config = param_templates.get(param, {})
-            param_accum = param_config.setdefault("accumulations", dict(base_accum))
+            param_config = param_templates.get(param, dict(default_param))
+            param_accum = param_config["accumulations"]
 
             # Check grid and levelist are consistent with requests for same parameter
             grid = list(set(preq.pop("grid", None) for preq in preqs))
