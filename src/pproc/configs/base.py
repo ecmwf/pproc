@@ -1,7 +1,7 @@
-import datetime
+import copy
 import functools
 import operator
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
@@ -67,8 +67,10 @@ class BaseConfig(BaseModel):
         model_config = ConfigDict(extra="forbid")
 
         in_: str = Field(serialization_alias="in")
+        out: Optional[str] = None
         dtype: str = "float32"
-        in_keys: Optional[dict] = None
+        in_keys: Optional[dict] = {}
+        out_keys: Optional[dict] = {}
         accumulations: dict = {}
 
     root_dir: Optional[str] = None
@@ -77,7 +79,7 @@ class BaseConfig(BaseModel):
     queue_size: int = 1
     num_members: int = 51
     total_fields: int = 51
-    out_keys: Optional[dict] = None
+    out_keys: Optional[dict] = {}
     params: Dict[str, ParamConfig] = {}
     steps: Optional[list] = None
     windows: Optional[list] = None
@@ -102,7 +104,8 @@ class BaseConfig(BaseModel):
 
         total_fields = None
         for param, preqs in param_requests.items():
-            param_config = param_templates.get(param, dict(default_param))
+            param_config = copy.deepcopy(default_param)
+            param_config.update(param_templates.get(param, {}))
             param_accum = param_config["accumulations"]
 
             # Check grid and levelist are consistent with requests for same parameter
@@ -117,7 +120,7 @@ class BaseConfig(BaseModel):
                     f"Different levelist found in requests for param {param}: {levelists}"
                 )
             elif len(levelists[0]) > 0:
-                param_accum["levelist"] = {"coords": levelists[0]}
+                param_accum["levelist"] = {"coords": [[x] for x in levelists[0]]}
 
             # Check total number of fields retrieved is consistent across all parameters
             pfields = sum(
@@ -156,19 +159,20 @@ class BaseConfig(BaseModel):
                 }
             config.params[param] = param_options
 
-        updates = {}
-        if global_vars["source"] != "fdb":
-            source, loc = global_vars["source"].split(":")
-            updates["location"] = loc
-        else:
-            source = global_vars["source"]
-
         config.num_members = global_vars["num_members"]
         config.total_fields = total_fields
-        config.sources = {
-            source: {"ens": [{"type": tp, **updates} for tp in global_vars["type"]]}
-        }
+        sources = config.sources[global_vars["source"]]
+        assert len(sources) == 1, "Only one source is supported"
+        source_name = list(sources.keys())[0]
+        if len(sources[source_name]) == 0:
+            sources[source_name] = [{"type": tp} for tp in global_vars["type"]]
         return config
 
     def from_outputs(outputs, template, schema):
+        raise NotImplementedError("Not yet implemented")
+
+    def outputs(self, path: str):
+        raise NotImplementedError("Not yet implemented")
+
+    def inputs(self, path: str):
         raise NotImplementedError("Not yet implemented")

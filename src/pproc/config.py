@@ -9,19 +9,25 @@ import yaml
 def config_from_outputs(args):
     config_generator = importlib.import_module(f"pproc.configs.{args.product}").Config
     config = config_generator.from_outputs(
-        args.inputs, args.template, args.schema
-    ).model_dump(exclude_none=True, by_alias=True)
+        args.outputs, args.template, args.schema
+    )
+    if args.inputs:
+        config.outputs(args.inputs)
+    config_dict = config.model_dump(exclude_none=True, by_alias=True)
     with open(args.out_config, "w") as f:
-        yaml.dump(config, f, sort_keys=False)
+        yaml.dump(config_dict, f, sort_keys=False)
 
 
 def config_from_inputs(args):
     config_generator = importlib.import_module(f"pproc.configs.{args.product}").Config
     config = config_generator.from_inputs(
         args.inputs, args.template, args.schema
-    ).model_dump(exclude_none=True, by_alias=True)
+    )
+    if args.outputs:
+        config.outputs(args.outputs)
+    config_dict = config.model_dump(exclude_none=True, by_alias=True)
     with open(args.out_config, "w") as f:
-        yaml.dump(config, f, sort_keys=False)
+        yaml.dump(config_dict, f, sort_keys=False)
 
 
 def main(args: List[str] = sys.argv[1:]):
@@ -48,6 +54,9 @@ def main(args: List[str] = sys.argv[1:]):
         "--outputs", type=str, required=True, help="Path to output request file"
     )
     output_parser.add_argument(
+        "--inputs", type=str, required=False, default=None, help="Path to generated input request file"
+    )
+    output_parser.add_argument(
         "--schema", type=str, required=True, help="Path to products schema"
     )
     output_parser.add_argument(
@@ -63,6 +72,9 @@ def main(args: List[str] = sys.argv[1:]):
     )
     input_parser.add_argument(
         "--inputs", type=str, required=True, help="Path to input request file"
+    )
+    input_parser.add_argument(
+        "--outputs", type=str, required=False, default=None, help="Path to generated output request file"
     )
     input_parser.add_argument(
         "--template",
