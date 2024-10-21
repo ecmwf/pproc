@@ -5,11 +5,11 @@ from typing import List, Optional, Union
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
-DatetimeType = Union[str, int, List[str], List[int]]
-
 
 class Request(BaseModel):
-    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+    model_config = ConfigDict(
+        extra="ignore", populate_by_name=True, coerce_numbers_to_str=True
+    )
 
     class_: str = Field(alias="class")
     stream: str
@@ -18,12 +18,12 @@ class Request(BaseModel):
     levelist: Optional[Union[int, list]] = None
     domain: str
     param: str
-    date: DatetimeType
-    time: DatetimeType
+    date: Union[str, List[str]]
+    time: Union[str, List[str]]
     step: Union[str, int, List[str], List[int]]
     type_: str = Field(alias="type")
     number: Optional[Union[int, List[int]]] = None
-    hdate: Optional[DatetimeType] = None
+    hdate: Optional[Union[str, List[str]]] = None
     quantile: Optional[Union[str, List[str]]] = None
 
 

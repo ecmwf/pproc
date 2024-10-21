@@ -6,6 +6,9 @@ from typing import Any, Dict, List, Optional, Tuple
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
+from pproc.configs import ranges
+from pproc.configs.request import Request
+
 
 def parse_requests(inputs: List[dict]) -> Tuple[Dict[str, Any], Dict[str, List[dict]]]:
     param_reqs = {}
@@ -40,23 +43,26 @@ def parse_requests(inputs: List[dict]) -> Tuple[Dict[str, Any], Dict[str, List[d
     return global_vars, param_reqs
 
 
-def base_request(
-    preqs: List[dict],
-    accum_dims: List[str],
-    pop_keys: List[str] = ["grid", "number", "type", "source"],
-) -> Dict[str, Any]:
+def populate_accums(accums: dict, request: dict) -> dict:
+    for dim, dim_config in accums.items():
+        accum_type = dim_config.get("type", None)
+        if accum_type == "monthly":
+            step_ranges = ranges.monthly(
+                str(request["date"]), list(map(int, request["step"]))
+            )
+            if len(step_ranges) == 0:
+                raise ValueError(f"No full months found in steps {request['step']}")
+            dim_config.pop("type")
+            dim_config["coords"] = step_ranges
+
+
+def base_request(preqs: List[dict]) -> Request:
     base = {}
-    for preq in preqs:
-        for key, value in preq.items():
-            if key in accum_dims + pop_keys:
-                continue
-            if key in base:
-                if base[key] != value:
-                    raise ValueError(
-                        f"Conflicting values for key {key}: {base[key]} != {value}"
-                    )
-            else:
-                base[key] = value
+    all_keys = set.union(*[set(req.keys()) for req in preqs])
+    for key in all_keys:
+        values = [req.get(key) for req in preqs]
+        if all([x == values[0] for x in values]):
+            base[key] = values[0]
     return base
 
 
@@ -107,6 +113,8 @@ class BaseConfig(BaseModel):
             param_config = copy.deepcopy(default_param)
             param_config.update(param_templates.get(param, {}))
             param_accum = param_config["accumulations"]
+            base_req = base_request(preqs)
+            populate_accums(param_accum, base_req)
 
             # Check grid and levelist are consistent with requests for same parameter
             grid = list(set(preq.pop("grid", None) for preq in preqs))
@@ -147,7 +155,13 @@ class BaseConfig(BaseModel):
 
             param_options = cls.ParamConfig(
                 in_=param,
-                in_keys=base_request(preqs, list(param_accum.keys())),
+                in_keys={
+                    k: v
+                    for k, v in base_req.items()
+                    if k
+                    not in list(param_accum.keys())
+                    + ["grid", "number", "type", "source"]
+                },
                 **param_config,
             )
             if grid[0]:
