@@ -13,8 +13,10 @@ setup(
         "filelock>=3.12.0",
         "code-meters",
         "earthkit-meteo>=0.1.1",
-        "earthkit-data==0.8.1",
-        "thermofeel>=2.0.0"
+        "earthkit-data>=0.8.0",
+        "earthkit-time>=0.1.3",
+        "thermofeel>=2.0.0",
+        "scipy>=1.8",
     ],
     tests_require=[
         "requests",
@@ -43,6 +45,7 @@ setup(
             "pproc-thermal-indices=pproc.thermal_indices:main",
             "pproc-histogram=pproc.histogram:main",
             "pproc-accumulate=pproc.accumulate:main",
+            "pproc-significance=pproc.significance:main",
         ],
     },
 )

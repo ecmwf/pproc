@@ -1,7 +1,10 @@
-from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Tuple
+import datetime
+from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Tuple, Union
 
 import numpy as np
 
+from earthkit.time.calendar import parse_date
+from earthkit.time.sequence import Sequence
 from pproc.common.accumulation import Accumulator, Coord, coords_extent
 from pproc.common.utils import dict_product
 from pproc.common.window import legacy_window_factory
@@ -22,12 +25,55 @@ def _default_accumulation_factory(
         yield name, acc_config
 
 
+def _to_date(arg: Union[str, Tuple[int, int, int], datetime.date, datetime.datetime]) -> datetime.date:
+    if isinstance(arg, datetime.datetime):
+        return arg.date()
+    if isinstance(arg, datetime.date):
+        return arg
+    return parse_date(arg)
+
+
+def _eval_sequence(seq: Sequence, config: dict) -> List[str]:
+    if "bracket" in config:
+        bracket = config["bracket"]
+        ref = _to_date(bracket["date"])
+        before = bracket.get("before", 1)
+        after = bracket.get("after", before)
+        strict = bracket.get("strict", True)
+        return [d.strftime("%Y%m%d") for d in seq.bracket(ref, (before, after), strict)]
+    elif "range" in config:
+        range_ = config["range"]
+        from_ = _to_date(range_["from"])
+        to = _to_date(range_["to"])
+        include_start = range_.get("include_start", True)
+        include_end = range_.get("include_end", True)
+        return [d.strftime("%Y%m%d") for d in seq.range(from_, to, include_start, include_end)]
+    else:
+        raise ValueError("No sequence action found. Currently supported options are 'bracket', 'range'")
+
+
+def _dateseq_accumulation_factory(config: dict, grib_keys: dict) -> Iterator[Tuple[str, dict]]:
+    seq_config = config["sequence"]
+    if isinstance(seq_config, dict):
+        seq = Sequence.from_dict(seq_config)
+    elif isinstance(seq_config, str):
+        seq = Sequence.from_resource(seq_config)
+    else:
+        raise ValueError(f"Invalid sequence definition {seq_config!r}")
+
+    new_config = config.copy()
+    new_config["coords"] = [_eval_sequence(seq, cfg) for cfg in config["coords"]]
+
+    return _default_accumulation_factory(new_config, grib_keys)
+
+
 def _make_accumulation_configs(
     config: dict, grib_keys: dict
 ) -> Iterator[Tuple[str, dict]]:
     tp = config.get("type", "default")
     known = {
         "default": _default_accumulation_factory,
+        "dateseq": _dateseq_accumulation_factory,
         "legacywindow": legacy_window_factory,
     }
     factory = known.get(tp)
