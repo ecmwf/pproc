@@ -101,7 +101,7 @@ class BaseConfig(BaseModel):
             param_config.update(param_templates.get(param, {}))
             param_accum = param_config["accumulations"]
             base_req = base_request(preqs)
-            ranges.populate_accums(param_accum, base_req)
+            populate_accums(param_accum, base_req)
 
             # Check grid and levelist are consistent with requests for same parameter
             grid = list(set(preq.pop("grid", None) for preq in preqs))
