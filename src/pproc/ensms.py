@@ -62,8 +62,8 @@ class EnsmsConfig(common.Config):
         self._fdb = None
 
         self.out_keys = self.options.get("out_keys", {})
-        self.out_keys_em = dict({"type": "em"}, **self.options.get("out_keys_em", {}))
-        self.out_keys_es = dict({"type": "es"}, **self.options.get("out_keys_es", {}))
+        self.out_keys_em = {"type": "em", **self.options.get("out_keys_em", {})}
+        self.out_keys_es = {"type": "es", **self.options.get("out_keys_es", {})}
 
         self.parameters = [
             ParamConfig(pname, popt, overrides=self.override_input)
