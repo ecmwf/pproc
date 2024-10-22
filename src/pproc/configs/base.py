@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
-from pproc.configs import ranges
+from pproc.configs.ranges import populate_accums
 from pproc.configs.request import Request
 
 
@@ -41,19 +41,6 @@ def parse_requests(inputs: List[dict]) -> Tuple[Dict[str, Any], Dict[str, List[d
             )
 
     return global_vars, param_reqs
-
-
-def populate_accums(accums: dict, request: dict) -> dict:
-    for dim, dim_config in accums.items():
-        accum_type = dim_config.get("type", None)
-        if accum_type == "monthly":
-            step_ranges = ranges.monthly(
-                str(request["date"]), list(map(int, request["step"]))
-            )
-            if len(step_ranges) == 0:
-                raise ValueError(f"No full months found in steps {request['step']}")
-            dim_config.pop("type")
-            dim_config["coords"] = step_ranges
 
 
 def base_request(preqs: List[dict]) -> Request:
@@ -114,7 +101,7 @@ class BaseConfig(BaseModel):
             param_config.update(param_templates.get(param, {}))
             param_accum = param_config["accumulations"]
             base_req = base_request(preqs)
-            populate_accums(param_accum, base_req)
+            ranges.populate_accums(param_accum, base_req)
 
             # Check grid and levelist are consistent with requests for same parameter
             grid = list(set(preq.pop("grid", None) for preq in preqs))
