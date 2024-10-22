@@ -5,7 +5,7 @@ from pproc.configs.request import Request, write_requests
 
 
 class Config(BaseConfig):
-    fc_date: str = "{date"
+    fc_date: str = "{date}"
     root_dir: str
     type_em: Optional[str] = "em"
     type_es: Optional[str] = "es"
