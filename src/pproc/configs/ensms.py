@@ -5,9 +5,23 @@ from pproc.configs.request import Request, write_requests
 
 
 class Config(BaseConfig):
-    fc_date: Optional[str] = None
+    fc_date: str = "{date"
+    root_dir: str
     type_em: Optional[str] = "em"
     type_es: Optional[str] = "es"
+
+    @classmethod
+    def from_inputs(cls, outputs, template, schema) -> Self:
+        config = cls._from_inputs(outputs, template, schema)
+        datetime = None
+        for _, param_config in config.params.items():
+            pdatetime = f"{param_config.in_keys['date']}{param_config.in_keys['time']}"
+            if datetime is None:
+                datetime = f"{pdate}{ptime}"
+            elif datetime != pdatetime:
+                raise ValueError("Date/time in requests must match")
+        config.fc_date = config.fc_date.format_map({"date": datetime})
+        return config
 
     def outputs(self, output_file: str):
         output_reqs = []

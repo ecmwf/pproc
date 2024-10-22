@@ -10,6 +10,7 @@ class Config(BaseConfig):
         vmax: Optional[float] = None
 
     date: Optional[str] = None
+    root_dir: Optional[str] = None
 
     def outputs(self, output_file: str):
         output_reqs = []

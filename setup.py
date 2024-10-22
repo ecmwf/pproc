@@ -17,6 +17,7 @@ setup(
         "earthkit-time>=0.1.3",
         "thermofeel>=2.0.0",
         "scipy>=1.8",
+        "pydantic"
     ],
     tests_require=[
         "requests",

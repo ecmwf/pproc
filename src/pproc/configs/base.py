@@ -1,7 +1,7 @@
 import copy
 import functools
 import operator
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Self
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
@@ -66,7 +66,6 @@ class BaseConfig(BaseModel):
         out_keys: Optional[dict] = {}
         accumulations: dict = {}
 
-    root_dir: Optional[str] = None
     n_par_read: int = 1
     n_par_compute: int = 1
     queue_size: int = 1
@@ -79,9 +78,9 @@ class BaseConfig(BaseModel):
     sources: dict = {}
 
     @classmethod
-    def from_inputs(
+    def _from_inputs(
         cls, inputs_path: str, template_path: str, schema_path: Optional[str] = None
-    ):
+    ) -> Self:
         with open(inputs_path, "r") as f:
             input_requests = yaml.safe_load(f)
         global_vars, param_requests = parse_requests(input_requests)
@@ -168,6 +167,10 @@ class BaseConfig(BaseModel):
         if len(sources[source_name]) == 0:
             sources[source_name] = [{"type": tp} for tp in global_vars["type"]]
         return config
+
+    @classmethod
+    def from_inputs(cls, outputs, template, schema) -> Self:
+        return cls._from_inputs(outputs, template, schema)
 
     def from_outputs(outputs, template, schema):
         raise NotImplementedError("Not yet implemented")
