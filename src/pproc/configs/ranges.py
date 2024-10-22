@@ -6,21 +6,20 @@ import numpy as np
 
 def populate_accums(accums: dict, request: dict) -> dict:
     for dim, dim_config in accums.items():
-        accum_type = dim_config.get("type", None)
-        if accum_type == "monthly":
-            step_ranges = monthly(str(request["date"]), list(map(int, request["step"])))
-            if len(step_ranges) == 0:
-                raise ValueError(f"No full months found in steps {request['step']}")
-            dim_config.pop("type")
-            dim_config["coords"] = step_ranges
-        elif accum_type == "weekly":
-            step_ranges = weekly(list(map(int, request["step"])))
-            if len(step_ranges) == 0:
-                raise ValueError(f"No full months found in steps {request['step']}")
-            dim_config.pop("type")
-            dim_config["coords"] = step_ranges
-        else:
-            raise ValueError(f"Unknown range type {accum_type}")
+        if dim == "step":
+            accum_type = dim_config.get("type", None)
+            if accum_type == "monthly":
+                step_ranges = monthly(str(request["date"]), list(map(int, request["step"])))
+                if len(step_ranges) == 0:
+                    raise ValueError(f"No full months found in steps {request['step']}")
+                dim_config.pop("type")
+                dim_config["coords"] = step_ranges
+            elif accum_type == "weekly":
+                step_ranges = weekly(list(map(int, request["step"])))
+                if len(step_ranges) == 0:
+                    raise ValueError(f"No full months found in steps {request['step']}")
+                dim_config.pop("type")
+                dim_config["coords"] = step_ranges
 
 
 def _increment_month(date: datetime) -> datetime:
