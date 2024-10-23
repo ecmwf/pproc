@@ -45,7 +45,7 @@ def get_interval(steps: List[int]) -> int:
     return int(intervals[0])
 
 
-def monthly(date: str, steps: List[int]) -> List[List[int]]:
+def monthly(date: str, steps: List[int], accumulated: bool = False) -> List[List[int]]:
     """
     Compute list of steps which belong to a specific month,
     starting from a given date and a list of forecast steps.
@@ -72,7 +72,7 @@ def monthly(date: str, steps: List[int]) -> List[List[int]]:
                 {
                     "from": month_range[0],
                     "to": month_range[-1],
-                    "by": interval,
+                    "by": delta if accumulated else interval,
                 }
             )
         start_month = next_month
