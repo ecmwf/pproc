@@ -1,10 +1,11 @@
 import copy
 import functools
 import operator
-from typing import Any, Dict, List, Optional, Tuple, Self
+from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
+from typing_extensions import Self
 
 from pproc.configs.ranges import populate_accums
 from pproc.configs.request import Request

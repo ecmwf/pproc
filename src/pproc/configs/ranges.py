@@ -53,7 +53,7 @@ def monthly(date: str, steps: List[int]) -> List[List[int]]:
             delta = int(
                 (next_month - start_month).total_seconds() / (60 * 60 * interval)
             )
-            month_range = steps[step_index : step_index + delta]
+            month_range = steps[step_index: step_index + delta]
             if start_month.day == 1 and len(month_range) == delta:
                 # Only append range if we have the full months
                 step_ranges.append(month_range)
@@ -72,7 +72,7 @@ def weekly(steps: List[int]) -> List[List[int]]:
         step_ranges = []
         for start in range(steps[0], steps[-1] - 168 + 1, 24):
             end = start + 168
-            step_ranges.append(steps[steps.index(start) : steps.index(end) + 1])
+            step_ranges.append(steps[steps.index(start): steps.index(end) + 1])
         return step_ranges
     if not all([isinstance(step, str) for step in steps]):
         raise ValueError("Steps must be the same type, either integers or strings")

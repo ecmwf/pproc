@@ -1,5 +1,7 @@
 from typing import Optional
 
+from typing_extensions import Self
+
 from pproc.configs.base import BaseConfig
 from pproc.configs.request import Request, write_requests
 
@@ -17,7 +19,7 @@ class Config(BaseConfig):
         for _, param_config in config.params.items():
             pdatetime = f"{param_config.in_keys['date']}{param_config.in_keys['time']}"
             if datetime is None:
-                datetime = f"{pdate}{ptime}"
+                datetime = pdatetime
             elif datetime != pdatetime:
                 raise ValueError("Date/time in requests must match")
         config.fc_date = config.fc_date.format_map({"date": datetime})
