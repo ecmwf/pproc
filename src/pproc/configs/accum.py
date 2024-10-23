@@ -23,10 +23,18 @@ class Config(BaseConfig):
                 if dim_config.get("operation", None) is None:
                     req[dim] = [x[0] for x in dim_config["coords"]]
 
-            steps = [
-                str(steps[0]) if len(steps) == 1 else f"{steps[0]}-{steps[-1]}"
-                for steps in param_config.accumulations["step"]["coords"]
-            ]
+            steps = []
+            for accum_steps in param_config.accumulations["step"]["coords"]:
+                if isinstance(accum_steps, dict):
+                    steps.append(f"{accum_steps['from']}-{accum_steps['to']}")
+                else:
+                    steps.append(
+                        (
+                            str(accum_steps[0])
+                            if len(accum_steps) == 1
+                            else f"{accum_steps[0]}-{accum_steps[-1]}"
+                        )
+                    )
             req["step"] = steps
             output_reqs.append(Request(**req))
 
