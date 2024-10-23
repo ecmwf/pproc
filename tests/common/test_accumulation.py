@@ -12,6 +12,7 @@ from pproc.common.accumulation import (
     Mean,
     SimpleAccumulation,
     WeightedMean,
+    StandardDeviation,
     convert_coords,
     convert_dim,
     convert_dims,
@@ -238,6 +239,16 @@ def test_convert_coords():
             [0, 2, 3, 4],
             [[3.25, 6.25, 11.25], [3.25, 10.25, 29.25]],
             id="mean_sequential",
+        ),
+        pytest.param(
+            {"operation": "standard_deviation", "coords": {"to": 4, "by": 2}},
+            StandardDeviation,
+            [0, 2, 4],
+            [
+                [1.632993161855452, 1.632993161855452, 1.632993161855452], 
+                [1.632993161855452, 1.632993161855452, 1.632993161855452]
+            ],
+            id="std",
         ),
     ],
 )
