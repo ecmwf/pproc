@@ -118,9 +118,10 @@ def extreme_template(accum, template_fc, template_clim):
 
 def efi_template(template):
     template_efi = template.copy()
+    template_efi["marsType"] = 27
+
     edition = template_efi["edition"]
     if edition == 1:
-        template_efi["marsType"] = 27
         template_efi["efiOrder"] = 0
         template_efi["number"] = 0
     elif edition == 2:
@@ -133,9 +134,10 @@ def efi_template(template):
 
 def efi_template_control(template):
     template_efi = template.copy()
+    template_efi["marsType"] = 28
+
     edition = template_efi["edition"]
     if edition == 1:
-        template_efi["marsType"] = 28
         template_efi["efiOrder"] = 0
         template_efi["totalNumber"] = 1
         template_efi["number"] = 0
@@ -149,6 +151,8 @@ def efi_template_control(template):
 
 def sot_template(template, sot):
     template_sot = template.copy()
+    template_sot["marsType"] = 38
+    
     if sot == 90:
         efi_order = 99
     elif sot == 10:
@@ -159,7 +163,6 @@ def sot_template(template, sot):
         )
     edition = template_sot["edition"]
     if edition == 1:
-        template_sot["marsType"] = 38
         template_sot["number"] = sot
         template_sot["efiOrder"] = efi_order
     elif edition == 2:
