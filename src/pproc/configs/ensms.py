@@ -9,8 +9,8 @@ from pproc.configs.request import Request, write_requests
 class Config(BaseConfig):
     fc_date: str = "{date}"
     root_dir: str
-    type_em: Optional[str] = "em"
-    type_es: Optional[str] = "es"
+    out_keys_em: Optional[dict] = None
+    out_keys_es: Optional[dict] = None
 
     @classmethod
     def from_inputs(cls, outputs, template, schema) -> Self:
@@ -34,7 +34,6 @@ class Config(BaseConfig):
 
             for dim, dim_config in param_config.accumulations.items():
                 if dim_config.get("operation", None) is None:
-                    print(dim, dim_config)
                     req[dim] = [x[0] for x in dim_config["coords"]]
 
             steps = []
@@ -50,11 +49,11 @@ class Config(BaseConfig):
                         )
                     )
             req["step"] = steps
-            for tp in [
-                self.type_em,
-                self.type_es,
+            for grib_sets, default in [
+                (self.out_keys_em, "em"),
+                (self.out_keys_es, "es"),
             ]:
-                req["type"] = tp
+                req["type"] = grib_sets.get("type", default) if grib_sets else default
                 output_reqs.append(Request(**req))
 
         write_requests(output_file, output_reqs)

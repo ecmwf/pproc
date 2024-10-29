@@ -89,7 +89,6 @@ def weekly(date: str, steps: List[int]) -> List[List[int]]:
     if not all([isinstance(step, int) for step in steps]):
         raise ValueError("Steps for computing weekly ranges must be integers")
 
-    print("STEPS", steps)
     interval = get_interval(steps)
     step_ranges = []
     start_day = (steps[0] // 24) * 24
