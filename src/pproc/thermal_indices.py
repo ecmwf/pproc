@@ -365,6 +365,7 @@ def main(args: List[str] = sys.argv[1:]):
                 )
 
         executor.wait()
+    recovery.clean_file()
 
     if args.timers:
         print_timers()
