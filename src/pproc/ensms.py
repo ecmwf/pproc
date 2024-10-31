@@ -35,16 +35,12 @@ def template_ensemble(
     param_type: ParamConfig,
     template: eccodes.GRIBMessage,
     accum: Accumulator,
-    marstype: str,
+    out_keys: dict,
 ):
     template_ens = template.copy()
 
-    grib_sets = accum.grib_keys()
-    grib_sets["marsType"] = marstype
-    if template_ens["edition"] == 2 or grib_sets.get("edition", 1) == 2:
-        grib_sets["productDefinitionTemplateNumber"] = 2
-        if marstype in ["em", "es"]:
-            grib_sets["derivedForecast"] = 2 if marstype == "es" else 0
+    grib_sets = accum.grib_keys().copy()
+    grib_sets.update(out_keys)
     template_ens.set(grib_sets)
     return template_ens
 
@@ -66,8 +62,8 @@ class EnsmsConfig(common.Config):
         self._fdb = None
 
         self.out_keys = self.options.get("out_keys", {})
-        self.type_em = self.options.get("type_em", "em")
-        self.type_es = self.options.get("type_es", "es")
+        self.out_keys_em = {"type": "em", **self.options.get("out_keys_em", {})}
+        self.out_keys_es = {"type": "es", **self.options.get("out_keys_es", {})}
 
         self.parameters = [
             ParamConfig(pname, popt, overrides=self.override_input)
@@ -112,14 +108,14 @@ def ensms_iteration(
     axes = tuple(range(ens.ndim - 1))
     with ResourceMeter(f"Window {window_id}: write mean output"):
         mean = np.mean(ens, axis=axes)
-        template_mean = template_ensemble(param, template_ens, accum, config.type_em)
+        template_mean = template_ensemble(param, template_ens, accum, config.out_keys_em)
         template_mean.set_array("values", common.io.nan_to_missing(template_mean, mean))
         config.out_mean.write(template_mean)
         config.out_mean.flush()
 
     with ResourceMeter(f"Window {window_id}: write std output"):
         std = np.std(ens, axis=axes)
-        template_std = template_ensemble(param, template_ens, accum, config.type_es)
+        template_std = template_ensemble(param, template_ens, accum, config.out_keys_es)
         template_std.set_array("values", common.io.nan_to_missing(template_std, std))
         config.out_std.write(template_std)
         config.out_std.flush()
