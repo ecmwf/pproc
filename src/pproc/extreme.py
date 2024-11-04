@@ -96,12 +96,18 @@ def extreme_template(accum, template_fc, template_clim):
             template_ext[key] = template_fc[key]
     elif edition == 2 and clim_edition == 2:
         clim_keys = [
+            "typeOfReferenceDataset",
             "yearOfStartOfReferencePeriod",
             "dayOfStartOfReferencePeriod",
             "monthOfStartOfReferencePeriod",
             "hourOfStartOfReferencePeriod",
             "minuteOfStartOfReferencePeriod",
             "secondOfStartOfReferencePeriod",
+            "sampleSizeOfReferencePeriod",
+            "numberOfReferencePeriodTimeRanges",
+            "typeOfStatisticalProcessingForTimeRangeForReferencePeriod",
+            "indicatorOfUnitForTimeRangeForReferencePeriod",
+            "lengthOfTimeRangeForReferencePeriod",
         ]
         grib_keys = {
             "productDefinitionTemplateNumber": 105,
