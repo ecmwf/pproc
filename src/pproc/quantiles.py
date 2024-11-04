@@ -73,6 +73,7 @@ def do_quantiles(
                 "perturbationNumber": pert_number,
             }
         else:
+            out_keys.setdefault("productDefinitionTemplateNumber", 86)
             grib_keys = {
                 **out_keys,
                 "totalNumberOfQuantiles": total_number,
