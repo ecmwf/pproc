@@ -161,13 +161,13 @@ class ThermoConfig(Config):
         periods = []
         for roptions in window_config["ranges"]:
             interval = roptions.get("interval", 0)
-            window_size = roptions.get("step_by", max(1, interval))
+            step_by = roptions.get("step_by", max(1, interval))
             periods += [
                 {"range": [x, x + interval]}
                 for x in range(
                     roptions["start_step"],
                     roptions["end_step"] + 1,
-                    window_size,
+                    step_by,
                 )
             ]
         self.options["windows"] = [
