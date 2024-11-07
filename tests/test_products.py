@@ -114,7 +114,7 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
             6,
         ],
         [
-            "thermo_accum",
+            "thermo",
             thermo_main,
             [],
             True,
@@ -134,27 +134,11 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
                     261015,
                     261022,
                     261014,
+                    260242,
                 ],
-                "step": list(range(1, 4)),
+                "step": list(range(0, 4)),
             },
-            30,
-        ],
-        [
-            "thermo_inst",
-            thermo_main,
-            [],
-            True,
-            {
-                "type": "fc",
-                "stream": "oper",
-                "date": 20240605,
-                "time": 00,
-                "param": [
-                    260242
-                ],
-                "step": [0, 1, 2],
-            },
-            3,
+            34,
         ],
         [
             "clustereps",
@@ -203,8 +187,7 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
         "extreme",
         "quantiles",
         "wind",
-        "thermo_accum",
-        "thermo_inst",
+        "thermofeel",
         "clustereps",
     ],
 )

@@ -57,28 +57,28 @@ def process_step(args, config, window_id, fields, recovery):
     indices = ComputeIndices(config.out_keys)
 
     # Windspeed - shortName ws
-    if config.is_target_param("intermediate", {"ws", "10si"}):
+    if config.is_target_param(step, {"10si", 207}):
         ws = indices.calc_field("10si", indices.calc_ws, fields)
-        helpers.write(config.target("intermediate"), ws)
+        config.write(step, ws)
 
     # Cosine of Solar Zenith Angle - shortName uvcossza - ECMWF product
     # TODO: 214001 only exists for GRIB1 -- but here we use it for GRIB2 (waiting for WMO)
-    if config.is_target_param("intermediate", {"cossza", "uvcossza"}):
+    if config.is_target_param(step, {"uvcossza", 214001}):
         cossza = indices.calc_field("uvcossza", indices.calc_cossza_int, fields)
-        helpers.write(config.target("intermediate"), cossza)
+        config.write(step, cossza)
 
     # direct solar radiation - shortName dsrp - ECMWF product
-    if config.is_target_param("intermediate", {"dsrp"}):
+    if config.is_target_param(step, {"dsrp", 47}):
         dsrp = indices.calc_field("dsrp", indices.approximate_dsrp, fields)
-        helpers.write(config.target("intermediate"), dsrp)
+        config.write(step, dsrp)
 
     # Mean Radiant Temperature - shortName mrt - ECMWF product
-    if config.is_target_param("indices", {"mrt"}):
+    if config.is_target_param(step, {"mrt", 261002}):
         mrt = indices.calc_field("mrt", indices.calc_mrt, fields)
-        helpers.write(config.target("indices"), mrt)
+        config.write(step, mrt)
 
     # Univeral Thermal Climate Index - shortName utci - ECMWF product
-    if config.is_target_param("indices", {"utci"}):
+    if config.is_target_param(step, {"utci", 261001}):
         utci = indices.calc_field(
             "utci",
             indices.calc_utci,
@@ -86,52 +86,52 @@ def process_step(args, config, window_id, fields, recovery):
             print_misses=args.utci_misses,
             validate=args.validateutci,
         )
-        helpers.write(config.target("indices"), utci)
+        config.write(step, utci)
 
     # Heat Index (adjusted) - shortName heatx - ECMWF product
-    if config.is_target_param("indices", {"heatx"}):
+    if config.is_target_param(step, {"heatx", 260004}):
         heatx = indices.calc_field("heatx", indices.calc_heatx, fields)
-        helpers.write(config.target("indices"), heatx)
+        config.write(step, heatx)
 
     # Wind Chill factor - shortName wcf - ECMWF product
-    if config.is_target_param("indices", {"wcf"}):
+    if config.is_target_param(step, {"wcf", 260005}):
         wcf = indices.calc_field("wcf", indices.calc_wcf, fields)
-        helpers.write(config.target("indices"), wcf)
+        config.write(step, wcf)
 
     # Apparent Temperature - shortName aptmp - ECMWF product
-    if config.is_target_param("indices", {"aptmp"}):
+    if config.is_target_param(step, {"aptmp", 260255}):
         aptmp = indices.calc_field("aptmp", indices.calc_aptmp, fields)
-        helpers.write(config.target("indices"), aptmp)
+        config.write(step, aptmp)
 
     # Relative humidity percent at 2m - shortName 2r - ECMWF product
-    if config.is_target_param("indices", {"rhp", "2r"}):
+    if config.is_target_param(step, {"2r", 260242}):
         rhp = indices.calc_field("2r", indices.calc_rhp, fields)
-        helpers.write(config.target("indices"), rhp)
+        config.write(step, rhp)
 
     # Humidex - shortName hmdx
-    if config.is_target_param("indices", {"hmdx"}):
+    if config.is_target_param(step, {"hmdx", 261016}):
         hmdx = indices.calc_field("hmdx", indices.calc_hmdx, fields)
-        helpers.write(config.target("indices"), hmdx)
+        config.write(step, hmdx)
 
     # Normal Effective Temperature - shortName nefft
-    if config.is_target_param("indices", {"nefft"}):
+    if config.is_target_param(step, {"nefft", 261018}):
         nefft = indices.calc_field("nefft", indices.calc_nefft, fields)
-        helpers.write(config.target("indices"), nefft)
+        config.write(step, nefft)
 
     # Globe Temperature - shortName gt
-    if config.is_target_param("indices", {"gt"}):
+    if config.is_target_param(step, {"gt", 261015}):
         gt = indices.calc_field("gt", indices.calc_gt, fields)
-        helpers.write(config.target("indices"), gt)
+        config.write(step, gt)
 
     # Wet-bulb potential temperature - shortName wbpt
-    if config.is_target_param("indices", {"wbpt"}):
+    if config.is_target_param(step, {"wbpt", 261022}):
         wbpt = indices.calc_field("wbpt", indices.calc_wbpt, fields)
-        helpers.write(config.target("indices"), wbpt)
+        config.write(step, wbpt)
 
     # Wet Bulb Globe Temperature - shortName wbgt
-    if config.is_target_param("indices", {"wbgt"}):  #
+    if config.is_target_param(step, {"wbgt", 261014}):  #
         wbgt = indices.calc_field("wbgt", indices.calc_wbgt, fields)
-        helpers.write(config.target("indices"), wbgt)
+        config.write(step, wbgt)
 
     # effective temperature 261017
     # standard effective temperature 261019
@@ -141,6 +141,37 @@ def process_step(args, config, window_id, fields, recovery):
 
     if args.usage:
         print_usage()
+
+
+class ThermoTarget:
+    def __init__(
+        self,
+        target_options: dict,
+        parallelise: bool,
+        recover: bool,
+        steps: List[int],
+        overrides: dict,
+    ):
+        target = target_from_location(target_options["target"], overrides=overrides)
+        if parallelise:
+            target.enable_parallel(parallel)
+        if recover:
+            target.enable_recovery()
+        self.target = target
+        self.steps = steps
+        self.params = set(target_options["params"])
+
+    def is_target_param(self, step: int, valid_names: Set[str]) -> bool:
+        return step in self.steps and bool(self.params & valid_names)
+
+    def write(self, step: int, field):
+        metadata = field.metadata()
+        valid_names = {metadata.get("shortName"), metadata.get("paramId")}
+        if self.is_target_param(step, valid_names):
+            helpers.write(self.target, field)
+
+    def flush(self):
+        self.target.flush()
 
 
 class ThermoConfig(Config):
@@ -153,62 +184,61 @@ class ThermoConfig(Config):
         self.root_dir = self.options.get("root_dir", None)
         self.n_par_compute = self.options.get("n_par_compute", 1)
         self.window_queue_size = self.options.get("queue_size", self.n_par_compute)
-        self._parse_windows()
+        self.ranges = set()
         self._create_targets(args.recover)
-
-    def _parse_windows(self):
-        window_config = self.options.pop("windows")
-        periods = []
-        for roptions in window_config["ranges"]:
-            interval = roptions.get("interval", 0)
-            step_by = roptions.get("step_by", max(1, interval))
-            periods += [
-                {"range": [x, x + interval]}
-                for x in range(
-                    roptions["start_step"],
-                    roptions["end_step"] + 1,
-                    step_by,
-                )
-            ]
         self.options["windows"] = [
             {
-                "window_operation": window_config.get("operation", "diff"),
-                "periods": periods,
+                "window_operation": "diff",
+                "periods": [{"range": x} for x in self.ranges],
             }
         ]
 
-    def _create_targets(self, recover: bool):
-        self.targets = {}
-        for param_type, target_options in self.options.get("targets", {}).items():
-            if param_type not in ["indices", "intermediate", "accum"]:
-                raise ValueError(
-                    f"Unknown target type {param_type}. Must be indices, intermediate or accum"
+    def _parse_windows(cls, window_config):
+        periods = set()
+        for roptions in window_config["ranges"]:
+            interval = roptions.get("interval", 0)
+            step_by = roptions.get("step_by", max(1, interval))
+            periods = periods.union(
+                set(
+                    (x, x + interval)
+                    for x in range(
+                        roptions["start_step"],
+                        roptions["end_step"] + 1,
+                        step_by,
+                    )
                 )
-            target = target_from_location(
-                target_options["target"], overrides=self.override_output
             )
-            if self.n_par_compute > 1:
-                target.enable_parallel(parallel)
-            if recover:
-                target.enable_recovery()
-            self.targets[param_type] = {
-                "params": set(target_options["params"]),
-                "target": target,
-            }
+        return periods
 
-    def target(self, param_type: str):
-        if param_type not in self.targets:
-            return NullTarget()
-        return self.targets[param_type]["target"]
+    def _create_targets(self, recover: bool):
+        self.targets = []
+        for target_options in self.options.get("targets", {}):
+            ranges = self._parse_windows(target_options["windows"])
+            self.ranges = self.ranges.union(ranges)
+            self.targets.append(
+                ThermoTarget(
+                    target_options,
+                    self.n_par_compute > 1,
+                    recover,
+                    [x[1] for x in ranges],
+                    self.override_output,
+                )
+            )
 
-    def is_target_param(self, param_type: str, valid_names: Set[str]) -> bool:
-        if param_type not in self.targets:
-            return False
-        return bool(self.targets[param_type]["params"] & valid_names.union({"all"}))
+    def write(self, step: int, fields: ArrayFieldList):
+        for field in fields:
+            for target in self.targets:
+                target.write(step, field)
+
+    def is_target_param(self, step: int, valid_names: Set[str]) -> bool:
+        for target in self.targets:
+            if target.is_target_param(step, valid_names):
+                return True
+        return False
 
     def flush_targets(self):
-        for param_target in self.targets.values():
-            param_target["target"].flush()
+        for target in self.targets:
+            target.flush()
 
 
 def load_input(source: str, config: ThermoConfig, step: int):
@@ -338,27 +368,20 @@ def main(args: List[str] = sys.argv[1:]):
                 {"step": step}, [] if accum_data is None else accum_data.values
             )
             for window_id, accum in completed_windows:
-                if len(accum.values) == 0:
-                    fields = load_input("inst", config, step)
-                else:
+                fields = load_input("inst", config, step)
+                if len(accum.values) != 0:
                     # Set step range for de-accumulated fields
-                    fields = earthkit.data.FieldList.from_array(
+                    step_range = "-".join(map(str, accum["step"].coords))
+                    accum_fields = earthkit.data.FieldList.from_array(
                         accum.values,
                         [
-                            x.override(stepType="diff", stepRange=window_id)
+                            x.override(stepType="diff", stepRange=step_range)
                             for x in accum_data.metadata()
                         ],
                     )
-                    for field in fields:
-                        metadata = field.metadata()
-                        if config.is_target_param(
-                            "accum",
-                            {metadata.get("shortName"), metadata.get("paramId")},
-                        ):
-                            helpers.write(config.target("accum"), field)
-                    config.target("accum").flush()
-
-                fields += load_input("inst", config, step)
+                    config.write(step, accum_fields)
+                    config.flush_targets()
+                    fields += accum_fields
 
                 executor.submit(
                     thermo_partial,

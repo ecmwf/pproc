@@ -140,6 +140,10 @@ class ComputeIndices:
         In the absence of dsrp, approximate it with fdir and cossza.
         Note this introduces some amount of error as cossza approaches zero
         """
+        if "dsrp" in fields.indices()["param"]:
+            logger.debug("dsrp in fields, skipping computation of approximation")
+            return fields.sel(param="dsrp")
+
         fdir = field_values(fields, "fdir")  # W/m2
         cossza = self.calc_field("uvcossza", self.calc_cossza_int, fields)[0].values
 
