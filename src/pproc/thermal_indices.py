@@ -55,6 +55,7 @@ def process_step(args, config, window_id, fields, recovery):
     )
     logger.debug(f"Inputs \n {fields.ls(namespace='mars')}")
     indices = ComputeIndices(config.out_keys)
+    params = fields.indices()["param"]
 
     # Windspeed - shortName ws
     if config.is_target_param(step, {"10si", 207}):
@@ -68,8 +69,8 @@ def process_step(args, config, window_id, fields, recovery):
         config.write(step, cossza)
 
     # direct solar radiation - shortName dsrp - ECMWF product
-    if config.is_target_param(step, {"dsrp", 47}):
-        dsrp = indices.calc_field("dsrp", indices.approximate_dsrp, fields)
+    if config.is_target_param(step, {"dsrp", 47}) and "dsrp" not in params:
+        dsrp = indices.calc_field("dsrp", indices.calc_dsrp, fields)
         config.write(step, dsrp)
 
     # Mean Radiant Temperature - shortName mrt - ECMWF product
