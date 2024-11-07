@@ -172,7 +172,7 @@ class ThermoConfig(Config):
             ]
         self.options["windows"] = [
             {
-                "window_operation": window_config.get("operation", "maximum"),
+                "window_operation": window_config.get("operation", "diff"),
                 "periods": periods,
             }
         ]
