@@ -2,7 +2,7 @@ out_keys:
   edition: 2                       
   typeOfGeneratingProcess: 2
 fc_date: '2024060500'
-n_par_compute: 1
+n_par_compute: 2
 defs: 
   base_request: &base_request                                   
       class: od

@@ -184,14 +184,7 @@ class ThermoConfig(Config):
         self.root_dir = self.options.get("root_dir", None)
         self.n_par_compute = self.options.get("n_par_compute", 1)
         self.window_queue_size = self.options.get("queue_size", self.n_par_compute)
-        self.ranges = set()
         self._create_targets(args.recover)
-        self.options["windows"] = [
-            {
-                "window_operation": "diff",
-                "periods": [{"range": x} for x in self.ranges],
-            }
-        ]
 
     def _parse_windows(cls, window_config):
         periods = set()
@@ -212,9 +205,10 @@ class ThermoConfig(Config):
 
     def _create_targets(self, recover: bool):
         self.targets = []
+        all_ranges = set()
         for target_options in self.options.get("targets", {}):
             ranges = self._parse_windows(target_options["windows"])
-            self.ranges = self.ranges.union(ranges)
+            all_ranges = all_ranges.union(ranges)
             self.targets.append(
                 ThermoTarget(
                     target_options,
@@ -224,6 +218,12 @@ class ThermoConfig(Config):
                     self.override_output,
                 )
             )
+        self.options["windows"] = [
+            {
+                "window_operation": "diff",
+                "periods": [{"range": x} for x in all_ranges],
+            }
+        ]
 
     def write(self, step: int, fields: ArrayFieldList):
         for field in fields:
@@ -380,7 +380,6 @@ def main(args: List[str] = sys.argv[1:]):
                         ],
                     )
                     config.write(step, accum_fields)
-                    config.flush_targets()
                     fields += accum_fields
 
                 executor.submit(
