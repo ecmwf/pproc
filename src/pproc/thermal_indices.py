@@ -160,17 +160,19 @@ class ThermoConfig(Config):
         window_config = self.options.pop("windows")
         periods = []
         for roptions in window_config["ranges"]:
+            interval = roptions.get("interval", 0)
+            window_size = roptions.get("step_by", max(1, interval))
             periods += [
-                {"range": [x, x + roptions["interval"]]}
+                {"range": [x, x + interval]}
                 for x in range(
                     roptions["start_step"],
                     roptions["end_step"] + 1,
-                    roptions["interval"],
+                    window_size,
                 )
             ]
         self.options["windows"] = [
             {
-                "window_operation": window_config["operation"],
+                "window_operation": window_config.get("operation", "maximum"),
                 "periods": periods,
             }
         ]
@@ -336,7 +338,7 @@ def main(args: List[str] = sys.argv[1:]):
                 {"step": step}, [] if accum_data is None else accum_data.values
             )
             for window_id, accum in completed_windows:
-                if len(accum) == 0:
+                if len(accum.values) == 0:
                     fields = load_input("inst", config, step)
                 else:
                     # Set step range for de-accumulated fields
