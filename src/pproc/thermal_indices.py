@@ -207,7 +207,7 @@ class ThermoConfig(Config):
     def _create_targets(self, recover: bool):
         self.targets = []
         all_ranges = set()
-        for target_options in self.options.get("targets", {}):
+        for target_options in self.options.get("targets", []):
             ranges = self._parse_windows(target_options["windows"])
             all_ranges = all_ranges.union(ranges)
             self.targets.append(
