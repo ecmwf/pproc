@@ -5,45 +5,70 @@ members:
   start: 1
 n_par_compute: 1
 n_par_read: 2
-parameters:
-  2t:
-    base_request:
+sources:
+  defaults:
+    request:
       class: od
       domain: g
       expver: '0001'
       levtype: sfc
+  ens:
+    type: fdb
+    request:
       stream: enfo
-      type: cf/pf
-    climatology:
-      clim_keys:
-        class: od
-        date: '20240506'
-        domain: g
-        expver: '0001'
-        levtype: sfc
-        param: 228004
-        stream: efhs
-        type: cd
-      steps:
-        12-36: 0-24
+      type: [cf, pf]
+  clim:
+    type: fdb
+    request:
+      date: '20240506'
+      stream: efhs
+      type: cd
+targets:
+  defaults:
+    metadata:
+      edition: 1
+      gribTablesVersionNo: 132
+      localDefinitionNumber: 19
+      mars.expver: '0001'
+  efi: 
+    type: "fdb:"
+    metadata: {}
+  sot: "fdb:"
+parameters:
+  2t:
+    sources:
+      ens:
+        request:
+          param: [167, 228]
+          levelist: [250, 850]
+          interpolate:
+            grid: ...
+      clim:
+        request:
+          param: 228004
+        steps:
+          12-36: 0-24
+    preprocessing:
+      # - operation: norm
+      #   dim: param
+      - operation: mask
+        param: 228036
+        filter: [{param: 22803, level: 250}, ">=", 10]
+      - operation: scale
+        value: 3600
     eps: -1e-4
-    in_paramid: '167'
     sot:
     - 10
     - 90
-    windows:
-    - grib_set:
-        edition: 1
-        gribTablesVersionNo: 132
-        indicatorOfParameter: 167
-        localDefinitionNumber: 19
-        mars.expver: '0001'
-        timeRangeIndicator: 3
-        stepType: avg
-      periods:
-      - range:
-        - 12
-        - 36
-        - 6
-      window_operation: mean
+    accumulations:
+      - dim: step
+        type: legacywindow
+        windows:
+        - metadata:
+            indicatorOfParameter: 167
+            timeRangeIndicator: 3
+            stepType: avg
+          periods:
+          - [start, end, ]
+          window_operation: mean
 queue_size: 2
