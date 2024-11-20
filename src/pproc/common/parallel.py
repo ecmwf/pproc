@@ -1,15 +1,17 @@
 import concurrent.futures as fut
-from typing import List, Union
-import psutil
-import os
-import eccodes
-import sys
 import multiprocessing
+import os
+import sys
+from typing import List, Union
+
+import eccodes
+import psutil
 from meters import ResourceMeter
 
 from pproc.common import Parameter, io
 from pproc.common.param_requester import ParamRequester
 from pproc.common.utils import delayed_map, dict_product
+from pproc.config.base import Parallelisation
 
 GenericParam = Union[Parameter, ParamRequester]
 
@@ -74,6 +76,14 @@ class QueueingExecutor(fut.ProcessPoolExecutor):
             future.result()
 
 
+def create_executor(options: Parallelisation) -> fut.Executor:
+    return (
+        SynchronousExecutor()
+        if options.n_par_compute == 1
+        else QueueingExecutor(options.n_par_compute, options.queue_size)
+    )
+
+
 def parallel_processing(process, plan, n_par, initializer=None, initargs=()):
     """Run a processing function in parallel
 
@@ -104,7 +114,7 @@ def parallel_processing(process, plan, n_par, initializer=None, initargs=()):
             future.result()
 
 
-def fdb_retrieve(
+def _retrieve(
     data_requesters: List[GenericParam], grib_to_file: bool = False, **kwargs
 ):
     """
@@ -113,7 +123,6 @@ def fdb_retrieve(
     file and their filename returned
 
     :param data_requesters: list of objects with retrieve_data method
-    accepting arguments (fdb, **kwargs)
     :param grib_to_file: boolean specifying whether to write grib messages to file and return filename
     :param kwargs: keys to retrieve data for (must include step)
     :return: list of retrieved (template, data) tuples
@@ -121,9 +130,8 @@ def fdb_retrieve(
     ids = ", ".join(f"{k}={v}" for k, v in kwargs.items())
     with ResourceMeter(f"Retrieve {ids}"):
         collated_data = []
-        fdb = io.fdb()
         for requester in data_requesters:
-            template, data = requester.retrieve_data(fdb, **kwargs)
+            template, data = requester.retrieve_data(**kwargs)
             if grib_to_file and isinstance(
                 template, eccodes.highlevel.message.GRIBMessage
             ):
@@ -148,7 +156,7 @@ def parallel_data_retrieval(
 ):
     """
     Multiprocess retrieve data function from multiple data requests
-    with retrieve_data method. If grib_to_file is true then message templates from the fdb requests are
+    with retrieve_data method. If grib_to_file is true then message templates from the requests are
     written to file and the filename returned with the data, else the message template itself is returned.
     If extra_dims is not empty each tuple produced will have the dict of extra keys as its first element.
 
@@ -171,7 +179,7 @@ def parallel_data_retrieval(
         delay = 0 if num_processes == 1 else num_processes
         submit = lambda keys: (
             keys,
-            executor.submit(fdb_retrieve, data_requesters, True, **keys),
+            executor.submit(_retrieve, data_requesters, True, **keys),
         )
         requests = dict_product(dims)
         for keys, future in delayed_map(delay, submit, requests):

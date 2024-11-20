@@ -10,39 +10,28 @@
 # does it submit to any jurisdiction.
 import functools
 import sys
-from datetime import datetime
-import signal
-from meters import ResourceMeter
-import numpy as np
-from typing import Union, Optional, Any
-from typing_extensions import Self
-from pydantic import (
-    Field,
-    BeforeValidator,
-    ConfigDict,
-    field_validator,
-    model_validator,
-    create_model,
-    computed_field,
-)
-import os
+from typing import Union
 
 import eccodes
-import pyfdb
-from conflator import CLIArg, ConfigModel, Conflator
-from annotated_types import Annotated
+import numpy as np
+from conflator import Conflator
+from meters import ResourceMeter
 
 from pproc import common
-from pproc.common import parallel
 from pproc.common.accumulation import Accumulator
-from pproc.common.parallel import (
-    parallel_processing,
-    sigterm_handler,
-    SynchronousExecutor,
-    QueueingExecutor,
-    parallel_data_retrieval,
-)
+from pproc.common.parallel import create_executor, parallel_data_retrieval
 from pproc.common.param_requester import ParamConfig, ParamRequester
+from pproc.common.recovery import create_recovery
+from pproc.config.base import BaseConfig, create_output_model
+
+OutputModel = create_output_model(
+    "ensms", {"mean": {"type": "em"}, "std": {"type": "es"}}
+)
+
+
+class EnsmsConfig(BaseConfig):
+    parameters: list[ParamConfig]
+    outputs: OutputModel = OutputModel()
 
 
 def template_ensemble(
@@ -57,134 +46,6 @@ def template_ensemble(
     grib_sets.update(out_keys)
     template_ens.set(grib_sets)
     return template_ens
-
-
-class SourceConfig(ConfigModel):
-    type_: str = Field(alias="type")
-    request: dict | list[dict]
-    path: Optional[str] = None
-
-    @model_validator(mode="before")
-    @classmethod
-    def validate_source(cls, data: Any) -> Any:
-        if isinstance(data, str):
-            return {"type": "file", "path": data, "request": {}}
-        return data
-
-
-def create_source_model(entrypoint: str, sources: list[str]):
-    return create_model(
-        f"{entrypoint.capitalize()}Sources",
-        **{
-            source: (
-                Annotated[
-                    SourceConfig,
-                    CLIArg(f"--in-{source}"),
-                    Field(description=f"Input {source} grib file"),
-                ],
-                ...,
-            )
-            for source in sources
-        },
-        __base__=ConfigModel,
-    )
-
-
-def create_target_model(entrypoint: str, targets: list[str]):
-    class TargetBase(ConfigModel):
-        model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    return create_model(
-        f"{entrypoint.capitalize()}Targets",
-        **{
-            target: (
-                Annotated[
-                    common.io.Target,
-                    CLIArg(f"--out-{target}"),  # Not currently supported by Conflator
-                    Field(description=f"Output target for {target}"),
-                ],
-                ...,
-            )
-            for target in targets
-        },
-        __base__=TargetBase,
-    )
-
-
-class EnsmsConfig(ConfigModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    members: int | create_model("Members", start=(int, ...), end=(int, ...))
-    total_fields: Annotated[int, Field(validate_default=True)] = 0
-    date: datetime
-    root_dir: str = os.getcwd()
-    sources: create_source_model("ensms", ["ens"])
-    n_par_read: int = 1
-    n_par_compute: int = 1
-    queue_size: int = 1
-    out_keys: dict = {}
-    out_keys_em: dict = {"type": "em"}
-    out_keys_es: dict = {"type": "es"}
-    steps: list = []
-    windows: list = []
-    parameters: dict
-    override_input: Annotated[
-        dict,
-        BeforeValidator(lambda x: common.config.parse_var_strs(x)),
-        CLIArg("--override-input", action="append", default=[], metavar="KEY=VALUE,...",),
-        Field(description="Override input requests with these keys"),
-    ] 
-    override_output: Annotated[
-        dict,
-        BeforeValidator(lambda x: common.config.parse_var_strs(x)),
-        CLIArg("--override-output", action="append", default=[], metavar="KEY=VALUE,...",),
-        Field(description="Override outputs with these keys"),
-    ] 
-    recover: Annotated[
-        bool,
-        CLIArg("--recover", action="store_true", default=False),
-    ]
-    targets: create_target_model("ensms", ["mean", "std"])
-    _fdb: Optional[pyfdb.FDB] = None
-
-    @model_validator(mode="after")
-    def check_totalfields(self) -> Self:
-        if self.total_fields == 0:
-            self.total_fields = (
-                self.members
-                if isinstance(self.members, int)
-                else self.members.end - self.members.start + 1
-            )
-        return self
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        # self.param_configs = [
-        #     ParamConfig(pname, popt, overrides=self.override_input)
-        #     for pname, popt in self.parameters.items()
-        # ]
-
-        for target in [self.targets.mean, self.targets.std]:
-            if self.n_par_compute > 1:
-                target.enable_parallel(parallel)
-            if self.recover:
-                target.enable_recovery()
-
-    @model_validator(mode="before")
-    def validate_targets(cls, data: Any) -> Any:
-        if not isinstance(data, dict):
-            return data
-
-        targets = data.get("targets", {})
-        if not isinstance(targets, dict):
-            return data
-
-        for name in targets.keys():
-            targets[name] = common.io.target_from_location(
-                targets[name], overrides=data["override_output"]
-            )
-        return data
 
 
 def ensms_iteration(
@@ -205,79 +66,57 @@ def ensms_iteration(
     axes = tuple(range(ens.ndim - 1))
     with ResourceMeter(f"Window {window_id}: write mean output"):
         mean = np.mean(ens, axis=axes)
-        template_mean = template_ensemble(
-            param, template_ens, accum, config.out_keys_em
-        )
+        out_mean = config.outputs.mean
+        template_mean = template_ensemble(param, template_ens, accum, out_mean.metadata)
         template_mean.set_array("values", common.io.nan_to_missing(template_mean, mean))
-        config.out_mean.write(template_mean)
-        config.out_mean.flush()
+        out_mean.target.write(template_mean)
+        out_mean.target.flush()
 
     with ResourceMeter(f"Window {window_id}: write std output"):
         std = np.std(ens, axis=axes)
-        template_std = template_ensemble(param, template_ens, accum, config.out_keys_es)
+        out_std = config.outputs.std
+        template_std = template_ensemble(param, template_ens, accum, out_std.metadata)
         template_std.set_array("values", common.io.nan_to_missing(template_std, std))
-        config.out_std.write(template_std)
-        config.out_std.flush()
+        out_mean.target.write(template_std)
+        out_mean.target.flush()
 
     recovery.add_checkpoint(param.name, window_id)
 
 
 def main(args=None):
     sys.stdout.reconfigure(line_buffering=True)
-    signal.signal(signal.SIGTERM, sigterm_handler)
 
     cfg = Conflator(app_name="pproc-ensms", model=EnsmsConfig).load()
     print(cfg)
-    recover = common.Recovery(cfg.root_dir, cfg, cfg.date, cfg.recover)
-    last_checkpoint = recover.last_checkpoint()
+    recover = create_recovery(cfg.recovery)
 
-    executor = (
-        SynchronousExecutor()
-        if cfg.n_par_compute == 1
-        else QueueingExecutor(
-            cfg.n_par_compute,
-            cfg.window_queue_size,
-            initializer=signal.signal,
-            initargs=(signal.SIGTERM, signal.SIG_DFL),
-        )
-    )
-
-    with executor:
+    with create_executor(cfg.parallelisation) as executor:
         for param in cfg.parameters:
-            out_key_kwargs = {"paramId": param.out_paramid} if param.out_paramid else {}
             window_manager = common.WindowManager(
-                param.window_config(cfg.windows, cfg.steps),
-                param.out_keys(cfg.out_keys, **out_key_kwargs),
+                param.accumulations,
+                **cfg.outputs.default.metadata,
+                **param.metadata,
             )
 
-            if last_checkpoint:
-                if param.name not in last_checkpoint:
-                    print(f"Recovery: skipping completed param {param.name}")
-                    continue
-                checkpointed_windows = [
-                    recover.checkpoint_identifiers(x)[1]
-                    for x in recover.checkpoints
-                    if param.name in x
-                ]
-                new_start = window_manager.delete_windows(checkpointed_windows)
+            checkpointed_windows = recover.computed(param.name)
+            if new_start := window_manager.delete_windows(checkpointed_windows):
                 print(f"Recovery: param {param.name} looping from step {new_start}")
-                last_checkpoint = None  # All remaining params have not been run
+            else:
+                print(f"Recovery: skipping completed param {param.name}")
+                continue
 
             requester = ParamRequester(
                 param,
                 cfg.sources,
-                args.in_ens,
                 cfg.members,
                 cfg.total_fields,
             )
             iteration = functools.partial(ensms_iteration, cfg, param, recover)
             for keys, retrieved_data in parallel_data_retrieval(
-                cfg.n_par_read,
+                cfg.parallelisation.n_par_read,
                 window_manager.dims,
                 [requester],
-                cfg.n_par_compute > 1,
-                initializer=signal.signal,
-                initargs=(signal.SIGTERM, signal.SIG_DFL),
+                cfg.parallelisation.n_par_compute > 1,
             ):
                 step = keys["step"]
                 with ResourceMeter(f"Process step {step}"):

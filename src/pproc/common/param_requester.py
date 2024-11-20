@@ -1,24 +1,30 @@
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+import eccodes
 import numexpr
 import numpy as np
-
-import eccodes
 from earthkit.meteo.wind import direction
+from pydantic import BaseModel
 
 from pproc.common.dataset import open_multi_dataset
 from pproc.common.io import missing_to_nan
 from pproc.common.steps import AnyStep
-from pproc.common.window import parse_window_config
-
+from pproc.config.base import Members, SourceConfig, SourceModel
 
 IndexFunc = Callable[[eccodes.GRIBMessage], int]
 
 
+def expand(request: dict, dim: str):
+    coords = request.pop(dim, [])
+    if not isinstance(coords, list):
+        coords = [coords]
+    for coord in coords:
+        yield {**request, dim: coord}
+
+
 def read_ensemble(
-    sources: dict,
-    loc: str,
+    source: SourceConfig,
     total: int,
     dtype=np.float32,
     index_func: Optional[IndexFunc] = None,
@@ -49,7 +55,7 @@ def read_ensemble(
         Read data
     """
 
-    readers = open_multi_dataset(sources, loc, **kwargs)
+    readers = open_multi_dataset(source, **kwargs)
     template = None
     data = None
     n_read = 0
@@ -57,7 +63,7 @@ def read_ensemble(
         with reader:
             message = reader.peek()
             if message is None:
-                raise EOFError(f"No data in {loc!r}")
+                raise EOFError(f"No data in {source!r}")
             if template is None:
                 template = message
                 data = np.empty(
@@ -68,7 +74,7 @@ def read_ensemble(
                 data[i, :] = missing_to_nan(message)
                 n_read += 1
     if n_read != total:
-        raise EOFError(f"Expected {total} fields in {loc!r}, got {n_read}")
+        raise EOFError(f"Expected {total} fields in {source!r}, got {n_read}")
     return template, data
 
 
@@ -103,90 +109,48 @@ class ParamFilter:
         )
 
 
-class ParamConfig:
-    def __init__(self, name, options: Dict[str, Any], overrides: Dict[str, Any] = {}):
-        self.name = name
-        self.in_paramids = parse_paramids(options["in"])
-        self.combine = options.get("combine_operation", None)
-        self.filter = ParamFilter.from_config(
-            options.get("input_filter_operation", None)
-        )
-        self.scale = options.get("scale", 1.0)
-        self.out_paramid = options.get("out", None)
-        self._in_keys = options.get("in_keys", {})
-        self._out_keys = options.get("out_keys", {})
-        self._steps = options.get("steps", None)
-        self._windows = options.get("windows", None)
-        self._accumulations = options.get("accumulations", None)
-        self._in_overrides = overrides
-        self.dtype = np.dtype(options.get("dtype", "float32")).type
+class ParamConfig(BaseModel):
+    name: str
+    sources: dict
+    preprocessing: Optional[list] = []
+    accumulations: dict = {}
+    overrides: Dict[str, Any] = {}
+    dtype: type = np.float32
+    metadata: Dict[str, Any] = {}
 
-    def in_keys(self, base: Optional[Dict[str, Any]] = None, **kwargs):
+    def in_keys(self, name: str, base: Optional[Dict[str, Any]] = None, **kwargs):
         keys = base.copy() if base is not None else {}
-        keys.update(self._in_keys)
+        keys.update(self.sources[name]["request"])
         keys.update(kwargs)
-        keys.update(self._in_overrides)
-        keys_list = []
-        for pid in self.in_paramids:
-            keys["param"] = pid
-            keys_list.append(keys.copy())
-        return keys_list
-
-    def out_keys(self, base: Optional[Dict[str, Any]] = None, **kwargs):
-        keys = base.copy() if base is not None else {}
-        keys.update(self._out_keys)
-        keys.update(kwargs)
+        keys.update(self.overrides)
         return keys
-
-    def window_config(self, base: List[dict], base_steps: Optional[List[dict]] = None):
-        if self._accumulations is not None:
-            return {"accumulations": self._accumulations}
-
-        if self._windows is not None:
-            config = {"windows": self._windows}
-            if self._steps is not None:
-                config["steps"] = self._steps
-            return config
-
-        windows = []
-        for coarse_cfg in base:
-            coarse_window = parse_window_config(coarse_cfg)
-            periods = [{"range": [step, step]} for step in coarse_window.steps]
-            windows.append(
-                {
-                    "window_operation": "none",
-                    "periods": periods,
-                }
-            )
-        config = {"windows": windows}
-        if base_steps:
-            config["steps"] = base_steps
-
-        return config
 
 
 class ParamRequester:
     def __init__(
         self,
         param: ParamConfig,
-        sources: dict,
-        loc: str,
-        members: int,
-        total: Optional[int] = None,
+        sources: SourceModel,
+        members: int | Members,
+        total: int,
+        src_names: Optional[List[str]] = None,
         index_func: Optional[IndexFunc] = None,
     ):
         self.param = param
         self.sources = sources
-        self.loc = loc
+        self.src_names = self.sources.names if src_names is None else src_names
         self.members = members
-        self.total = total if total is not None else members
+        self.total = total
         self.index_func = index_func
 
     def _set_number(self, keys):
+        number = None
+        if isinstance(self.members, Members):
+            number = range(self.members.start, self.members.end + 1)
         if keys.get("type") == "pf":
-            keys["number"] = range(1, self.members)
+            keys["number"] = number or range(1, self.members + 1)
         elif keys.get("type") == "fcmean":
-            keys["number"] = range(self.members)
+            keys["number"] = number or range(self.members + 1)
 
     def filter_data(self, data: np.ndarray, step: AnyStep, **kwargs) -> np.ndarray:
         filt = self.param.filter
@@ -197,8 +161,7 @@ class ParamRequester:
             filt_keys = self.param.in_keys(step=str(step), **kwargs)[0]
             filt_keys["param"] = filt.param
             _, fdata = read_ensemble(
-                self.sources,
-                self.loc,
+                self.source,
                 self.total,
                 dtype=self.param.dtype,
                 update=self._set_number,
@@ -206,10 +169,11 @@ class ParamRequester:
                 **filt_keys,
             )
         comp = numexpr.evaluate(
-            "data " + filt.comparison + " threshold", local_dict={
+            "data " + filt.comparison + " threshold",
+            local_dict={
                 "data": fdata,
                 "threshold": np.asarray(filt.threshold, dtype=fdata.dtype),
-                }
+            },
         )
         return np.where(comp, filt.replacement, data)
 
@@ -229,23 +193,29 @@ class ParamRequester:
         return getattr(np, self.param.combine)(data_list, axis=0)
 
     def retrieve_data(
-        self, fdb, step: AnyStep, **kwargs
+        self, step: AnyStep, **kwargs
     ) -> Tuple[eccodes.GRIBMessage, np.ndarray]:
         data_list = []
-        for in_keys in self.param.in_keys(step=str(step), **kwargs):
-            template, data = read_ensemble(
-                self.sources,
-                self.loc,
-                self.total,
-                dtype=self.param.dtype,
-                update=self._set_number,
-                index_func=self.index_func,
-                **in_keys,
+        for src in self.src_names:
+            src_config = getattr(self.sources, src)
+            in_keys = self.param.in_keys(
+                src, src_config.request, step=str(step), **kwargs
             )
-            data_list.append(data)
+            for param_req in expand(in_keys, "param"):
+                requests = list(expand(param_req, "type"))
+                config = src_config.model_copy(update={"request": requests})
+                template, data = read_ensemble(
+                    config,
+                    self.total,
+                    dtype=self.param.dtype,
+                    update=self._set_number,
+                    index_func=self.index_func,
+                )
+                data_list.append(data)
         return (
             template,
-            self.filter_data(self.combine_data(data_list), step, **kwargs) * self.param.scale,
+            np.asarray(data_list)
+            # self.filter_data(self.combine_data(data_list), step, **kwargs) * self.param.scale,
         )
 
     @property
