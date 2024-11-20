@@ -149,6 +149,7 @@ class HistParamRequester(ParamRequester):
         self, fdb, step: AnyStep, **kwargs
     ) -> Tuple[eccodes.GRIBMessage, np.ndarray]:
         assert isinstance(self.param, HistParamConfig)
+        metadata = self.param.in_keys(step=str(step), **kwargs)
         iterators = tuple(
             iter_ensemble(
                 self.sources,
@@ -157,7 +158,7 @@ class HistParamRequester(ParamRequester):
                 dtype=self.param.dtype,
                 **in_keys,
             )
-            for in_keys in self.param.in_keys(step=str(step), **kwargs)
+            for in_keys in metadata
         )
         nbins = len(self.param.bins) - 1
         template = None
@@ -167,7 +168,8 @@ class HistParamRequester(ParamRequester):
                 template = result_list[0][0]
                 hist = np.zeros((nbins, result_list[0][1].shape[0]))
             data_list = [data for _, data in result_list]
-            data = self.combine_data(data_list) * self.param.scale
+            _, data_list = self.param.preprocessing.apply(metadata, data_list)
+            data = data_list[0]
             if self.param.mod is not None:
                 data %= self.param.mod
             ind = np.digitize(data, self.param.bins) - 1
@@ -272,15 +274,11 @@ def main(args: List[str] = sys.argv[1:]):
                     if param.name in x
                 ]
                 new_start = window_manager.delete_windows(checkpointed_windows)
-                print(
-                    f"Recovery: param {param.name} looping from step {new_start}"
-                )
+                print(f"Recovery: param {param.name} looping from step {new_start}")
                 last_checkpoint = None  # All remaining params have not been run
 
             requester = HistParamRequester(param, config.sources, args.in_ens)
-            write_partial = functools.partial(
-                write_iteration, param, target, recovery
-            )
+            write_partial = functools.partial(write_iteration, param, target, recovery)
             for keys, data in parallel_data_retrieval(
                 config.n_par_read,
                 window_manager.dims,

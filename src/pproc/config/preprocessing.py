@@ -31,7 +31,7 @@ class Scaling(Preprocessing):
 class Combination(Preprocessing):
     # - operation: norm
     #   dim: param
-    operation: Literal["direction", "norm"]
+    operation: Literal["direction", "norm", "sum"]
     dim: str
 
     def apply(
@@ -42,9 +42,11 @@ class Combination(Preprocessing):
         elif self.operation == "direction":
             assert len(data) == 2, "'direction' requires exactly 2 input fields"
             res = direction(data[0], data[1], convention="meteo", to_positive=True)
+        elif self.operation == "sum":
+            res = np.sum(data, axis=0)
         else:
             assert self.operation in ["direction", "norm"]
-        return metadata[0], [res]
+        return [metadata[0]], [res]
 
 
 def find_matching(select: dict, candidates: List[dict]) -> int:
@@ -80,13 +82,12 @@ class MaskExpression(BaseModel):
             return data[idx]
         return term
 
-    def extract(
-        self, metadata: List[dict], data: List[np.ndarray]
-    ) -> Tuple[Union[np.ndarray, float], Union[np.ndarray, float]]:
-        return (
-            self._extract(self.lhs, metadata, data),
-            self._extract(self.rhs, metadata, data),
-        )
+    def apply(self, metadata: List[dict], data: List[np.ndarray]) -> np.ndarray:
+        expr_data = {
+            "lhs": self._extract(self.lhs, metadata, data),
+            "rhs": self._extract(self.rhs, metadata, data),
+        }
+        return numexpr.evaluate("lhs " + self.cmp + " rhs", local_dict=expr_data)
 
 
 class Masking(Preprocessing):
@@ -101,10 +102,7 @@ class Masking(Preprocessing):
     def apply(
         self, metadata: List[dict], data: List[np.ndarray]
     ) -> Tuple[List[dict], List[np.ndarray]]:
-        lhs, rhs = self.mask.extract(metadata, data)
-        comp = numexpr.evaluate(
-            "lhs " + self.mask.cmp + " rhs", local_dict={"lhs": lhs, "rhs": rhs}
-        )
+        comp = self.mask.apply(metadata, data)
         idx = find_matching(self.select, metadata)
         masked = np.where(comp, self.replacement, data[idx])
         return [metadata[idx]], [masked]
@@ -137,3 +135,4 @@ class PreprocessingConfig(BaseModel):
     ) -> Tuple[List[dict], List[np.ndarray]]:
         for proc in self.actions:
             metadata, data = proc.apply(metadata, data)
+        return metadata, data

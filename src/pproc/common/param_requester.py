@@ -1,16 +1,20 @@
-from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
-import numexpr
 import numpy as np
 
 import eccodes
-from earthkit.meteo.wind import direction
 
 from pproc.common.dataset import open_multi_dataset
 from pproc.common.io import missing_to_nan
 from pproc.common.steps import AnyStep
 from pproc.common.window import parse_window_config
+from pproc.config.preprocessing import (
+    Combination,
+    Masking,
+    MaskExpression,
+    PreprocessingConfig,
+    Scaling,
+)
 
 
 IndexFunc = Callable[[eccodes.GRIBMessage], int]
@@ -72,9 +76,9 @@ def read_ensemble(
     return template, data
 
 
-def parse_paramids(pid):
+def parse_paramids(pid: Any) -> List[str]:
     if isinstance(pid, int):
-        return [pid]
+        return [str(pid)]
     if isinstance(pid, str):
         return pid.split("/")
     if isinstance(pid, list):
@@ -84,34 +88,47 @@ def parse_paramids(pid):
     raise TypeError(f"Invalid paramid type {type(pid)}")
 
 
-@dataclass
-class ParamFilter:
-    comparison: str
-    threshold: float
-    param: Optional[str]
-    replacement: float
-
-    @classmethod
-    def from_config(cls, config: Optional[dict]) -> Optional["ParamFilter"]:
-        if config is None:
-            return None
-        return cls(
-            config["comparison"],
-            config["threshold"],
-            config.get("param", None),
-            config.get("replacement", 0.0),
+def _compat_preprocessing(in_paramids: List[str], options: dict) -> PreprocessingConfig:
+    combine_op = options.get("combine_operation", None)
+    combine = None
+    if combine_op is None:
+        assert (
+            len(in_paramids) == 1
+        ), "Multiple input fields require a combine operation"
+    else:
+        combine = Combination(operation=combine_op, dim="param")
+    filter_op = options.get("input_filter_operation", None)
+    filter = None
+    if filter_op is not None:
+        assert (
+            combine is None
+        ), "Combining and filtering are not supported at the same time"
+        filter_param = str(filter_op.get("param", None))
+        if filter_param is None:
+            filter_param = in_paramids[0]
+        else:
+            in_paramids.append(filter_param)
+        filter = Masking(
+            operation="mask",
+            mask=MaskExpression(
+                lhs={"param": filter_param},
+                cmp=filter_op["comparison"],
+                rhs=filter_op["threshold"],
+            ),
+            select={"param": in_paramids[0]},
+            replacement=filter_op.get("replacement", 0.0),
         )
+    scale_val = options.get("scale", None)
+    scale = None if scale_val is None else Scaling(operation="scale", value=scale_val)
+
+    pp_actions = [act for act in [combine, filter, scale] if act is not None]
+    return PreprocessingConfig(actions=pp_actions)
 
 
 class ParamConfig:
     def __init__(self, name, options: Dict[str, Any], overrides: Dict[str, Any] = {}):
         self.name = name
         self.in_paramids = parse_paramids(options["in"])
-        self.combine = options.get("combine_operation", None)
-        self.filter = ParamFilter.from_config(
-            options.get("input_filter_operation", None)
-        )
-        self.scale = options.get("scale", 1.0)
         self.out_paramid = options.get("out", None)
         self._in_keys = options.get("in_keys", {})
         self._out_keys = options.get("out_keys", {})
@@ -120,6 +137,16 @@ class ParamConfig:
         self._accumulations = options.get("accumulations", None)
         self._in_overrides = overrides
         self.dtype = np.dtype(options.get("dtype", "float32")).type
+
+        if any(
+            key in options
+            for key in ["combine_operation", "input_filter_operation", "scale"]
+        ):
+            self.preprocessing = _compat_preprocessing(self.in_paramids, options)
+        else:
+            self.preprocessing = PreprocessingConfig.model_validate(
+                options.get("preprocessing", [])
+            )
 
     def in_keys(self, base: Optional[Dict[str, Any]] = None, **kwargs):
         keys = base.copy() if base is not None else {}
@@ -188,52 +215,14 @@ class ParamRequester:
         elif keys.get("type") == "fcmean":
             keys["number"] = range(self.members)
 
-    def filter_data(self, data: np.ndarray, step: AnyStep, **kwargs) -> np.ndarray:
-        filt = self.param.filter
-        if filt is None:
-            return data
-        fdata = data
-        if filt.param is not None:
-            filt_keys = self.param.in_keys(step=str(step), **kwargs)[0]
-            filt_keys["param"] = filt.param
-            _, fdata = read_ensemble(
-                self.sources,
-                self.loc,
-                self.total,
-                dtype=self.param.dtype,
-                update=self._set_number,
-                index_func=self.index_func,
-                **filt_keys,
-            )
-        comp = numexpr.evaluate(
-            "data " + filt.comparison + " threshold", local_dict={
-                "data": fdata,
-                "threshold": np.asarray(filt.threshold, dtype=fdata.dtype),
-                }
-        )
-        return np.where(comp, filt.replacement, data)
-
-    def combine_data(self, data_list: List[np.ndarray]) -> np.ndarray:
-        if self.param.combine is None:
-            assert (
-                len(data_list) == 1
-            ), "Multiple input fields require a combine operation"
-            return data_list[0]
-        if self.param.combine == "norm":
-            return np.linalg.norm(data_list, axis=0)
-        if self.param.combine == "direction":
-            assert len(data_list) == 2, "'direction' requires exactly 2 input fields"
-            return direction(
-                data_list[0], data_list[1], convention="meteo", to_positive=True
-            ).astype(self.param.dtype)
-        return getattr(np, self.param.combine)(data_list, axis=0)
-
     def retrieve_data(
         self, fdb, step: AnyStep, **kwargs
     ) -> Tuple[eccodes.GRIBMessage, np.ndarray]:
+        metadata = self.param.in_keys(step=str(step), **kwargs)
         data_list = []
-        for in_keys in self.param.in_keys(step=str(step), **kwargs):
-            template, data = read_ensemble(
+        template = None
+        for in_keys in metadata:
+            new_template, data = read_ensemble(
                 self.sources,
                 self.loc,
                 self.total,
@@ -243,10 +232,13 @@ class ParamRequester:
                 **in_keys,
             )
             data_list.append(data)
-        return (
-            template,
-            self.filter_data(self.combine_data(data_list), step, **kwargs) * self.param.scale,
-        )
+            if template is None:
+                template = new_template
+
+        assert template is not None, "No data fetched"
+
+        metadata, data_list = self.param.preprocessing.apply(metadata, data_list)
+        return (template, data_list[0])
 
     @property
     def name(self):
