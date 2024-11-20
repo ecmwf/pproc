@@ -9,8 +9,6 @@ from typing_extensions import Self
 
 from pproc import common
 
-logger = logging.getLogger(__name__)
-
 
 def parse_vars(items):
     """
