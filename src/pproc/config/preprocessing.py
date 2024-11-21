@@ -9,11 +9,19 @@ from earthkit.meteo.wind import direction
 
 
 class Preprocessing(BaseModel, ABC):
+    output: Optional[dict] = None
+
     @abstractmethod
     def apply(
         self, metadata: List[dict], data: List[np.ndarray]
     ) -> Tuple[List[dict], List[np.ndarray]]:
         pass
+
+    def _update_metadata(self, metadata: dict) -> dict:
+        new_metadata = metadata.copy()
+        if self.output is not None:
+            new_metadata.update(self.output)
+        return new_metadata
 
 
 class Scaling(Preprocessing):
@@ -25,7 +33,10 @@ class Scaling(Preprocessing):
     def apply(
         self, metadata: List[dict], data: List[np.ndarray]
     ) -> Tuple[List[dict], List[np.ndarray]]:
-        return metadata, [arr * self.value for arr in data]
+        return (
+            [self._update_metadata(md) for md in metadata],
+            [arr * self.value for arr in data],
+        )
 
 
 class Combination(Preprocessing):
@@ -46,7 +57,9 @@ class Combination(Preprocessing):
             res = np.sum(data, axis=0)
         else:
             assert self.operation in ["direction", "norm"]
-        return [metadata[0]], [res]
+
+        new_metadata = self._update_metadata(metadata[0])
+        return [new_metadata], [res]
 
 
 def find_matching(select: dict, candidates: List[dict]) -> int:
@@ -105,7 +118,8 @@ class Masking(Preprocessing):
         comp = self.mask.apply(metadata, data)
         idx = find_matching(self.select, metadata)
         masked = np.where(comp, self.replacement, data[idx])
-        return [metadata[idx]], [masked]
+        new_metadata = self._update_metadata(metadata[idx])
+        return [new_metadata], [masked]
 
 
 class PreprocessingConfig(BaseModel):
