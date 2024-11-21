@@ -96,7 +96,7 @@ def _compat_preprocessing(in_paramids: List[str], options: dict) -> Preprocessin
             len(in_paramids) == 1
         ), "Multiple input fields require a combine operation"
     else:
-        combine = Combination(operation=combine_op, dim="param")
+        combine = Combination(operation=combine_op)
     filter_op = options.get("input_filter_operation", None)
     filter = None
     if filter_op is not None:

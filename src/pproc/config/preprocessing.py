@@ -41,9 +41,7 @@ class Scaling(Preprocessing):
 
 class Combination(Preprocessing):
     # - operation: norm
-    #   dim: param
     operation: Literal["direction", "norm", "sum"]
-    dim: str
 
     def apply(
         self, metadata: List[dict], data: List[np.ndarray]
@@ -125,7 +123,6 @@ class Masking(Preprocessing):
 class PreprocessingConfig(BaseModel):
     # preprocessing:
     #   - operation: norm
-    #     dim: param
     #   - operation: mask
     #     select: {param: 228036}
     #     mask: [{param: 228035, level: 250}, ">=", 10]
