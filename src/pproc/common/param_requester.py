@@ -109,7 +109,6 @@ def _compat_preprocessing(in_paramids: List[str], options: dict) -> Preprocessin
         else:
             in_paramids.append(filter_param)
         filter = Masking(
-            operation="mask",
             mask=MaskExpression(
                 lhs={"param": filter_param},
                 cmp=filter_op["comparison"],
@@ -119,7 +118,7 @@ def _compat_preprocessing(in_paramids: List[str], options: dict) -> Preprocessin
             replacement=filter_op.get("replacement", 0.0),
         )
     scale_val = options.get("scale", None)
-    scale = None if scale_val is None else Scaling(operation="scale", value=scale_val)
+    scale = None if scale_val is None else Scaling(value=scale_val)
 
     pp_actions = [act for act in [combine, filter, scale] if act is not None]
     return PreprocessingConfig(actions=pp_actions)

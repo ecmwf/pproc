@@ -27,7 +27,7 @@ class Preprocessing(BaseModel, ABC):
 class Scaling(Preprocessing):
     #   - operation: scale
     #     value: 3600
-    operation: Literal["scale"]
+    operation: Literal["scale"] = "scale"
     value: float
 
     def apply(
@@ -107,7 +107,7 @@ class Masking(Preprocessing):
     #   - operation: mask
     #     select: {param: 228036}
     #     mask: [{param: 228035, level: 250}, ">=", 10]
-    operation: Literal["mask"]
+    operation: Literal["mask"] = "mask"
     mask: MaskExpression
     select: dict
     replacement: float = 0.0
