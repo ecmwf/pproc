@@ -194,10 +194,9 @@ def open_multi_dataset(source, **kwargs) -> Iterable[eccodes.reader.ReaderBase]:
     list[eccodes.reader.ReaderBase]
         GRIB readers
     """
-    type_, path = split_location(source.type_, default="file")
-    if type_ == "file":
-        return [FilteredReader(eccodes.FileReader(path), **kwargs)]
-    open_func = _DATASET_BACKENDS.get(type_, None)
+    if source.type_ == "file":
+        return [FilteredReader(eccodes.FileReader(source.path), **kwargs)]
+    open_func = _DATASET_BACKENDS.get(source.type_, None)
     if open_func is not None:
-        return open_func(source.request, path=path, **kwargs)
+        return open_func(source.request, path=source.path, **kwargs)
     raise ValueError(f"Unknown location {source.type_!r}")

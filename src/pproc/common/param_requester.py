@@ -10,7 +10,9 @@ from pydantic import BaseModel
 from pproc.common.dataset import open_multi_dataset
 from pproc.common.io import missing_to_nan
 from pproc.common.steps import AnyStep
-from pproc.config.base import Members, SourceConfig, SourceModel
+from pproc.config.base import Members
+from pproc.config.io import Source, SourceCollection
+from pproc.config.param import ParamConfig
 
 IndexFunc = Callable[[eccodes.GRIBMessage], int]
 
@@ -24,7 +26,7 @@ def expand(request: dict, dim: str):
 
 
 def read_ensemble(
-    source: SourceConfig,
+    source: Source,
     total: int,
     dtype=np.float32,
     index_func: Optional[IndexFunc] = None,
@@ -109,28 +111,11 @@ class ParamFilter:
         )
 
 
-class ParamConfig(BaseModel):
-    name: str
-    sources: dict
-    preprocessing: Optional[list] = []
-    accumulations: dict = {}
-    overrides: Dict[str, Any] = {}
-    dtype: type = np.float32
-    metadata: Dict[str, Any] = {}
-
-    def in_keys(self, name: str, base: Optional[Dict[str, Any]] = None, **kwargs):
-        keys = base.copy() if base is not None else {}
-        keys.update(self.sources[name]["request"])
-        keys.update(kwargs)
-        keys.update(self.overrides)
-        return keys
-
-
 class ParamRequester:
     def __init__(
         self,
         param: ParamConfig,
-        sources: SourceModel,
+        sources: SourceCollection,
         members: int | Members,
         total: int,
         src_names: Optional[List[str]] = None,
@@ -199,7 +184,7 @@ class ParamRequester:
         for src in self.src_names:
             src_config = getattr(self.sources, src)
             in_keys = self.param.in_keys(
-                src, src_config.request, step=str(step), **kwargs
+                src, src_config.request, step=str(step), **kwargs, **self.sources.overrides
             )
             for param_req in expand(in_keys, "param"):
                 requests = list(expand(param_req, "type"))

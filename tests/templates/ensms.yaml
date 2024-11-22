@@ -5,7 +5,7 @@ parallelisation:
   n_par_read: 1
   queue_size: 2
 parameters:
-  - name: 2t
+  2t:
     sources: 
       ens:
         request:
@@ -32,11 +32,12 @@ sources:
       stream: enfo
       time: 12
       type: [cf, pf]
-    type: "fdb:"    
+    type: "fdb"    
 outputs:
   default:
     metadata:
       mars.expver: '0001'
       numberOfForecastsInEnsemble: 6
       perturbationNumber: 0
-    type: "fdb:"
+    target: 
+      type: "fdb"

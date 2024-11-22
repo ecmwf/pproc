@@ -201,13 +201,3 @@ def sigterm_handler(signum, handler):
     for process in children:
         process.terminate()
     sys.exit()
-
-
-_manager = None
-
-
-def shared_list():
-    global _manager
-    if _manager is None:
-        _manager = multiprocessing.Manager()
-    return _manager.list()

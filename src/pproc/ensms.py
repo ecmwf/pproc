@@ -21,8 +21,9 @@ from pproc import common
 from pproc.common.accumulation import Accumulator
 from pproc.common.parallel import create_executor, parallel_data_retrieval
 from pproc.common.param_requester import ParamConfig, ParamRequester
-from pproc.common.recovery import create_recovery
-from pproc.config.base import BaseConfig, create_output_model
+from pproc.common.recovery import create_recovery, Recovery
+from pproc.config.base import BaseConfig, Parallelisation
+from pproc.config.io import create_output_model
 
 OutputModel = create_output_model(
     "ensms", {"mean": {"type": "em"}, "std": {"type": "es"}}
@@ -30,7 +31,7 @@ OutputModel = create_output_model(
 
 
 class EnsmsConfig(BaseConfig):
-    parameters: list[ParamConfig]
+    parallelisation: Parallelisation = Parallelisation()
     outputs: OutputModel = OutputModel()
 
 
@@ -51,7 +52,7 @@ def template_ensemble(
 def ensms_iteration(
     config: EnsmsConfig,
     param: ParamConfig,
-    recovery: common.Recovery,
+    recovery: Recovery,
     window_id: str,
     accum: Accumulator,
     template_ens=Union[str, eccodes.GRIBMessage],
