@@ -8,6 +8,7 @@ from pydantic import BeforeValidator, ConfigDict, Field, create_model, model_val
 from typing_extensions import Self
 
 from pproc import common
+from pproc.config import LoggingConfig
 
 
 def parse_vars(items):
@@ -190,6 +191,7 @@ OutputModel = create_output_model("base", [])
 
 
 class BaseConfig(ConfigModel):
+    log: LoggingConfig = LoggingConfig()
     members: int | Members
     total_fields: Annotated[int, Field(validate_default=True)] = 0
     parallelisation: Parallelisation = Parallelisation()
