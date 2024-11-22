@@ -4,7 +4,7 @@ from unittest.mock import patch
 from pydantic import ValidationError
 from conflator import Conflator
 
-from pproc.config import LoggingConfig
+from pproc.config.log import LoggingConfig
 
 
 def test_logging_model_default():
