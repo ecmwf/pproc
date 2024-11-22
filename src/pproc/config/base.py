@@ -8,6 +8,7 @@ from typing_extensions import Self
 
 from pproc.config import io
 from pproc.config.param import ParamConfig
+from pproc.config.log import LoggingConfig
 
 
 class Members(ConfigModel):
@@ -52,6 +53,7 @@ OutputModel = io.create_output_model("base", [])
 
 
 class BaseConfig(ConfigModel):
+    log: LoggingConfig = LoggingConfig()
     members: int | Members
     total_fields: Annotated[int, Field(validate_default=True)] = 0
     parallelisation: int | Parallelisation = 1
