@@ -1,8 +1,9 @@
 import logging
-import pytest
 from unittest.mock import patch
-from pydantic import ValidationError
+
+import pytest
 from conflator import Conflator
+from pydantic import ValidationError
 
 from pproc.config.log import LoggingConfig
 

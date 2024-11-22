@@ -37,10 +37,13 @@ class SourceCollection(ConfigModel):
             default=[],
             metavar="KEY=VALUE,...",
         ),
-        Field(description="Override input requests with these keys"),
-    ] = {}
+        Field(
+            default_factory=dict, description="Override input requests with these keys"
+        ),
+    ]
 
     @model_validator(mode="before")
+    @classmethod
     def set_defaults(cls, data: Any) -> Any:
         defaults = data.get("default")
         if defaults is None:
@@ -89,6 +92,7 @@ class OutputsCollection(ConfigModel):
     ]
 
     @model_validator(mode="before")
+    @classmethod
     def set_overrides(cls, data: Any) -> Any:
         defaults = data.get("default", {})
         overrides = data.get("overrides", None)
@@ -96,9 +100,9 @@ class OutputsCollection(ConfigModel):
             subsec = data.get(sub, {})
             # Insert default metadata for each output type
             def_metadata = cls.names[sub] if isinstance(cls.names, dict) else {}
-            metadata = {**def_metadata, **subsec.get("metadata", {})}
+            metadata = {**def_metadata, **utils._get(subsec, "metadata", {})}
             # Set target from default, if specified
-            target = subsec.get("target", defaults.get("target", {}))
+            target = utils._get(subsec, "target", utils._get(defaults, "target", {}))
             if overrides:
                 target["overrides"] = overrides
             data[sub] = {"target": target, "metadata": metadata}

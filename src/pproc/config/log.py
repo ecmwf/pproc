@@ -1,7 +1,8 @@
 import logging
+
+from annotated_types import Annotated, Literal
 from conflator import CLIArg, ConfigModel, EnvVar
 from pydantic import Field
-from annotated_types import Annotated, Literal
 
 
 class LoggingConfig(ConfigModel):
@@ -9,7 +10,9 @@ class LoggingConfig(ConfigModel):
         Literal["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"],
         CLIArg("--log"),
         EnvVar("LOG"),
-        Field(description="Logging level [CRITICAL, ERROR, WARNING, INFO, DEBUG] (default: INFO)"),
+        Field(
+            description="Logging level [CRITICAL, ERROR, WARNING, INFO, DEBUG] (default: INFO)"
+        ),
     ] = "INFO"
     format: str = "%(asctime)s; %(name)s; %(levelname)s - %(message)s"
 

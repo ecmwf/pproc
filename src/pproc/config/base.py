@@ -3,12 +3,12 @@ from typing import Any, Optional
 
 from annotated_types import Annotated
 from conflator import CLIArg, ConfigModel
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 from typing_extensions import Self
 
 from pproc.config import io
-from pproc.config.param import ParamConfig
 from pproc.config.log import LoggingConfig
+from pproc.config.param import ParamConfig
 
 
 class Members(ConfigModel):
@@ -27,7 +27,8 @@ class Recovery(ConfigModel):
     from_checkpoint: Annotated[
         bool,
         CLIArg("--recover", action="store_true", default=False),
-    ] = True
+        Field(description="Recover from checkpoint"),
+    ] = False
     root_dir: str = os.getcwd()
     config: Optional[dict] = {}
 
@@ -61,9 +62,12 @@ class BaseConfig(ConfigModel):
     sources: SourceModel
     outputs: OutputModel = OutputModel()
     parameters: list[ParamConfig]
+    _init: bool = False
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    @model_validator(mode="after")
+    def _init_targets(self) -> Self:
+        if self._init:
+            return self
 
         self.recovery.config = self.model_dump(exclude_defaults=True)
         for name in self.outputs.names:
@@ -72,6 +76,8 @@ class BaseConfig(ConfigModel):
                 target.enable_parallel()
             if self.recovery.from_checkpoint:
                 target.enable_recovery()
+        self._init = True
+        return self
 
     @model_validator(mode="after")
     def check_totalfields(self) -> Self:
@@ -83,10 +89,9 @@ class BaseConfig(ConfigModel):
             )
         return self
 
-    @model_validator(mode="before")
-    def validate_params(data: Any) -> Any:
-        if isinstance(data.get("parameters", []), dict):
-            data["parameters"] = [
-                {"name": name, **param} for name, param in data["parameters"].items()
-            ]
+    @field_validator("parameters", mode="before")
+    @classmethod
+    def validate_params(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            data = [{"name": name, **param} for name, param in data.items()]
         return data
