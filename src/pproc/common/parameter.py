@@ -152,7 +152,14 @@ class CombineParameters(Parameter):
             msg_template, data = super().retrieve_data(fdb, step=step, **kwargs)
             data_list.append(data)
 
-        return msg_template, self.combine_data(data_list)
+        res = self.combine_data(data_list)
+        da_template = data_list[0]
+        return msg_template, xr.DataArray(
+            res,
+            dims=da_template.dims,
+            coords=da_template.coords,
+            attrs=da_template.attrs,
+        )
 
 
 class FilterParameter(Parameter):
@@ -201,4 +208,5 @@ class FilterParameter(Parameter):
             "data " + self.filter_comparison + str(self.filter_threshold),
             local_dict={"data": filter_data},
         )
-        return msg_template, np.where(comp, self.filter_replacement, data)
+        res = np.where(comp, self.filter_replacement, data)
+        return msg_template, xr.DataArray(res, dims=data.dims, attrs=data.attrs)
