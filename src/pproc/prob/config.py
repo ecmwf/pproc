@@ -14,7 +14,9 @@ class ProbConfig(common.Config):
 
         for attr in target_types:
             location = getattr(args, attr)
-            target = common.io.target_from_location(location, overrides=self.override_output)
+            target = common.io.target_from_location(
+                location, overrides=self.override_output
+            )
             if self.n_par_compute > 1:
                 target.enable_parallel(parallel)
             if args.recover:

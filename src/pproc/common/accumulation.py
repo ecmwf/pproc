@@ -91,7 +91,7 @@ class SimpleAccumulation(Accumulation):
 
     def combine(self, coord: Coord, values: np.ndarray) -> bool:
         assert self.values is not None
-        self.operation(self.values, values, out=self.values)
+        self.values = self.operation(self.values, values)
         return True
 
     @classmethod
@@ -160,7 +160,7 @@ class Difference(Accumulation):
     def combine(self, coord: Coord, values: np.ndarray) -> bool:
         assert self.values is not None
         assert coord == self.coords[-1]
-        np.subtract(values, self.values, out=self.values)
+        self.values = np.subtract(values, self.values)
         return True
 
     @classmethod
@@ -390,7 +390,7 @@ class StandardDeviation(Mean):
             if self.sumsq is None:
                 self.sumsq = values**2
             else:
-                np.add(self.sumsq, values**2, out=self.sumsq)
+                self.sumsq = np.add(self.sumsq, values**2)
         return processed
 
     def get_values(self) -> Optional[np.ndarray]:

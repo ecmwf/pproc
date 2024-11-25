@@ -36,7 +36,7 @@ class ExtremeVariables:
         self.sot = list(map(int, efi_cfg["sot"]))
 
 
-def read_clim(fdb, climatology, accum, n_clim=101, overrides={}, mir_options=None):
+def read_clim(fdb, climatology, accum, n_clim=101, overrides={}):
     grib_keys = accum.grib_keys()
     clim_step = grib_keys.get("stepRange", grib_keys.get("step", None))
     assert clim_step is not None
@@ -51,8 +51,8 @@ def read_clim(fdb, climatology, accum, n_clim=101, overrides={}, mir_options=Non
         req["step"] = clim_step
     req.update(overrides)
 
-    print("Climatology request: ", req, {"interpolate": mir_options})
-    da_clim = common.fdb_read(fdb, req, mir_options=mir_options)
+    print("Climatology request: ", req)
+    da_clim = common.fdb_read(fdb, req)
     assert da_clim.values.shape[0] == n_clim
     da_clim_sorted = da_clim.reindex(quantile=[f"{x}:100" for x in range(n_clim)])
     print(da_clim_sorted)
@@ -200,7 +200,6 @@ def efi_sot(
             climatology,
             accum,
             overrides=cfg.override_input,
-            mir_options=param.interpolation_keys,
         )
         print(f"Climatology array: {clim.shape}")
 
@@ -211,19 +210,17 @@ def efi_sot(
 
         ens_types = param.base_request["type"].split("/")
         if len(ens_types) > 1 and "pf" in ens_types:
-            control_type = ens_types[(ens_types.index("pf") + 1) % 2]
-            control_index = param.get_type_index(control_type)
-            efi_control = extreme.efi(clim, ens[control_index], efi_vars.eps)
+            efi_control = extreme.efi(clim, ens.sel(number=[0]).values, efi_vars.eps)
             template_efi = efi_template_control(template_extreme)
             common.write_grib(cfg.out_efi, template_efi, efi_control)
 
-        efi = extreme.efi(clim, ens, efi_vars.eps)
+        efi = extreme.efi(clim, ens.values, efi_vars.eps)
         template_efi = efi_template(template_extreme)
         common.write_grib(cfg.out_efi, template_efi, efi)
 
         sot = {}
         for perc in efi_vars.sot:
-            sot[perc] = extreme.sot(clim, ens, perc, efi_vars.eps)
+            sot[perc] = extreme.sot(clim, ens.values, perc, efi_vars.eps)
             template_sot = sot_template(template_extreme, perc)
             common.write_grib(cfg.out_sot, template_sot, sot[perc])
 
