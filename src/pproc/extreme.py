@@ -209,7 +209,7 @@ def efi_sot(
         assert ens is not None
 
         ens_types = param.base_request["type"].split("/")
-        if len(ens_types) > 1 and "pf" in ens_types:
+        if "cf" in ens_types or "fc" in ens_types:
             efi_control = extreme.efi(clim, ens.sel(number=[0]).values, efi_vars.eps)
             template_efi = efi_template_control(template_extreme)
             common.write_grib(cfg.out_efi, template_efi, efi_control)
