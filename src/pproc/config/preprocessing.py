@@ -64,7 +64,7 @@ def find_matching(select: dict, candidates: List[dict]) -> int:
     no_match = object
     for i, c in enumerate(candidates):
         found = True
-        for key, val in select:
+        for key, val in select.items():
             if c.get(key, no_match) != val:
                 found = False
         if found:
