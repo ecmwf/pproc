@@ -62,20 +62,26 @@ def do_quantiles(
     edition = out_keys.get("edition", template.get("edition"))
     if edition not in (1, 2):
         raise ValueError(f"Unsupported GRIB edition {edition}")
-    for i, quantile in enumerate(iter_quantiles(ens.reshape((-1, ens.shape[-1])), n, method="sort")):
+    for i, quantile in enumerate(
+        iter_quantiles(ens.reshape((-1, ens.shape[-1])), n, method="sort")
+    ):
         pert_number = i if even_spacing else int(n[i] * 100)
+        grib_keys = {**out_keys}
         if edition == 1:
-            grib_keys = {
-                **out_keys,
-                "totalNumber": total_number,
-                "perturbationNumber": pert_number,
-            }
+            grib_keys.update(
+                {
+                    "totalNumber": total_number,
+                    "perturbationNumber": pert_number,
+                }
+            )
         else:
-            grib_keys = {
-                **out_keys,
-                "totalNumberOfQuantiles": total_number,
-                "quantileValue": pert_number,
-            }
+            grib_keys.setdefault("productDefinitionTemplateNumber", 86)
+            grib_keys.update(
+                {
+                    "totalNumberOfQuantiles": total_number,
+                    "quantileValue": pert_number,
+                }
+            )
         grib_keys.setdefault("type", "pb")
         if out_paramid is not None:
             grib_keys["paramId"] = out_paramid

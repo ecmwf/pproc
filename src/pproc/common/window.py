@@ -119,6 +119,9 @@ def translate_window_config(
         config = parse_window_config(window_options, True)
         config.steps = [Step(config.start, config.end)]
         operation = "aggregation"
+    elif window_operation == "standard_deviation":
+        config = parse_window_config(window_options, include_init)
+        operation = "standard_deviation"
 
     if config is None:
         raise ValueError(

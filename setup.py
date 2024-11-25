@@ -13,9 +13,9 @@ setup(
         "filelock>=3.12.0",
         "code-meters",
         "earthkit-meteo>=0.1.1",
-        "earthkit-data>=0.8.0",
+        "earthkit-data==0.9.0",
         "earthkit-time>=0.1.3",
-        "thermofeel>=2.0.0",
+        "thermofeel>=2.1.0",
         "scipy>=1.8",
     ],
     tests_require=[

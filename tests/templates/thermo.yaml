@@ -2,7 +2,7 @@ out_keys:
   edition: 2                       
   typeOfGeneratingProcess: 2
 fc_date: '2024060500'
-n_par_compute: 1
+n_par_compute: 2
 defs: 
   base_request: &base_request                                   
       class: od
@@ -36,8 +36,14 @@ sources:
     param: *inst_params
     source: fdb
 targets:
-  indices:
-    params:
+  - params:
+      - 2r
+    target: "fdb:"
+    windows:                             
+      ranges:
+      - start_step: 0
+        end_step: 0
+  - params:
       - mrt
       - utci
       - heatx
@@ -48,10 +54,32 @@ targets:
       - gt
       - wbpt
       - wbgt
+      - 2r
     target: "fdb:"
-windows:                                 
-  operation: diff
-  ranges:
-  - start_step: 0
-    end_step: 2
-    interval: 1
+    windows: 
+      operation: diff                                
+      ranges:
+      - start_step: 0
+        end_step: 2
+        interval: 1
+  - params:
+      - 10si
+      - uvcossza
+      - dsrp
+    target: "intermediate.grib"    
+    windows: 
+      operation: diff                                
+      ranges:
+      - start_step: 0
+        end_step: 2
+        interval: 1
+  - params:
+      - 175
+      - 177
+    target: "accum.grib"
+    windows: 
+      operation: diff                                
+      ranges:
+      - start_step: 0
+        end_step: 2
+        interval: 1    
