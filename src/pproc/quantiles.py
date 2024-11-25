@@ -14,7 +14,6 @@ from pproc.common.accumulation import Accumulator
 from pproc.common.config import Config, default_parser
 from pproc.common.grib_helpers import construct_message
 from pproc.common.io import (
-    Target,
     nan_to_missing,
     read_template,
     target_from_location,
@@ -28,6 +27,7 @@ from pproc.common.parallel import (
 from pproc.common.param_requester import ParamConfig, ParamRequester
 from pproc.common.recovery import Recovery
 from pproc.common.window_manager import WindowManager
+from pproc.config.targets import Target
 
 
 def do_quantiles(

@@ -47,14 +47,7 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
         [
             "ensms",
             ensms_main,
-            [
-                "--in-ens",
-                "fdb:ens",
-                "--out-mean",
-                "fdb:",
-                "--out-std",
-                "fdb:",
-            ],
+            ["--recover"],
             False,
             {"type": "em", "param": 167, "step": [12, 36]},
             2,
@@ -200,7 +193,7 @@ def test_products(
         config = yaml.safe_load(file)
     config["root_dir"] = str(tmpdir)
     yaml.dump(config, open(f"{tmpdir}/{product}.yaml", "w"))
-    args = [product, "-c", f"{tmpdir}/{product}.yaml"] + [
+    args = [product, "-f", f"{tmpdir}/{product}.yaml"] + [
         x.format_map(
             {
                 "test_dir": str(tmpdir),
