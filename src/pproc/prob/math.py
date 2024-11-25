@@ -13,7 +13,7 @@ def ensemble_probability(data: np.array, threshold: Dict) -> np.array:
     """
 
     # Find all locations where np.nan appears as an ensemble value
-    is_nan = np.isnan(arr).any(axis=0)
+    is_nan = np.isnan(data).any(axis=0)
 
     # Read threshold configuration and compute probability
     comparison = threshold["comparison"]
