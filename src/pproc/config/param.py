@@ -9,9 +9,7 @@ from pproc.config.preprocessing import PreprocessingConfig
 class ParamConfig(BaseModel):
     name: str
     sources: dict = {}
-    preprocessing: PreprocessingConfig = Field(
-        default_factory=list, validate_default=True
-    )
+    preprocessing: PreprocessingConfig = Field(default_factory=PreprocessingConfig)
     accumulations: dict = {}
     dtype: type = np.float32
     metadata: Dict[str, Any] = {}

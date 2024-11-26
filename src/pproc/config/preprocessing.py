@@ -130,9 +130,10 @@ class PreprocessingConfig(BaseModel):
     #     value: 3600
     actions: List[
         Annotated[
-            Union[Scaling, Combination, Masking], Field(discriminator="operation")
+            Union[Scaling, Combination, Masking],
+            Field(discriminator="operation"),
         ]
-    ]
+    ] = Field(default_factory=list)
 
     @model_validator(mode="before")
     @classmethod
