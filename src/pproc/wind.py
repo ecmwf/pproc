@@ -160,11 +160,6 @@ def basic_template(cfg, template, step, marstype):
     else:
         grib_sets["timeRangeIndicator"] = 0
     
-    if new_template["edition"] == 2 or grib_sets.get("edition", 1) == 2:
-        grib_sets["productDefinitionTemplateNumber"] = 2
-        if marstype in ["es", "em"]:
-            grib_sets["derivedForecast"] = 2 if marstype == "es" else 0
-    
     new_template.set(grib_sets)
     return new_template
 
