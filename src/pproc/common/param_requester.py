@@ -1,11 +1,7 @@
-from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Tuple
 
 import eccodes
-import numexpr
 import numpy as np
-from earthkit.meteo.wind import direction
-from pydantic import BaseModel
 
 from pproc.common.dataset import open_multi_dataset
 from pproc.common.io import missing_to_nan
@@ -80,9 +76,9 @@ def read_ensemble(
     return template, data
 
 
-def parse_paramids(pid):
+def parse_paramids(pid: Any) -> List[str]:
     if isinstance(pid, int):
-        return [pid]
+        return [str(pid)]
     if isinstance(pid, str):
         return pid.split("/")
     if isinstance(pid, list):
@@ -90,25 +86,6 @@ def parse_paramids(pid):
             raise TypeError("Lists of paramids can contain only ints or strings")
         return pid
     raise TypeError(f"Invalid paramid type {type(pid)}")
-
-
-@dataclass
-class ParamFilter:
-    comparison: str
-    threshold: float
-    param: Optional[str]
-    replacement: float
-
-    @classmethod
-    def from_config(cls, config: Optional[dict]) -> Optional["ParamFilter"]:
-        if config is None:
-            return None
-        return cls(
-            config["comparison"],
-            config["threshold"],
-            config.get("param", None),
-            config.get("replacement", 0.0),
-        )
 
 
 class ParamRequester:
@@ -137,71 +114,41 @@ class ParamRequester:
         elif keys.get("type") == "fcmean":
             keys["number"] = number or range(self.members + 1)
 
-    def filter_data(self, data: np.ndarray, step: AnyStep, **kwargs) -> np.ndarray:
-        filt = self.param.filter
-        if filt is None:
-            return data
-        fdata = data
-        if filt.param is not None:
-            filt_keys = self.param.in_keys(step=str(step), **kwargs)[0]
-            filt_keys["param"] = filt.param
-            _, fdata = read_ensemble(
-                self.source,
-                self.total,
-                dtype=self.param.dtype,
-                update=self._set_number,
-                index_func=self.index_func,
-                **filt_keys,
-            )
-        comp = numexpr.evaluate(
-            "data " + filt.comparison + " threshold",
-            local_dict={
-                "data": fdata,
-                "threshold": np.asarray(filt.threshold, dtype=fdata.dtype),
-            },
-        )
-        return np.where(comp, filt.replacement, data)
-
-    def combine_data(self, data_list: List[np.ndarray]) -> np.ndarray:
-        if self.param.combine is None:
-            assert (
-                len(data_list) == 1
-            ), "Multiple input fields require a combine operation"
-            return data_list[0]
-        if self.param.combine == "norm":
-            return np.linalg.norm(data_list, axis=0)
-        if self.param.combine == "direction":
-            assert len(data_list) == 2, "'direction' requires exactly 2 input fields"
-            return direction(
-                data_list[0], data_list[1], convention="meteo", to_positive=True
-            ).astype(self.param.dtype)
-        return getattr(np, self.param.combine)(data_list, axis=0)
-
     def retrieve_data(
         self, step: AnyStep, **kwargs
     ) -> Tuple[eccodes.GRIBMessage, np.ndarray]:
+        metadata = []
         data_list = []
+        template = None
         for src in self.src_names:
-            src_config = getattr(self.sources, src)
+            src_config: Source = getattr(self.sources, src)
             in_keys = self.param.in_keys(
-                src, src_config.request, step=str(step), **kwargs, **self.sources.overrides
+                src,
+                src_config.request,
+                step=str(step),
+                **kwargs,
+                **self.sources.overrides,
             )
             for param_req in expand(in_keys, "param"):
                 requests = list(expand(param_req, "type"))
                 config = src_config.model_copy(update={"request": requests})
-                template, data = read_ensemble(
+                new_template, data = read_ensemble(
                     config,
                     self.total,
                     dtype=self.param.dtype,
                     update=self._set_number,
                     index_func=self.index_func,
                 )
+                metadata.append(param_req)
                 data_list.append(data)
-        return (
-            template,
-            np.asarray(data_list)
-            # self.filter_data(self.combine_data(data_list), step, **kwargs) * self.param.scale,
-        )
+                if template is None:
+                    template = new_template
+
+        assert template is not None, "No data fetched"
+
+        _, data_list = self.param.preprocessing.apply(metadata, data_list)
+        assert len(data_list) == 1, "More than one output of preprocessing"
+        return (template, data_list[0])
 
     @property
     def name(self):

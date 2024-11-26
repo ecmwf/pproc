@@ -1,13 +1,17 @@
 from typing import Any, Dict, Optional
 
 import numpy as np
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from pproc.config.preprocessing import PreprocessingConfig
 
 
 class ParamConfig(BaseModel):
     name: str
     sources: dict = {}
-    preprocessing: Optional[list] = []
+    preprocessing: PreprocessingConfig = Field(
+        default_factory=list, validate_default=True
+    )
     accumulations: dict = {}
     dtype: type = np.float32
     metadata: Dict[str, Any] = {}
