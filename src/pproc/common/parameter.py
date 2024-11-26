@@ -209,4 +209,6 @@ class FilterParameter(Parameter):
             local_dict={"data": filter_data},
         )
         res = np.where(comp, self.filter_replacement, data)
-        return msg_template, xr.DataArray(res, dims=data.dims, attrs=data.attrs)
+        return msg_template, xr.DataArray(
+            res, dims=data.dims, coords=data.coords, attrs=data.attrs
+        )
