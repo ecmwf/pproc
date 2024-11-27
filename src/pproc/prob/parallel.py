@@ -29,31 +29,25 @@ def threshold_grib_headers(
             "thresholdIndicator": 1,
             "lowerThreshold": threshold_value,
         }
-    elif edition == 2 and comparison == "<" and threshold_value >= 0:
+    elif edition == 2:
+        # GRIB 2 has probability types above/below upper/lower limits (see Code Table 4.9)
+        # where the threshold value can correspond to either limit. The default limit type
+        # is upper for "<" and lower for ">", consistent with the GRIB 1 to GRIB 2 conversion
+        # assumption.
+        prob_types = {"<": {"upper": 4, "lower": 0}, ">": {"upper": 1, "lower": 3}}
+        if comparison == "<":
+            limit_type = threshold.get("limit_type", "upper")
+            probability_type = prob_types[comparison][limit_type]
+        elif comparison == ">":
+            limit_type = threshold.get("limit_type", "lower")
+            probability_type = prob_types[comparison][limit_type]
+        missing = "Upper" if limit_type == "lower" else "Lower"
         grib_keys = {
-            "scaleFactorOfUpperLimit": scale_factor,
-            "scaledValueOfUpperLimit": threshold_value,
-            "probabilityType": 4,
-            "scaleFactorOfLowerLimit": "MISSING",
-            "scaledValueOfLowerLimit": "MISSING",
-            **climatology_headers,
-        }
-    elif edition == 2 and comparison == "<" and threshold_value < 0:
-        grib_keys = {
-            "scaleFactorOfLowerLimit": scale_factor,
-            "scaledValueOfLowerLimit": threshold_value,
-            "probabilityType": 0,
-            "scaleFactorOfUpperLimit": "MISSING",
-            "scaledValueOfUpperLimit": "MISSING",
-            **climatology_headers,
-        }
-    elif edition == 2 and comparison == ">":
-        grib_keys = {
-            "scaleFactorOfLowerLimit": scale_factor,
-            "scaledValueOfLowerLimit": threshold_value,
-            "probabilityType": 3,
-            "scaleFactorOfUpperLimit": "MISSING",
-            "scaledValueOfUpperLimit": "MISSING",
+            f"scaleFactorOf{limit_type.capitalize()}Limit": scale_factor,
+            f"scaledValueOf{limit_type.capitalize()}Limit": threshold_value,
+            "probabilityType": probability_type,
+            f"scaleFactorOf{missing}Limit": "MISSING",
+            f"scaledValueOf{missing}Limit": "MISSING",
             **climatology_headers,
         }
     else:

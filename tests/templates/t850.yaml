@@ -61,6 +61,7 @@ parameters:
       - out_paramid: 133096
         comparison: <
         value: -1
+        limit_type: lower
       grib_set:
         localDefinitionNumber: 30
         bitsPerValue: 24
