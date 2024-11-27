@@ -176,8 +176,8 @@ def sot_template(template, sot):
             "typeOfRelationToReferenceDataset": 21,
             "typeOfProcessedData": 5,
             "numberOfAdditionalParametersForReferencePeriod": 2,
-            "scaleFactorOfAdditionalParameterForReferencePeriod": sot,
-            "scaledValueOfAdditionalParameterForReferencePeriod": efi_order,
+            "scaleFactorOfAdditionalParameterForReferencePeriod": [0, 0],
+            "scaledValueOfAdditionalParameterForReferencePeriod": [sot, efi_order],
         }
         template_sot.set(grib_set)
     else:
