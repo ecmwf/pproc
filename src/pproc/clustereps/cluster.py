@@ -1129,7 +1129,7 @@ def get_parser() -> argparse.ArgumentParser:
     Returns
     -------
     argparse.ArgumentParser
-        
+
     """
 
     _description='K-Means clustering of ensemble data'
@@ -1144,7 +1144,8 @@ def get_parser() -> argparse.ArgumentParser:
     group.add_argument('-R', '--representative', required=True, help="Cluster representative members output (GRIB)")
     group.add_argument('-I', '--indexes', required=True, help="Cluster indexes output (NPZ)")
     group.add_argument('-N', '--ncomp-file', default=None, help="Number of components output (text)")
-   
+    group.add_argument("--deterministic-is-control", default=False, action="store_true", help=argparse.SUPPRESS)
+
     return parser
 
 
@@ -1173,7 +1174,9 @@ def main(args=sys.argv[1:]):
     ind_cl, centroids, rep_members, centroids_gp, rep_members_gp, ens_mean = do_clustering(config, data, npc, verbose=True, dump_indexes=args.indexes)
 
     # Find the deterministic forecast
-    if args.deterministic is not None:
+    if args.deterministic_is_control:
+        det_index = ind_cl[0]
+    elif args.deterministic is not None:
         det = read_steps_grib(config.sources, args.deterministic, config.steps, **config.override_input)
         det_index = find_cluster(det, ens_mean, data['eof'][:npc, ...], data['weights'], centroids)
     else:
