@@ -707,6 +707,17 @@ def red_noise_cluster_iteration(ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand, i
     return noise_var
 
 
+def _progress(it, total, pct_step=10, prefix=""):
+    if prefix:
+        prefix += "... "
+    freq = (total * pct_step) // 100
+    rem = total % freq
+    for i, x in enumerate(it, start=1):
+        if i % freq == rem:
+            print(f"{prefix}{i}/{total} ({i*100//total} %)")
+        yield x
+
+
 def red_noise_cluster(n_samples, ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand, n_par=1, init="k-means++"):
     """Perform clustering on red noise samples
 
@@ -748,7 +759,7 @@ def red_noise_cluster(n_samples, ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand, 
         seed = rand.randint((1 << 32) - n_samples)
         with fut.ProcessPoolExecutor(max_workers=n_par) as executor:
             rands = (npr.RandomState(seed + i) for i in range(n_samples))
-            noise_var = list(executor.map(sample, rands))
+            noise_var = list(_progress(executor.map(sample, rands), n_samples, prefix="Significance estimation"))
         return np.array(noise_var)
 
 
