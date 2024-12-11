@@ -2,19 +2,20 @@ import argparse
 from datetime import datetime
 import functools
 import sys
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import numpy as np
 
 import eccodes
-from earthkit.meteo.stats import iter_quantiles
 from meters import ResourceMeter
 
 from pproc.common.accumulation import Accumulator
 from pproc.common.config import Config, default_parser
+from pproc.common.dataset import open_multi_dataset
 from pproc.common.grib_helpers import construct_message
 from pproc.common.io import (
     Target,
+    missing_to_nan,
     nan_to_missing,
     read_template,
     target_from_location,
@@ -27,95 +28,167 @@ from pproc.common.parallel import (
 )
 from pproc.common.param_requester import ParamConfig, ParamRequester
 from pproc.common.recovery import Recovery
+from pproc.common.steps import AnyStep
 from pproc.common.window_manager import WindowManager
 
 
-def do_quantiles(
-    ens: np.ndarray,
+def write_histogram(
+    hist: np.ndarray,
     template: eccodes.GRIBMessage,
     target: Target,
+    normalise: bool = True,
+    scale: Optional[float] = None,
     out_paramid: Optional[str] = None,
-    n: Union[int, List[float]] = 100,
     out_keys: Optional[Dict[str, Any]] = None,
 ):
-    """Compute quantiles
+    """Write histogram
 
     Parameters
     ----------
-    ens: numpy array (..., npoints)
-        Ensemble data (all dimensions but the last are squashed together)
+    hist: numpy array (nbins, npoints)
+        Histogram data
     template: eccodes.GRIBMessage
         GRIB template for output
     target: Target
         Target to write to
+    normalise: bool
+        If True, normalise the histogram
+    scale: float or None
+        If set, multiply values by this number
     out_paramid: str, optional
         Parameter ID to set on the output
-    n: int or list of floats
-        List of quantiles to compute, e.g. `[0., 0.25, 0.5, 0.75, 1.]`, or
-        number of evenly-spaced intervals (default 100 = percentiles).
     out_keys: dict, optional
         Extra GRIB keys to set on the output
     """
-    even_spacing = isinstance(n, int) or np.all(np.diff(n) == n[1] - n[0])
-    num_quantiles = n if isinstance(n, int) else (len(n) - 1)
-    total_number = num_quantiles if even_spacing else 100
-    edition = out_keys.get("edition", template.get("edition"))
-    if edition not in (1, 2):
-        raise ValueError(f"Unsupported GRIB edition {edition}")
-    for i, quantile in enumerate(
-        iter_quantiles(ens.reshape((-1, ens.shape[-1])), n, method="sort")
-    ):
-        pert_number = i if even_spacing else int(n[i] * 100)
-        grib_keys = {**out_keys}
-        if edition == 1:
-            grib_keys.update(
-                {
-                    "totalNumber": total_number,
-                    "perturbationNumber": pert_number,
-                }
-            )
-        else:
-            grib_keys.setdefault("productDefinitionTemplateNumber", 86)
-            grib_keys.update(
-                {
-                    "totalNumberOfQuantiles": total_number,
-                    "quantileValue": pert_number,
-                }
-            )
-        grib_keys.setdefault("type", "pb")
+    hist = hist.astype(np.float32)
+    if normalise:
+        hist /= hist.sum(axis=0)
+    if scale is not None:
+        hist *= scale
+    nbins = hist.shape[0]
+
+    for i, hist_bin in enumerate(hist):
+        grib_keys = {
+            **out_keys,
+            "totalNumber": nbins,
+            "perturbationNumber": i + 1,
+        }
+        grib_keys.setdefault("type", "pd")
         if out_paramid is not None:
             grib_keys["paramId"] = out_paramid
         message = construct_message(template, grib_keys)
-        message.set_array("values", nan_to_missing(message, quantile))
+        message.set_array("values", nan_to_missing(message, hist_bin))
         target.write(message)
-        target.flush()
 
 
 def get_parser() -> argparse.ArgumentParser:
-    description = "Compute quantiles of an ensemble"
+    description = "Compute a histogram of an ensemble"
     parser = default_parser(description=description)
     parser.add_argument("--in-ens", required=True, help="Input ensemble source")
-    parser.add_argument("--out-quantiles", required=True, help="Output target")
+    parser.add_argument("--out-histogram", required=True, help="Output target")
     return parser
 
 
-class QuantilesConfig(Config):
+class HistParamConfig(ParamConfig):
+    def __init__(self, name, options: Dict[str, Any], overrides: Dict[str, Any] = {}):
+        super().__init__(name, options, overrides)
+        self.bins = np.asarray(options["bins"])
+        self.mod = options.get("mod", None)
+        self.normalise = options.get("normalise", True)
+        self.scale_out = options.get("scale_out", None)
+
+
+def iter_ensemble(
+    sources: dict,
+    loc: str,
+    dtype=np.float32,
+    **kwargs,
+) -> Iterator[Tuple[eccodes.GRIBMessage, np.ndarray]]:
+    """Iterate over GRIB data, in arbitrary order
+
+    Parameters
+    ----------
+    sources: dict
+        Sources configuration
+    loc: str
+        Location of the data (file path, named fdb request, ...)
+    dtype: numpy data type
+        Data type for the result array (default float32)
+    kwargs: any
+        Extra arguments for backends that support them
+
+    Yields
+    ------
+    eccodes.GRIBMessage
+        GRIB message
+    numpy array (npoints)
+        Field data
+    """
+
+    readers = open_multi_dataset(sources, loc, **kwargs)
+    for reader in readers:
+        with reader:
+            message = reader.peek()
+            if message is None:
+                raise EOFError(f"No data in {loc!r}")
+            for message in reader:
+                data = missing_to_nan(message)
+                yield message, data.astype(dtype)
+
+
+class HistParamRequester(ParamRequester):
+    def __init__(
+        self,
+        param: HistParamConfig,
+        sources: dict,
+        loc: str,
+    ):
+        super().__init__(param, sources, loc, 0)
+
+    def retrieve_data(
+        self, fdb, step: AnyStep, **kwargs
+    ) -> Tuple[eccodes.GRIBMessage, np.ndarray]:
+        assert isinstance(self.param, HistParamConfig)
+        iterators = tuple(
+            iter_ensemble(
+                self.sources,
+                self.loc,
+                update=self._set_number,
+                dtype=self.param.dtype,
+                **in_keys,
+            )
+            for in_keys in self.param.in_keys(step=str(step), **kwargs)
+        )
+        nbins = len(self.param.bins) - 1
+        template = None
+        hist = None
+        for result_list in zip(*iterators):
+            if template is None:
+                template = result_list[0][0]
+                hist = np.zeros((nbins, result_list[0][1].shape[0]))
+            data_list = [data for _, data in result_list]
+            data = self.combine_data(data_list) * self.param.scale
+            if self.param.mod is not None:
+                data %= self.param.mod
+            ind = np.digitize(data, self.param.bins) - 1
+            if self.param.mod is not None:
+                ind[ind < 0] = nbins - 1
+                ind[ind >= nbins] = 0
+            for i in range(nbins):
+                hist[i, ind == i] += 1
+        return template, hist
+
+
+class HistogramConfig(Config):
     def __init__(self, args: argparse.Namespace, verbose: bool = True):
         super().__init__(args, verbose=verbose)
 
         self.num_members = self.options.get("num_members", 51)
-        if "quantiles" in self.options:
-            if "num_quantiles" in self.options:
-                raise ValueError("Cannot specify both num_quantiles and quantiles")
-            self.quantiles = self.options["quantiles"]
-        else:
-            self.quantiles = self.options.get("num_quantiles", 100)
-        self.total_fields = self.options.get("total_fields", self.num_members)
 
         self.out_keys = self.options.get("out_keys", {})
 
         self.params = [
-            ParamConfig(pname, popt, overrides=self.override_input)
+            HistParamConfig(pname, popt, overrides=self.override_input)
             for pname, popt in self.options["params"].items()
         ]
         self.steps = self.options.get("steps", [])
@@ -132,9 +205,8 @@ class QuantilesConfig(Config):
         self.window_queue_size = self.options.get("queue_size", self.n_par_compute)
 
 
-def quantiles_iteration(
-    config: QuantilesConfig,
-    param: ParamConfig,
+def write_iteration(
+    param: HistParamConfig,
     target: Target,
     recovery: Optional[Recovery],
     template: Union[str, eccodes.GRIBMessage],
@@ -143,27 +215,27 @@ def quantiles_iteration(
 ):
     if not isinstance(template, eccodes.GRIBMessage):
         template = read_template(template)
-    with ResourceMeter(f"{param.name}, step {window_id}: Quantiles"):
-        ens = accum.values
-        assert ens is not None
-        do_quantiles(
-            ens,
+    with ResourceMeter(f"{param.name}, window {window_id!s}: Write histogram"):
+        hist = accum.values
+        assert hist is not None
+        write_histogram(
+            hist,
             template,
             target,
+            param.normalise,
+            param.scale_out,
             param.out_paramid,
-            n=config.quantiles,
             out_keys=accum.grib_keys(),
         )
-        target.flush()
     if recovery is not None:
-        recovery.add_checkpoint(param.name, window_id)
+        recovery.add_checkpoint(param.name, str(window_id))
 
 
 def main(args: List[str] = sys.argv[1:]):
     sys.stdout.reconfigure(line_buffering=True)
     parser = get_parser()
     args = parser.parse_args(args)
-    config = QuantilesConfig(args)
+    config = HistogramConfig(args)
     if config.root_dir is None or config.date is None:
         print("Recovery disabled. Set root_dir and date in config to enable.")
         recovery = None
@@ -171,7 +243,7 @@ def main(args: List[str] = sys.argv[1:]):
     else:
         recovery = Recovery(config.root_dir, args.config, config.date, args.recover)
         last_checkpoint = recovery.last_checkpoint()
-    target = target_from_location(args.out_quantiles, overrides=config.override_output)
+    target = target_from_location(args.out_histogram, overrides=config.override_output)
     if config.n_par_compute > 1:
         target.enable_parallel(parallel)
     if recovery is not None and args.recover:
@@ -185,6 +257,7 @@ def main(args: List[str] = sys.argv[1:]):
 
     with executor:
         for param in config.params:
+            print(f"Processing {param.name}")
             window_manager = WindowManager(
                 param.window_config(config.windows, config.steps),
                 param.out_keys(config.out_keys),
@@ -199,18 +272,14 @@ def main(args: List[str] = sys.argv[1:]):
                     if param.name in x
                 ]
                 new_start = window_manager.delete_windows(checkpointed_windows)
-                print(f"Recovery: param {param.name} looping from step {new_start}")
+                print(
+                    f"Recovery: param {param.name} looping from step {new_start}"
+                )
                 last_checkpoint = None  # All remaining params have not been run
 
-            requester = ParamRequester(
-                param,
-                config.sources,
-                args.in_ens,
-                config.num_members,
-                config.total_fields,
-            )
-            quantiles_partial = functools.partial(
-                quantiles_iteration, config, param, target, recovery
+            requester = HistParamRequester(param, config.sources, args.in_ens)
+            write_partial = functools.partial(
+                write_iteration, param, target, recovery
             )
             for keys, data in parallel_data_retrieval(
                 config.n_par_read,
@@ -224,7 +293,8 @@ def main(args: List[str] = sys.argv[1:]):
                     completed_windows = window_manager.update_windows(keys, ens)
                     del ens
                 for window_id, accum in completed_windows:
-                    executor.submit(quantiles_partial, template, window_id, accum)
+                    executor.submit(write_partial, template, window_id, accum)
+
             executor.wait()
 
     if recovery is not None:

@@ -82,21 +82,6 @@ def _open_dataset_mars(reqs: Union[dict, Iterable[dict]], **kwargs: Any) -> Iter
     return _open_dataset_marslike("MARS", _mars_retrieve_interp, reqs, **kwargs)
 
 
-def _open_dataset_fileset(reqs: Union[dict, Iterable[dict]], **kwargs: Any) -> Iterator[eccodes.reader.ReaderBase]:
-    if not isinstance(reqs, list):
-        reqs = [reqs]
-    update_func = kwargs.pop('update', None)
-    for req in reqs:
-        req = copy.deepcopy(req)
-        req.update(kwargs)
-        if update_func is not None:
-            update_func(req)
-        template = req.pop('location')
-        path = template.format(**req)
-        print(f"File path: {path!r}")
-        yield eccodes.FileReader(path)
-
-
 class FilteredReader(eccodes.reader.ReaderBase):
     def __init__(self, wrapped: eccodes.reader.ReaderBase, **kwargs: Any):
         super().__init__()
@@ -111,7 +96,8 @@ class FilteredReader(eccodes.reader.ReaderBase):
         for key, val in self.filters.items():
             if not isinstance(val, (list, tuple, range)):
                 val = [val]
-            if message.get(key, notset) not in val:
+            tp = type(val[0]) if val else None
+            if message.get(key, notset, ktype=tp) not in val:
                 return False
         return True
 
@@ -130,6 +116,22 @@ class FilteredReader(eccodes.reader.ReaderBase):
 
     def __exit__(self, exc_type, exc_value, traceback):
         return self.wrapped.__exit__(exc_type, exc_value, traceback)
+
+
+def _open_dataset_fileset(reqs: Union[dict, Iterable[dict]], **kwargs: Any) -> Iterator[eccodes.reader.ReaderBase]:
+    if not isinstance(reqs, list):
+        reqs = [reqs]
+    update_func = kwargs.pop('update', None)
+    for req in reqs:
+        req = copy.deepcopy(req)
+        req.update(kwargs)
+        if update_func is not None:
+            update_func(req)
+        template = req.pop('location')
+        path = template.format(**req)
+        print(f"File path: {path!r}")
+        print(f"Request: {req!r}")
+        yield FilteredReader(eccodes.FileReader(path), **req)
 
 
 def open_dataset(config: dict, loc: str, **kwargs) -> eccodes.reader.ReaderBase:

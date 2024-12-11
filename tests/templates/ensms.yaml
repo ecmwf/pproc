@@ -1,0 +1,38 @@
+fc_date: '2024050712'
+out_keys:
+  mars.expver: '0001'
+  numberOfForecastsInEnsemble: 6
+  perturbationNumber: 0
+num_members: 5
+n_par_compute: 1
+n_par_read: 1
+queue_size: 2
+params:
+  2t:
+    in: '167.128'
+sources:
+  fdb:
+    ens:
+    - class: od
+      date: 20240507
+      domain: g
+      levtype: sfc
+      expver: '0001'
+      stream: enfo
+      time: 12
+      type: cf
+    - class: od
+      date: 20240507
+      domain: g
+      levtype: sfc
+      expver: '0001'
+      stream: enfo
+      time: 12
+      type: pf
+windows:
+  - range:
+    - 12
+    - 12
+  - range:
+    - 36
+    - 36

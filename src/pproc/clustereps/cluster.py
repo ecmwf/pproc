@@ -707,6 +707,17 @@ def red_noise_cluster_iteration(ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand, i
     return noise_var
 
 
+def _progress(it, total, pct_step=10, prefix=""):
+    if prefix:
+        prefix += "... "
+    freq = (total * pct_step) // 100
+    rem = total % freq
+    for i, x in enumerate(it, start=1):
+        if i % freq == rem:
+            print(f"{prefix}{i}/{total} ({i*100//total} %)")
+        yield x
+
+
 def red_noise_cluster(n_samples, ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand, n_par=1, init="k-means++"):
     """Perform clustering on red noise samples
 
@@ -748,7 +759,7 @@ def red_noise_cluster(n_samples, ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand, 
         seed = rand.randint((1 << 32) - n_samples)
         with fut.ProcessPoolExecutor(max_workers=n_par) as executor:
             rands = (npr.RandomState(seed + i) for i in range(n_samples))
-            noise_var = list(executor.map(sample, rands))
+            noise_var = list(_progress(executor.map(sample, rands), n_samples, prefix="Significance estimation"))
         return np.array(noise_var)
 
 
@@ -1129,7 +1140,7 @@ def get_parser() -> argparse.ArgumentParser:
     Returns
     -------
     argparse.ArgumentParser
-        
+
     """
 
     _description='K-Means clustering of ensemble data'
@@ -1144,7 +1155,8 @@ def get_parser() -> argparse.ArgumentParser:
     group.add_argument('-R', '--representative', required=True, help="Cluster representative members output (GRIB)")
     group.add_argument('-I', '--indexes', required=True, help="Cluster indexes output (NPZ)")
     group.add_argument('-N', '--ncomp-file', default=None, help="Number of components output (text)")
-   
+    group.add_argument("--deterministic-is-control", default=False, action="store_true", help=argparse.SUPPRESS)
+
     return parser
 
 
@@ -1173,7 +1185,9 @@ def main(args=sys.argv[1:]):
     ind_cl, centroids, rep_members, centroids_gp, rep_members_gp, ens_mean = do_clustering(config, data, npc, verbose=True, dump_indexes=args.indexes)
 
     # Find the deterministic forecast
-    if args.deterministic is not None:
+    if args.deterministic_is_control:
+        det_index = ind_cl[0]
+    elif args.deterministic is not None:
         det = read_steps_grib(config.sources, args.deterministic, config.steps, **config.override_input)
         det_index = find_cluster(det, ens_mean, data['eof'][:npc, ...], data['weights'], centroids)
     else:

@@ -3,7 +3,7 @@ import os
 
 setup(
     name="pproc",
-    version='1.1.0',
+    version='1.3.1',
     author='ECMWF',
     description="ECMWF Post-processing tools",
     packages=find_packages(where='src'),
@@ -11,9 +11,15 @@ setup(
     include_package_data=True,
     install_requires=[
         "filelock>=3.12.0",
-        "code-meters"
+        "code-meters",
+        "earthkit-meteo>=0.1.0",
+        "earthkit-data==0.9.0",
+        "earthkit-time>=0.1.3",
+        "thermofeel>=2.1.0",
+        "scipy>=1.8",
     ],
     tests_require=[
+        "requests",
     ],
     entry_points={
         "console_scripts": [
@@ -37,6 +43,9 @@ setup(
             "pproc-tcycl-summarise-trckr=pproc.tcycl.tcycl_summarise_trckr:main",
             "pproc-tcycl-evaluate=pproc.tcycl.tcycl_evaluate:main",
             "pproc-thermal-indices=pproc.thermal_indices:main",
+            "pproc-histogram=pproc.histogram:main",
+            "pproc-accumulate=pproc.accumulate:main",
+            "pproc-significance=pproc.significance:main",
         ],
     },
 )

@@ -3,6 +3,8 @@ from typing import Any, Dict, List, Union
 import numpy as np
 import numexpr
 
+from meteokit.wind import direction
+
 from pproc import common
 
 
@@ -69,11 +71,12 @@ class Parameter:
         self.interpolation_keys = param_cfg.get("interpolation_keys", None)
         self.scale_data = float(param_cfg.get("scale", 1))
 
-    def retrieve_data(self, fdb, step: common.AnyStep):
+    def retrieve_data(self, fdb, step: common.AnyStep, **kwargs):
         combined_data = []
         for type in self.base_request["type"].split("/"):
             new_request = self.base_request.copy()
             new_request["step"] = str(step)
+            new_request.update(kwargs)
             new_request["type"] = type
             if type == "cf":
                 new_request.pop("number")
@@ -84,7 +87,8 @@ class Parameter:
             )
         
             num_levels = len(self.levels())
-            assert new_data.shape[0] == num_levels*len(new_request.get("number", [0]))
+            expected = num_levels*len(new_request.get("number", [0]))
+            assert new_data.shape[0] == expected, f"Shape mismatch: expected {expected}, got {new_data.shape[0]}"
             if num_levels > 1:
                 new_data = new_data.reshape((int(new_data.shape[0]/num_levels), num_levels, new_data.shape[1]))
 
@@ -162,13 +166,16 @@ class CombineParameters(Parameter):
     def combine_data(self, data_list):
         if self.combine_operation == "norm":
             return np.linalg.norm(data_list, axis=0)
+        if self.combine_operation == "direction":
+            assert len(data_list) == 2, "'direction' requires exactly 2 input fields"
+            return direction(data_list[0], data_list[1], convention="meteo", to_positive=True)
         return getattr(np, self.combine_operation)(data_list, axis=0)
 
-    def retrieve_data(self, fdb, step: common.AnyStep):
+    def retrieve_data(self, fdb, step: common.AnyStep, **kwargs):
         data_list = []
         for param_id in self.param_ids:
             self.base_request["param"] = param_id
-            msg_template, data = super().retrieve_data(fdb, step)
+            msg_template, data = super().retrieve_data(fdb, step=step, **kwargs)
             data_list.append(data)
 
         return msg_template, self.combine_data(data_list)
@@ -206,13 +213,13 @@ class FilterParameter(Parameter):
             param_cfg["input_filter_operation"].get("replacement", 0)
         )
 
-    def retrieve_data(self, fdb, step: common.AnyStep):
-        msg_template, data = super().retrieve_data(fdb, step)
+    def retrieve_data(self, fdb, step: common.AnyStep, **kwargs):
+        msg_template, data = super().retrieve_data(fdb, step=step, **kwargs)
 
         filter_data = data
         if self.filter_param != self.param_id:
             self.base_request["param"] = self.filter_param
-            _, filter_data = super().retrieve_data(fdb, step)
+            _, filter_data = super().retrieve_data(fdb, step=step, **kwargs)
             # Reset back to original
             self.base_request["param"] = self.param_id
 

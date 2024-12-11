@@ -14,11 +14,17 @@ Build instructions
 Install pproc-bundle
 --------------------
 
+Clone the bundle https://git.ecmwf.int/projects/ECSDK/repos/pproc-bundle/browse. On the ECMWF HPC, load the following 
+modules::
+
+  module load intel/2021.4.0 hpcx-openmpi/2.9.0 python3/3.10.10-01 fftw/3.3.9 aec/1.0.6 openblas/0.3.13 tflite/2.13.0
+
 Build and install the underlying C/C++ software stack::
 
+  export CMAKE_PREFIX_PATH=$openblas_DIR:$CMAKE_PREFIX_PATH
   cd pproc-bundle
-  ./bundle-create
-  ./bundle-build
+  ./pproc-bundle create
+  ./pproc-bundle build
   build/install.sh --fast
   cd ..
 
@@ -49,7 +55,7 @@ Build and install mir-python::
   python3 -m pip install cython
   export MIR_INCLUDE_DIRS=/path/to/pproc-bundle/install/include
   export MIR_LIB_DIR=/path/to/pproc-bundle/install/lib64
-  python3 -m pip install git+ssh://git@git.ecmwf.int/mir/mir-python.git
+  python3 -m pip install git+ssh://git@github.com/ecmwf/mir-python.git
 
 Install Python modules
 ----------------------
@@ -58,19 +64,20 @@ Install pproc::
 
   python3 -m pip install ./pproc
 
+Tests
+-----
+
+Run the tests to check everything is working::
+
+  export LD_LIBRARY_PATH=/path/to/pproc-bundle/install/lib64:$LD_LIBRARY_PATH
+  python3 -m pytest tests
+
 Examples
 ========
 
-fdb
----
-
-This example assumes that an FDB is set up and contains a field (see the
-request in the example script). The field is read using pyfdb, interpolated to
-a regular grid, then read into eccodeshl::
+To use pproc you will need to add the path to the libraries in the pproc-bundle to your `LD_LIBRARY_PATH`::
 
   export LD_LIBRARY_PATH=/path/to/pproc-bundle/install/lib64:$LD_LIBRARY_PATH
-  python3 test_fdb_mir.py
-
 
 pts
 ---

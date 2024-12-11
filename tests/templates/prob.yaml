@@ -1,0 +1,39 @@
+fc_date: '2024050712'
+global_input_keys:
+  expver: '0001'
+global_output_keys:
+  bitsPerValue: 8
+  localDefinitionNumber: 5
+  mars.expver: '0001'
+  type: ep
+number_of_ensembles: 5
+n_par_compute: 1
+n_par_read: 2
+parameters:
+  2t:
+    base_request:
+      class: od
+      domain: g
+      expver: '0001'
+      levtype: sfc
+      stream: enfo
+      type: pf
+    in_paramid: 167
+    steps:
+    - end_step: 36
+      interval: 12
+      start_step: 12
+    windows:
+    - periods:
+      - range:
+        - 12
+        - 12
+      - range:
+        - 12
+        - 36
+      thresholds:
+      - comparison: <=
+        localDecimalScaleFactor: 2
+        out_paramid: 131073
+        value: 273.15
+queue_size: 1

@@ -80,6 +80,7 @@ def get_parser() -> argparse.ArgumentParser:
 
     group = parser.add_argument_group('General arguments')
     group.add_argument('--date', help="Forecast date (YYMMDD)", type=lambda x: datetime.strptime(x, '%Y%m%d'), metavar='YMD')
+    group.add_argument("--deterministic-is-control", default=False, action="store_true", help=argparse.SUPPRESS)
 
     group = parser.add_argument_group('Inputs')
     group.add_argument('-m', '--mask', default=None, help="Mask file")
@@ -244,7 +245,9 @@ def main(sys_args=None):
         ind_cl, centroids, rep_members, centroids_gp, rep_members_gp, ens_mean = cluster.do_clustering(config, pca_data, npc, verbose=True, dump_indexes=args.indexes)
 
     ## Find the deterministic forecast
-    if args.deterministic is not None:
+    if args.deterministic_is_control:
+        det_index = ind_cl[0]
+    elif args.deterministic is not None:
         with ResourceMeter("Find deterministic"):
             det = read_steps_grib(config.sources, args.deterministic, config.steps, **config.override_input)
             det_index = cluster.find_cluster(det, ens_mean, pca_data['eof'][:npc, ...], pca_data['weights'], centroids)
