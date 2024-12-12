@@ -133,25 +133,20 @@ def translate_window_config(
     if coords is None:
         coords = [step_to_coord(step) for step in config.steps]
 
-    grib_header = {}
-    if (
-        config.end > config.start
-        and config.end >= 256
-    ):
-        if grib_keys is None or "unitOfTimeRange" not in grib_keys:
-            # The range is encoded as two 8-bit integers
-            grib_header["unitOfTimeRange"] = 11
+    grib_header = {} if grib_keys is None else grib_keys.copy()
 
-    if config.end == config.start:
+    if config.end > config.start and config.end >= 256:
+        if grib_header.get("edition", 1) == 1:
+            # The range is encoded as two 8-bit integers
+            grib_header.setdefault("unitOfTimeRange", 11)
+
+    if config.end == config.start and "timeRangeIndicator" not in grib_header:
         if config.end >= 256:
             grib_header["timeRangeIndicator"] = 10
         elif config.end == 0:
             grib_header["timeRangeIndicator"] = 1
         else:
             grib_header["timeRangeIndicator"] = 0
-
-    if grib_keys is not None:
-        grib_header.update(grib_keys)
 
     if config.end == config.start:
         grib_header["step"] = config.name

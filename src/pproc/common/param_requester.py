@@ -5,7 +5,7 @@ import numexpr
 import numpy as np
 
 import eccodes
-from meteokit.wind import direction
+from earthkit.meteo.wind import direction
 
 from pproc.common.dataset import open_multi_dataset
 from pproc.common.io import missing_to_nan
