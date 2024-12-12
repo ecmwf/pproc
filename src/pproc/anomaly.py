@@ -115,7 +115,7 @@ def anomaly_iteration(
             target.write(message)
 
         # Anomaly for ensemble mean
-        ensm_anom = np.mean(ens) - clim[0]
+        ensm_anom = np.mean(ens, axis=0) - clim[0]
         message = construct_message(
             template,
             {
