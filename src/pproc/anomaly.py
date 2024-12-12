@@ -2,7 +2,7 @@ import argparse
 import functools
 import sys
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Union
 
 import eccodes
 import numpy as np
