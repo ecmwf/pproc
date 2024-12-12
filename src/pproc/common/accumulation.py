@@ -295,6 +295,9 @@ class Histogram(SimpleAccumulation):
         hist_values = np.zeros((nbins,) + values.shape, dtype=np.int64)
         for i in range(nbins):
             hist_values[i, ind == i] += 1
+        input_type = type(values)
+        if input_type != np.ndarray:
+            hist_values = input_type(hist_values)
         return super().feed(coord, hist_values)
 
     def get_values(self) -> Optional[np.ndarray]:
@@ -344,6 +347,9 @@ class Aggregation(Accumulation):
             self.values = np.zeros(
                 (len(self.lookup),) + values.shape, dtype=values.dtype
             )
+            input_type = type(values)
+            if input_type != np.ndarray:
+                self.values = input_type(self.values)
         return super().feed(coord, values)
 
     def combine(self, coord: Coord, values: np.ndarray) -> None:
