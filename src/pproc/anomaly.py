@@ -21,6 +21,7 @@ from pproc.common.parallel import (
 from pproc.common.param_requester import ParamConfig, ParamRequester
 from pproc.common.recovery import Recovery
 from pproc.common.window_manager import WindowManager
+from pproc.signi.clim import retrieve_clim
 
 
 def get_parser() -> argparse.ArgumentParser:
@@ -35,6 +36,7 @@ def get_parser() -> argparse.ArgumentParser:
 class AnomParamConfig(ParamConfig):
     def __init__(self, name, options: Dict[str, Any], overrides: Dict[str, Any] = {}):
         super().__init__(name, options, overrides)
+        clim_options = options.copy()
         clim_options.update(options.pop("clim"))
         self.clim_param = ParamConfig(f"clim_{name}", clim_options, overrides)
 
@@ -66,39 +68,6 @@ class AnomConfig(Config):
         self.window_queue_size = self.options.get("queue_size", self.n_par_compute)
 
 
-def retrieve_clim(
-    param: ParamConfig,
-    sources: dict,
-    loc: str,
-    steprange: str,
-) -> Tuple[Accumulator, eccodes.GRIBMessage]:
-
-    win_cfg = param.window_config([])
-    accums = win_cfg.setdefault("accumulations", {})
-    accums["step"] = {"operation": "aggregation", "coords": [[steprange]]}
-    window_manager = WindowManager(win_cfg, param.out_keys())
-
-    requester = ParamRequester(param, sources, loc, 1, 1)
-    res_accum: Optional[Accumulator] = None
-    res_template: Optional[eccodes.GRIBMessage] = None
-    for keys, data in parallel_data_retrieval(1, window_manager.dims, [requester]):
-        ids = ", ".join(f"{k}={v}" for k, v in keys.items())
-        template, clim = data[0]
-        with ResourceMeter(f"{param.name}, {ids}: Compute accumulation"):
-            completed_windows = window_manager.update_windows(keys, clim)
-            del clim
-            for _, accum in completed_windows:
-                assert (
-                    res_accum is None
-                ), "Multiple climatological windows are not supported"
-                res_accum = accum
-                res_template = template
-    assert (
-        res_accum is not None and res_template is not None
-    ), f"Missing climatology for {param.name}"
-    return res_accum, res_template
-
-
 def anomaly_iteration(
     config: AnomConfig,
     param: AnomParamConfig,
@@ -117,7 +86,7 @@ def anomaly_iteration(
             steprange = accum.grib_keys()["stepRange"]
         else:
             steprange = template.get("stepRange")
-        clim_accum, clim_template = retrieve_clim(
+        clim_accum, _ = retrieve_clim(
             param.clim_param,
             config.sources,
             config.clim_loc,
@@ -134,11 +103,10 @@ def anomaly_iteration(
         for index, member in enumerate(ens):
             message = construct_message(
                 template,
-                accum.grib_keys(),
-                None,
                 {
-                    "paramId": param.out_paramid,
+                    **accum.grib_keys(),
                     **config.out_ens_keys,
+                    "paramId": param.out_paramid,
                     "number": index,
                 },
             )
@@ -150,11 +118,10 @@ def anomaly_iteration(
         ensm_anom = np.mean(ens) - clim[0]
         message = construct_message(
             template,
-            accum.grib_keys(),
-            None,
             {
-                "paramId": param.out_paramid,
+                **accum.grib_keys(),
                 **config.out_ensm_keys,
+                "paramId": param.out_paramid,
             },
         )
         message.set_array("values", nan_to_missing(message, ensm_anom))
