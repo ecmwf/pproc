@@ -104,7 +104,8 @@ def signi(
         grib_keys["paramId"] = out_paramid
 
     clim_keys = {key: clim_template.get(key) for key in []}
-    message = construct_message(template, grib_keys, climatology_headers=clim_keys)
+    grib_keys.update(clim_keys)
+    message = construct_message(template, grib_keys)
     message.set_array("values", nan_to_missing(message, pvalue))
     target.write(message)
 
