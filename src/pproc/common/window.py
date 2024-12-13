@@ -115,6 +115,11 @@ def translate_window_config(
         config.steps = [config.start, config.end]
         extra["factor"] = 1.0 / 24.0
         operation = "difference_rate"
+    elif window_operation == "difference_rate":
+        config = parse_window_config(window_options, True)
+        config.steps = [config.start, config.end]
+        extra["factor"] = window_options.get("factor", 1.0)
+        operation = "difference_rate"
     elif window_operation == "precomputed":
         config = parse_window_config(window_options, True)
         config.steps = [Step(config.start, config.end)]
