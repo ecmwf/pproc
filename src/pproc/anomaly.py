@@ -86,7 +86,7 @@ def anomaly_iteration(
             steprange = accum.grib_keys()["stepRange"]
         else:
             steprange = template.get("stepRange")
-        
+
         additional_dims = {"step": steprange}
         if template.get("levtype") == "pl":
             additional_dims["levelist"] = template.get("level")
