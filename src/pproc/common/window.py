@@ -70,6 +70,7 @@ def translate_window_config(
     window_operation: str,
     include_start: bool,
     grib_keys: Optional[dict] = None,
+    deaccumulate: bool = False,
 ) -> Tuple[str, dict]:
     """
     Create window configuration for the given operation
@@ -78,6 +79,7 @@ def translate_window_config(
     :param window operation: window operation: one of none, diff, add, minimum,
         maximum, weightedsum, diffdailyrate, mean, precomputed
     :param grib_keys: additional grib keys to tie to the window
+    :param deaccumulate: if True, deaccumulate steps before performed window operation
     :return: Window name, Accumulation configuration dict
     :raises: ValueError for unsupported window operation string
     """
@@ -159,7 +161,7 @@ def translate_window_config(
         "coords": coords,
         "sequential": True,
         "grib_keys": grib_header,
-        "deaccumulate": window_options.get("deaccumulate", False),
+        "deaccumulate": deaccumulate,
         **extra,
     }
 
@@ -171,6 +173,7 @@ def create_window(
     window_operation: str,
     include_start: bool,
     grib_keys: Optional[dict] = None,
+    deaccumulate: bool = False,
     return_name: bool = False,
 ) -> Union[Accumulation, Tuple[Accumulation, str]]:
     """
@@ -180,13 +183,14 @@ def create_window(
     :param window operation: window operation: one of none, diff, add, minimum,
         maximum, weightedsum, diffdailyrate, mean, precomputed
     :param grib_keys: additional grib keys to tie to the window
+    :param deaccumulate: if True, deaccumulate steps before performed window operation
     :param return_name: if True, return the window name as well
     :return: Window instance that performs the operation, window name (only if
         `return_name` is True)
     :raises: ValueError for unsupported window operation string
     """
     name, config = translate_window_config(
-        window_options, window_operation, include_start, grib_keys
+        window_options, window_operation, include_start, grib_keys, deaccumulate
     )
     acc = create_accumulation(config)
     if return_name:
@@ -208,7 +212,11 @@ def _iter_legacy_windows(
                 acc_grib_keys = grib_keys.copy()
                 acc_grib_keys.update(window_config.get("grib_set", {}))
                 window_name, acc_config = translate_window_config(
-                    period, operation, include_start, acc_grib_keys
+                    period,
+                    operation,
+                    include_start,
+                    acc_grib_keys,
+                    window_config.get("deaccumulate", False),
                 )
                 window_id = (
                     f"{prefix}{window_name}_{operation}_{window_index}"

@@ -171,6 +171,7 @@ def test_grib_header(start_end, operation, extra_keys, grib_key_values):
                         "timeRangeIndicator": (0 if s < 256 else 10),
                         "step": str(s),
                     },
+                    "deaccumulate": False,
                 }
                 for s in [120, 123, 126, 129, 132, 360]
             },
@@ -196,6 +197,7 @@ def test_grib_header(start_end, operation, extra_keys, grib_key_values):
                     "coords": [0],
                     "sequential": True,
                     "grib_keys": {"timeRangeIndicator": 2, "step": "0"},
+                    "deaccumulate": False,
                 },
                 "0-3_0": {
                     "operation": "aggregation",
@@ -206,6 +208,7 @@ def test_grib_header(start_end, operation, extra_keys, grib_key_values):
                         "stepRange": "0-3",
                         "stepType": "max",
                     },
+                    "deaccumulate": False,
                 },
                 "3-6_0": {
                     "operation": "aggregation",
@@ -216,6 +219,7 @@ def test_grib_header(start_end, operation, extra_keys, grib_key_values):
                         "stepRange": "3-6",
                         "stepType": "max",
                     },
+                    "deaccumulate": False,
                 },
                 "300-306_0": {
                     "operation": "aggregation",
@@ -227,6 +231,7 @@ def test_grib_header(start_end, operation, extra_keys, grib_key_values):
                         "stepRange": "300-306",
                         "stepType": "max",
                     },
+                    "deaccumulate": False,
                 },
             },
             id="simple-range",
@@ -258,6 +263,7 @@ def test_grib_header(start_end, operation, extra_keys, grib_key_values):
                         "stepType": "max",
                         **({} if b < 256 else {"unitOfTimeRange": 11}),
                     },
+                    "deaccumulate": False,
                 }
                 for a, b in [
                     (0, 168),
@@ -310,6 +316,7 @@ def test_grib_header(start_end, operation, extra_keys, grib_key_values):
                             "stepRange": f"{a}-{b}",
                             **({} if b < 256 else {"unitOfTimeRange": 11}),
                         },
+                        "deaccumulate": False,
                     }
                     for a, b in [(90, 96), (93, 99), (96, 102), (270, 276)]
                 },
@@ -325,6 +332,7 @@ def test_grib_header(start_end, operation, extra_keys, grib_key_values):
                             "stepRange": f"{a}-{b}",
                             **({} if b < 256 else {"unitOfTimeRange": 11}),
                         },
+                        "deaccumulate": False,
                     }
                     for a, b in [
                         (120, 144),
@@ -363,6 +371,7 @@ def test_grib_header(start_end, operation, extra_keys, grib_key_values):
                         "expver": "0001",
                         "stepRange": f"{a}-{b}",
                     },
+                    "deaccumulate": False,
                 }
                 for a, b in [(144, 150), (150, 156)]
             },
@@ -398,6 +407,7 @@ def test_grib_header(start_end, operation, extra_keys, grib_key_values):
                         "step": str(s),
                         "timeRangeIndicator": (0 if s < 256 else 10),
                     },
+                    "deaccumulate": False,
                 }
                 for s in [75, 78, 81, 84, 87, 90, 288]
             },
@@ -434,6 +444,7 @@ def test_grib_header(start_end, operation, extra_keys, grib_key_values):
                         "stepRange": f"{a}-{b}",
                         **({} if b < 256 else {"unitOfTimeRange": 11}),
                     },
+                    "deaccumulate": False,
                 }
                 for a, b in [
                     (12, 18),
@@ -473,6 +484,7 @@ def test_grib_header(start_end, operation, extra_keys, grib_key_values):
                         "stepRange": f"{a}-{b}",
                         **({} if b < 256 else {"unitOfTimeRange": 11}),
                     },
+                    "deaccumulate": False,
                 }
                 for a, b, s in [
                     (12, 36, 6),
@@ -514,6 +526,7 @@ def test_grib_header(start_end, operation, extra_keys, grib_key_values):
                         "stepRange": f"{a}-{b}",
                         **({} if b < 256 else {"unitOfTimeRange": 11}),
                     },
+                    "deaccumulate": False,
                 }
                 for a, b, s in [
                     (0, 24, 6),
@@ -559,6 +572,7 @@ def test_grib_header(start_end, operation, extra_keys, grib_key_values):
                         "stepRange": f"{a}-{b}",
                         **({} if b < 256 else {"unitOfTimeRange": 11}),
                     },
+                    "deaccumulate": False,
                 }
                 for a, b, s in [
                     (0, 24, 6),
@@ -604,6 +618,7 @@ def test_grib_header(start_end, operation, extra_keys, grib_key_values):
                         "stepRange": f"{a}-{b}",
                         **({} if b < 256 else {"unitOfTimeRange": 11}),
                     },
+                    "deaccumulate": False,
                 }
                 for a, b, s in [
                     (120, 240, 6),
@@ -650,6 +665,7 @@ def test_grib_header(start_end, operation, extra_keys, grib_key_values):
                         "stepRange": f"{a}-{b}",
                         **({} if b < 256 else {"unitOfTimeRange": 11}),
                     },
+                    "deaccumulate": False,
                 }
                 for a, b, s in [
                     (0, 24, 6),
@@ -725,6 +741,7 @@ def test_grib_header(start_end, operation, extra_keys, grib_key_values):
                             "stepRange": f"{a}-{b}",
                             **({} if b < 256 else {"unitOfTimeRange": 11}),
                         },
+                        "deaccumulate": False,
                     }
                     for i, thrs in enumerate(
                         [[0.001, 0.005, 0.01, 0.02], [0.025, 0.05, 0.1]]
@@ -753,6 +770,7 @@ def test_grib_header(start_end, operation, extra_keys, grib_key_values):
                             "stepRange": f"{a}-{b}",
                             **({} if b < 256 else {"unitOfTimeRange": 11}),
                         },
+                        "deaccumulate": False,
                     }
                     for a, b in [
                         (120, 240),
@@ -801,6 +819,7 @@ def test_grib_header(start_end, operation, extra_keys, grib_key_values):
                         "stepRange": f"{a}-{b}",
                         **({} if b < 256 else {"unitOfTimeRange": 11}),
                     },
+                    "deaccumulate": False,
                 }
                 for a, b, s in [
                     (120, 168, 12),
@@ -877,6 +896,7 @@ def test_grib_header(start_end, operation, extra_keys, grib_key_values):
                             "step": str(s),
                             "timeRangeIndicator": tri,
                         },
+                        "deaccumulate": False,
                     }
                     for cmp, op, vals in [
                         ("<", "minimum", [-8, -4]),
@@ -901,6 +921,7 @@ def test_grib_header(start_end, operation, extra_keys, grib_key_values):
                             "stepRange": f"{a}-{b}",
                             **({} if b < 256 else {"unitOfTimeRange": 11}),
                         },
+                        "deaccumulate": False,
                     }
                     for a, b, s in [
                         (120, 240, 12),
@@ -920,6 +941,7 @@ def test_grib_header(start_end, operation, extra_keys, grib_key_values):
                             "step": str(s),
                             "timeRangeIndicator": tri,
                         },
+                        "deaccumulate": False,
                     }
                     for cmp, op, val in [
                         (">", "maximum", 1),
