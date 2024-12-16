@@ -86,11 +86,15 @@ def anomaly_iteration(
             steprange = accum.grib_keys()["stepRange"]
         else:
             steprange = template.get("stepRange")
+        
+        additional_dims = {"step": steprange}
+        if template.get("levtype") == "pl":
+            additional_dims["levelist"] = template.get("level")
         clim_accum, _ = retrieve_clim(
             param.clim_param,
             config.sources,
             config.clim_loc,
-            steprange,
+            **additional_dims,
         )
         clim = clim_accum.values
         assert clim is not None

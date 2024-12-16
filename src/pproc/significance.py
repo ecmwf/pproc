@@ -192,9 +192,9 @@ def signi_iteration(
             param.clim_param,
             config.sources,
             config.clim_loc,
-            steprange,
             config.clim_num_members,
             config.clim_total_fields,
+            step=steprange,
         )
         clim = clim_accum.values
         assert clim is not None
