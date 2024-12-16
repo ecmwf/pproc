@@ -159,6 +159,7 @@ def translate_window_config(
         "coords": coords,
         "sequential": True,
         "grib_keys": grib_header,
+        "deaccumulate": window_options.get("deaccumulate", False),
         **extra,
     }
 
