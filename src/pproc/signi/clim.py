@@ -13,16 +13,17 @@ def retrieve_clim(
     param: ParamConfig,
     sources: dict,
     loc: str,
-    steprange: str,
     members: int = 1,
     total: Optional[int] = None,
+    **additional_dims,
 ) -> Tuple[Accumulator, eccodes.GRIBMessage]:
 
     win_cfg = param.window_config([])
     win_cfg.pop("windows", None)
     win_cfg.pop("steps", None)
     accums = win_cfg.setdefault("accumulations", {})
-    accums["step"] = {"operation": "aggregation", "coords": [[steprange]]}
+    for dim, value in additional_dims.items():
+        accums[dim] = {"operation": "aggregation", "coords": [[value]]}
     window_manager = WindowManager(win_cfg, param.out_keys())
 
     requester = ParamRequester(param, sources, loc, members, total)
