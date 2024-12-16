@@ -952,6 +952,35 @@ def test_grib_header(start_end, operation, extra_keys, grib_key_values):
             },
             id="multi-anomaly",
         ),
+        pytest.param(
+            {
+                "windows": [
+                    {
+                        "window_operation": "mean",
+                        "deaccumulate": True,
+                        "periods": [
+                            {"range": [120, 120]},
+                            {"range": [123, 123]},
+                        ],
+                    }
+                ]
+            },
+            {},
+            {
+                f"{s}_0": {
+                    "operation": "mean",
+                    "coords": [s],
+                    "sequential": True,
+                    "grib_keys": {
+                        "timeRangeIndicator": 0,
+                        "step": str(s),
+                    },
+                    "deaccumulate": True,
+                }
+                for s in [120, 123]
+            },
+            id="deaccumulation",
+        ),
     ],
 )
 def test_legacy_window_factory(config, grib_keys, expected):
