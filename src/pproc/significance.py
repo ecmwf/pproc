@@ -200,7 +200,7 @@ def signi_iteration(
         assert clim is not None
         if config.clim_em_loc is not None:
             clim_em_accum, _ = retrieve_clim(
-                param.clim_em_param, config.sources, config.clim_em_loc, steprange
+                param.clim_em_param, config.sources, config.clim_em_loc, step=steprange
             )
             clim_em = clim_em_accum.values
             assert clim_em is not None
