@@ -24,7 +24,12 @@ def mstat_keys(fcdate: datetime, step_range: str) -> Dict[str, Any]:
 
     assert MonthInYear(this_month.year, this_month.month).length() * 24 == (end - start)
 
-    mindex = this_month.month - first_month.month + 1
+    mindex = (
+        (this_month.year - first_month.year) * 12
+        + this_month.month
+        - first_month.month
+        + 1
+    )
     return {
         "forecastMonth": mindex,
         "verifyingMonth": f"{this_month.year:02d}{this_month.month:02d}",
@@ -71,7 +76,9 @@ def main(args: List[str] = sys.argv[1:]):
     sys.stdout.reconfigure(line_buffering=True)
     parser = default_parser(description="Compute monthly statistics")
     parser.add_argument("--in-ens", required=True, help="Input ensemble source")
-    parser.add_argument("--out-stats", dest="out_accum", required=True, help="Output target")
+    parser.add_argument(
+        "--out-stats", dest="out_accum", required=True, help="Output target"
+    )
     args = parser.parse_args(args)
     config = AccumConfig(args)
     accum_main(args, config, postproc_iteration)
