@@ -261,8 +261,8 @@ def legacy_window_factory(config: dict, grib_keys: dict) -> Iterator[Tuple[str, 
     if "steps" in config:
         coords_override = set()
         for steps in config["steps"]:
-            start_step = steps["start"]
-            end_step = steps["end"]
+            start_step = steps["start_step"]
+            end_step = steps["end_step"]
             interval = steps["interval"]
             range_len = steps.get("range", None)
 
