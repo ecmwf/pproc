@@ -3,11 +3,12 @@ from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Tuple, Un
 
 import numpy as np
 
-from earthkit.time.calendar import parse_date, MonthInYear
-from earthkit.time.sequence import Sequence, MonthlySequence
+from earthkit.time.calendar import parse_date
+from earthkit.time.sequence import Sequence
 from pproc.common.accumulation import Accumulator, Coord, coords_extent
 from pproc.common.utils import dict_product
 from pproc.common.window import legacy_window_factory
+from pproc.common.stepseq import stepseq_monthly
 
 
 def _default_accumulation_factory(
@@ -76,24 +77,6 @@ def _dateseq_accumulation_factory(
     return _default_accumulation_factory(new_config, grib_keys)
 
 
-def _stepseq_monthly(date: str, start: int, end: int, interval: int):
-    dt = datetime.datetime.strptime(date, "%Y%m%d") + datetime.timedelta(hours=start)
-    seq = MonthlySequence(1)
-    start_month = seq.next(dt.date(), strict=False)
-    step_start = (start_month - dt.date()).days * 24
-    miny = MonthInYear(start_month.year, start_month.month)
-    while step_start < end:
-        delta = miny.length() * 24
-        step_end = step_start + delta
-
-        if step_end > end:
-            break
-
-        yield miny, [step_start, step_end, interval]
-        miny = miny.next()
-        step_start = step_end
-
-
 def _monthly_config(date: str, config: dict) -> dict:
     config.pop("type", None)
     coords = config.pop("coords")
@@ -101,20 +84,9 @@ def _monthly_config(date: str, config: dict) -> dict:
     end = int(coords["to"])
     interval = int(coords["by"])
 
-    periods = []
-    for _, steps in _stepseq_monthly(date, start, end, interval):
-        periods.append({"range": steps})
-    config = {
-        "type": "legacywindow",
-        "windows": [
-            {
-                "window_operation": config.pop("operation", "none"),
-                **config,
-                "periods": periods,
-            }
-        ],
-    }
-    return config
+    new_config = config.copy()
+    new_config["coords"] = [x for x in stepseq_monthly(date, start, end, interval)]
+    return new_config
 
 
 def _stepseq_accumulation_factory(
@@ -123,7 +95,7 @@ def _stepseq_accumulation_factory(
     seq_config = config.pop("sequence")
     if seq_config["type"] == "monthly":
         new_config = _monthly_config(seq_config["date"], config)
-        return legacy_window_factory(new_config, grib_keys)
+        return _default_accumulation_factory(new_config, grib_keys)
     raise ValueError(f"Unknown sequence type {seq_config!r}")
 
 
