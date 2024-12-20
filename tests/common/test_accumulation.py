@@ -14,6 +14,7 @@ from pproc.common.accumulation import (
     SimpleAccumulation,
     WeightedMean,
     StandardDeviation,
+    DeaccumulationWrapper,
     convert_coords,
     convert_dim,
     convert_dims,
@@ -247,6 +248,25 @@ def test_convert_coords():
             [0, 2, 4],
             np.ones((2, 3)) * 1.632993161855452,
             id="std",
+        ),
+        pytest.param(
+            {"operation": "mean", "coords": {"to": 4, "by": 2}, "deaccumulate": True},
+            DeaccumulationWrapper,
+            [0, 2, 4],
+            [[2.0, 2.0, 2.0], [2.0, 2.0, 2.0]],
+            id="deaccum-mean",
+        ),
+        pytest.param(
+            {
+                "operation": "sum",
+                "coords": {"to": 4},
+                "deaccumulate": True,
+                "sequential": True,
+            },
+            DeaccumulationWrapper,
+            [0, 2, 3, 4],
+            [[4.0, 4.0, 4.0], [4.0, 4.0, 4.0]],
+            id="deaccum-sum-seq",
         ),
     ],
 )
