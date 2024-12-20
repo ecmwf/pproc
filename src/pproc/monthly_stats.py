@@ -33,6 +33,7 @@ def mstat_keys(fcdate: datetime, step_range: str) -> Dict[str, Any]:
     return {
         "forecastMonth": mindex,
         "verifyingMonth": f"{this_month.year:02d}{this_month.month:02d}",
+        "step": end,
     }
 
 
@@ -49,11 +50,16 @@ def postproc_iteration(
 
     interval = param._accumulations["step"]["steps"][0]["interval"]
     date = datetime.strptime(template.get("dataDate:str"), "%Y%m%d")
+    accum_keys = accum.grib_keys()
+    steprange = accum_keys.pop("stepRange")
     out_keys = {
         "localDefinitionNumber": 16,
+        **accum_keys,
+        "stepType": "instant",
+        "timeRangeIndicator": 10,
+        "unitOfTimeRange": 1,
+        **mstat_keys(date, steprange),
         "averagingPeriod": interval,
-        **mstat_keys(date, accum.grib_keys()["stepRange"]),
-        **accum.grib_keys(),
     }
     with ResourceMeter(f"{param.name}, step {window_id}: Post-process"):
         ens = accum.values
