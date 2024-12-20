@@ -6,7 +6,7 @@ from earthkit.time.sequence import MonthlySequence
 
 
 def stepseq_monthly(date: str, start: int, end: int, interval: int) -> Iterator:
-    fcdate = datetime.datetime.strptime(date, "%Y%m%d")
+    fcdate = datetime.datetime.strptime(str(date), "%Y%m%d")
     start_date = fcdate + datetime.timedelta(hours=start)
     seq = MonthlySequence(1)
     start_month = seq.next(start_date.date(), strict=False)
