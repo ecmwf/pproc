@@ -1,38 +1,11 @@
 from typing import Dict
 
 
-def threshold_grib_headers(threshold) -> Dict:
-    """
-    Creates dictionary of threshold related grib headers
-    """
-    threshold_dict = {"paramId": threshold["out_paramid"]}
-    threshold_value = threshold["value"]
-    if "localDecimalScaleFactor" in threshold:
-        scale_factor = threshold["localDecimalScaleFactor"]
-        threshold_dict["localDecimalScaleFactor"] = scale_factor
-        threshold_value = round(threshold["value"] * 10**scale_factor, 0)
-
-    comparison = threshold["comparison"]
-    if "<" in comparison:
-        threshold_dict.update(
-            {"thresholdIndicator": 2, "upperThreshold": threshold_value}
-        )
-    elif ">" in comparison:
-        threshold_dict.update(
-            {"thresholdIndicator": 1, "lowerThreshold": threshold_value}
-        )
-    return threshold_dict
-
-
-def construct_message(
-    template_grib, window_grib_headers, threshold=None, climatology_headers: Dict = None
-):
+def construct_message(template_grib, window_grib_headers: Dict):
     """
     Sets grib headers into template message using headers specified in
     config, from the threshold and climatology date period
     """
-    # Copy an input GRIB message and modify headers for writing probability
-    # field
     out_grib = template_grib.copy()
     key_values = window_grib_headers.copy()
     set_missing = [
@@ -40,15 +13,6 @@ def construct_message(
     ]
     for missing_key in set_missing:
         key_values.pop(missing_key)
-
-    if key_values.get("edition", 1) == 2:
-        if threshold:
-            key_values.update({"paramId": threshold["out_paramid"]})
-        if climatology_headers:
-            key_values.update(climatology_headers)
-    else:
-        if threshold:
-            key_values.update(threshold_grib_headers(threshold))
 
     template_edition = out_grib.get("edition")
     if key_values.get("edition", template_edition) != template_edition:

@@ -261,6 +261,41 @@ from pproc.common.window_manager import WindowManager
             set().union(range(6, 169, 6), range(144, 361, 24)),
             id="min-range",
         ),
+        pytest.param(
+            {
+                "windows": [
+                    {
+                        "window_operation": "mean",
+                        "include_start_step": True,
+                        "periods": {
+                            "type": "monthly",
+                            "date": "20241001",
+                        },
+                    }
+                ],
+                "steps": [
+                    {
+                        "start_step": 0,
+                        "end_step": 5160,
+                        "interval": 6,
+                    }
+                ],
+            },
+            {
+                f"{x}-{y}_0": Mean
+                for x, y in [
+                    (0, 744),
+                    (744, 1464),
+                    (1464, 2208),
+                    (2208, 2952),
+                    (2952, 3624),
+                    (3624, 4368),
+                    (4368, 5088),
+                ]
+            },
+            {x for x in range(0, 5089, 6)},
+            id="monthly",
+        ),
     ],
 )
 def test_create(config, expected, exp_coords):

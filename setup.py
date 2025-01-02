@@ -12,7 +12,7 @@ setup(
     install_requires=[
         "filelock>=3.12.0",
         "code-meters",
-        "earthkit-meteo>=0.1.0",
+        "earthkit-meteo>=0.1.1",
         "earthkit-data==0.9.0",
         "earthkit-time>=0.1.3",
         "thermofeel>=2.1.0",
@@ -46,6 +46,8 @@ setup(
             "pproc-histogram=pproc.histogram:main",
             "pproc-accumulate=pproc.accumulate:main",
             "pproc-significance=pproc.significance:main",
+            "pproc-anomaly=pproc.anomaly:main",
+            "pproc-monthly-stats=pproc.monthly_stats:main",
         ],
     },
 )

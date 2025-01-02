@@ -1,9 +1,0 @@
-fc_date: 2022071900
-paramid: 207
-steps:
-  - start_step: 0
-    end_step: 24
-    timestep: 6
-members: 51
-
-root_dir: $TMPDIR

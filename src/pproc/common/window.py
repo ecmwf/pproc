@@ -1,8 +1,10 @@
 from dataclasses import dataclass
 from typing import Dict, Iterator, Optional, Set, Tuple, Union
+import numpy as np
 
 from pproc.common.accumulation import Accumulation, Coord, create_accumulation
 from pproc.common.steps import Step, step_to_coord
+from pproc.common.stepseq import stepseq_monthly
 
 
 @dataclass
@@ -70,6 +72,7 @@ def translate_window_config(
     window_operation: str,
     include_start: bool,
     grib_keys: Optional[dict] = None,
+    deaccumulate: bool = False,
 ) -> Tuple[str, dict]:
     """
     Create window configuration for the given operation
@@ -78,6 +81,7 @@ def translate_window_config(
     :param window operation: window operation: one of none, diff, add, minimum,
         maximum, weightedsum, diffdailyrate, mean, precomputed
     :param grib_keys: additional grib keys to tie to the window
+    :param deaccumulate: if True, deaccumulate steps before performed window operation
     :return: Window name, Accumulation configuration dict
     :raises: ValueError for unsupported window operation string
     """
@@ -115,6 +119,11 @@ def translate_window_config(
         config.steps = [config.start, config.end]
         extra["factor"] = 1.0 / 24.0
         operation = "difference_rate"
+    elif window_operation == "difference_rate":
+        config = parse_window_config(window_options, True)
+        config.steps = [config.start, config.end]
+        extra["factor"] = window_options.get("factor", 1.0)
+        operation = "difference_rate"
     elif window_operation == "precomputed":
         config = parse_window_config(window_options, True)
         config.steps = [Step(config.start, config.end)]
@@ -133,25 +142,20 @@ def translate_window_config(
     if coords is None:
         coords = [step_to_coord(step) for step in config.steps]
 
-    grib_header = {}
-    if (
-        config.end > config.start
-        and config.end >= 256
-    ):
-        if grib_keys is None or "unitOfTimeRange" not in grib_keys:
-            # The range is encoded as two 8-bit integers
-            grib_header["unitOfTimeRange"] = 11
+    grib_header = {} if grib_keys is None else grib_keys.copy()
 
-    if config.end == config.start:
+    if config.end > config.start and config.end >= 256:
+        if grib_header.get("edition", 1) == 1:
+            # The range is encoded as two 8-bit integers
+            grib_header.setdefault("unitOfTimeRange", 11)
+
+    if config.end == config.start and "timeRangeIndicator" not in grib_header:
         if config.end >= 256:
             grib_header["timeRangeIndicator"] = 10
         elif config.end == 0:
             grib_header["timeRangeIndicator"] = 1
         else:
             grib_header["timeRangeIndicator"] = 0
-
-    if grib_keys is not None:
-        grib_header.update(grib_keys)
 
     if config.end == config.start:
         grib_header["step"] = config.name
@@ -164,6 +168,7 @@ def translate_window_config(
         "coords": coords,
         "sequential": True,
         "grib_keys": grib_header,
+        "deaccumulate": deaccumulate,
         **extra,
     }
 
@@ -175,6 +180,7 @@ def create_window(
     window_operation: str,
     include_start: bool,
     grib_keys: Optional[dict] = None,
+    deaccumulate: bool = False,
     return_name: bool = False,
 ) -> Union[Accumulation, Tuple[Accumulation, str]]:
     """
@@ -184,18 +190,38 @@ def create_window(
     :param window operation: window operation: one of none, diff, add, minimum,
         maximum, weightedsum, diffdailyrate, mean, precomputed
     :param grib_keys: additional grib keys to tie to the window
+    :param deaccumulate: if True, deaccumulate steps before performed window operation
     :param return_name: if True, return the window name as well
     :return: Window instance that performs the operation, window name (only if
         `return_name` is True)
     :raises: ValueError for unsupported window operation string
     """
     name, config = translate_window_config(
-        window_options, window_operation, include_start, grib_keys
+        window_options, window_operation, include_start, grib_keys, deaccumulate
     )
     acc = create_accumulation(config)
     if return_name:
         return acc, name
     return acc
+
+
+def _from_preset(preset: dict, coords_override: Set[Coord]) -> list:
+    assert coords_override is not None
+    steps = list(coords_override)
+    steps.sort()
+    if preset["type"] == "monthly":
+        diff = np.diff(steps)
+        if np.any(diff != diff[0]):
+            raise ValueError(
+                "Step sequence must have a constant interval for monthly step ranges"
+            )
+        return [
+            {"range": [x.start, x.stop - 1, x.step]}
+            for x in stepseq_monthly(preset["date"], steps[0], steps[-1], diff[0])
+        ]
+    raise ValueError(
+        f"Unknown preset type {preset['type']} for legacy windows. Accepted types: monthly"
+    )
 
 
 def _iter_legacy_windows(
@@ -207,12 +233,19 @@ def _iter_legacy_windows(
     for window_index, window_config in enumerate(windows):
         window_operations = window_operation_from_config(window_config)
         for operation, thresholds in window_operations.items():
-            for period in window_config["periods"]:
+            periods = window_config["periods"]
+            if isinstance(periods, dict):
+                periods = _from_preset(periods, coords_override)
+            for period in periods:
                 include_start = bool(window_config.get("include_start_step", False))
                 acc_grib_keys = grib_keys.copy()
                 acc_grib_keys.update(window_config.get("grib_set", {}))
                 window_name, acc_config = translate_window_config(
-                    period, operation, include_start, acc_grib_keys
+                    period,
+                    operation,
+                    include_start,
+                    acc_grib_keys,
+                    window_config.get("deaccumulate", False),
                 )
                 window_id = (
                     f"{prefix}{window_name}_{operation}_{window_index}"

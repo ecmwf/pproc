@@ -1,4 +1,5 @@
 import numpy as np
+import xarray as xr
 import pytest
 
 from pproc.common.accumulation import (
@@ -13,6 +14,7 @@ from pproc.common.accumulation import (
     SimpleAccumulation,
     WeightedMean,
     StandardDeviation,
+    DeaccumulationWrapper,
     convert_coords,
     convert_dim,
     convert_dims,
@@ -244,8 +246,27 @@ def test_convert_coords():
             {"operation": "standard_deviation", "coords": {"to": 4, "by": 2}},
             StandardDeviation,
             [0, 2, 4],
-            np.ones((2, 3))*1.632993161855452,
+            np.ones((2, 3)) * 1.632993161855452,
             id="std",
+        ),
+        pytest.param(
+            {"operation": "mean", "coords": {"to": 4, "by": 2}, "deaccumulate": True},
+            DeaccumulationWrapper,
+            [0, 2, 4],
+            [[2.0, 2.0, 2.0], [2.0, 2.0, 2.0]],
+            id="deaccum-mean",
+        ),
+        pytest.param(
+            {
+                "operation": "sum",
+                "coords": {"to": 4},
+                "deaccumulate": True,
+                "sequential": True,
+            },
+            DeaccumulationWrapper,
+            [0, 2, 3, 4],
+            [[4.0, 4.0, 4.0], [4.0, 4.0, 4.0]],
+            id="deaccum-sum-seq",
         ),
     ],
 )
@@ -260,12 +281,14 @@ def test_accumulations(config, acc_cls, used_coords, exp_values):
     assert acc.is_complete()
     np.testing.assert_almost_equal(acc.get_values(), exp_values)
 
+    # Test with xr.DataArray inputs
     acc.reset()
     for c in [0, 2, 3, 4]:
         assert not acc.is_complete()
-        assert acc.feed(c, data + c) == (c in used_coords)
+        assert acc.feed(c, xr.DataArray(data + c)) == (c in used_coords)
     assert acc.is_complete()
-    np.testing.assert_almost_equal(acc.get_values(), exp_values)
+    assert isinstance(acc.get_values(), xr.DataArray)
+    xr.testing.assert_allclose(acc.get_values(), xr.DataArray(exp_values))
 
 
 def test_convert_dim():
