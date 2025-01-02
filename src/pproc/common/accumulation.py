@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod
+import copy
 from dataclasses import dataclass
 from math import prod
 from typing import Dict, Iterable, List, Optional, Tuple, Union
@@ -406,6 +407,47 @@ class StandardDeviation(Mean):
         return np.sqrt(self.sumsq / self.count - mean**2)
 
 
+class DeaccumulationWrapper(Accumulation):
+    def __init__(self, accumulation: Accumulation):
+        self.coords = copy.deepcopy(accumulation.coords)
+        # Remove first coord from accumulation
+        accumulation.coords = list(accumulation.coords)
+        accumulation.coords.pop(0)
+        self.acc = accumulation
+        self.sequential = accumulation.sequential
+        self.reset(initial=True)
+
+    def reset(self, initial: bool = False) -> None:
+        super().reset(initial)
+        self.acc.reset(initial)
+
+    def is_complete(self) -> bool:
+        return self.acc.is_complete()
+
+    def get_values(self) -> Optional[np.ndarray]:
+        return self.acc.get_values()
+
+    def grib_keys(self) -> dict:
+        return self.acc.grib_keys()
+
+    def combine(self, coord: Coord, values: np.ndarray) -> bool:
+        processed = self.acc.feed(coord, values - self.values)
+        if processed:
+            self.values = values.copy()
+        return processed
+
+    @classmethod
+    def create(
+        cls,
+        operation: str,
+        coords: Coords,
+        config: dict,
+        sequential: bool = False,
+        grib_keys: Optional[dict] = None,
+    ) -> "Accumulation":
+        raise NotImplementedError
+
+
 def convert_range(config: dict) -> range:
     r_from = config.get("from", 0)
     r_to = config.get("to")
@@ -454,7 +496,10 @@ def create_accumulation(config: dict) -> Accumulation:
     cls = known.get(op)
     if cls is None:
         raise ValueError(f"Unknown accumulation {op!r}")
-    return cls.create(op, coords, config, sequential=sequential, grib_keys=grib_keys)
+    acc = cls.create(op, coords, config, sequential=sequential, grib_keys=grib_keys)
+    if config.get("deaccumulate", False):
+        return DeaccumulationWrapper(acc)
+    return acc
 
 
 @dataclass
