@@ -46,6 +46,7 @@ setup(
             "pproc-histogram=pproc.histogram:main",
             "pproc-accumulate=pproc.accumulate:main",
             "pproc-significance=pproc.significance:main",
+            "pproc-anomaly=pproc.anomaly:main",
             "pproc-monthly-stats=pproc.monthly_stats:main",
         ],
     },
