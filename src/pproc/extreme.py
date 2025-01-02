@@ -34,6 +34,8 @@ class ExtremeVariables:
     def __init__(self, efi_cfg):
         self.eps = float(efi_cfg["eps"])
         self.sot = list(map(int, efi_cfg["sot"]))
+        self.cpf_eps = float(efi_cfg["cpf_eps"]) if "cpf_eps" in efi_cfg else None
+        self.cpf_symmetric = efi_cfg.get("cpf_symmetric", False)
         self.compute_efi = efi_cfg.get("compute_efi", True)
         self.compute_sot = efi_cfg.get("compute_sot", True)
         self.compute_cpf = efi_cfg.get("compute_cpf", False)
@@ -253,6 +255,8 @@ def efi_sot(
                 ens.values.astype(np.float32),
                 sort_clim=False,
                 sort_ens=True,
+                epsilon=efi_vars.cpf_eps,
+                symmetric=efi_vars.cpf_symmetric,
             )
             template_cpf = cpf_template(template_extreme)
             common.write_grib(cfg.out_cpf, template_cpf, cpf)
