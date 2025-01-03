@@ -1,6 +1,7 @@
 import datetime
 from typing import Any, Dict, List, Union
 import numpy as np
+import xarray as xr
 import numexpr
 
 from earthkit.meteo.wind import direction
@@ -61,91 +62,62 @@ class Parameter:
         self.base_request = global_input_cfg.copy()
         self.base_request.update(param_cfg["base_request"])
         self.base_request["param"] = param_id
-        if isinstance(n_ensembles, range):
-            self.base_request["number"] = n_ensembles
-        else:
-            self.base_request["number"] = range(1, n_ensembles + 1)
+        self.members = n_ensembles
         self.base_request["date"] = dt.strftime("%Y%m%d")
         self.base_request["time"] = dt.strftime("%H")
         self.overrides = overrides
         self.interpolation_keys = param_cfg.get("interpolation_keys", None)
         self.scale_data = int(param_cfg.get("scale", 1))
 
-    def retrieve_data(self, fdb, step: common.AnyStep, **kwargs):
+    def retrieve_data(
+        self, fdb, step: common.AnyStep, join_dim: str = "number", **kwargs
+    ):
         combined_data = []
-        for type in self.base_request["type"].split("/"):
+        for tp in self.base_request["type"].split("/"):
             new_request = self.base_request.copy()
             new_request["step"] = str(step)
             new_request.update(kwargs)
-            new_request["type"] = type
-            if type == "cf":
-                new_request.pop("number")
+            new_request["type"] = tp
+            if tp == "pf":
+                new_request["number"] = (
+                    range(1, self.members + 1)
+                    if isinstance(self.members, int)
+                    else self.members
+                )
+            elif tp == "fcmean":
+                new_request["number"] = (
+                    range(0, self.members + 1)
+                    if isinstance(self.members, int)
+                    else self.members
+                )
             new_request.update(self.overrides)
             print("FDB request: ", new_request)
-            message_temp, new_data = common.fdb_read_with_template(
-                fdb, new_request, self.interpolation_keys
-            )
-        
-            num_levels = len(self.levels())
-            expected = num_levels*len(new_request.get("number", [0]))
-            assert new_data.shape[0] == expected, f"Shape mismatch: expected {expected}, got {new_data.shape[0]}"
-            if num_levels > 1:
-                new_data = new_data.reshape((int(new_data.shape[0]/num_levels), num_levels, new_data.shape[1]))
+            new_data = common.fdb_read(fdb, new_request, self.interpolation_keys)
 
+            members = new_request.get("number", [0])
+            if tp in ["cf", "fc"]:
+                new_data = new_data.expand_dims({"number": members})
+            if "number" in new_data.dims:
+                assert new_data.sizes["number"] == len(members)
+            if num_levels := len(self.levels()) > 1:
+                assert new_data.sizes["levelist"] == num_levels
+
+            if join_dim not in new_data.dims:
+                new_data = new_data.expand_dims({join_dim: [new_request[join_dim]]})
             if len(combined_data) == 0:
                 combined_data = new_data
             else:
-                combined_data = np.concatenate((combined_data, new_data), axis=0)
+                combined_data = xr.concat([combined_data, new_data], dim=join_dim)
 
-        return message_temp, combined_data * self.scale_data
-
-    def type_and_number(self, index: int):
-        """
-        Get data type and ensemble number from concatenated data index
-        """
-        types = self.base_request["type"].split("/")
-        if "pf" in types:
-            nensembles = len(self.base_request["number"])
-            pf_start_index = types.index("pf")
-            if index < pf_start_index:
-                return types[index], 0
-            if index < pf_start_index + nensembles:
-                return "pf", index - pf_start_index + 1
-            return types[index - (nensembles - 1)], 0
-        else:
-            return types[index], 0
-
-    _get_type_index_nodefault = object()
-
-    def get_type_index(self, type: str, default=_get_type_index_nodefault):
-        """
-        Get range of concatenated data indices for requested type
-        """
-        types = self.base_request["type"].split("/")
-        try:
-            index = types.index(type)
-        except ValueError:
-            if default is not self._get_type_index_nodefault:
-                return default
-            raise
-
-        if "pf" in types:
-            nensembles = len(self.base_request["number"])
-            if type == "pf":
-                pf_start_index = types.index("pf")
-                return range(pf_start_index, pf_start_index + nensembles)
-            pf_start_index = types.index("pf")
-            if index > pf_start_index:
-                offset = pf_start_index + nensembles - 1
-                return range(offset + index, offset + index + 1)
-        return range(index, index + 1)
+        return combined_data.attrs.pop("grib_template"), combined_data * self.scale_data
 
     def levels(self):
         levelist = self.base_request.get("levelist", [0])
         if isinstance(levelist, int):
             return [levelist]
         return levelist
-    
+
+
 class CombineParameters(Parameter):
     def __init__(
         self,
@@ -168,7 +140,9 @@ class CombineParameters(Parameter):
             return np.linalg.norm(data_list, axis=0)
         if self.combine_operation == "direction":
             assert len(data_list) == 2, "'direction' requires exactly 2 input fields"
-            return direction(data_list[0], data_list[1], convention="meteo", to_positive=True)
+            return direction(
+                data_list[0], data_list[1], convention="meteo", to_positive=True
+            )
         return getattr(np, self.combine_operation)(data_list, axis=0)
 
     def retrieve_data(self, fdb, step: common.AnyStep, **kwargs):
@@ -178,7 +152,14 @@ class CombineParameters(Parameter):
             msg_template, data = super().retrieve_data(fdb, step=step, **kwargs)
             data_list.append(data)
 
-        return msg_template, self.combine_data(data_list)
+        res = self.combine_data(data_list)
+        da_template = data_list[0]
+        return msg_template, xr.DataArray(
+            res,
+            dims=da_template.dims,
+            coords=da_template.coords,
+            attrs=da_template.attrs,
+        )
 
 
 class FilterParameter(Parameter):
@@ -227,4 +208,7 @@ class FilterParameter(Parameter):
             "data " + self.filter_comparison + str(self.filter_threshold),
             local_dict={"data": filter_data},
         )
-        return msg_template, np.where(comp, self.filter_replacement, data)
+        res = np.where(comp, self.filter_replacement, data)
+        return msg_template, xr.DataArray(
+            res, dims=data.dims, coords=data.coords, attrs=data.attrs
+        )

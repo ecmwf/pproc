@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod
+import copy
 from dataclasses import dataclass
 from math import prod
 from typing import Dict, Iterable, List, Optional, Tuple, Union
@@ -91,7 +92,7 @@ class SimpleAccumulation(Accumulation):
 
     def combine(self, coord: Coord, values: np.ndarray) -> bool:
         assert self.values is not None
-        self.operation(self.values, values, out=self.values)
+        self.values = self.operation(self.values, values)
         return True
 
     @classmethod
@@ -160,7 +161,7 @@ class Difference(Accumulation):
     def combine(self, coord: Coord, values: np.ndarray) -> bool:
         assert self.values is not None
         assert coord == self.coords[-1]
-        np.subtract(values, self.values, out=self.values)
+        self.values = np.subtract(values, self.values)
         return True
 
     @classmethod
@@ -295,6 +296,9 @@ class Histogram(SimpleAccumulation):
         hist_values = np.zeros((nbins,) + values.shape, dtype=np.int64)
         for i in range(nbins):
             hist_values[i, ind == i] += 1
+        input_type = type(values)
+        if input_type != np.ndarray:
+            hist_values = input_type(hist_values)
         return super().feed(coord, hist_values)
 
     def get_values(self) -> Optional[np.ndarray]:
@@ -344,6 +348,9 @@ class Aggregation(Accumulation):
             self.values = np.zeros(
                 (len(self.lookup),) + values.shape, dtype=values.dtype
             )
+            input_type = type(values)
+            if input_type != np.ndarray:
+                self.values = input_type(self.values)
         return super().feed(coord, values)
 
     def combine(self, coord: Coord, values: np.ndarray) -> None:
@@ -390,7 +397,7 @@ class StandardDeviation(Mean):
             if self.sumsq is None:
                 self.sumsq = values**2
             else:
-                np.add(self.sumsq, values**2, out=self.sumsq)
+                self.sumsq = np.add(self.sumsq, values**2)
         return processed
 
     def get_values(self) -> Optional[np.ndarray]:
@@ -398,6 +405,47 @@ class StandardDeviation(Mean):
         if mean is None:
             return None
         return np.sqrt(self.sumsq / self.count - mean**2)
+
+
+class DeaccumulationWrapper(Accumulation):
+    def __init__(self, accumulation: Accumulation):
+        self.coords = copy.deepcopy(accumulation.coords)
+        # Remove first coord from accumulation
+        accumulation.coords = list(accumulation.coords)
+        accumulation.coords.pop(0)
+        self.acc = accumulation
+        self.sequential = accumulation.sequential
+        self.reset(initial=True)
+
+    def reset(self, initial: bool = False) -> None:
+        super().reset(initial)
+        self.acc.reset(initial)
+
+    def is_complete(self) -> bool:
+        return self.acc.is_complete()
+
+    def get_values(self) -> Optional[np.ndarray]:
+        return self.acc.get_values()
+
+    def grib_keys(self) -> dict:
+        return self.acc.grib_keys()
+
+    def combine(self, coord: Coord, values: np.ndarray) -> bool:
+        processed = self.acc.feed(coord, values - self.values)
+        if processed:
+            self.values = values.copy()
+        return processed
+
+    @classmethod
+    def create(
+        cls,
+        operation: str,
+        coords: Coords,
+        config: dict,
+        sequential: bool = False,
+        grib_keys: Optional[dict] = None,
+    ) -> "Accumulation":
+        raise NotImplementedError
 
 
 def convert_range(config: dict) -> range:
@@ -448,7 +496,10 @@ def create_accumulation(config: dict) -> Accumulation:
     cls = known.get(op)
     if cls is None:
         raise ValueError(f"Unknown accumulation {op!r}")
-    return cls.create(op, coords, config, sequential=sequential, grib_keys=grib_keys)
+    acc = cls.create(op, coords, config, sequential=sequential, grib_keys=grib_keys)
+    if config.get("deaccumulate", False):
+        return DeaccumulationWrapper(acc)
+    return acc
 
 
 @dataclass

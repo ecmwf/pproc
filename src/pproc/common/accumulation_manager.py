@@ -8,6 +8,7 @@ from earthkit.time.sequence import Sequence
 from pproc.common.accumulation import Accumulator, Coord, coords_extent
 from pproc.common.utils import dict_product
 from pproc.common.window import legacy_window_factory
+from pproc.common.stepseq import stepseq_monthly
 
 
 def _default_accumulation_factory(
@@ -25,7 +26,9 @@ def _default_accumulation_factory(
         yield name, acc_config
 
 
-def _to_date(arg: Union[str, Tuple[int, int, int], datetime.date, datetime.datetime]) -> datetime.date:
+def _to_date(
+    arg: Union[str, Tuple[int, int, int], datetime.date, datetime.datetime]
+) -> datetime.date:
     if isinstance(arg, datetime.datetime):
         return arg.date()
     if isinstance(arg, datetime.date):
@@ -47,12 +50,19 @@ def _eval_sequence(seq: Sequence, config: dict) -> List[str]:
         to = _to_date(range_["to"])
         include_start = range_.get("include_start", True)
         include_end = range_.get("include_end", True)
-        return [d.strftime("%Y%m%d") for d in seq.range(from_, to, include_start, include_end)]
+        return [
+            d.strftime("%Y%m%d")
+            for d in seq.range(from_, to, include_start, include_end)
+        ]
     else:
-        raise ValueError("No sequence action found. Currently supported options are 'bracket', 'range'")
+        raise ValueError(
+            "No sequence action found. Currently supported options are 'bracket', 'range'"
+        )
 
 
-def _dateseq_accumulation_factory(config: dict, grib_keys: dict) -> Iterator[Tuple[str, dict]]:
+def _dateseq_accumulation_factory(
+    config: dict, grib_keys: dict
+) -> Iterator[Tuple[str, dict]]:
     seq_config = config["sequence"]
     if isinstance(seq_config, dict):
         seq = Sequence.from_dict(seq_config)
@@ -67,6 +77,28 @@ def _dateseq_accumulation_factory(config: dict, grib_keys: dict) -> Iterator[Tup
     return _default_accumulation_factory(new_config, grib_keys)
 
 
+def _monthly_config(date: str, config: dict) -> dict:
+    config.pop("type", None)
+    coords = config.pop("coords")
+    start = int(coords["from"])
+    end = int(coords["to"])
+    interval = int(coords["by"])
+
+    new_config = config.copy()
+    new_config["coords"] = [x for x in stepseq_monthly(date, start, end, interval)]
+    return new_config
+
+
+def _stepseq_accumulation_factory(
+    config, grib_keys: dict
+) -> Iterator[Tuple[str, dict]]:
+    seq_config = config.pop("sequence")
+    if seq_config["type"] == "monthly":
+        new_config = _monthly_config(seq_config["date"], config)
+        return _default_accumulation_factory(new_config, grib_keys)
+    raise ValueError(f"Unknown sequence type {seq_config!r}")
+
+
 def _make_accumulation_configs(
     config: dict, grib_keys: dict
 ) -> Iterator[Tuple[str, dict]]:
@@ -74,6 +106,7 @@ def _make_accumulation_configs(
     known = {
         "default": _default_accumulation_factory,
         "dateseq": _dateseq_accumulation_factory,
+        "stepseq": _stepseq_accumulation_factory,
         "legacywindow": legacy_window_factory,
     }
     factory = known.get(tp)

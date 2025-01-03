@@ -6,7 +6,7 @@ global_output_keys:
   localDefinitionNumber: 5
   mars.expver: '0001'
   type: ep
-number_of_ensembles: 5
+members: 5
 n_par_compute: 1
 n_par_read: 2
 parameters:
