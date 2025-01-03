@@ -1,24 +1,28 @@
-from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Tuple
-
-import numexpr
-import numpy as np
+from typing import Any, Callable, List, Optional, Tuple
 
 import eccodes
-from meteokit.wind import direction
+import numpy as np
 
 from pproc.common.dataset import open_multi_dataset
 from pproc.common.io import missing_to_nan
 from pproc.common.steps import AnyStep
-from pproc.common.window import parse_window_config
-
+from pproc.config.base import Members
+from pproc.config.io import Source, SourceCollection
+from pproc.config.param import ParamConfig
 
 IndexFunc = Callable[[eccodes.GRIBMessage], int]
 
 
+def expand(request: dict, dim: str):
+    coords = request.pop(dim, [])
+    if not isinstance(coords, list):
+        coords = [coords]
+    for coord in coords:
+        yield {**request, dim: coord}
+
+
 def read_ensemble(
-    sources: dict,
-    loc: str,
+    source: Source,
     total: int,
     dtype=np.float32,
     index_func: Optional[IndexFunc] = None,
@@ -49,7 +53,7 @@ def read_ensemble(
         Read data
     """
 
-    readers = open_multi_dataset(sources, loc, **kwargs)
+    readers = open_multi_dataset(source, **kwargs)
     template = None
     data = None
     n_read = 0
@@ -57,7 +61,7 @@ def read_ensemble(
         with reader:
             message = reader.peek()
             if message is None:
-                raise EOFError(f"No data in {loc!r}")
+                raise EOFError(f"No data in {source!r}")
             if template is None:
                 template = message
                 data = np.empty(
@@ -68,13 +72,13 @@ def read_ensemble(
                 data[i, :] = missing_to_nan(message)
                 n_read += 1
     if n_read != total:
-        raise EOFError(f"Expected {total} fields in {loc!r}, got {n_read}")
+        raise EOFError(f"Expected {total} fields in {source!r}, got {n_read}")
     return template, data
 
 
-def parse_paramids(pid):
+def parse_paramids(pid: Any) -> List[str]:
     if isinstance(pid, int):
-        return [pid]
+        return [str(pid)]
     if isinstance(pid, str):
         return pid.split("/")
     if isinstance(pid, list):
@@ -84,169 +88,67 @@ def parse_paramids(pid):
     raise TypeError(f"Invalid paramid type {type(pid)}")
 
 
-@dataclass
-class ParamFilter:
-    comparison: str
-    threshold: float
-    param: Optional[str]
-    replacement: float
-
-    @classmethod
-    def from_config(cls, config: Optional[dict]) -> Optional["ParamFilter"]:
-        if config is None:
-            return None
-        return cls(
-            config["comparison"],
-            config["threshold"],
-            config.get("param", None),
-            config.get("replacement", 0.0),
-        )
-
-
-class ParamConfig:
-    def __init__(self, name, options: Dict[str, Any], overrides: Dict[str, Any] = {}):
-        self.name = name
-        self.in_paramids = parse_paramids(options["in"])
-        self.combine = options.get("combine_operation", None)
-        self.filter = ParamFilter.from_config(
-            options.get("input_filter_operation", None)
-        )
-        self.scale = options.get("scale", 1.0)
-        self.out_paramid = options.get("out", None)
-        self._in_keys = options.get("in_keys", {})
-        self._out_keys = options.get("out_keys", {})
-        self._steps = options.get("steps", None)
-        self._windows = options.get("windows", None)
-        self._accumulations = options.get("accumulations", None)
-        self._in_overrides = overrides
-        self.dtype = np.dtype(options.get("dtype", "float32")).type
-
-    def in_keys(self, base: Optional[Dict[str, Any]] = None, **kwargs):
-        keys = base.copy() if base is not None else {}
-        keys.update(self._in_keys)
-        keys.update(kwargs)
-        keys.update(self._in_overrides)
-        keys_list = []
-        for pid in self.in_paramids:
-            keys["param"] = pid
-            keys_list.append(keys.copy())
-        return keys_list
-
-    def out_keys(self, base: Optional[Dict[str, Any]] = None, **kwargs):
-        keys = base.copy() if base is not None else {}
-        keys.update(self._out_keys)
-        keys.update(kwargs)
-        return keys
-
-    def window_config(self, base: List[dict], base_steps: Optional[List[dict]] = None):
-        if self._accumulations is not None:
-            return {"accumulations": self._accumulations}
-
-        if self._windows is not None:
-            config = {"windows": self._windows}
-            if self._steps is not None:
-                config["steps"] = self._steps
-            return config
-
-        windows = []
-        for coarse_cfg in base:
-            coarse_window = parse_window_config(coarse_cfg)
-            periods = [{"range": [step, step]} for step in coarse_window.steps]
-            windows.append(
-                {
-                    "window_operation": "none",
-                    "periods": periods,
-                }
-            )
-        config = {"windows": windows}
-        if base_steps:
-            config["steps"] = base_steps
-
-        return config
-
-
 class ParamRequester:
     def __init__(
         self,
         param: ParamConfig,
-        sources: dict,
-        loc: str,
-        members: int,
-        total: Optional[int] = None,
+        sources: SourceCollection,
+        members: int | Members,
+        total: int,
+        src_names: Optional[List[str]] = None,
         index_func: Optional[IndexFunc] = None,
     ):
         self.param = param
         self.sources = sources
-        self.loc = loc
+        self.src_names = self.sources.names if src_names is None else src_names
         self.members = members
-        self.total = total if total is not None else members
+        self.total = total
         self.index_func = index_func
 
     def _set_number(self, keys):
+        number = None
+        if isinstance(self.members, Members):
+            number = range(self.members.start, self.members.end + 1)
         if keys.get("type") == "pf":
-            keys["number"] = range(1, self.members)
+            keys["number"] = number or range(1, self.members + 1)
         elif keys.get("type") == "fcmean":
-            keys["number"] = range(self.members)
-
-    def filter_data(self, data: np.ndarray, step: AnyStep, **kwargs) -> np.ndarray:
-        filt = self.param.filter
-        if filt is None:
-            return data
-        fdata = data
-        if filt.param is not None:
-            filt_keys = self.param.in_keys(step=str(step), **kwargs)[0]
-            filt_keys["param"] = filt.param
-            _, fdata = read_ensemble(
-                self.sources,
-                self.loc,
-                self.total,
-                dtype=self.param.dtype,
-                update=self._set_number,
-                index_func=self.index_func,
-                **filt_keys,
-            )
-        comp = numexpr.evaluate(
-            "data " + filt.comparison + " threshold", local_dict={
-                "data": fdata,
-                "threshold": np.asarray(filt.threshold, dtype=fdata.dtype),
-                }
-        )
-        return np.where(comp, filt.replacement, data)
-
-    def combine_data(self, data_list: List[np.ndarray]) -> np.ndarray:
-        if self.param.combine is None:
-            assert (
-                len(data_list) == 1
-            ), "Multiple input fields require a combine operation"
-            return data_list[0]
-        if self.param.combine == "norm":
-            return np.linalg.norm(data_list, axis=0)
-        if self.param.combine == "direction":
-            assert len(data_list) == 2, "'direction' requires exactly 2 input fields"
-            return direction(
-                data_list[0], data_list[1], convention="meteo", to_positive=True
-            ).astype(self.param.dtype)
-        return getattr(np, self.param.combine)(data_list, axis=0)
+            keys["number"] = number or range(self.members + 1)
 
     def retrieve_data(
-        self, fdb, step: AnyStep, **kwargs
+        self, step: AnyStep, **kwargs
     ) -> Tuple[eccodes.GRIBMessage, np.ndarray]:
+        metadata = []
         data_list = []
-        for in_keys in self.param.in_keys(step=str(step), **kwargs):
-            template, data = read_ensemble(
-                self.sources,
-                self.loc,
-                self.total,
-                dtype=self.param.dtype,
-                update=self._set_number,
-                index_func=self.index_func,
-                **in_keys,
+        template = None
+        for src in self.src_names:
+            src_config: Source = getattr(self.sources, src)
+            in_keys = self.param.in_keys(
+                src,
+                src_config.request,
+                step=str(step),
+                **kwargs,
+                **self.sources.overrides,
             )
-            data_list.append(data)
-        return (
-            template,
-            self.filter_data(self.combine_data(data_list), step, **kwargs) * self.param.scale,
-        )
+            for param_req in expand(in_keys, "param"):
+                requests = list(expand(param_req, "type"))
+                config = src_config.model_copy(update={"request": requests})
+                new_template, data = read_ensemble(
+                    config,
+                    self.total,
+                    dtype=self.param.dtype,
+                    update=self._set_number,
+                    index_func=self.index_func,
+                )
+                metadata.append(param_req)
+                data_list.append(data)
+                if template is None:
+                    template = new_template
+
+        assert template is not None, "No data fetched"
+
+        _, data_list = self.param.preprocessing.apply(metadata, data_list)
+        assert len(data_list) == 1, "More than one output of preprocessing"
+        return (template, data_list[0])
 
     @property
     def name(self):

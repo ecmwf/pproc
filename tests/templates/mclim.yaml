@@ -1,0 +1,63 @@
+n_par_read: 24
+n_par_compute: 1
+queue_size: 30
+num_members: 11
+sources:
+  fdb:
+    hc:
+    - class: od
+      domain: g
+      expver: 1
+      levtype: sfc
+      stream: enfh
+      date: 20241209
+      time: '00'
+      type: cf
+    - class: od
+      domain: g
+      expver: 1
+      levtype: sfc
+      stream: enfh
+      date: 20241209
+      time: '00'
+      type: pf
+params:
+  2t:
+    in: '167.128'
+    accumulations:
+      step:
+        type: legacywindow
+        windows:
+        - window_operation: mean
+          grib_set:
+            timeRangeIndicator: 3
+            stepType: avg
+            bitsPerValue: 12
+            numberIncludedInAverage: 4
+          periods:
+          - range:
+            - 0
+            - 24
+            - 6
+      hdate:
+        coords:
+        - - 20041209
+        - - 20051209
+        - - 20061209
+        - - 20071209
+        - - 20081209
+        - - 20091209
+        - - 20101209
+        - - 20111209
+        - - 20121209
+        - - 20131209
+        - - 20141209
+        - - 20151209
+        - - 20161209
+        - - 20171209
+        - - 20181209
+        - - 20191209
+        - - 20201209
+        - - 20211209
+        - - 20221209
+        - - 20231209

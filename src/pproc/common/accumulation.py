@@ -105,9 +105,7 @@ class SimpleAccumulation(Accumulation):
     ) -> Accumulation:
         if operation == "sum":
             operation = "add"
-        return cls(
-            operation, coords, sequential=sequential, grib_keys=grib_keys
-        )
+        return cls(operation, coords, sequential=sequential, grib_keys=grib_keys)
 
 
 class Integral(SimpleAccumulation):
@@ -372,6 +370,36 @@ class Aggregation(Accumulation):
         return cls(coords, sequential=sequential, grib_keys=grib_keys)
 
 
+class StandardDeviation(Mean):
+    def __init__(
+        self,
+        coords: Coords,
+        sequential: bool = False,
+        grib_keys: Optional[dict] = None,
+    ):
+        super().__init__(coords, sequential, grib_keys)
+        self.sumsq = None
+
+    def reset(self, initial: bool = False) -> None:
+        super().reset(initial)
+        self.sumsq = None
+
+    def feed(self, coord: Coord, values: np.ndarray) -> bool:
+        processed = super().feed(coord, values)
+        if processed:
+            if self.sumsq is None:
+                self.sumsq = values**2
+            else:
+                np.add(self.sumsq, values**2, out=self.sumsq)
+        return processed
+
+    def get_values(self) -> Optional[np.ndarray]:
+        mean = super().get_values()
+        if mean is None:
+            return None
+        return np.sqrt(self.sumsq / self.count - mean**2)
+
+
 def convert_range(config: dict) -> range:
     r_from = config.get("from", 0)
     r_to = config.get("to")
@@ -415,13 +443,12 @@ def create_accumulation(config: dict) -> Accumulation:
         "weighted_mean": WeightedMean,
         "histogram": Histogram,
         "aggregation": Aggregation,
+        "standard_deviation": StandardDeviation,
     }
     cls = known.get(op)
     if cls is None:
         raise ValueError(f"Unknown accumulation {op!r}")
-    return cls.create(
-        op, coords, config, sequential=sequential, grib_keys=grib_keys
-    )
+    return cls.create(op, coords, config, sequential=sequential, grib_keys=grib_keys)
 
 
 @dataclass

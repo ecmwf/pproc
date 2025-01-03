@@ -9,7 +9,36 @@ global_output_keys:
   bitsPerValue: 8
 parameters:
   t850:
-    in_paramid: 130
+    sources:
+      ens:
+        request:
+          class: od
+          stream: enfo
+          levelist: 850
+          levtype: pl
+          type: [cf, pf]
+          domain: g
+          param: 130
+          interpolate:
+            grid: O640
+            intgrid: none
+            legendre-loader: shmem
+            matrix-loader: file-io
+      clim:
+        request:
+          stream: efhs
+          type: [em, es]
+          date: 20240506
+        steps:
+          0: 12
+          12: 24
+          24: 36
+      anomaly:
+        preprocessing:
+          operation: 
+      std_anomaly:
+        preprocessing:
+          operation: 
     steps:
     - interval: 12
       start_step: 0
@@ -41,9 +70,11 @@ parameters:
       - out_paramid: 131020
         comparison: <
         value: -2
+        source: anomaly
       - out_paramid: 131021
         comparison: '>='
         value: 2
+        source: ens
       grib_set:
         bitsPerValue: 24
     std_anomaly_windows:
@@ -74,24 +105,3 @@ parameters:
         packingType: grid_ccsds
         scaleFactorOfUpperLimit: MISSING
         scaledValueOfUpperLimit: MISSING
-    base_request:
-      class: od
-      stream: enfo
-      levelist: 850
-      levtype: pl
-      type: cf/pf
-      domain: g
-    interpolation_keys:
-      grid: O640
-      intgrid: none
-      legendre-loader: shmem
-      matrix-loader: file-io
-    climatology:
-      clim_keys:
-        stream: efhs
-        type: em/es
-        date: 20240506
-      steps:
-        0: 12
-        12: 24
-        24: 36

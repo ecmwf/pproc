@@ -12,21 +12,15 @@ class WindowManager:
     Class for creating and managing active windows
     """
 
-    def __init__(self, parameter, global_config):
+    def __init__(self, accumulations: dict, **metadata):
         """
         Sort steps and create windows by reading in the config for specified parameter
 
-        :param parameter: parameter config
-        :param global_config: global dictionary of key values for grib_set in all windows
+        :accumulations dict: accumulation config
+        :metadata: dictionary of key values for grib_set in all windows
         :raises: RuntimeError if no window operation was provided, or could be derived
         """
-        if "windows" in parameter:
-            step_config = parameter.copy()
-            step_config["type"] = "legacywindow"
-            config = {"step": step_config}
-        else:
-            config = parameter["accumulations"]
-        self.mgr = AccumulationManager.create(config, global_config)
+        self.mgr = AccumulationManager.create(accumulations, metadata)
 
     @property
     def dims(self) -> Dict[str, List[Coord]]:
@@ -53,4 +47,7 @@ class WindowManager:
         :return: new first step
         """
         self.mgr.delete(window_ids)
-        return min(self.mgr.coords["step"], key=parse_step)
+        steps = self.mgr.coords["step"]
+        if len(steps) == 0:
+            return None
+        return min(steps, key=parse_step)
