@@ -274,8 +274,7 @@ def main(args=None):
     parser.add_argument("--out_sot", required=True, help="Target for SOT")
     args = parser.parse_args(args)
     cfg = ConfigExtreme(args)
-    recovery = common.Recovery(cfg.root_dir, args.config, cfg.fc_date, args.recover)
-    last_checkpoint = recovery.last_checkpoint()
+    recovery = common.Recovery(cfg.root_dir, cfg.options, args.recover)
     executor = (
         SynchronousExecutor()
         if cfg.n_par_compute == 1
@@ -300,18 +299,13 @@ def main(args=None):
             window_manager = common.WindowManager(param_cfg, cfg.global_output_cfg)
             efi_vars = ExtremeVariables(param_cfg)
 
-            if last_checkpoint:
-                if param_name not in last_checkpoint:
-                    print(f"Recovery: skipping completed param {param_name}")
-                    continue
-                checkpointed_windows = [
-                    recovery.checkpoint_identifiers(x)[1]
-                    for x in recovery.checkpoints
-                    if param_name in x
-                ]
-                new_start = window_manager.delete_windows(checkpointed_windows)
-                print(f"Recovery: param {param_name} looping from step {new_start}")
-                last_checkpoint = None  # All remaining params have not been run
+            checkpointed_windows = recovery.computed(param_name)
+            new_start = window_manager.delete_windows(checkpointed_windows)
+            if new_start is None:
+                print(f"Recovery: skipping completed param {param_name}")
+                continue
+
+            print(f"Recovery: param {param_name} starting from step {new_start}")
 
             efi_partial = functools.partial(
                 efi_sot, cfg, param, param_cfg["climatology"], efi_vars, recovery

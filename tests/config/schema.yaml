@@ -1,0 +1,221 @@
+defs:
+  interp_keys: &interp_keys
+    intgrid: "none"
+    legendre-loader: "shmem"
+    matrix-loader: "file-io"
+
+filter:stream:
+  "enfo/waef":
+    members: 50
+    total_fields: 51
+    defs: 
+      GRID: O1280
+      STEP_START: 0
+      STEP_END: 360
+      STEP_BY: 6
+      UNPERTURBED: "cf"
+      WIDTH: 6
+      INTERVAL: 6
+    request: 
+      stream: "{stream}"
+      type: ["{UNPERTURBED}", "pf"]
+  eefo/weef:
+    members: 100
+    total_fields: 101
+    defs:
+      GRID: O320
+      STEP_START: 0
+      STEP_END: 1104
+      STEP_BY: 6
+      UNPERTURBED: "cf"
+      WIDTH: 6
+      INTERVAL: 6ß
+    request: 
+      stream: "{stream}"
+      type: ["{UNPERTURBED}", "pf"]
+  msmm:
+    members:
+      start: 0
+      end: 50
+    defs:
+      GRID: O1280
+      STEP_START: 0
+      STEP_END: 5160
+      STEP_BY: 6
+    request:
+      stream: mmsf
+      type: "fc"
+  swmm:
+    members:
+      start: 0
+      end: 50
+    defs:
+      GRID: O1280
+      STEP_START: 0
+      STEP_END: 5160
+      STEP_BY: 6
+    request:
+      stream: wasf
+      type: "fc"
+filter:param:
+  "*": {}
+  "207.128":
+    request:
+      param: [165, 166]
+    preprocessing:
+      - operation: norm
+    interpolation_keys:
+      <<: *interp_keys
+      grid: "{GRID}"
+  "249.228":
+    request:
+      param: [228246, 228247]
+    preprocessing: 
+      - operation: norm
+    interpolation_keys:
+      <<: *interp_keys
+      grid: "{GRID}"   
+filter:type:
+  em/es:
+    entrypoint: pproc-ensms
+    metadata: 
+      perturbationNumber: 0
+      bitsPerValue: 16
+    accumulations:
+      step:
+        type: legacywindow
+        coords:
+          type: ranges 
+          from: "{STEP_START}" 
+          to: "{STEP_END}" 
+          interval: "{INTERVAL}"
+    filter:param:
+      "*": {}
+      "200228":
+        request:
+          param: "228.128"
+        accumulations:
+          step:
+            operation: diff
+            coords:
+              width: "{WIDTH}"
+              by: "{STEP_BY}"
+        metadata:
+          stepType: diff
+          paramId: 200228 
+      "10.128":
+        entrypoint: pproc-wind
+        request:
+          param: [138, 155] 
+        interpolation_keys:
+          <<: *interp_keys
+          grid: "{GRID}"
+        vod2uv: true
+        metadata:
+          indicatorOfParameter: 10
+          gribTablesVersionNo: 128
+  fcmean:
+    filter:stream:
+      "*": 
+        entrypoint: pproc-accumulate
+        accumulations:
+          step:
+            type: legacywindow
+            operation: mean
+            grib_keys:
+              type: fcmean
+            coords:
+              type: ranges 
+              from: "{STEP_START}" 
+              to: "{STEP_END}" 
+              interval: 24 
+              width: 168
+              by: "{STEP_BY}"
+      msmm/swmm:
+        entrypoint: pproc-monthly-stats
+        accumulations:
+          step:
+            type: legacywindow
+            operation: mean
+            grib_keys:
+              type: fcmean
+            coords: 
+              type: monthly
+              date: "{date}"
+              from: "{STEP_START}" 
+              to: "{STEP_END}"
+              by: "{STEP_BY}"
+    filter:param:
+      "*": {}
+      146.128/147.128/169.128/175.128/176.128/177.128/178.128/179.128/180.128/181.128:
+        defs:
+          STEP_BY: 24
+        scale: 0.00001157407
+        request:
+          param: "{param}"
+        accumulations:
+          step:
+            include_start_step: True
+            deaccumulate: True
+      "189.128":
+        defs:
+          STEP_BY: 24
+        vmin: 0.
+        vmax: 1.
+        scale: 0.00001157407
+        request:
+          param: "{param}"
+        accumulations:
+          step:
+            include_start_step: True
+            deaccumulate: True
+      "229.140/231.140/232.140/233.140": # wave params
+        defs:
+          STEP_BY: 24
+        request:
+          param: "{param}"
+      "245.140": # wind
+        defs:
+          STEP_BY: 24
+        request:
+          param: "{param}"
+      142.128/143.128/144.128/228.128:
+        defs:
+          STEP_BY: 24
+        vmin: 0.
+        scale: 0.00001157407
+        request:
+          param: "{param}"
+        accumulations:
+          step:
+            include_start_step: True
+            deaccumulate: True
+      40.128/41.128/42.128/170.128:
+        defs:
+          STEP_BY: 24
+        request:
+          param: "{param}"
+      "235117":
+        request:
+          param: "59.128"
+        metadata:
+          discipline: 0
+          parameterCategory: 7
+          parameterNumber: 6
+          typeOfFirstFixedSurface: 17
+          typeOfStatisticalProcessing: 0
+      "202":
+        request:
+          param: "122.128"
+        metadata:
+          indicatorOfParameter: 202
+      "201":
+        request:
+          param: "121.128"
+        metadata:
+          indicatorOfParameter: 201
+      "130.128/129.128/138.128/155.128/131.128/132.128/133.128/1.128/2.128/60.128/3.128":
+        defs:
+          STEP_BY: 24
+        request:
+          param: "{param}"

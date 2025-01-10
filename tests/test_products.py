@@ -72,13 +72,8 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
         [
             "quantiles",
             quantiles_main,
-            [
-                "--in-ens",
-                "fdb:ens",
-                "--out-quantiles",
-                "fdb:",
-            ],
-            True,
+            [],
+            False,
             {
                 "type": "pb",
                 "param": 167,
@@ -193,7 +188,7 @@ def test_products(
         config = yaml.safe_load(file)
     config["root_dir"] = str(tmpdir)
     yaml.dump(config, open(f"{tmpdir}/{product}.yaml", "w"))
-    args = [product, "-f", f"{tmpdir}/{product}.yaml"] + [
+    args = [product, "--config", f"{tmpdir}/{product}.yaml"] + [
         x.format_map(
             {
                 "test_dir": str(tmpdir),

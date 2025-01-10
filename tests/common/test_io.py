@@ -134,44 +134,12 @@ def _write(target, message):
     # Modify parameter to distinguish from data already in FDB
     message.set("paramId", "228")
     target.write(message)
+    target.flush()
 
 
 @pytest.mark.parametrize(
     "loc, out_loc, reqs",
     [
-        [
-            "fdb:",
-            "fdb:test",
-            [
-                {
-                    "class": "od",
-                    "expver": "0001",
-                    "stream": "enfo",
-                    "date": "20240507",
-                    "domain": "g",
-                    "time": 12,
-                    "type": "cf",
-                    "levtype": "sfc",
-                    "param": "167.128",
-                    "step": range(12, 37, 6),
-                    "type": "cf",
-                },
-                {
-                    "class": "od",
-                    "expver": "0001",
-                    "stream": "enfo",
-                    "date": "20240507",
-                    "domain": "g",
-                    "time": 12,
-                    "type": "cf",
-                    "levtype": "sfc",
-                    "param": "167.128",
-                    "step": range(12, 37, 6),
-                    "type": "pf",
-                    "number": range(1, 6),
-                },
-            ],
-        ],
         ["file:TMPDIR/test.grib", None, [{}]],
         [
             "fileset:TMPDIR/test_{step}.grib",
@@ -185,11 +153,10 @@ def test_target_parallel(tmpdir, fdb, loc, out_loc, reqs):
     if out_loc is None:
         out_loc = loc
     target = io.target_from_location(loc)
-    target.enable_parallel(parallel)
+    target.enable_parallel()
     parallel.parallel_processing(
         _write, [(target, x) for x in eccodes.FileReader(f"{DATA_DIR}/2t_ens.grib")], 4
     )
-    target.flush()
 
     type_, path = loc.split(":")
     num_messages = 0

@@ -34,9 +34,8 @@ def main(args=None):
     cfg = ProbConfig(args, ["out_prob"])
 
     recovery = common.Recovery(
-        cfg.options["root_dir"], args.config, date, args.recover
+        cfg.options["root_dir"], cfg.options, args.recover
     )
-    last_checkpoint = recovery.last_checkpoint()
     executor = (
         SynchronousExecutor()
         if cfg.n_par_compute == 1
@@ -62,21 +61,13 @@ def main(args=None):
                 cfg.override_input,
             )
             window_manager = AnomalyWindowManager(param_cfg, cfg.global_output_cfg)
+            checkpointed_windows = recovery.computed(param_name)
+            new_start = window_manager.delete_windows(checkpointed_windows)
+            if new_start is None:
+                print(f"Recovery: skipping completed param {param_name}")
+                continue
 
-            if last_checkpoint:
-                if param_name not in last_checkpoint:
-                    print(f"Recovery: skipping completed param {param_name}")
-                    continue
-                checkpointed_windows = [
-                    recovery.checkpoint_identifiers(x)[1]
-                    for x in recovery.checkpoints
-                    if param_name in x
-                ]
-                new_start = window_manager.delete_windows(checkpointed_windows)
-                print(
-                    f"Recovery: param {param_name} looping from step {new_start}"
-                )
-                last_checkpoint = None  # All remaining params have not been run
+            print(f"Recovery: param {param_name} starting from step {new_start}")
 
             prob_partial = functools.partial(
                 prob_iteration, param, recovery, cfg.out_prob

@@ -270,14 +270,10 @@ from pproc.common.window_manager import WindowManager
                         "periods": {
                             "type": "monthly",
                             "date": "20241001",
+                            "from": 0,
+                            "to": 5160,
+                            "by": 6,
                         },
-                    }
-                ],
-                "steps": [
-                    {
-                        "start_step": 0,
-                        "end_step": 5160,
-                        "interval": 6,
                     }
                 ],
             },
@@ -295,6 +291,92 @@ from pproc.common.window_manager import WindowManager
             },
             {x for x in range(0, 5089, 6)},
             id="monthly",
+        ),
+        pytest.param(
+            {
+                "windows": [
+                    {
+                        "window_operation": "mean",
+                        "include_start_step": True,
+                        "periods": {
+                            "type": "monthly",
+                            "date": "20241001",
+                            "to": 5160,
+                        },
+                    }
+                ],
+                "steps": [{"start_step": 6, "end_step": 5160, "interval": 6}],
+            },
+            {
+                f"{x}-{y}_0": Mean
+                for x, y in [
+                    (0, 744),
+                    (744, 1464),
+                    (1464, 2208),
+                    (2208, 2952),
+                    (2952, 3624),
+                    (3624, 4368),
+                    (4368, 5088),
+                ]
+            },
+            {x for x in range(6, 5089, 6)},
+            id="monthly-with-steps",
+        ),
+        pytest.param(
+            {
+                "windows": [
+                    {
+                        "window_operation": "mean",
+                        "periods": {
+                            "type": "ranges",
+                            "to": 360,
+                            "width": 120,
+                            "interval": 120,
+                            "by": 6,
+                        },
+                    }
+                ],
+            },
+            {
+                f"{x}-{y}_0": Mean
+                for x, y in [
+                    (0, 120),
+                    (120, 240),
+                    (240, 360),
+                ]
+            },
+            {x for x in range(6, 361, 6)},
+            id="stepranges",
+        ),
+        pytest.param(
+            {
+                "windows": [
+                    {
+                        "window_operation": "mean",
+                        "periods": {
+                            "type": "ranges",
+                            "to": 360,
+                            "width": 120,
+                            "interval": 120,
+                        },
+                    }
+                ],
+                "steps": [
+                    {"start_step": 3, "end_step": 90, "interval": 3},
+                    {"start_step": 96, "end_step": 120, "interval": 6},
+                    {"start_step": 132, "end_step": 360, "interval": 12},
+                ],
+            },
+            {
+                f"{x}-{y}_0": Mean
+                for x, y in [
+                    (0, 120),
+                    (120, 240),
+                    (240, 360),
+                ]
+            },
+            set().union(range(3, 91, 3), range(96, 121, 6), range(132, 361, 12)),
+            id="stepranges-with-steps",
         ),
     ],
 )
@@ -314,25 +396,23 @@ def test_create(config, expected, exp_coords):
 
 def test_create_multidim():
     config = {
-        "accumulations": {
-            "step": {
-                "type": "legacywindow",
-                "windows": [
-                    {
-                        "window_operation": "mean",
-                        "periods": [
-                            {"range": [0, 24, 6]},
-                            {"range": [12, 36, 6]},
-                            {"range": [24, 48, 6]},
-                        ],
-                    }
-                ],
-            },
-            "hdate": {
-                "operation": "aggregation",
-                "coords": [[20200218, 20210218, 20230218]],
-            },
-        }
+        "step": {
+            "type": "legacywindow",
+            "windows": [
+                {
+                    "window_operation": "mean",
+                    "periods": [
+                        {"range": [0, 24, 6]},
+                        {"range": [12, 36, 6]},
+                        {"range": [24, 48, 6]},
+                    ],
+                }
+            ],
+        },
+        "hdate": {
+            "operation": "aggregation",
+            "coords": [[20200218, 20210218, 20230218]],
+        },
     }
     expected_accums = [
         "step_0-24_0:hdate_20200218-20230218",

@@ -49,7 +49,7 @@ setup(
             "pproc-significance=pproc.significance:main",
             "pproc-anomaly=pproc.anomaly:main",
             "pproc-monthly-stats=pproc.monthly_stats:main",
-            "pproc-config=pproc.config:main",
+            "pproc-config=pproc.config_generation:main",
         ],
     },
 )

@@ -7,7 +7,7 @@ from typing import List
 import yaml
 from filelock import FileLock
 
-from pproc.config.base import Recovery as RecoveryConfig
+from pproc.config.base import Recovery as BaseConfig
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +82,7 @@ class Recovery(BaseRecovery):
             self.clean_file()
         self.lock = FileLock(self.filename + ".lock", thread_local=False)
 
-    def computed(self, identifier: str) -> List[str]:
+    def computed(self, identifier: str = "") -> List[str]:
         return [
             self.checkpoint_identifiers(x)[1]
             for x in self.checkpoints
@@ -129,11 +129,11 @@ class Recovery(BaseRecovery):
             os.remove(self.filename + ".lock")
 
 
-def create_recovery(recovery: RecoveryConfig):
-    if recovery.enable_checkpointing:
+def create_recovery(config: BaseConfig) -> BaseRecovery:
+    if config.recovery.enable_checkpointing:
         return Recovery(
-            recovery.root_dir,
-            recovery.config,
-            recovery.from_checkpoint,
+            config.recovery.root_dir,
+            config.model_dump(exclude_defaults=True),
+            config.recovery.from_checkpoint,
         )
     return NullRecovery()

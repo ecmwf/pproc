@@ -1,6 +1,7 @@
 from typing import Dict, Iterator, List, Tuple
 
 import numpy as np
+from typing import Optional
 
 from pproc.common.accumulation import Accumulator, Coord
 from pproc.common.accumulation_manager import AccumulationManager
@@ -12,7 +13,7 @@ class WindowManager:
     Class for creating and managing active windows
     """
 
-    def __init__(self, accumulations: dict, **metadata):
+    def __init__(self, accumulations: dict, metadata: Optional[dict] = None):
         """
         Sort steps and create windows by reading in the config for specified parameter
 
@@ -20,6 +21,10 @@ class WindowManager:
         :metadata: dictionary of key values for grib_set in all windows
         :raises: RuntimeError if no window operation was provided, or could be derived
         """
+        if "windows" in accumulations:
+            step_config = accumulations.copy()
+            step_config["type"] = "legacywindow"
+            accumulations = {"step": step_config}
         self.mgr = AccumulationManager.create(accumulations, metadata)
 
     @property

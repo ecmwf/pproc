@@ -3,7 +3,8 @@ from typing import Any, Dict, Optional
 import eccodes
 import numpy as np
 
-from pproc.common.io import Target, nan_to_missing
+from pproc.config.targets import Target
+from pproc.common.io import nan_to_missing
 from pproc.common.grib_helpers import construct_message
 
 

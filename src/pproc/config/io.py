@@ -3,12 +3,24 @@ from typing import Any, ClassVar, Optional, Union
 
 from annotated_types import Annotated
 from conflator import CLIArg, ConfigModel
-from pydantic import (BeforeValidator, ConfigDict, Discriminator, Field, Tag,
-                      create_model, model_validator)
+from pydantic import (
+    BeforeValidator,
+    ConfigDict,
+    Discriminator,
+    Field,
+    Tag,
+    create_model,
+    model_validator,
+)
 
 from pproc.config import utils
-from pproc.config.targets import (FDBTarget, FileSetTarget, FileTarget,
-                                  NullTarget, OverrideTargetWrapper)
+from pproc.config.targets import (
+    FDBTarget,
+    FileSetTarget,
+    FileTarget,
+    NullTarget,
+    OverrideTargetWrapper,
+)
 
 
 class Source(ConfigModel):
@@ -24,6 +36,17 @@ class Source(ConfigModel):
         if isinstance(data, str):
             return {"type": "fileset", "path": data}
         return data
+
+    def location(self) -> str:
+        return (
+            f"{self.type_}:{self.path}" if self.type_ == "file" else f"{self.type_}:req"
+        )
+
+    def legacy_config(self) -> dict:
+        cfg = {self.type_: {"req": self.request}}
+        if self.type_ == "fileset":
+            cfg[self.type_]["req"]["location"] = self.path
+        return cfg
 
 
 class SourceCollection(ConfigModel):
@@ -51,7 +74,7 @@ class SourceCollection(ConfigModel):
 
         for sub in cls.names:
             subsec = data.get(sub, {})
-            data[sub] = utils.deep_update(copy.deepcopy(defaults), subsec)
+            data[sub] = utils.model_update(copy.deepcopy(defaults), subsec)
         return data
 
 

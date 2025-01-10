@@ -39,7 +39,7 @@ class Climatology(Parameter):
         }
 
     def retrieve_data(
-        self, fdb, step: int, **kwargs
+        self, step: int, **kwargs
     ) -> Tuple[Dict, Tuple[np.array, np.array]]:
         """
         Retrieves data for climatology mean and standard deviation
@@ -51,6 +51,6 @@ class Climatology(Parameter):
         """
         cstep = step if not self.steps else self.steps[step]
         temp_message, ret = super().retrieve_data(
-            fdb, step=cstep, join_dim="type", **kwargs
+            step=cstep, join_dim="type", **kwargs
         )
         return self.grib_header(temp_message), ret

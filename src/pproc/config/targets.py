@@ -7,8 +7,7 @@ import pyfdb
 from annotated_types import Annotated
 from conflator import ConfigModel
 from filelock import FileLock
-from pydantic import (BaseModel, BeforeValidator, ConfigDict, Field,
-                      model_validator)
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, model_validator
 
 from pproc.config import utils
 
@@ -150,6 +149,7 @@ class FDBTarget(Target):
         return self._fdb
 
     def write(self, message):
+        message.items(namespace="mars")
         self.fdb.archive(message.get_buffer())
 
     def flush(self):

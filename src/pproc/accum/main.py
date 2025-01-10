@@ -3,70 +3,47 @@ from typing import Any
 
 from meters import ResourceMeter
 
-from pproc.common import parallel
 from pproc.common.config import Config
-from pproc.common.io import target_from_location
-from pproc.common.parallel import (QueueingExecutor, SynchronousExecutor,
-                                   parallel_data_retrieval)
+from pproc.common.parallel import create_executor, parallel_data_retrieval
 from pproc.common.param_requester import ParamRequester
-from pproc.common.recovery import Recovery
+from pproc.common.recovery import create_recovery
 from pproc.common.window_manager import WindowManager
 
 
-def main(args, config: Config, postproc_iteration: Any):
-    if config.root_dir is None or config.date is None:
-        print("Recovery disabled. Set root_dir and date in config to enable.")
-        recovery = None
-        last_checkpoint = None
-    else:
-        recovery = Recovery(config.root_dir, args.config, config.date, args.recover)
-        last_checkpoint = recovery.last_checkpoint()
-    target = target_from_location(args.out_accum, overrides=config.override_output)
-    if config.n_par_compute > 1:
-        target.enable_parallel(parallel)
-    if recovery is not None and args.recover:
-        target.enable_recovery()
+def main(cfg: Config, postproc_iteration: Any):
+    recover = create_recovery(cfg)
 
-    executor = (
-        SynchronousExecutor()
-        if config.n_par_compute == 1
-        else QueueingExecutor(config.n_par_compute, config.window_queue_size)
-    )
-
-    with executor:
-        for param in config.params:
+    with create_executor(cfg.parallelisation) as executor:
+        for param in cfg.parameters:
             window_manager = WindowManager(
-                param.window_config(config.windows, config.steps),
-                param.out_keys(config.out_keys),
+                param.accumulations,
+                {
+                    **cfg.outputs.default.metadata,
+                    **param.metadata,
+                }
             )
-            if last_checkpoint:
-                if param.name not in last_checkpoint:
-                    print(f"Recovery: skipping completed param {param.name}")
-                    continue
-                checkpointed_windows = [
-                    recovery.checkpoint_identifiers(x)[1]
-                    for x in recovery.checkpoints
-                    if param.name in x
-                ]
-                new_start = window_manager.delete_windows(checkpointed_windows)
+
+            checkpointed_windows = recover.computed(param.name)
+            if new_start := window_manager.delete_windows(checkpointed_windows):
                 print(f"Recovery: param {param.name} looping from step {new_start}")
-                last_checkpoint = None  # All remaining params have not been run
+            else:
+                print(f"Recovery: skipping completed param {param.name}")
+                continue
 
             requester = ParamRequester(
                 param,
-                config.sources,
-                args.in_ens,
-                config.num_members,
-                config.total_fields,
+                cfg.sources,
+                cfg.members,
+                cfg.total_fields,
             )
             postproc_partial = functools.partial(
-                postproc_iteration, param, target, recovery
+                postproc_iteration, param, cfg, recover
             )
             for keys, data in parallel_data_retrieval(
-                config.n_par_read,
+                cfg.parallelisation.n_par_read,
                 window_manager.dims,
                 [requester],
-                config.n_par_compute > 1,
+                cfg.parallelisation.n_par_compute > 1,
             ):
                 ids = ", ".join(f"{k}={v}" for k, v in keys.items())
                 template, ens = data[0]
@@ -77,5 +54,4 @@ def main(args, config: Config, postproc_iteration: Any):
                     executor.submit(postproc_partial, template, window_id, accum)
             executor.wait()
 
-    if recovery is not None:
-        recovery.clean_file()
+    recover.clean_file()

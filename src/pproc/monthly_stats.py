@@ -3,35 +3,23 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Union
 
 import eccodes
-from earthkit.time.calendar import MonthInYear
-from earthkit.time.sequence import MonthlySequence
+from conflator import Conflator
 from meters import ResourceMeter
 
-from pproc.accum.config import AccumConfig, AccumParamConfig
+from pproc.config.types import MonthlyStatsConfig, AccumParamConfig
 from pproc.accum.main import main as accum_main
 from pproc.accum.postprocess import postprocess
 from pproc.common.accumulation import Accumulator
-from pproc.common.config import default_parser
-from pproc.common.io import Target, read_template
+from pproc.common.io import read_template
 from pproc.common.recovery import Recovery
+from pproc.common.stepseq import steprange_to_fcmonth
 
 
 def mstat_keys(fcdate: datetime, step_range: str) -> Dict[str, Any]:
     start, end = map(int, step_range.split("-"))
-    seq = MonthlySequence(1)
-    first_month = seq.next(fcdate, False)
     this_month = fcdate + timedelta(hours=int(start))
-
-    assert MonthInYear(this_month.year, this_month.month).length() * 24 == (end - start)
-
-    mindex = (
-        (this_month.year - first_month.year) * 12
-        + this_month.month
-        - first_month.month
-        + 1
-    )
     return {
-        "forecastMonth": mindex,
+        "forecastMonth": steprange_to_fcmonth(fcdate, step_range),
         "verifyingMonth": f"{this_month.year:02d}{this_month.month:02d}",
         "step": end,
     }
@@ -39,7 +27,7 @@ def mstat_keys(fcdate: datetime, step_range: str) -> Dict[str, Any]:
 
 def postproc_iteration(
     param: AccumParamConfig,
-    target: Target,
+    cfg: MonthlyStatsConfig,
     recovery: Optional[Recovery],
     template: Union[str, eccodes.GRIBMessage],
     window_id: str,
@@ -67,27 +55,22 @@ def postproc_iteration(
         postprocess(
             ens,
             template,
-            target,
+            cfg.outputs.stats,
             vmin=param.vmin,
             vmax=param.vmax,
             out_paramid=param.out_paramid,
             out_keys=out_keys,
         )
-        target.flush()
+        cfg.outputs.stats.flush()
     if recovery is not None:
         recovery.add_checkpoint(param.name, window_id)
 
 
 def main(args: List[str] = sys.argv[1:]):
     sys.stdout.reconfigure(line_buffering=True)
-    parser = default_parser(description="Compute monthly statistics")
-    parser.add_argument("--in-ens", required=True, help="Input ensemble source")
-    parser.add_argument(
-        "--out-stats", dest="out_accum", required=True, help="Output target"
-    )
-    args = parser.parse_args(args)
-    config = AccumConfig(args)
-    accum_main(args, config, postproc_iteration)
+    cfg = Conflator(app_name="pproc-monthly-stats", model=MonthlyStatsConfig).load()
+    print(cfg)
+    accum_main(args, cfg, postproc_iteration)
 
 
 if __name__ == "__main__":

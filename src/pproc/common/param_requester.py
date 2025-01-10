@@ -52,8 +52,7 @@ def read_ensemble(
     numpy array (total, npoints)
         Read data
     """
-
-    readers = open_multi_dataset(source, **kwargs)
+    readers = open_multi_dataset(source.legacy_config(), source.location(), **kwargs)
     template = None
     data = None
     n_read = 0

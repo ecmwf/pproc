@@ -70,7 +70,7 @@ class Parameter:
         self.scale_data = int(param_cfg.get("scale", 1))
 
     def retrieve_data(
-        self, fdb, step: common.AnyStep, join_dim: str = "number", **kwargs
+        self, step: common.AnyStep, join_dim: str = "number", **kwargs
     ):
         combined_data = []
         for tp in self.base_request["type"].split("/"):
@@ -92,7 +92,7 @@ class Parameter:
                 )
             new_request.update(self.overrides)
             print("FDB request: ", new_request)
-            new_data = common.fdb_read(fdb, new_request, self.interpolation_keys)
+            new_data = common.fdb_read(common.io.fdb(), new_request, self.interpolation_keys)
 
             members = new_request.get("number", [0])
             if tp in ["cf", "fc"]:

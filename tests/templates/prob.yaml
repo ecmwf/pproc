@@ -9,6 +9,7 @@ global_output_keys:
 members: 5
 n_par_compute: 1
 n_par_read: 2
+queue_size: 1
 parameters:
   2t:
     base_request:
@@ -23,24 +24,16 @@ parameters:
     - end_step: 36
       interval: 12
       start_step: 12
-    accumulations:
-      - dim: step
-        type: legacywindow
-        windows:
-        - periods:
-          - range:
-            - 12
-            - 12
-          - range:
-            - 12
-            - 36
-          thresholds:
-          - comparison: <=
-            value: 273.15
-            source: ens
-            metadata:
-              localDecimalScaleFactor: 2
-              param: 131073
-          - ...
-            
-queue_size: 1
+    windows:
+    - periods:
+      - range:
+        - 12
+        - 12
+      - range:
+        - 12
+        - 36
+      thresholds:
+      - comparison: <=
+        localDecimalScaleFactor: 2
+        out_paramid: 131073
+        value: 273.15

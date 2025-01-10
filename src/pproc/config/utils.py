@@ -28,10 +28,10 @@ def _set(obj, attr, value):
         setattr(obj, attr, value)
 
 
-def deep_update(original: dict, update: Any) -> dict:
+def model_update(original: dict, update: Any) -> dict:
     for key, value in update.items():
         if isinstance(value, dict):
-            _set(original, key, deep_update(_get(original, key), value))
+            _set(original, key, model_update(_get(original, key), value))
         else:
             _set(original, key, value)
     return original
@@ -41,3 +41,12 @@ def validate_overrides(data: Any) -> Any:
     if isinstance(data, list):
         return parse_var_strs(data)
     return data
+
+
+def deep_update(original: dict, update: dict) -> dict:
+    for key, value in update.items():
+        if isinstance(value, dict) and isinstance(original.get(key, None), dict):
+            original[key] = deep_update(original[key], value)
+        else:
+            original[key] = value
+    return original

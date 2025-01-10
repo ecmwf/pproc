@@ -7,8 +7,7 @@ from typing import Any, Callable, Iterable, Iterator, List, Optional, Union
 import eccodes
 import mir
 
-from pproc.common.io import (FileTarget, NullTarget, fdb, fdb_retrieve,
-                             split_location)
+from pproc.common.io import FileTarget, NullTarget, fdb, fdb_retrieve, split_location
 from pproc.common.mars import mars_retrieve
 
 
@@ -133,7 +132,7 @@ class FilteredReader(eccodes.reader.ReaderBase):
 
 
 def _open_dataset_fileset(
-    reqs: Union[dict, Iterable[dict]], path_template: str, **kwargs: Any
+    reqs: Union[dict, Iterable[dict]], **kwargs: Any
 ) -> Iterator[eccodes.reader.ReaderBase]:
     if not isinstance(reqs, list):
         reqs = [reqs]
@@ -143,7 +142,8 @@ def _open_dataset_fileset(
         req.update(kwargs)
         if update_func is not None:
             update_func(req)
-        path = path_template.format(**req)
+        template = req.pop("location")
+        path = template.format(**req)
         print(f"File path: {path!r}")
         print(f"Request: {req!r}")
         yield FilteredReader(eccodes.FileReader(path), **req)
@@ -179,13 +179,17 @@ _DATASET_BACKENDS = {
 }
 
 
-def open_multi_dataset(source, **kwargs) -> Iterable[eccodes.reader.ReaderBase]:
+def open_multi_dataset(
+    config: dict, loc: str, **kwargs
+) -> Iterable[eccodes.reader.ReaderBase]:
     """Open a multi-part GRIB dataset
 
     Parameters
     ----------
-    source: SourceConfig
+    config: dict
         Sources configuration
+    loc: str
+        Location of the data (file path, named fdb request, ...)
     kwargs: any
         Exta arguments for backends that support them
 
@@ -194,6 +198,14 @@ def open_multi_dataset(source, **kwargs) -> Iterable[eccodes.reader.ReaderBase]:
     list[eccodes.reader.ReaderBase]
         GRIB readers
     """
+    type_, ident = split_location(loc, default="file")
+    if type_ == "file":
+        return [FilteredReader(eccodes.FileReader(ident), **kwargs)]
+    reqs = config.get(type_, {}).get(ident, None)
+    open_func = _DATASET_BACKENDS.get(type_, None)
+    if reqs is not None and open_func is not None:
+        return open_func(reqs, **kwargs)
+    raise ValueError(f"Unknown location {loc!r}")
     if source.type_ == "file":
         return [FilteredReader(eccodes.FileReader(source.path), **kwargs)]
     open_func = _DATASET_BACKENDS.get(source.type_, None)

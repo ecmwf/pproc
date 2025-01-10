@@ -21,7 +21,6 @@ from meters import ResourceMeter
 import mir
 
 from pproc import common
-from pproc.common import parallel
 from pproc.common.parallel import parallel_processing, sigterm_handler
 from pproc.common.window import parse_window_config
 
@@ -199,7 +198,7 @@ class ConfigExtreme(common.Config):
             location = getattr(args, attr)
             target = common.io.target_from_location(location, overrides=self.override_output)
             if self.n_par > 1:
-                target.enable_parallel(parallel)
+                target.enable_parallel()
             if args.recover:
                 target.enable_recovery()
             self.__setattr__(attr, target)
@@ -281,7 +280,7 @@ def main(args=None):
     args = parser.parse_args(args)
 
     cfg = ConfigExtreme(args)
-    recovery = common.Recovery(cfg.root_dir, args.config, cfg.date, args.recover)
+    recovery = common.Recovery(cfg.root_dir, cfg.options, args.recover)
 
     plan = []
     for levelist in cfg.levelist:

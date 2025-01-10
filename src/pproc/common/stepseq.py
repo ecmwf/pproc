@@ -5,6 +5,33 @@ from earthkit.time.calendar import MonthInYear
 from earthkit.time.sequence import MonthlySequence
 
 
+def steprange_to_fcmonth(fcdate: datetime, steprange: str) -> int:
+    start, end = map(int, steprange.split("-"))
+    seq = MonthlySequence(1)
+    first_month = seq.next(fcdate, False)
+    this_month = fcdate + datetime.timedelta(hours=int(start))
+
+    assert MonthInYear(this_month.year, this_month.month).length() * 24 == (end - start)
+
+    return (
+        (this_month.year - first_month.year) * 12
+        + this_month.month
+        - first_month.month
+        + 1
+    )
+
+
+def fcmonth_to_steprange(fcdate: datetime, fcmonth: int) -> str:
+    seq = MonthlySequence(1)
+    month = seq.next(fcdate, False)
+    for _ in range(1, fcmonth):
+        month = seq.next(month, True)
+    date = datetime.datetime(month.year, month.month, month.day)
+    start = (date - fcdate).total_seconds() // 3600
+    end = start + MonthInYear(date.year, date.month).length() * 24
+    return f"{int(start)}-{int(end)}"
+
+
 def stepseq_monthly(date: str, start: int, end: int, interval: int) -> Iterator:
     fcdate = datetime.datetime.strptime(str(date), "%Y%m%d")
     start_date = fcdate + datetime.timedelta(hours=start)
@@ -23,3 +50,10 @@ def stepseq_monthly(date: str, start: int, end: int, interval: int) -> Iterator:
         yield range(step_start, step_end + 1, interval)
         miny = miny.next()
         step_start = step_end
+
+
+def stepseq_ranges(
+    start: int, end: int, width: int, interval: int, by: int
+) -> Iterator:
+    for start in range(start, end - width + 1, interval):
+        yield range(start, start + width + 1, by)

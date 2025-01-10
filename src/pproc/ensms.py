@@ -21,18 +21,8 @@ from pproc import common
 from pproc.common.accumulation import Accumulator
 from pproc.common.parallel import create_executor, parallel_data_retrieval
 from pproc.common.param_requester import ParamConfig, ParamRequester
-from pproc.common.recovery import create_recovery, Recovery
-from pproc.config.base import BaseConfig, Parallelisation
-from pproc.config.io import create_output_model
-
-OutputModel = create_output_model(
-    "ensms", {"mean": {"type": "em"}, "std": {"type": "es"}}
-)
-
-
-class EnsmsConfig(BaseConfig):
-    parallelisation: Parallelisation = Parallelisation()
-    outputs: OutputModel = OutputModel()
+from pproc.common.recovery import create_recovery, BaseRecovery
+from pproc.config.types import EnsmsConfig
 
 
 def template_ensemble(
@@ -52,7 +42,7 @@ def template_ensemble(
 def ensms_iteration(
     config: EnsmsConfig,
     param: ParamConfig,
-    recovery: Recovery,
+    recovery: BaseRecovery,
     window_id: str,
     accum: Accumulator,
     template_ens=Union[str, eccodes.GRIBMessage],
@@ -89,22 +79,25 @@ def main(args=None):
 
     cfg = Conflator(app_name="pproc-ensms", model=EnsmsConfig).load()
     print(cfg)
-    recover = create_recovery(cfg.recovery)
+    recover = create_recovery(cfg)
 
     with create_executor(cfg.parallelisation) as executor:
         for param in cfg.parameters:
             window_manager = common.WindowManager(
                 param.accumulations,
-                **cfg.outputs.default.metadata,
-                **param.metadata,
+                {
+                    **cfg.outputs.default.metadata,
+                    **param.metadata,
+                }
             )
 
             checkpointed_windows = recover.computed(param.name)
-            if new_start := window_manager.delete_windows(checkpointed_windows):
-                print(f"Recovery: param {param.name} looping from step {new_start}")
-            else:
+            new_start = window_manager.delete_windows(checkpointed_windows)
+            if new_start is None:
                 print(f"Recovery: skipping completed param {param.name}")
                 continue
+
+            print(f"Recovery: param {param.name} starting from step {new_start}")
 
             requester = ParamRequester(
                 param,

@@ -8,7 +8,7 @@ from earthkit.time.sequence import Sequence
 from pproc.common.accumulation import Accumulator, Coord, coords_extent
 from pproc.common.utils import dict_product
 from pproc.common.window import legacy_window_factory
-from pproc.common.stepseq import stepseq_monthly
+from pproc.common.stepseq import stepseq_monthly, stepseq_ranges
 
 
 def _default_accumulation_factory(
@@ -96,6 +96,18 @@ def _stepseq_accumulation_factory(
     if seq_config["type"] == "monthly":
         new_config = _monthly_config(seq_config["date"], config)
         return _default_accumulation_factory(new_config, grib_keys)
+    if seq_config["type"] == "ranges":
+        new_config = config.copy()
+        new_config["coords"] = [
+            x
+            for x in stepseq_ranges(
+                int(config.get("from", 0)),
+                int(config["to"]),
+                int(config.get("width", 0)),
+                int(config.get("interval", 1)),
+                int(config.get("by", 1)),
+            )
+        ]
     raise ValueError(f"Unknown sequence type {seq_config!r}")
 
 

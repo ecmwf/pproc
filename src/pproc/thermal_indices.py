@@ -24,14 +24,15 @@ import earthkit.data
 import numpy as np
 import psutil
 import thermofeel as thermofeel
-from meters import ResourceMeter, metered
+from meters import metered
 
-from pproc.common import Config, WindowManager, default_parser, Recovery, parallel
-from pproc.common.io import target_from_location, NullTarget
+from pproc.common import Config, WindowManager, default_parser
+from pproc.common.io import target_from_location
 from pproc.common.parallel import (
     SynchronousExecutor,
     QueueingExecutor,
 )
+from pproc.common.recovery import Recovery
 from pproc.thermo import helpers
 from pproc.thermo.indices import ComputeIndices
 from pproc.thermo.wrappers import ArrayFieldList
@@ -155,7 +156,7 @@ class ThermoTarget:
     ):
         target = target_from_location(target_options["target"], overrides=overrides)
         if parallelise:
-            target.enable_parallel(parallel)
+            target.enable_parallel()
         if recover:
             target.enable_recovery()
         self.target = target
@@ -332,8 +333,7 @@ def main(args: List[str] = sys.argv[1:]):
     parser = get_parser()
     args = parser.parse_args(args)
     config = ThermoConfig(args)
-    recovery = Recovery(config.root_dir, args.config, config.date, args.recover)
-    last_checkpoint = recovery.last_checkpoint()
+    recovery = Recovery(config.root_dir, config.options, args.recover)
     executor = (
         SynchronousExecutor()
         if config.n_par_compute == 1
@@ -355,12 +355,11 @@ def main(args: List[str] = sys.argv[1:]):
     )
 
     window_manager = WindowManager(config.options, {})
-    if last_checkpoint is not None:
-        checkpointed_windows = [
-            recovery.checkpoint_identifiers(x)[0] for x in recovery.checkpoints
-        ]
-        new_start = window_manager.delete_windows(checkpointed_windows)
+    checkpointed_windows = recovery.computed()
+    if new_start := window_manager.delete_windows(checkpointed_windows):
+        assert new_start is not None
         logger.info(f"Recovery: looping from step {new_start}")
+
     thermo_partial = functools.partial(process_step, args, config, recovery=recovery)
     with executor:
         for step in window_manager.dims["step"]:
