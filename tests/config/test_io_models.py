@@ -179,7 +179,7 @@ def test_model_serialisation():
         io.EnsmsOutputModel,
         io.AccumOutputModel,
         io.MonthlyStatsOutputModel,
-        io.QuantilesOutputModel
+        io.QuantilesOutputModel,
     ]
     for model in output_models:
         pickle.dumps(model)
