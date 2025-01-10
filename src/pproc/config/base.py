@@ -49,18 +49,14 @@ class Recovery(ConfigModel):
         return self
 
 
-SourceModel = io.create_source_model("base", ["ens"])
-OutputModel = io.create_output_model("base", [])
-
-
 class BaseConfig(ConfigModel):
     log: LoggingConfig = LoggingConfig()
     members: int | Members
     total_fields: Annotated[int, Field(validate_default=True)] = 0
     parallelisation: int | Parallelisation = 1
     recovery: Recovery = Recovery()
-    sources: SourceModel
-    outputs: OutputModel = OutputModel()
+    sources: io.BaseSourceModel
+    outputs: io.BaseOutputModel = io.BaseOutputModel()
     parameters: list[ParamConfig]
     _init: bool = False
 

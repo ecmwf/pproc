@@ -1,4 +1,5 @@
 from unittest.mock import patch
+import pickle
 
 import pytest
 import yaml
@@ -169,3 +170,16 @@ def test_target_metadata(tmpdir, config, expected):
     with patch("sys.argv", ["", "-f", f"{tmpdir}/config.yaml"]):
         cfg = Conflator(app_name="metadata", model=targets_model).load()
         assert cfg.model_dump(by_alias=True) == expected
+
+
+def test_model_serialisation():
+    output_models = [
+        io.BaseSourceModel,
+        io.BaseOutputModel,
+        io.EnsmsOutputModel,
+        io.AccumOutputModel,
+        io.MonthlyStatsOutputModel,
+        io.QuantilesOutputModel
+    ]
+    for model in output_models:
+        pickle.dumps(model)

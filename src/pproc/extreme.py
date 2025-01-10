@@ -158,7 +158,7 @@ def efi_template_control(template):
 def sot_template(template, sot):
     template_sot = template.copy()
     template_sot["marsType"] = 38
-    
+
     if sot == 90:
         efi_order = 99
     elif sot == 10:
@@ -217,15 +217,15 @@ def efi_sot(
         efi = extreme.efi(clim, ens.values, efi_vars.eps)
         template_efi = efi_template(template_extreme)
         common.write_grib(cfg.out_efi, template_efi, efi)
+        cfg.out_efi.flush()
 
         sot = {}
         for perc in efi_vars.sot:
             sot[perc] = extreme.sot(clim, ens.values, perc, efi_vars.eps)
             template_sot = sot_template(template_extreme, perc)
             common.write_grib(cfg.out_sot, template_sot, sot[perc])
-
-        cfg.out_efi.flush()
         cfg.out_sot.flush()
+
         recovery.add_checkpoint(param.name, window_id)
 
 

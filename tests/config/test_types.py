@@ -1,6 +1,5 @@
 import os
 import pytest
-import copy
 
 from pproc.config.schema import Schema
 from pproc.config import types

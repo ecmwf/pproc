@@ -2,7 +2,7 @@ members: 5
 total_fields: 6
 parallelisation:
   n_par_compute: 1
-  n_par_read: 1
+  n_par_read: 2
   queue_size: 2
 quantiles: 3
 parameters:

@@ -1,26 +1,20 @@
 from typing import Optional, List
+import numpy as np
+
 
 from pproc.config.base import BaseConfig, Parallelisation
-from pproc.config.io import create_output_model
+from pproc.config import io
 from pproc.config.param import ParamConfig
-
-
-EnsmsOutputModel = create_output_model(
-    "ensms", {"mean": {"type": "em"}, "std": {"type": "es"}}
-)
 
 
 class EnsmsConfig(BaseConfig):
     parallelisation: Parallelisation = Parallelisation()
-    outputs: EnsmsOutputModel = EnsmsOutputModel()
-
-
-QuantilesOutputModel = create_output_model("quantiles", ["quantiles"])
+    outputs: io.EnsmsOutputModel = io.EnsmsOutputModel()
 
 
 class QuantilesConfig(BaseConfig):
     parallelisation: Parallelisation = Parallelisation()
-    outputs: QuantilesOutputModel = QuantilesOutputModel()
+    outputs: io.QuantilesOutputModel = io.QuantilesOutputModel()
     quantiles: int | List[float] = 100
 
 
@@ -29,22 +23,28 @@ class AccumParamConfig(ParamConfig):
     vmax: Optional[float] = None
 
 
-AccumOutputModel = create_output_model("accumulate", ["accum"])
-
-
 class AccumConfig(BaseConfig):
     parallelisation: Parallelisation = Parallelisation()
-    outputs: AccumOutputModel = AccumOutputModel()
+    outputs: io.AccumOutputModel = io.AccumOutputModel()
     parameters: list[AccumParamConfig]
-
-
-MonthlyStatsOutputModel = create_output_model("monthly-stats", ["stats"])
 
 
 class MonthlyStatsConfig(BaseConfig):
     parallelisation: Parallelisation = Parallelisation()
-    outputs: MonthlyStatsOutputModel = MonthlyStatsOutputModel()
+    outputs: io.MonthlyStatsOutputModel = io.MonthlyStatsOutputModel()
     parameters: list[AccumParamConfig]
+
+
+class HistParamConfig(ParamConfig):
+    bins: List[float]
+    mod: Optional[int] = None
+    normalise: bool = True
+    scale_out: Optional[float] = None
+
+
+class HistogramConfig(BaseConfig):
+    outputs: io.HistogramOutputModel = io.HistogramOutputModel()
+    parameters: list[HistParamConfig]
 
 
 class ConfigFactory:

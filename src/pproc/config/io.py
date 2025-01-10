@@ -132,9 +132,9 @@ class OutputsCollection(ConfigModel):
         return data
 
 
-def create_source_model(entrypoint: str, sources: list[str]):
+def create_source_model(name: str, sources: list[str], **kwargs):
     return create_model(
-        f"{entrypoint.capitalize()}Sources",
+        f"{name}SourceModel",
         names=(ClassVar[list[str]], sources),
         **{
             source: (
@@ -144,10 +144,13 @@ def create_source_model(entrypoint: str, sources: list[str]):
             for source in sources
         },
         __base__=SourceCollection,
+        **kwargs,
     )
 
 
-def create_output_model(entrypoint: str, outputs: Union[list[str], dict[str, dict]]):
+def create_output_model(
+    name: str, outputs: Union[list[str], dict[str, dict]], **kwargs
+):
     field_definitions = {
         output: (
             Output,
@@ -156,8 +159,21 @@ def create_output_model(entrypoint: str, outputs: Union[list[str], dict[str, dic
         for output in outputs
     }
     return create_model(
-        f"{entrypoint.capitalize()}Outputs",
+        f"{name}OutputModel",
         names=(ClassVar[Union[list[str], dict[str, dict]]], outputs),
         **field_definitions,
         __base__=OutputsCollection,
+        **kwargs,
     )
+
+
+BaseSourceModel = create_source_model("Base", ["ens"])
+BaseOutputModel = create_output_model("Base", [])
+EnsmsOutputModel = create_output_model(
+    "Ensms",
+    {"mean": {"type": "em"}, "std": {"type": "es"}},
+)
+QuantilesOutputModel = create_output_model("Quantiles", ["quantiles"])
+AccumOutputModel = create_output_model("Accum", ["accum"])
+MonthlyStatsOutputModel = create_output_model("MonthlyStats", ["stats"])
+HistogramOutputModel = create_output_model("Histogram", ["histogram"])

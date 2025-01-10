@@ -26,7 +26,6 @@ from pproc.config.types import EnsmsConfig
 
 
 def template_ensemble(
-    param_type: ParamConfig,
     template: eccodes.GRIBMessage,
     accum: Accumulator,
     out_keys: dict,
@@ -58,7 +57,7 @@ def ensms_iteration(
     with ResourceMeter(f"Window {window_id}: write mean output"):
         mean = np.mean(ens, axis=axes)
         out_mean = config.outputs.mean
-        template_mean = template_ensemble(param, template_ens, accum, out_mean.metadata)
+        template_mean = template_ensemble(template_ens, accum, out_mean.metadata)
         template_mean.set_array("values", common.io.nan_to_missing(template_mean, mean))
         out_mean.target.write(template_mean)
         out_mean.target.flush()
@@ -66,7 +65,7 @@ def ensms_iteration(
     with ResourceMeter(f"Window {window_id}: write std output"):
         std = np.std(ens, axis=axes)
         out_std = config.outputs.std
-        template_std = template_ensemble(param, template_ens, accum, out_std.metadata)
+        template_std = template_ensemble(template_ens, accum, out_std.metadata)
         template_std.set_array("values", common.io.nan_to_missing(template_std, std))
         out_mean.target.write(template_std)
         out_mean.target.flush()
@@ -88,7 +87,7 @@ def main(args=None):
                 {
                     **cfg.outputs.default.metadata,
                     **param.metadata,
-                }
+                },
             )
 
             checkpointed_windows = recover.computed(param.name)
