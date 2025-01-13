@@ -206,9 +206,3 @@ def open_multi_dataset(
     if reqs is not None and open_func is not None:
         return open_func(reqs, **kwargs)
     raise ValueError(f"Unknown location {loc!r}")
-    if source.type_ == "file":
-        return [FilteredReader(eccodes.FileReader(source.path), **kwargs)]
-    open_func = _DATASET_BACKENDS.get(source.type_, None)
-    if open_func is not None:
-        return open_func(source.request, path=source.path, **kwargs)
-    raise ValueError(f"Unknown location {source.type_!r}")
