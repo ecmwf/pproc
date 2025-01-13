@@ -145,11 +145,11 @@ class CombineParameters(Parameter):
             )
         return getattr(np, self.combine_operation)(data_list, axis=0)
 
-    def retrieve_data(self, fdb, step: common.AnyStep, **kwargs):
+    def retrieve_data(self, step: common.AnyStep, **kwargs):
         data_list = []
         for param_id in self.param_ids:
             self.base_request["param"] = param_id
-            msg_template, data = super().retrieve_data(fdb, step=step, **kwargs)
+            msg_template, data = super().retrieve_data(step=step, **kwargs)
             data_list.append(data)
 
         res = self.combine_data(data_list)
@@ -194,13 +194,13 @@ class FilterParameter(Parameter):
             param_cfg["input_filter_operation"].get("replacement", 0)
         )
 
-    def retrieve_data(self, fdb, step: common.AnyStep, **kwargs):
-        msg_template, data = super().retrieve_data(fdb, step=step, **kwargs)
+    def retrieve_data(self, step: common.AnyStep, **kwargs):
+        msg_template, data = super().retrieve_data(step=step, **kwargs)
 
         filter_data = data
         if self.filter_param != self.param_id:
             self.base_request["param"] = self.filter_param
-            _, filter_data = super().retrieve_data(fdb, step=step, **kwargs)
+            _, filter_data = super().retrieve_data(step=step, **kwargs)
             # Reset back to original
             self.base_request["param"] = self.param_id
 
