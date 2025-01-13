@@ -1,6 +1,7 @@
 import multiprocessing
 import os
 from typing import Any, Literal, Optional, Union
+from typing_extensions import Self
 
 import eccodes
 import pyfdb
@@ -77,15 +78,17 @@ class NullTarget(Target):
 class FileTarget(Target):
     type_: Literal["file"] = Field("file", alias="type")
     path: str
+    
     _mode: str = "wb"
     _lock: FileLock = None
     _track_truncated: list[str] = []
     _overwrite_existing: bool = False
 
     @model_validator(mode="after")
-    def create_lock(self) -> Any:
+    def create_lock(self) -> Self:
         if self._lock is None:
             self._lock = FileLock(self.path + ".lock", thread_local=False)
+        return self
 
     @property
     def mode(self):
