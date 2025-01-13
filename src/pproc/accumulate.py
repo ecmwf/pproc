@@ -29,22 +29,24 @@ def postproc_iteration(
         postprocess(
             ens,
             template,
-            cfg.outputs.accum,
+            cfg.outputs.accum.target,
             vmin=param.vmin,
             vmax=param.vmax,
-            out_paramid=param.out_paramid,
-            out_keys=accum.grib_keys(),
+            out_keys={
+                **accum.grib_keys(),
+                **cfg.outputs.accum.metadata,
+            },
         )
-        cfg.outputs.accum.flush()
+        cfg.outputs.accum.target.flush()
     if recovery is not None:
         recovery.add_checkpoint(param.name, window_id)
 
 
-def main(args: List[str] = sys.argv[1:]):
+def main(args=None):
     sys.stdout.reconfigure(line_buffering=True)
     cfg = Conflator(app_name="pproc-accumulate", model=AccumConfig).load()
     print(cfg)
-    accum_main(args, cfg, postproc_iteration)
+    accum_main(cfg, postproc_iteration)
 
 
 if __name__ == "__main__":

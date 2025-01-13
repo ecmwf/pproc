@@ -82,9 +82,10 @@ class FileTarget(Target):
     _track_truncated: list[str] = []
     _overwrite_existing: bool = False
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._lock = FileLock(self.path + ".lock", thread_local=False)
+    @model_validator(mode="after")
+    def create_lock(self) -> Any:
+        if self._lock is None:
+            self._lock = FileLock(self.path + ".lock", thread_local=False)
 
     @property
     def mode(self):

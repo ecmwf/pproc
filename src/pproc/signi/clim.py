@@ -1,32 +1,31 @@
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 
 import eccodes
 from meters import ResourceMeter
 
-from pproc.common.param_requester import ParamConfig, ParamRequester
+from pproc.common.param_requester import ParamRequester
 from pproc.common.accumulation import Accumulator
 from pproc.common.window_manager import WindowManager
 from pproc.common.parallel import parallel_data_retrieval
+from pproc.config.param import ParamConfig
+from pproc.config.io import SourceCollection
 
 
 def retrieve_clim(
     param: ParamConfig,
-    sources: dict,
-    loc: str,
+    sources: SourceCollection,
+    srcs: List[str],
     members: int = 1,
-    total: Optional[int] = None,
+    total: int = 1,
     **additional_dims,
 ) -> Tuple[Accumulator, eccodes.GRIBMessage]:
 
-    win_cfg = param.window_config([])
-    win_cfg.pop("windows", None)
-    win_cfg.pop("steps", None)
-    accums = win_cfg.setdefault("accumulations", {})
+    accums = param.accumulations.copy()
     for dim, value in additional_dims.items():
         accums[dim] = {"operation": "aggregation", "coords": [[value]]}
-    window_manager = WindowManager(win_cfg, param.out_keys())
+    window_manager = WindowManager(accums, param.metadata)
 
-    requester = ParamRequester(param, sources, loc, members, total)
+    requester = ParamRequester(param, sources, members, total, srcs)
     res_accum: Optional[Accumulator] = None
     res_template: Optional[eccodes.GRIBMessage] = None
     for keys, data in parallel_data_retrieval(1, window_manager.dims, [requester]):

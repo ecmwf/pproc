@@ -67,7 +67,11 @@ class BaseConfig(ConfigModel):
 
         for name in self.outputs.names:
             target = getattr(self.outputs, name).target
-            if self.parallelisation.n_par_compute > 1:
+            if (
+                isinstance(self.parallelisation, int)
+                and self.parallelisation > 1
+                or self.parallelisation.n_par_compute > 1
+            ):
                 target.enable_parallel()
             if self.recovery.from_checkpoint:
                 target.enable_recovery()

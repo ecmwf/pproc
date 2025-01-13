@@ -19,7 +19,9 @@ class ParamConfig(BaseModel):
     def dtype(self) -> type[Any]:
         return np.dtype(self.dtype_).type
 
-    def in_keys(self, name: str, base: Optional[Dict[str, Any]] = None, **kwargs):
+    def in_keys(
+        self, name: str, base: Optional[Dict[str, Any]] = None, **kwargs
+    ) -> dict:
         keys = base.copy() if base is not None else {}
         keys.update(self.sources.get(name, {}).get("request", {}))
         keys.update(kwargs)

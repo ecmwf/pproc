@@ -100,7 +100,7 @@ def quantiles_iteration(
             template,
             config.outputs.quantiles.target,
             n=config.quantiles,
-            out_keys=config.outputs.quantiles.metadata,
+            out_keys=accum.grib_keys(),
         )
         config.outputs.quantiles.target.flush()
     recovery.add_checkpoint(param.name, window_id)
@@ -117,7 +117,7 @@ def main(args=None):
             window_manager = WindowManager(
                 param.accumulations,
                 {
-                    **cfg.outputs.default.metadata,
+                    **cfg.outputs.quantiles.metadata,
                     **param.metadata,
                 }
             )

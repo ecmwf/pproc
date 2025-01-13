@@ -7,18 +7,10 @@ from pproc.common.dataset import open_multi_dataset
 from pproc.common.io import missing_to_nan
 from pproc.common.steps import AnyStep
 from pproc.config.base import Members
-from pproc.config.io import Source, SourceCollection
+from pproc.config.io import Source, SourceCollection, expand
 from pproc.config.param import ParamConfig
 
 IndexFunc = Callable[[eccodes.GRIBMessage], int]
-
-
-def expand(request: dict, dim: str):
-    coords = request.pop(dim, [])
-    if not isinstance(coords, list):
-        coords = [coords]
-    for coord in coords:
-        yield {**request, dim: coord}
 
 
 def read_ensemble(
@@ -129,10 +121,8 @@ class ParamRequester:
                 **self.sources.overrides,
             )
             for param_req in expand(in_keys, "param"):
-                requests = list(expand(param_req, "type"))
-                config = src_config.model_copy(update={"request": requests})
                 new_template, data = read_ensemble(
-                    config,
+                    src_config.model_copy(update={"request": param_req}),
                     self.total,
                     dtype=self.param.dtype,
                     update=self._set_number,

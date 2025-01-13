@@ -23,6 +23,15 @@ from pproc.config.targets import (
 )
 
 
+def expand(request: dict, dim: str):
+    coords = request.pop(dim, None)
+    if coords is None:
+        return [request]
+    if not isinstance(coords, list):
+        coords = [coords]
+    return [{**request, dim: coord} for coord in coords]
+
+
 class Source(ConfigModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -46,6 +55,7 @@ class Source(ConfigModel):
         cfg = {self.type_: {"req": self.request}}
         if self.type_ == "fileset":
             cfg[self.type_]["req"]["location"] = self.path
+        cfg[self.type_]["req"] = expand(cfg[self.type_]["req"], "type")
         return cfg
 
 
@@ -177,3 +187,9 @@ QuantilesOutputModel = create_output_model("Quantiles", ["quantiles"])
 AccumOutputModel = create_output_model("Accum", ["accum"])
 MonthlyStatsOutputModel = create_output_model("MonthlyStats", ["stats"])
 HistogramOutputModel = create_output_model("Histogram", ["histogram"])
+SignificanceSourceModel = create_source_model("Significance", ["fc", "clim", "clim_em"])
+SignificanceOutputModel = create_output_model("Significance", ["signi"])
+AnomalySourceModel = create_source_model("Anomaly", ["ens", "clim"])
+AnomalyOutputModel = create_output_model(
+    "Anomaly", {"ens": {"type": "fcmean"}, "ensm": {"type": "taem"}}
+)

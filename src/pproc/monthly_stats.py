@@ -1,6 +1,6 @@
 import sys
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 import eccodes
 from conflator import Conflator
@@ -36,13 +36,14 @@ def postproc_iteration(
     if not isinstance(template, eccodes.GRIBMessage):
         template = read_template(template)
 
-    interval = param._accumulations["step"]["steps"][0]["interval"]
+    interval = param.accumulations["step"]["steps"][0]["interval"]
     date = datetime.strptime(template.get("dataDate:str"), "%Y%m%d")
     accum_keys = accum.grib_keys()
     steprange = accum_keys.pop("stepRange")
     out_keys = {
         "localDefinitionNumber": 16,
         **accum_keys,
+        **cfg.outputs.stats.metadata,
         "stepType": "instant",
         "timeRangeIndicator": 10,
         "unitOfTimeRange": 1,
@@ -55,22 +56,20 @@ def postproc_iteration(
         postprocess(
             ens,
             template,
-            cfg.outputs.stats,
+            cfg.outputs.stats.target,
             vmin=param.vmin,
             vmax=param.vmax,
-            out_paramid=param.out_paramid,
             out_keys=out_keys,
         )
-        cfg.outputs.stats.flush()
-    if recovery is not None:
-        recovery.add_checkpoint(param.name, window_id)
+        cfg.outputs.stats.target.flush()
+    recovery.add_checkpoint(param.name, window_id)
 
 
-def main(args: List[str] = sys.argv[1:]):
+def main(args=None):
     sys.stdout.reconfigure(line_buffering=True)
     cfg = Conflator(app_name="pproc-monthly-stats", model=MonthlyStatsConfig).load()
     print(cfg)
-    accum_main(args, cfg, postproc_iteration)
+    accum_main(cfg, postproc_iteration)
 
 
 if __name__ == "__main__":

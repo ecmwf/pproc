@@ -1,5 +1,8 @@
-from typing import Optional, List
-import numpy as np
+from typing import Optional, List, Any, Annotated
+from typing_extensions import Self
+from pydantic import model_validator, Field
+
+from conflator import CLIArg
 
 
 from pproc.config.base import BaseConfig, Parallelisation
@@ -43,8 +46,72 @@ class HistParamConfig(ParamConfig):
 
 
 class HistogramConfig(BaseConfig):
+    parallelisation: Parallelisation = Parallelisation()
     outputs: io.HistogramOutputModel = io.HistogramOutputModel()
     parameters: list[HistParamConfig]
+
+
+class SigniParamConfig(ParamConfig):
+    clim_param: ParamConfig
+    clim_em_param: ParamConfig
+    epsilon: Optional[float] = None
+    epsilon_is_abs: bool = True
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_source(cls, data: Any) -> Any:
+        clim_options = data.copy()
+        if "clim" in data:
+            clim_options.update(clim_options.pop("clim"))
+        data["clim_param"] = ParamConfig(**clim_options)
+        clim_options = data.copy()
+        if "clim_em" in data:
+            clim_options.update(data.pop("clim_em"))
+        elif "clim" in data:
+            clim_options.update(data.pop("clim"))
+        data["clim_em_param"] = ParamConfig(**clim_options)
+        return data
+
+
+class SigniConfig(BaseConfig):
+    clim_num_members: int = 11
+    clim_total_fields: int = 0
+    parallelisation: Parallelisation = Parallelisation()
+    sources: io.SignificanceSourceModel
+    outputs: io.SignificanceOutputModel = io.SignificanceOutputModel()
+    parameters: list[SigniParamConfig]
+    use_clim_anomaly: Annotated[
+        bool,
+        CLIArg("--use-clim-anomaly", action="store_true", default=False),
+        Field(description="Use anomaly of climatology in significance computation"),
+    ] = False
+
+    @model_validator(mode="after")
+    def check_totalfields(self) -> Self:
+        super().check_totalfields()
+        if self.clim_total_fields == 0:
+            self.clim_total_fields = self.clim_num_members
+        return self
+
+
+class AnomalyParamConfig(ParamConfig):
+    clim_param: ParamConfig
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_source(cls, data: Any) -> Any:
+        clim_options = data.copy()
+        if "clim" in data:
+            clim_options.update(clim_options.pop("clim"))
+        data["clim_param"] = ParamConfig(**clim_options)
+        return data
+
+
+class AnomalyConfig(BaseConfig):
+    parallelisation: Parallelisation = Parallelisation()
+    sources: io.AnomalySourceModel
+    outputs: io.AnomalyOutputModel = io.AnomalyOutputModel()
+    parameters: list[AnomalyParamConfig]
 
 
 class ConfigFactory:

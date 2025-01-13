@@ -1,78 +1,30 @@
-import argparse
 import functools
 import sys
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Union
 
 import eccodes
 import numpy as np
 from meters import ResourceMeter
+from conflator import Conflator
 
-from pproc.common import parallel
 from pproc.common.accumulation import Accumulator
-from pproc.common.config import Config, default_parser
 from pproc.common.grib_helpers import construct_message
-from pproc.common.io import Target, nan_to_missing, read_template, target_from_location
+from pproc.common.io import nan_to_missing, read_template
 from pproc.common.parallel import (
-    QueueingExecutor,
-    SynchronousExecutor,
+    create_executor,
     parallel_data_retrieval,
 )
-from pproc.common.param_requester import ParamConfig, ParamRequester
-from pproc.common.recovery import Recovery
+from pproc.common.param_requester import ParamRequester
+from pproc.common.recovery import create_recovery, Recovery
 from pproc.common.window_manager import WindowManager
+from pproc.config.types import AnomalyConfig, AnomalyParamConfig
 from pproc.signi.clim import retrieve_clim
 
 
-def get_parser() -> argparse.ArgumentParser:
-    description = "Compute weekly anomalies"
-    parser = default_parser(description=description)
-    parser.add_argument("--in-ens", required=True, help="Input ensemble forecast")
-    parser.add_argument("--in-clim", required=True, help="Input climatology")
-    parser.add_argument("--out-anom", required=True, help="Output target")
-    return parser
-
-
-class AnomParamConfig(ParamConfig):
-    def __init__(self, name, options: Dict[str, Any], overrides: Dict[str, Any] = {}):
-        super().__init__(name, options, overrides)
-        clim_options = options.copy()
-        clim_options.update(options.pop("clim"))
-        self.clim_param = ParamConfig(f"clim_{name}", clim_options, overrides)
-
-
-class AnomConfig(Config):
-    def __init__(self, args: argparse.Namespace, verbose: bool = True):
-        super().__init__(args, verbose=verbose)
-
-        self.num_members = self.options.get("num_members", 51)
-        self.total_fields = self.options.get("total_fields", self.num_members)
-        self.out_keys = self.options.get("out_keys", {})
-        self.out_ens_keys = {"type": "fcmean", **self.options.get("out_ens_keys", {})}
-        self.out_ensm_keys = {"type": "taem", **self.options.get("out_ensm_keys", {})}
-
-        self.params = [
-            AnomParamConfig(pname, popt, overrides=self.override_input)
-            for pname, popt in self.options["parameters"].items()
-        ]
-
-        self.clim_loc: str = args.in_clim
-        self.sources = self.options.get("sources", {})
-
-        date = self.options.get("date")
-        self.date = None if date is None else datetime.strptime(str(date), "%Y%m%d%H")
-        self.root_dir = self.options.get("root_dir", None)
-
-        self.n_par_read = self.options.get("n_par_read", 1)
-        self.n_par_compute = self.options.get("n_par_compute", 1)
-        self.window_queue_size = self.options.get("queue_size", self.n_par_compute)
-
-
 def anomaly_iteration(
-    config: AnomConfig,
-    param: AnomParamConfig,
-    target: Target,
-    recovery: Optional[Recovery],
+    config: AnomalyConfig,
+    param: AnomalyParamConfig,
+    recovery: Recovery,
     template: Union[str, eccodes.GRIBMessage],
     window_id: str,
     accum: Accumulator,
@@ -93,7 +45,7 @@ def anomaly_iteration(
         clim_accum, _ = retrieve_clim(
             param.clim_param,
             config.sources,
-            config.clim_loc,
+            ["clim"],
             **additional_dims,
         )
         clim = clim_accum.values
@@ -109,14 +61,13 @@ def anomaly_iteration(
                 template,
                 {
                     **accum.grib_keys(),
-                    **config.out_ens_keys,
-                    "paramId": param.out_paramid,
+                    **config.outputs.ens.metadata,
                     "number": index,
                 },
             )
             anom = member - clim[0]
             message.set_array("values", nan_to_missing(message, anom))
-            target.write(message)
+            config.outputs.ens.target.write(message)
 
         # Anomaly for ensemble mean
         ensm_anom = np.mean(ens, axis=0) - clim[0]
@@ -124,76 +75,51 @@ def anomaly_iteration(
             template,
             {
                 **accum.grib_keys(),
-                **config.out_ensm_keys,
-                "paramId": param.out_paramid,
+                **config.outputs.ensm.metadata,
             },
         )
         message.set_array("values", nan_to_missing(message, ensm_anom))
-        target.write(message)
+        config.outputs.ensm.target.write(message)
 
-    target.flush()
-    if recovery is not None:
-        recovery.add_checkpoint(param.name, window_id)
+    config.outputs.ens.target.flush()
+    config.outputs.ensm.target.flush()
+    recovery.add_checkpoint(param.name, window_id)
 
 
-def main(args: List[str] = sys.argv[1:]):
+def main(args=None):
     sys.stdout.reconfigure(line_buffering=True)
-    parser = get_parser()
-    args = parser.parse_args()
-    config = AnomConfig(args)
-    if config.root_dir is None or config.date is None:
-        print("Recovery disabled. Set root_dir and date in config to enable.")
-        recovery = None
-        last_checkpoint = None
-    else:
-        recovery = Recovery(config.root_dir, args.config, config.date, args.recover)
-        last_checkpoint = recovery.last_checkpoint()
-    target = target_from_location(args.out_anom, overrides=config.override_output)
-    if config.n_par_compute > 1:
-        target.enable_parallel(parallel)
-    if recovery is not None and args.recover:
-        target.enable_recovery()
 
-    executor = (
-        SynchronousExecutor()
-        if config.n_par_compute == 1
-        else QueueingExecutor(config.n_par_compute, config.window_queue_size)
-    )
+    cfg = Conflator(app_name="pproc-anomaly", model=AnomalyConfig).load()
+    print(cfg)
+    recovery = create_recovery(cfg)
 
-    with executor:
-        for param in config.params:
+    with create_executor(cfg.parallelisation) as executor:
+        for param in cfg.parameters:
+            print(f"Processing {param.name}")
             window_manager = WindowManager(
-                param.window_config([]),
-                param.out_keys(config.out_keys),
+                param.accumulations,
+                {
+                    **cfg.outputs.default.metadata,
+                    **param.metadata,
+                },
             )
-            if last_checkpoint:
-                if param.name not in last_checkpoint:
-                    print(f"Recovery: skipping completed param {param.name}")
-                    continue
-                checkpointed_windows = [
-                    recovery.checkpoint_identifiers(x)[1]
-                    for x in recovery.checkpoints
-                    if param.name in x
-                ]
-                new_start = window_manager.delete_windows(checkpointed_windows)
-                print(f"Recovery: param {param.name} looping from step {new_start}")
-                last_checkpoint = None  # All remaining params have not been run
+            checkpointed_windows = recovery.computed(param.name)
+            new_start = window_manager.delete_windows(checkpointed_windows)
+            if new_start is None:
+                print(f"Recovery: skipping completed param {param.name}")
+                continue
+
+            print(f"Recovery: param {param.name} starting from step {new_start}")
 
             requester = ParamRequester(
-                param,
-                config.sources,
-                args.in_ens,
-                config.num_members,
-                config.total_fields,
+                param, cfg.sources, cfg.members, cfg.total_fields, ["ens"]
             )
-            anom_partial = functools.partial(
-                anomaly_iteration, config, param, target, recovery
-            )
+            anom_partial = functools.partial(anomaly_iteration, cfg, param, recovery)
             for keys, data in parallel_data_retrieval(
-                config.n_par_read,
+                cfg.parallelisation.n_par_read,
                 window_manager.dims,
                 [requester],
-                config.n_par_compute > 1,
+                cfg.parallelisation.n_par_compute > 1,
             ):
                 ids = ", ".join(f"{k}={v}" for k, v in keys.items())
                 template, ens = data[0]
@@ -204,8 +130,7 @@ def main(args: List[str] = sys.argv[1:]):
                     executor.submit(anom_partial, template, window_id, accum)
             executor.wait()
 
-    if recovery is not None:
-        recovery.clean_file()
+    recovery.clean_file()
 
 
 if __name__ == "__main__":
