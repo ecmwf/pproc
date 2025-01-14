@@ -133,7 +133,11 @@ class OutputsCollection(ConfigModel):
             subsec = data.get(sub, {})
             # Insert default metadata for each output type
             def_metadata = cls.names[sub] if isinstance(cls.names, dict) else {}
-            metadata = {**def_metadata, **utils._get(subsec, "metadata", {})}
+            metadata = {
+                **def_metadata,
+                **defaults.get("metadata", {}),
+                **utils._get(subsec, "metadata", {}),
+            }
             # Set target from default, if specified
             target = utils._get(subsec, "target", utils._get(defaults, "target", {}))
             if overrides:

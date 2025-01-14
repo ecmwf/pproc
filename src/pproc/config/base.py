@@ -143,9 +143,11 @@ class BaseConfig(ConfigModel):
             if isinstance(coords, list):
                 coords = [
                     [
-                        {"range": [x, x]}
-                        if isinstance(x, int)
-                        else {"range": [x["from"], x["to"], x["by"]]}
+                        (
+                            {"range": [x, x]}
+                            if isinstance(x, int)
+                            else {"range": [x["from"], x["to"], x["by"]]}
+                        )
                         for x in coords
                     ],
                 ]

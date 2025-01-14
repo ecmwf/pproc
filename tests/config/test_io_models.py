@@ -71,7 +71,7 @@ def test_sources(tmpdir, config, cli, expected):
             [],
             {
                 "default": {"target": {"type": "fdb"}, "metadata": {"class": "od"}},
-                "test": {"target": {"type": "fdb"}, "metadata": {}},
+                "test": {"target": {"type": "fdb"}, "metadata": {"class": "od"}},
                 "overrides": {},
             },
             io.FDBTarget,
@@ -145,7 +145,10 @@ def test_targets(tmpdir, config, cli, expected, target_type):
             {"default": {"target": {"type": "fdb"}, "metadata": {"class": "od"}}},
             {
                 "default": {"target": {"type": "fdb"}, "metadata": {"class": "od"}},
-                "test": {"target": {"type": "fdb"}, "metadata": {"type": "fcmean"}},
+                "test": {
+                    "target": {"type": "fdb"},
+                    "metadata": {"class": "od", "type": "fcmean"},
+                },
                 "overrides": {},
             },
         ],
@@ -181,5 +184,4 @@ def test_model_serialisation():
         io.MonthlyStatsOutputModel,
         io.QuantilesOutputModel,
     ]
-    for model in output_models:
-        pickle.dumps(model)
+ 

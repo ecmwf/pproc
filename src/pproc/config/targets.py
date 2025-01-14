@@ -78,7 +78,7 @@ class NullTarget(Target):
 class FileTarget(Target):
     type_: Literal["file"] = Field("file", alias="type")
     path: str
-    
+
     _mode: str = "wb"
     _lock: FileLock = None
     _track_truncated: list[str] = []
