@@ -7,15 +7,14 @@ import yaml
 from conflator import Conflator, ConfigModel
 
 from pproc.config.types import ConfigFactory
+from pproc.config.schema import Schema
 
 
 def from_outputs(args, overrides: dict):
     with open(args.outputs, "r") as f:
         output_requests = yaml.safe_load(f)
 
-    with open(args.schema, "r") as f:
-        schema = yaml.safe_load(f)
-
+    schema = Schema(args.schema)
     config = ConfigFactory.from_outputs(schema, output_requests, **overrides)
     config_dict = config.model_dump(exclude_none=True, by_alias=True)
     with open(args.out_config, "w") as f:
@@ -26,9 +25,7 @@ def from_inputs(args, overrides: dict):
     with open(args.inputs, "r") as f:
         input_requests = yaml.safe_load(f)
 
-    with open(args.schema, "r") as f:
-        schema = yaml.safe_load(f)
-
+    schema = Schema(args.schema)
     config = ConfigFactory.from_inputs(
         schema, args.entrypoint, input_requests, **overrides
     )
@@ -72,7 +69,7 @@ def main(args: List[str] = sys.argv[1:]):
         "--entrypoint",
         type=str,
         required=True,
-        choices=["pproc-accumulate", "pproc-ensms"],
+        choices=["pproc-accumulate", "pproc-ensms", "pproc-monthly-stats"],
         help="PProc entrypoint",
     )
     input_parser.add_argument(
@@ -96,7 +93,12 @@ def main(args: List[str] = sys.argv[1:]):
     overrides = conflator.load()
 
     args = parser.parse_args(args)
-    args.func(args, overrides)
+    args.func(
+        args,
+        overrides.model_dump(
+            exclude_unset=True, exclude_none=True, exclude_defaults=True, by_alias=True
+        ),
+    )
 
 
 if __name__ == "__main__":

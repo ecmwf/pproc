@@ -8,6 +8,7 @@ from conflator import CLIArg
 from pproc.config.base import BaseConfig, Parallelisation
 from pproc.config import io
 from pproc.config.param import ParamConfig
+from pproc.config.schema import Schema
 
 
 class EnsmsConfig(BaseConfig):
@@ -133,7 +134,7 @@ class ConfigFactory:
 
     @classmethod
     def from_outputs(
-        cls, schema: dict, output_requests: List[dict], **overrides
+        cls, schema: Schema, output_requests: List[dict], **overrides
     ) -> BaseConfig:
         entrypoint = None
         config = None
@@ -156,7 +157,7 @@ class ConfigFactory:
 
     @classmethod
     def from_inputs(
-        cls, schema: dict, entrypoint: str, input_requests: List[dict], **overrides
+        cls, schema: Schema, entrypoint: str, input_requests: List[dict], **overrides
     ) -> BaseConfig:
         config = None
         for req in input_requests:
