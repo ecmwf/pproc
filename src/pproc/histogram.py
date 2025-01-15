@@ -104,7 +104,7 @@ def iter_ensemble(
         with reader:
             message = reader.peek()
             if message is None:
-                raise EOFError(f"No data in {loc!r}")
+                raise EOFError(f"No data in {source!r}")
             for message in reader:
                 data = missing_to_nan(message)
                 yield message, data.astype(dtype)
