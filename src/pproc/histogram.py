@@ -124,7 +124,7 @@ class HistParamRequester(ParamRequester):
         assert isinstance(self.param, HistParamConfig)
         source: Source = self.sources.ens
         metadata = self.param.in_keys(
-            "ens",
+            "fc",
             source.request,
             step=str(step),
             **kwargs,

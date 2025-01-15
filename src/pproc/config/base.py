@@ -172,7 +172,7 @@ class BaseConfig(ConfigModel):
             "outputs": {"default": {"target": {"type": "fdb"}}},
             "parameters": {
                 str(request["param"]): {
-                    "sources": {"default": {"request": request}},
+                    "sources": {"fc": {"request": request}},
                     "metadata": schema_config.pop("metadata", {}),
                     **schema_config,
                 }

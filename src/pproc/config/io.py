@@ -181,7 +181,7 @@ def create_output_model(
     )
 
 
-BaseSourceModel = create_source_model("Base", ["ens"])
+BaseSourceModel = create_source_model("Base", ["fc"])
 BaseOutputModel = create_output_model("Base", [])
 EnsmsOutputModel = create_output_model(
     "Ensms",
@@ -193,7 +193,7 @@ MonthlyStatsOutputModel = create_output_model("MonthlyStats", ["stats"])
 HistogramOutputModel = create_output_model("Histogram", ["histogram"])
 SignificanceSourceModel = create_source_model("Significance", ["fc", "clim", "clim_em"])
 SignificanceOutputModel = create_output_model("Significance", ["signi"])
-AnomalySourceModel = create_source_model("Anomaly", ["ens", "clim"])
+AnomalySourceModel = create_source_model("Anomaly", ["fc", "clim"])
 AnomalyOutputModel = create_output_model(
     "Anomaly", {"ens": {"type": "fcmean"}, "ensm": {"type": "taem"}}
 )
