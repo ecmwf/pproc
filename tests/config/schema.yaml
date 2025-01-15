@@ -3,9 +3,18 @@ defs:
     intgrid: "none"
     legendre-loader: "shmem"
     matrix-loader: "file-io"
+  monthly_ostreams: &mstreams msmm/swmm
 
 filter:stream:
-  "enfo/waef":
+  oper: 
+    defs:
+      GRID: O1280
+      STEP_START: 0
+      STEP_END: 360
+      STEP_BY: 6
+    request:
+      stream: "{stream}"
+  enfo/waef:
     members: 50
     total_fields: 51
     defs: 
@@ -29,7 +38,7 @@ filter:stream:
       STEP_BY: 6
       UNPERTURBED: "cf"
       WIDTH: 6
-      INTERVAL: 6ß
+      INTERVAL: 6
     request: 
       stream: "{stream}"
       type: ["{UNPERTURBED}", "pf"]
@@ -131,7 +140,7 @@ filter:type:
               interval: 24 
               width: 168
               by: "{STEP_BY}"
-      msmm/swmm:
+      *mstreams:
         entrypoint: pproc-monthly-stats
         accumulations:
           step:
