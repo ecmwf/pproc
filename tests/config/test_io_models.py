@@ -16,31 +16,31 @@ from pproc.config import io
                 "default": {"type": "fdb", "request": {"class": "od"}},
             },
             [],
-            {"ens": {"type": "fdb", "request": {"class": "od"}}},
+            {"fc": {"type": "fdb", "request": {"class": "od"}}},
         ],
         [
             {
                 "default": {"type": "fdb", "request": {"class": "od"}},
-                "ens": {"request": {"class": "ai", "type": ["cf", "pf"]}},
+                "fc": {"request": {"class": "ai", "type": ["cf", "pf"]}},
             },
             [],
             {
-                "ens": {
+                "fc": {
                     "type": "fdb",
                     "request": {"class": "ai", "type": ["cf", "pf"]},
                 }
             },
         ],
         [
-            {"ens": {"request": {"class": "ai", "type": ["cf", "pf"]}}},
-            ["--set", "ens=temp.grib"],
-            {"ens": {"type": "fileset", "path": "temp.grib"}},
+            {"fc": {"request": {"class": "ai", "type": ["cf", "pf"]}}},
+            ["--set", "fc=temp.grib"],
+            {"fc": {"type": "fileset", "path": "temp.grib"}},
         ],
         [
-            {"ens": {"request": {"class": "ai", "type": ["cf", "pf"]}}},
-            ["--set", "ens=temp.grib", "--override-input", "class=od"],
+            {"fc": {"request": {"class": "ai", "type": ["cf", "pf"]}}},
+            ["--set", "fc=temp.grib", "--override-input", "class=od"],
             {
-                "ens": {"type": "fileset", "path": "temp.grib"},
+                "fc": {"type": "fileset", "path": "temp.grib"},
                 "overrides": {"class": "od"},
             },
         ],
@@ -55,7 +55,7 @@ from pproc.config import io
 def test_sources(tmpdir, config, cli, expected):
     with open(f"{tmpdir}/config.yaml", "w") as file:
         file.write(yaml.dump(config))
-    source_model = io.create_source_model("test", ["ens"])
+    source_model = io.create_source_model("test", ["fc"])
     with patch("sys.argv", ["", "-f", f"{tmpdir}/config.yaml"] + cli):
         cfg = Conflator(app_name="sources", model=source_model).load()
         assert cfg.model_dump(by_alias=True, exclude_defaults=True) == expected

@@ -23,14 +23,14 @@ def default_config(param: str):
     return {
         "members": 50,
         "total_fields": 51,
-        "sources": {"ens": {"type": "fdb"}},
+        "sources": {"fc": {"type": "fdb"}},
         "outputs": {
             "default": {"target": {"type": "fdb"}},
         },
         "parameters": {
             param: {
                 "sources": {
-                    "default": {
+                    "fc": {
                         "request": {
                             "class": "od",
                             "stream": "enfo",
@@ -132,7 +132,7 @@ TEST_CASES = {
                 "228.128": {
                     "vmin": 0.0,
                     "sources": {
-                        "default": {
+                        "fc": {
                             "request": {
                                 "levtype": "sfc",
                                 "param": "228.128",
