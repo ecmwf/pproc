@@ -184,4 +184,5 @@ def test_model_serialisation():
         io.MonthlyStatsOutputModel,
         io.QuantilesOutputModel,
     ]
- 
+    for model in output_models:
+        pickle.dumps(model)
