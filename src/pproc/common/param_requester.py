@@ -135,8 +135,10 @@ class ParamRequester:
 
         assert template is not None, "No data fetched"
 
-        _, data_list = self.param.preprocessing.apply(metadata, data_list)
+        new_metadata, data_list = self.param.preprocessing.apply(metadata, data_list)
         assert len(data_list) == 1, "More than one output of preprocessing"
+        metadata_set = {k: v for k, v in new_metadata[0].items() if v != metadata[0][k]}
+        template.set(metadata_set)
         return (template, data_list[0])
 
     @property
