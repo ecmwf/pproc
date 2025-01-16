@@ -7,7 +7,7 @@ parallelisation:
 parameters:
   2t:
     sources: 
-      ens:
+      fc:
         request:
           param: '167.128'
     accumulations:
