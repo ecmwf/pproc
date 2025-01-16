@@ -122,7 +122,7 @@ class HistParamRequester(ParamRequester):
         self, step: AnyStep, **kwargs
     ) -> Tuple[eccodes.GRIBMessage, np.ndarray]:
         assert isinstance(self.param, HistParamConfig)
-        source: Source = self.sources.ens
+        source: Source = self.sources.fc
         metadata = self.param.in_keys(
             "fc",
             source.request,
