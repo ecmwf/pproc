@@ -28,7 +28,7 @@ class Scaling(Preprocessing):
     #   - operation: scale
     #     value: 3600
     operation: Literal["scale"] = "scale"
-    value: float
+    value: Union[float, int]
 
     def apply(
         self, metadata: List[dict], data: List[np.ndarray]
