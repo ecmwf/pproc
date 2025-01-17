@@ -44,7 +44,7 @@ def main(args: List[str] = sys.argv[1:]):
     parser.add_argument(
         "--overrides",
         type=str,
-        required=True,
+        required=False,
         help="Path to configuration template for overriding default configuration",
     )
 
@@ -97,8 +97,10 @@ def main(args: List[str] = sys.argv[1:]):
 
     args = parser.parse_args(args)
 
-    with open(args.overrides, "r") as f:
-        overrides = yaml.safe_load(f)
+    overrides = {}
+    if args.overrides:
+        with open(args.overrides, "r") as f:
+            overrides = yaml.safe_load(f)
 
     args.func(
         args,
