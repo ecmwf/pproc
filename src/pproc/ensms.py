@@ -77,7 +77,7 @@ def main(args=None):
     sys.stdout.reconfigure(line_buffering=True)
 
     cfg = Conflator(app_name="pproc-ensms", model=EnsmsConfig).load()
-    print(cfg)
+    cfg.print()
     recover = create_recovery(cfg)
 
     with create_executor(cfg.parallelisation) as executor:

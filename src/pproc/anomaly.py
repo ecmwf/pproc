@@ -90,7 +90,7 @@ def main(args=None):
     sys.stdout.reconfigure(line_buffering=True)
 
     cfg = Conflator(app_name="pproc-anomaly", model=AnomalyConfig).load()
-    print(cfg)
+    cfg.print()
     recovery = create_recovery(cfg)
 
     with create_executor(cfg.parallelisation) as executor:

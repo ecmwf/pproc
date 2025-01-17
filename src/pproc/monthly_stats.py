@@ -68,7 +68,7 @@ def postproc_iteration(
 def main(args=None):
     sys.stdout.reconfigure(line_buffering=True)
     cfg = Conflator(app_name="pproc-monthly-stats", model=MonthlyStatsConfig).load()
-    print(cfg)
+    cfg.print()
     accum_main(cfg, postproc_iteration)
 
 

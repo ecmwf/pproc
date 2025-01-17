@@ -1,5 +1,6 @@
 import os
 from typing import Any
+import yaml
 
 from annotated_types import Annotated
 from conflator import CLIArg, ConfigModel
@@ -59,6 +60,9 @@ class BaseConfig(ConfigModel):
     outputs: io.BaseOutputModel = io.BaseOutputModel()
     parameters: list[ParamConfig]
     _init: bool = False
+
+    def print(self):
+        print(yaml.dump(self.model_dump(by_alias=True)))
 
     @model_validator(mode="after")
     def _init_targets(self) -> Self:
