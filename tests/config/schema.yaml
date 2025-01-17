@@ -159,7 +159,9 @@ filter:type:
       146.128/147.128/169.128/175.128/176.128/177.128/178.128/179.128/180.128/181.128:
         defs:
           STEP_BY: 24
-        scale: 0.00001157407
+        preprocessing:
+          - operation: scale
+            value: 0.00001157407
         request:
           param: "{param}"
         accumulations:
@@ -171,7 +173,9 @@ filter:type:
           STEP_BY: 24
         vmin: 0.
         vmax: 1.
-        scale: 0.00001157407
+        preprocessing:
+          - operation: scale
+            value: 0.00001157407
         request:
           param: "{param}"
         accumulations:
@@ -192,7 +196,9 @@ filter:type:
         defs:
           STEP_BY: 24
         vmin: 0.
-        scale: 0.00001157407
+        preprocessing:
+          - operation: scale
+            value: 0.00001157407
         request:
           param: "{param}"
         accumulations:
@@ -264,7 +270,9 @@ filter:type:
       146.128/147.128/169.128/175.128/176.128/177.128/178.128/179.128/180.128/181.128:
         defs:
           STEP_BY: 24
-        scale: 0.00001157407
+        preprocessing:
+          - operation: scale
+            value: 0.00001157407
         request:
           param: "{param}"
         accumulations:
@@ -276,7 +284,9 @@ filter:type:
           STEP_BY: 24
         vmin: 0.
         vmax: 1.
-        scale: 0.00001157407
+        preprocessing:
+          - operation: scale
+            value: 0.00001157407
         request:
           param: "{param}"
         accumulations:
@@ -297,7 +307,9 @@ filter:type:
         defs:
           STEP_BY: 24
         vmin: 0.
-        scale: 0.00001157407
+        preprocessing:
+          - operation: scale
+            value: 0.00001157407
         request:
           param: "{param}"
         accumulations:
@@ -369,7 +381,9 @@ filter:type:
       146.128/147.128/169.128/175.128/176.128/177.128/178.128/179.128/180.128/181.128:
         defs:
           STEP_BY: 24
-        scale: 0.00001157407
+        preprocessing:
+          - operation: scale
+            value: 0.00001157407
         request:
           param: "{param}"
         accumulations:
@@ -381,7 +395,9 @@ filter:type:
           STEP_BY: 24
         vmin: 0.
         vmax: 1.
-        scale: 0.00001157407
+        preprocessing:
+          - operation: scale
+            value: 0.00001157407
         request:
           param: "{param}"
         accumulations:
@@ -399,10 +415,14 @@ filter:type:
         request:
           param: "{param}"
       142.128/143.128/144.128/228.128:
+        from_inputs:
+          exclude: True
         defs:
           STEP_BY: 24
         vmin: 0.
-        scale: 0.00001157407
+        preprocessing:
+          - operation: scale
+            value: 0.00001157407
         request:
           param: "{param}"
         accumulations:
@@ -474,7 +494,9 @@ filter:type:
       146.128/147.128/169.128/175.128/176.128/177.128/178.128/179.128/180.128/181.128:
         defs:
           STEP_BY: 24
-        scale: 0.00001157407
+        preprocessing:
+          - operation: scale
+            value: 0.00001157407
         request:
           param: "{param}"
         accumulations:
@@ -486,7 +508,9 @@ filter:type:
           STEP_BY: 24
         vmin: 0.
         vmax: 1.
-        scale: 0.00001157407
+        preprocessing:
+          - operation: scale
+            value: 0.00001157407
         request:
           param: "{param}"
         accumulations:
@@ -507,7 +531,9 @@ filter:type:
         defs:
           STEP_BY: 24
         vmin: 0.
-        scale: 0.00001157407
+        preprocessing:
+          - operation: scale
+            value: 0.00001157407
         request:
           param: "{param}"
         accumulations:

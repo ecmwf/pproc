@@ -77,6 +77,36 @@ TEST_CASES = {
                                         ],
                                     ],
                                 },
+                                {
+                                    "window_operation": "standard_deviation",
+                                    "grib_set": {"type": "fcstdev"},
+                                    "periods": [
+                                        [
+                                            {"range": ["0", "168", "6"]},
+                                            {"range": ["24", "192", "6"]},
+                                        ],
+                                    ],
+                                },
+                                {
+                                    "window_operation": "minimum",
+                                    "grib_set": {"type": "fcmin"},
+                                    "periods": [
+                                        [
+                                            {"range": ["0", "168", "6"]},
+                                            {"range": ["24", "192", "6"]},
+                                        ],
+                                    ],
+                                },
+                                {
+                                    "window_operation": "maximum",
+                                    "grib_set": {"type": "fcmax"},
+                                    "periods": [
+                                        [
+                                            {"range": ["0", "168", "6"]},
+                                            {"range": ["24", "192", "6"]},
+                                        ],
+                                    ],
+                                },
                             ],
                         },
                     }
@@ -130,6 +160,12 @@ TEST_CASES = {
             "total_fields": 51,
             "parameters": {
                 "228.128": {
+                    "preprocessing": [
+                        {
+                            "operation": "scale",
+                            "value": 0.00001157407,
+                        }
+                    ],
                     "vmin": 0.0,
                     "sources": {
                         "fc": {
@@ -157,7 +193,33 @@ TEST_CASES = {
                                             {"range": ["1464", "2208", "24"]},
                                         ],
                                     ],
-                                }
+                                },
+                                {
+                                    "window_operation": "standard_deviation",
+                                    "grib_set": {"type": "fcstdev"},
+                                    "include_start_step": True,
+                                    "deaccumulate": True,
+                                    "periods": [
+                                        [
+                                            {"range": ["0", "744", "24"]},
+                                            {"range": ["744", "1464", "24"]},
+                                            {"range": ["1464", "2208", "24"]},
+                                        ],
+                                    ],
+                                },
+                                {
+                                    "window_operation": "maximum",
+                                    "grib_set": {"type": "fcmax"},
+                                    "include_start_step": True,
+                                    "deaccumulate": True,
+                                    "periods": [
+                                        [
+                                            {"range": ["0", "744", "24"]},
+                                            {"range": ["744", "1464", "24"]},
+                                            {"range": ["1464", "2208", "24"]},
+                                        ],
+                                    ],
+                                },
                             ],
                         }
                     },
@@ -197,6 +259,36 @@ TEST_CASES = {
                                         ],
                                     ],
                                 },
+                                {
+                                    "window_operation": "standard_deviation",
+                                    "grib_set": {"type": "fcstdev"},
+                                    "periods": [
+                                        [
+                                            {"range": ["0", "168", "6"]},
+                                            {"range": ["24", "192", "6"]},
+                                        ],
+                                    ],
+                                },
+                                {
+                                    "window_operation": "minimum",
+                                    "grib_set": {"type": "fcmin"},
+                                    "periods": [
+                                        [
+                                            {"range": ["0", "168", "6"]},
+                                            {"range": ["24", "192", "6"]},
+                                        ],
+                                    ],
+                                },
+                                {
+                                    "window_operation": "maximum",
+                                    "grib_set": {"type": "fcmax"},
+                                    "periods": [
+                                        [
+                                            {"range": ["0", "168", "6"]},
+                                            {"range": ["24", "192", "6"]},
+                                        ],
+                                    ],
+                                },
                             ],
                         },
                     }
@@ -214,7 +306,7 @@ TEST_CASES = {
             **DEFAULT_REQUEST,
             "levelist": [250, 500],
             "step": ["0-168", "24-192"],
-            "type": "fcmean",
+            "type": ["fcmean", "fcstdev", "fcmin", "fcmax"],
         },
         {
             **DEFAULT_REQUEST,
@@ -227,14 +319,14 @@ TEST_CASES = {
             "levtype": "sfc",
             "param": "228.128",
             "stream": "msmm",
-            "type": "fcmean",
+            "type": ["fcmean", "fcstdev", "fcmax"],
             "forecastMonth": [1, 2, 3],
         },
         {
             **DEFAULT_REQUEST,
             "levelist": [250, 500],
             "step": ["0-168", "24-192"],
-            "type": "fcmean",
+            "type": ["fcmean", "fcstdev", "fcmin", "fcmax"],
         },
     ],
     ids=TEST_CASES.keys(),
@@ -243,7 +335,13 @@ def test_factory_from_outputs(request, output_request):
     schema = Schema(os.path.join(TEST_DIR, "schema.yaml"))
 
     overrides, cfg_type, expected = TEST_CASES[request.node.callspec.id]
-    config = types.ConfigFactory.from_outputs(schema, [output_request], **overrides)
+    output_types = output_request.get("type")
+    requests = (
+        [output_request]
+        if not isinstance(output_types, list)
+        else [{**output_request, "type": t} for t in output_types]
+    )
+    config = types.ConfigFactory.from_outputs(schema, requests, **overrides)
     assert type(config) == cfg_type
     check = default_config(output_request["param"])
     deep_update(check, expected)
@@ -329,9 +427,11 @@ def test_factory_from_inputs(request, entrypoint, input_request, periods):
     schema = Schema(os.path.join(TEST_DIR, "schema.yaml"))
 
     overrides, cfg_type, expected = TEST_CASES[request.node.callspec.id]
-    expected["parameters"][input_request["param"]]["accumulations"]["step"]["windows"][
-        0
-    ]["periods"] = periods
+    windows = expected["parameters"][input_request["param"]]["accumulations"]["step"][
+        "windows"
+    ]
+    for window in windows:
+        window["periods"] = periods
     config = types.ConfigFactory.from_inputs(
         schema, entrypoint, [input_request], **overrides
     )

@@ -89,7 +89,12 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
                 "members": 50,
                 "total_fields": 51,
                 "vmin": 0.0,
-                "scale": 0.00001157407,
+                "preprocessing": [
+                    {
+                        "operation": "scale",
+                        "value": 0.00001157407,
+                    }
+                ],
                 "request": {
                     "class": "od",
                     "stream": "enfo",
@@ -112,7 +117,7 @@ def test_schema_from_output(req, config):
 
 
 @pytest.mark.parametrize(
-    "entrypoint, req, expected",
+    "entrypoint, req, num_expected, expected",
     [
         [
             "pproc-accumulate",
@@ -128,6 +133,7 @@ def test_schema_from_output(req, config):
                 "step": [0, 6, 12, 18, 24],
                 "type": ["cf", "pf"],
             },
+            4,
             {
                 "entrypoint": "pproc-accumulate",
                 "request": {
@@ -175,6 +181,7 @@ def test_schema_from_output(req, config):
                 "number": list(range(1, 21)),
                 "type": "fc",
             },
+            3,
             {
                 "entrypoint": "pproc-monthly-stats",
                 "accumulations": {
@@ -195,7 +202,12 @@ def test_schema_from_output(req, config):
                 },
                 "members": {"start": 1, "end": 20},
                 "vmin": 0.0,
-                "scale": 0.00001157407,
+                "preprocessing": [
+                    {
+                        "operation": "scale",
+                        "value": 0.00001157407,
+                    }
+                ],
                 "request": {
                     "class": "od",
                     "stream": "mmsf",
@@ -212,8 +224,8 @@ def test_schema_from_output(req, config):
     ],
     ids=["2t", "tp"],
 )
-def test_schema_from_input(entrypoint, req, expected):
+def test_schema_from_input(entrypoint, req, num_expected, expected):
     schema = Schema(os.path.join(TEST_DIR, "schema.yaml"))
     configs = list(schema.config_from_input(entrypoint, req))
-    assert len(configs) == 1
+    assert len(configs) == num_expected
     assert configs[0] == expected

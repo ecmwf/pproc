@@ -61,6 +61,7 @@ class Schema:
             self._config_from_output(self.schema, output_request), overrides
         )
         defs = config.pop("defs")
+        config.pop("from_inputs", None)
         out = yaml.load(
             yaml.dump(config).format_map({**defs, **output_request}),
             Loader=yaml.SafeLoader,
@@ -136,6 +137,8 @@ class Schema:
         req = copy.deepcopy(input_request)
         overrides = self.overrides_from_input(req)
         for config in self._config_from_input(self.schema, entrypoint, req):
+            if config.pop("from_inputs", {}).get("exclude", False):
+                continue
             deep_update(config, overrides)
             replace = {
                 **config.pop("defs"),
