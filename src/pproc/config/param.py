@@ -31,11 +31,11 @@ class ParamConfig(BaseModel):
         """
         Merge two parameter configurations different on different legacy window step accumulations
         """
-        current = self.model_dump()
+        current = self.model_dump(by_alias=True)
         current_windows = (
             current.get("accumulations", {}).get("step", {}).pop("windows", None)
         )
-        other = other.model_dump()
+        other = other.model_dump(by_alias=True)
         other_windows = (
             other.get("accumulations", {}).get("step", {}).pop("windows", None)
         )
