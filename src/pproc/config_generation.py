@@ -4,7 +4,6 @@ from typing import List
 
 import yaml
 
-from conflator import Conflator, ConfigModel
 
 from pproc.config.types import ConfigFactory
 from pproc.config.schema import Schema
@@ -41,6 +40,12 @@ def main(args: List[str] = sys.argv[1:]):
         type=str,
         required=True,
         help="Path to output configuration file",
+    )
+    parser.add_argument(
+        "--overrides",
+        type=str,
+        required=True,
+        help="Path to configuration template for overriding default configuration",
     )
 
     subparsers = parser.add_subparsers(required=True)
@@ -89,15 +94,15 @@ def main(args: List[str] = sys.argv[1:]):
         help="Path to products schema",
     )
     input_parser.set_defaults(func=from_inputs)
-    conflator = Conflator(app_name="pproc-config", model=ConfigModel, argparser=parser)
-    overrides = conflator.load()
 
     args = parser.parse_args(args)
+
+    with open(args.overrides, "r") as f:
+        overrides = yaml.safe_load(f)
+
     args.func(
         args,
-        overrides.model_dump(
-            exclude_unset=True, exclude_none=True, exclude_defaults=True, by_alias=True
-        ),
+        overrides,
     )
 
 
