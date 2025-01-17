@@ -71,19 +71,19 @@ filter:param:
   "207.128":
     request:
       param: [165, 166]
+      interpolate:
+        <<: *interp_keys
+        grid: "{GRID}"
     preprocessing:
       - operation: norm
-    interpolation_keys:
-      <<: *interp_keys
-      grid: "{GRID}"
   "249.228":
     request:
       param: [228246, 228247]
+      interpolate:
+        <<: *interp_keys
+        grid: "{GRID}"
     preprocessing: 
       - operation: norm
-    interpolation_keys:
-      <<: *interp_keys
-      grid: "{GRID}"   
 filter:type:
   em/es:
     entrypoint: pproc-ensms
@@ -112,17 +112,6 @@ filter:type:
         metadata:
           stepType: diff
           paramId: 200228 
-      "10.128":
-        entrypoint: pproc-wind
-        request:
-          param: [138, 155] 
-        interpolation_keys:
-          <<: *interp_keys
-          grid: "{GRID}"
-        vod2uv: true
-        metadata:
-          indicatorOfParameter: 10
-          gribTablesVersionNo: 128
   fcmean:
     filter:stream:
       "*": 
