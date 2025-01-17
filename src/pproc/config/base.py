@@ -95,6 +95,12 @@ class BaseConfig(ConfigModel):
             data = [{"name": name, **param} for name, param in data.items()]
         return data
 
+    def param(self, name: str) -> ParamConfig | None:
+        for param in self.parameters:
+            if param.name == name:
+                return param
+        return None
+
     def merge(self, other: Self) -> Self:
         """
         Merge two configs, where all elements except for parameters must be the same.
@@ -105,29 +111,28 @@ class BaseConfig(ConfigModel):
 
         current = self.model_dump(by_alias=True)
         current_params = {
-            current["name"]: current for current in current.pop("parameters")
+            cparam["name"]: cparam for cparam in current.pop("parameters")
         }
-        other = other.model_dump(by_alias=True)
-        other_params = {other["name"]: other for other in other.pop("parameters")}
+        other_model = other.model_dump(by_alias=True)
+        other_params = {
+            oparam["name"]: oparam for oparam in other_model.pop("parameters")
+        }
 
-        if current != other:
+        if current != other_model:
             raise ValueError(
-                f"Configs must be the same except for parameters: {current} vs {other}"
+                f"Configs must be the same except for parameters: {current} vs {other_model}"
             )
 
         merged_params = []
         for name in list(current_params.keys()) + [
             x for x in other_params.keys() if x not in current_params
         ]:
-            current_param = current_params.get(name, {})
-            other_param = other_params.get(name, {})
+            current_param = self.param(name)
+            other_param = other.param(name)
             if current_param and other_param:
-                merged_params.append(
-                    ParamConfig(**current_param).merge(ParamConfig(**other_param))
-                )
+                merged_params.append(current_param.merge(other_param))
             else:
-                merged_params.append(ParamConfig(**current_param, **other_param))
-
+                merged_params.append(current_param or other_param)
         return type(self)(**current, parameters=merged_params)
 
     @classmethod

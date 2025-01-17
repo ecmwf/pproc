@@ -54,7 +54,7 @@ class Combination(Preprocessing):
         elif self.operation == "sum":
             res = np.sum(data, axis=0)
         else:
-            assert self.operation in ["direction", "norm"]
+            assert self.operation in ["direction", "norm", "sum"]
 
         new_metadata = self._update_metadata(metadata[0])
         return [new_metadata], [res]
