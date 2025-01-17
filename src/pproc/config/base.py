@@ -151,14 +151,12 @@ class BaseConfig(ConfigModel):
             coords = window_config.pop("coords")
             if isinstance(coords, list):
                 coords = [
-                    [
-                        (
-                            {"range": [x, x]}
-                            if isinstance(x, int)
-                            else {"range": [x["from"], x["to"], x["by"]]}
-                        )
-                        for x in coords
-                    ],
+                    (
+                        {"range": [int(x["from"]), int(x["to"]), int(x["by"])]}
+                        if isinstance(x, dict)
+                        else {"range": [int(x), (x)]}
+                    )
+                    for x in coords
                 ]
             schema_config["accumulations"]["step"] = {
                 "type": window_config.pop("type"),

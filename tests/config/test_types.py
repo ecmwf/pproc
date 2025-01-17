@@ -71,40 +71,32 @@ TEST_CASES = {
                                     "window_operation": "mean",
                                     "grib_set": {"type": "fcmean"},
                                     "periods": [
-                                        [
-                                            {"range": ["0", "168", "6"]},
-                                            {"range": ["24", "192", "6"]},
-                                        ],
+                                        {"range": [0, 168, 6]},
+                                        {"range": [24, 192, 6]},
                                     ],
                                 },
                                 {
                                     "window_operation": "standard_deviation",
                                     "grib_set": {"type": "fcstdev"},
                                     "periods": [
-                                        [
-                                            {"range": ["0", "168", "6"]},
-                                            {"range": ["24", "192", "6"]},
-                                        ],
+                                        {"range": [0, 168, 6]},
+                                        {"range": [24, 192, 6]},
                                     ],
                                 },
                                 {
                                     "window_operation": "minimum",
                                     "grib_set": {"type": "fcmin"},
                                     "periods": [
-                                        [
-                                            {"range": ["0", "168", "6"]},
-                                            {"range": ["24", "192", "6"]},
-                                        ],
+                                        {"range": [0, 168, 6]},
+                                        {"range": [24, 192, 6]},
                                     ],
                                 },
                                 {
                                     "window_operation": "maximum",
                                     "grib_set": {"type": "fcmax"},
                                     "periods": [
-                                        [
-                                            {"range": ["0", "168", "6"]},
-                                            {"range": ["24", "192", "6"]},
-                                        ],
+                                        {"range": [0, 168, 6]},
+                                        {"range": [24, 192, 6]},
                                     ],
                                 },
                             ],
@@ -136,10 +128,8 @@ TEST_CASES = {
                                     "window_operation": "none",
                                     "grib_set": {},
                                     "periods": [
-                                        [
-                                            {"range": ["0", "168", "6"]},
-                                            {"range": ["24", "192", "6"]},
-                                        ],
+                                        {"range": [0, 168, 6]},
+                                        {"range": [24, 192, 6]},
                                     ],
                                 }
                             ],
@@ -187,11 +177,9 @@ TEST_CASES = {
                                     "include_start_step": True,
                                     "deaccumulate": True,
                                     "periods": [
-                                        [
-                                            {"range": ["0", "744", "24"]},
-                                            {"range": ["744", "1464", "24"]},
-                                            {"range": ["1464", "2208", "24"]},
-                                        ],
+                                        {"range": [0, 744, 24]},
+                                        {"range": [744, 1464, 24]},
+                                        {"range": [1464, 2208, 24]},
                                     ],
                                 },
                                 {
@@ -200,11 +188,9 @@ TEST_CASES = {
                                     "include_start_step": True,
                                     "deaccumulate": True,
                                     "periods": [
-                                        [
-                                            {"range": ["0", "744", "24"]},
-                                            {"range": ["744", "1464", "24"]},
-                                            {"range": ["1464", "2208", "24"]},
-                                        ],
+                                        {"range": [0, 744, 24]},
+                                        {"range": [744, 1464, 24]},
+                                        {"range": [1464, 2208, 24]},
                                     ],
                                 },
                                 {
@@ -213,11 +199,9 @@ TEST_CASES = {
                                     "include_start_step": True,
                                     "deaccumulate": True,
                                     "periods": [
-                                        [
-                                            {"range": ["0", "744", "24"]},
-                                            {"range": ["744", "1464", "24"]},
-                                            {"range": ["1464", "2208", "24"]},
-                                        ],
+                                        {"range": [0, 744, 24]},
+                                        {"range": [744, 1464, 24]},
+                                        {"range": [1464, 2208, 24]},
                                     ],
                                 },
                             ],
@@ -253,40 +237,32 @@ TEST_CASES = {
                                     "window_operation": "mean",
                                     "grib_set": {"type": "fcmean"},
                                     "periods": [
-                                        [
-                                            {"range": ["0", "168", "6"]},
-                                            {"range": ["24", "192", "6"]},
-                                        ],
+                                        {"range": [0, 168, 6]},
+                                        {"range": [24, 192, 6]},
                                     ],
                                 },
                                 {
                                     "window_operation": "standard_deviation",
                                     "grib_set": {"type": "fcstdev"},
                                     "periods": [
-                                        [
-                                            {"range": ["0", "168", "6"]},
-                                            {"range": ["24", "192", "6"]},
-                                        ],
+                                        {"range": [0, 168, 6]},
+                                        {"range": [24, 192, 6]},
                                     ],
                                 },
                                 {
                                     "window_operation": "minimum",
                                     "grib_set": {"type": "fcmin"},
                                     "periods": [
-                                        [
-                                            {"range": ["0", "168", "6"]},
-                                            {"range": ["24", "192", "6"]},
-                                        ],
+                                        {"range": [0, 168, 6]},
+                                        {"range": [24, 192, 6]},
                                     ],
                                 },
                                 {
                                     "window_operation": "maximum",
                                     "grib_set": {"type": "fcmax"},
                                     "periods": [
-                                        [
-                                            {"range": ["0", "168", "6"]},
-                                            {"range": ["24", "192", "6"]},
-                                        ],
+                                        {"range": [0, 168, 6]},
+                                        {"range": [24, 192, 6]},
                                     ],
                                 },
                             ],
