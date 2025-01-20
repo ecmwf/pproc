@@ -54,6 +54,8 @@ filter:stream:
     request:
       stream: mmsf
       type: "fc"
+    metadata: 
+      stream: "{stream}"
   swmm:
     members:
       start: 0
@@ -66,6 +68,8 @@ filter:stream:
     request:
       stream: wasf
       type: "fc"
+    metadata: 
+      stream: "{stream}"
 filter:param:
   "*": {}
   "207.128":
@@ -76,6 +80,8 @@ filter:param:
         grid: "{GRID}"
     preprocessing:
       - operation: norm
+    metadata: 
+      paramId: 207
   "249.228":
     request:
       param: [228246, 228247]
@@ -83,7 +89,9 @@ filter:param:
         <<: *interp_keys
         grid: "{GRID}"
     preprocessing: 
-      - operation: norm  
+      - operation: norm 
+    metadata: 
+      paramId: 228249
   "228.172":
     defs:
       STEP_BY: 24
@@ -97,6 +105,8 @@ filter:param:
       step:
         include_start_step: True
         deaccumulate: True
+    metadata: 
+      paramId: 172228 
 filter:type:
   em/es:
     entrypoint: pproc-ensms

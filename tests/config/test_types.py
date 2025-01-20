@@ -167,6 +167,10 @@ TEST_CASES = {
                             }
                         }
                     },
+                    "metadata": {
+                        "paramId": 172228,
+                        "stream": "msmm",
+                    },
                     "accumulations": {
                         "step": {
                             "type": "legacywindow",

@@ -117,9 +117,9 @@ def test_fileset_target(tmpdir):
     for msg in eccodes.FileReader(f"{DATA_DIR}/2t_ens.grib"):
         target.write(msg)
     files = os.listdir(tmpdir)
-    assert [x for x in files if x.endswith(".grib")] == [
+    assert set(x for x in files if x.endswith(".grib")) == set(
         f"test_{x}.grib" for x in range(12, 37, 6)
-    ]
+    )
     data = [msg for msg in eccodes.FileReader(f"{tmpdir}/test_12.grib")]
     assert len(data) == 6
 

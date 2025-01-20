@@ -106,6 +106,9 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
                     "time": "00",
                     "type": ["cf", "pf"],
                 },
+                "metadata": {
+                    "paramId": 172228,
+                },
             },
         ],
     ],
@@ -218,6 +221,10 @@ def test_schema_from_output(req, config):
                     "date": "20241001",
                     "time": "00",
                     "type": "fc",
+                },
+                "metadata": {
+                    "paramId": 172228,
+                    "stream": "msmm",
                 },
             },
         ],
