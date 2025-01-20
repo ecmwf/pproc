@@ -154,7 +154,7 @@ class BaseConfig(ConfigModel):
                     (
                         {"range": [int(x["from"]), int(x["to"]), int(x["by"])]}
                         if isinstance(x, dict)
-                        else {"range": [int(x), (x)]}
+                        else {"range": [int(x[0]), int(x[0])]}
                     )
                     for x in coords
                 ]
