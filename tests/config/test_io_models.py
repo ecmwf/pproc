@@ -32,6 +32,19 @@ from pproc.config import io
             },
         ],
         [
+            {
+                "default": {"type": "fdb"},
+                "fc": {"request": {"interpolate": {"grid": "O640"}}},
+            },
+            [],
+            {
+                "fc": {
+                    "type": "fdb",
+                    "request": {"interpolate": {"grid": "O640"}},
+                }
+            },
+        ],
+        [
             {"fc": {"request": {"class": "ai", "type": ["cf", "pf"]}}},
             ["--set", "fc=temp.grib"],
             {"fc": {"type": "fileset", "path": "temp.grib"}},
@@ -48,6 +61,7 @@ from pproc.config import io
     ids=[
         "config-defaults-only",
         "config-overrides",
+        "config-interpolation",
         "with-input-file",
         "with-cli-overrides",
     ],

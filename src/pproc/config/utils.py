@@ -30,7 +30,8 @@ def _set(obj, attr, value):
 
 def model_update(original: dict, update: Any) -> dict:
     for key, value in update.items():
-        if isinstance(value, dict):
+        default = object()
+        if isinstance(value, dict) and _get(original, key, default) != default:
             _set(original, key, model_update(_get(original, key), value))
         else:
             _set(original, key, value)
