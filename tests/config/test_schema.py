@@ -62,7 +62,7 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
                 "expver": "0001",
                 "levtype": "sfc",
                 "domain": "g",
-                "param": "228.128",
+                "param": "228.172",
                 "date": "20241001",
                 "time": "00",
                 "step": "12-744",

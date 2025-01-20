@@ -276,38 +276,50 @@ TEST_CASES = {
 
 
 @pytest.mark.parametrize(
-    "output_request",
+    "output_request, input_param",
     [
-        {
-            **DEFAULT_REQUEST,
-            "levelist": [250, 500],
-            "step": ["0-168", "24-192"],
-            "type": ["fcmean", "fcstdev", "fcmin", "fcmax"],
-        },
-        {
-            **DEFAULT_REQUEST,
-            "levelist": [250, 500],
-            "step": ["0-168", "24-192"],
-            "type": "em",
-        },
-        {
-            **DEFAULT_REQUEST,
-            "levtype": "sfc",
-            "param": "228.128",
-            "stream": "msmm",
-            "type": ["fcmean", "fcstdev", "fcmax"],
-            "forecastMonth": [1, 2, 3],
-        },
-        {
-            **DEFAULT_REQUEST,
-            "levelist": [250, 500],
-            "step": ["0-168", "24-192"],
-            "type": ["fcmean", "fcstdev", "fcmin", "fcmax"],
-        },
+        [
+            {
+                **DEFAULT_REQUEST,
+                "levelist": [250, 500],
+                "step": ["0-168", "24-192"],
+                "type": ["fcmean", "fcstdev", "fcmin", "fcmax"],
+            },
+            "130",
+        ],
+        [
+            {
+                **DEFAULT_REQUEST,
+                "levelist": [250, 500],
+                "step": ["0-168", "24-192"],
+                "type": "em",
+            },
+            "130",
+        ],
+        [
+            {
+                **DEFAULT_REQUEST,
+                "levtype": "sfc",
+                "param": "228.172",
+                "stream": "msmm",
+                "type": ["fcmean", "fcstdev", "fcmax"],
+                "forecastMonth": [1, 2, 3],
+            },
+            "228.128",
+        ],
+        [
+            {
+                **DEFAULT_REQUEST,
+                "levelist": [250, 500],
+                "step": ["0-168", "24-192"],
+                "type": ["fcmean", "fcstdev", "fcmin", "fcmax"],
+            },
+            "130",
+        ],
     ],
     ids=TEST_CASES.keys(),
 )
-def test_factory_from_outputs(request, output_request):
+def test_factory_from_outputs(request, output_request, input_param):
     schema = Schema(os.path.join(TEST_DIR, "schema.yaml"))
 
     overrides, cfg_type, expected = TEST_CASES[request.node.callspec.id]
@@ -319,7 +331,7 @@ def test_factory_from_outputs(request, output_request):
     )
     config = types.ConfigFactory.from_outputs(schema, requests, **overrides)
     assert type(config) == cfg_type
-    check = default_config(output_request["param"])
+    check = default_config(input_param)
     deep_update(check, expected)
     assert config.model_dump(exclude_defaults=True, by_alias=True) == cfg_type(
         **check

@@ -83,7 +83,215 @@ filter:param:
         <<: *interp_keys
         grid: "{GRID}"
     preprocessing: 
-      - operation: norm
+      - operation: norm  
+  "142.172":
+    defs:
+      STEP_BY: 24
+    vmin: 0.
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "142.128"
+    accumulations:
+      step:
+        include_start_step: True
+        deaccumulate: True
+  "143.172":
+    defs:
+      STEP_BY: 24
+    vmin: 0.
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "143.172"
+    accumulations:
+      step:
+        include_start_step: True
+        deaccumulate: True
+  "144.172":
+    defs:
+      STEP_BY: 24
+    vmin: 0.
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "144.172"
+    accumulations:
+      step:
+        include_start_step: True
+        deaccumulate: True
+  "146.172":
+    defs:
+      STEP_BY: 24
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "146.128"
+    accumulations:
+      step:
+        include_start_step: True
+        deaccumulate: True
+  "147.172":
+    defs:
+      STEP_BY: 24
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "147.128"
+    accumulations:
+      step:
+        include_start_step: True
+        deaccumulate: True
+  "169.172":
+    defs:
+      STEP_BY: 24
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "169.128"
+    accumulations:
+      step:
+        include_start_step: True
+        deaccumulate: True
+  "175.172": 
+    defs:
+      STEP_BY: 24
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "175.128"
+    accumulations:
+      step:
+        include_start_step: True
+        deaccumulate: True
+  "176.172":
+    defs:
+      STEP_BY: 24
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "176.128"
+    accumulations:
+      step:
+        include_start_step: True
+        deaccumulate: True
+  "177.172":
+    defs:
+      STEP_BY: 24
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "177.128"
+    accumulations:
+      step:
+        include_start_step: True
+        deaccumulate: True
+  "178.172":
+    defs:
+      STEP_BY: 24
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "178.128"
+    accumulations:
+      step:
+        include_start_step: True
+        deaccumulate: True
+  "179.172":
+    defs:
+      STEP_BY: 24
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "179.128"
+    accumulations:
+      step:
+        include_start_step: True
+        deaccumulate: True
+  "180.172":
+    defs:
+      STEP_BY: 24
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "180.128"
+    accumulations:
+      step:
+        include_start_step: True
+        deaccumulate: True
+  "181.172":
+    defs:
+      STEP_BY: 24
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "181.128"
+    accumulations:
+      step:
+        include_start_step: True
+        deaccumulate: True
+  "182.172":
+    defs:
+      STEP_BY: 24
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "182.128"
+    accumulations:
+      step:
+        include_start_step: True
+        deaccumulate: True
+  "189.172":
+    defs:
+      STEP_BY: 24
+    vmin: 0.
+    vmax: 1.
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "189.128"
+    accumulations:
+      step:
+        include_start_step: True
+        deaccumulate: True
+  "228.172":
+    defs:
+      STEP_BY: 24
+    vmin: 0.
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "228.128"
+    accumulations:
+      step:
+        include_start_step: True
+        deaccumulate: True
+  "202.128":
+    request:
+      param: "122.128"
+    metadata:
+      indicatorOfParameter: 202
+  "201.128":
+    request:
+      param: "121.128"
+    metadata:
+      indicatorOfParameter: 201
 filter:type:
   em/es:
     entrypoint: pproc-ensms
@@ -100,6 +308,11 @@ filter:type:
           interval: "{INTERVAL}"
     filter:param:
       "*": {}
+      "129.128/130.128": 
+        request:
+          interpolate:
+            <<: *interp_keys
+            grid: "{GRID}"
       "200228":
         request:
           param: "228.128"
@@ -145,58 +358,14 @@ filter:type:
               by: "{STEP_BY}"
     filter:param:
       "*": {}
-      146.128/147.128/169.128/175.128/176.128/177.128/178.128/179.128/180.128/181.128:
-        defs:
-          STEP_BY: 24
-        preprocessing:
-          - operation: scale
-            value: 0.00001157407
-        request:
-          param: "{param}"
-        accumulations:
-          step:
-            include_start_step: True
-            deaccumulate: True
-      "189.128":
-        defs:
-          STEP_BY: 24
-        vmin: 0.
-        vmax: 1.
-        preprocessing:
-          - operation: scale
-            value: 0.00001157407
-        request:
-          param: "{param}"
-        accumulations:
-          step:
-            include_start_step: True
-            deaccumulate: True
-      "229.140/231.140/232.140/233.140": # wave params
+      40.128/41.128/42.128/170.128/229.140/231.140/232.140/233.140/245.140:
         defs:
           STEP_BY: 24
         request:
           param: "{param}"
-      "245.140": # wind
+      130.128/129.128/138.128/155.128/131.128/132.128/133.128/1.128/2.128/60.128/3.128:
         defs:
-          STEP_BY: 24
-        request:
-          param: "{param}"
-      142.128/143.128/144.128/228.128:
-        defs:
-          STEP_BY: 24
-        vmin: 0.
-        preprocessing:
-          - operation: scale
-            value: 0.00001157407
-        request:
-          param: "{param}"
-        accumulations:
-          step:
-            include_start_step: True
-            deaccumulate: True
-      40.128/41.128/42.128/170.128:
-        defs:
-          STEP_BY: 24
+          STEP_BY: 12
         request:
           param: "{param}"
       "235117":
@@ -208,21 +377,6 @@ filter:type:
           parameterNumber: 6
           typeOfFirstFixedSurface: 17
           typeOfStatisticalProcessing: 0
-      "202":
-        request:
-          param: "122.128"
-        metadata:
-          indicatorOfParameter: 202
-      "201":
-        request:
-          param: "121.128"
-        metadata:
-          indicatorOfParameter: 201
-      "130.128/129.128/138.128/155.128/131.128/132.128/133.128/1.128/2.128/60.128/3.128":
-        defs:
-          STEP_BY: 24
-        request:
-          param: "{param}"
   fcstdev:
     filter:stream:
       "*": 
@@ -256,61 +410,17 @@ filter:type:
               by: "{STEP_BY}"
     filter:param:
       "*": {}
-      146.128/147.128/169.128/175.128/176.128/177.128/178.128/179.128/180.128/181.128:
-        defs:
-          STEP_BY: 24
-        preprocessing:
-          - operation: scale
-            value: 0.00001157407
-        request:
-          param: "{param}"
-        accumulations:
-          step:
-            include_start_step: True
-            deaccumulate: True
-      "189.128":
-        defs:
-          STEP_BY: 24
-        vmin: 0.
-        vmax: 1.
-        preprocessing:
-          - operation: scale
-            value: 0.00001157407
-        request:
-          param: "{param}"
-        accumulations:
-          step:
-            include_start_step: True
-            deaccumulate: True
-      "229.140/231.140/232.140/233.140": # wave params
+      40.128/41.128/42.128/170.128/229.140/231.140/232.140/233.140/245.140:
         defs:
           STEP_BY: 24
         request:
           param: "{param}"
-      "245.140": # wind
+      130.128/129.128/138.128/155.128/131.128/132.128/133.128/1.128/2.128/60.128/3.128:
         defs:
-          STEP_BY: 24
+          STEP_BY: 12
         request:
           param: "{param}"
-      142.128/143.128/144.128/228.128:
-        defs:
-          STEP_BY: 24
-        vmin: 0.
-        preprocessing:
-          - operation: scale
-            value: 0.00001157407
-        request:
-          param: "{param}"
-        accumulations:
-          step:
-            include_start_step: True
-            deaccumulate: True
-      40.128/41.128/42.128/170.128:
-        defs:
-          STEP_BY: 24
-        request:
-          param: "{param}"
-      "235117":
+      "239117":
         request:
           param: "59.128"
         metadata:
@@ -318,22 +428,7 @@ filter:type:
           parameterCategory: 7
           parameterNumber: 6
           typeOfFirstFixedSurface: 17
-          typeOfStatisticalProcessing: 0
-      "202":
-        request:
-          param: "122.128"
-        metadata:
-          indicatorOfParameter: 202
-      "201":
-        request:
-          param: "121.128"
-        metadata:
-          indicatorOfParameter: 201
-      "130.128/129.128/138.128/155.128/131.128/132.128/133.128/1.128/2.128/60.128/3.128":
-        defs:
-          STEP_BY: 24
-        request:
-          param: "{param}"
+          typeOfStatisticalProcessing: 6
   fcmin:
     filter:stream:
       "*": 
@@ -367,63 +462,37 @@ filter:type:
               by: "{STEP_BY}"
     filter:param:
       "*": {}
-      146.128/147.128/169.128/175.128/176.128/177.128/178.128/179.128/180.128/181.128:
-        defs:
-          STEP_BY: 24
-        preprocessing:
-          - operation: scale
-            value: 0.00001157407
+      "142.172":
         request:
-          param: "{param}"
-        accumulations:
-          step:
-            include_start_step: True
-            deaccumulate: True
-      "189.128":
-        defs:
-          STEP_BY: 24
-        vmin: 0.
-        vmax: 1.
-        preprocessing:
-          - operation: scale
-            value: 0.00001157407
-        request:
-          param: "{param}"
-        accumulations:
-          step:
-            include_start_step: True
-            deaccumulate: True
-      "229.140/231.140/232.140/233.140": # wave params
-        defs:
-          STEP_BY: 24
-        request:
-          param: "{param}"
-      "245.140": # wind
-        defs:
-          STEP_BY: 24
-        request:
-          param: "{param}"
-      142.128/143.128/144.128/228.128:
+          param: "142.128"
         from_inputs:
           exclude: True
+      "143.172":
+        request:
+          param: "143.128"
+        from_inputs:
+          exclude: True
+      "144.172":
+        request:
+          param: "144.128"
+        from_inputs:
+          exclude: True
+      "228.172":
+        request:
+          param: "228.128"
+        from_inputs:
+          exclude: True
+      40.128/41.128/42.128/170.128/229.140/231.140/232.140/233.140/245.140:
         defs:
           STEP_BY: 24
-        vmin: 0.
-        preprocessing:
-          - operation: scale
-            value: 0.00001157407
         request:
           param: "{param}"
-        accumulations:
-          step:
-            include_start_step: True
-            deaccumulate: True
-      40.128/41.128/42.128/170.128:
+      130.128/129.128/138.128/155.128/131.128/132.128/133.128/1.128/2.128/60.128/3.128:
         defs:
-          STEP_BY: 24
+          STEP_BY: 12
         request:
           param: "{param}"
-      "235117":
+      "238117":
         request:
           param: "59.128"
         metadata:
@@ -431,22 +500,7 @@ filter:type:
           parameterCategory: 7
           parameterNumber: 6
           typeOfFirstFixedSurface: 17
-          typeOfStatisticalProcessing: 0
-      "202":
-        request:
-          param: "122.128"
-        metadata:
-          indicatorOfParameter: 202
-      "201":
-        request:
-          param: "121.128"
-        metadata:
-          indicatorOfParameter: 201
-      "130.128/129.128/138.128/155.128/131.128/132.128/133.128/1.128/2.128/60.128/3.128":
-        defs:
-          STEP_BY: 24
-        request:
-          param: "{param}"
+          typeOfStatisticalProcessing: 3
   fcmax:
     filter:stream:
       "*": 
@@ -480,61 +534,17 @@ filter:type:
               by: "{STEP_BY}"
     filter:param:
       "*": {}
-      146.128/147.128/169.128/175.128/176.128/177.128/178.128/179.128/180.128/181.128:
-        defs:
-          STEP_BY: 24
-        preprocessing:
-          - operation: scale
-            value: 0.00001157407
-        request:
-          param: "{param}"
-        accumulations:
-          step:
-            include_start_step: True
-            deaccumulate: True
-      "189.128":
-        defs:
-          STEP_BY: 24
-        vmin: 0.
-        vmax: 1.
-        preprocessing:
-          - operation: scale
-            value: 0.00001157407
-        request:
-          param: "{param}"
-        accumulations:
-          step:
-            include_start_step: True
-            deaccumulate: True
-      "229.140/231.140/232.140/233.140": # wave params
+      40.128/41.128/42.128/170.128/229.140/231.140/232.140/233.140/245.140:
         defs:
           STEP_BY: 24
         request:
           param: "{param}"
-      "245.140": # wind
+      130.128/129.128/138.128/155.128/131.128/132.128/133.128/1.128/2.128/60.128/3.128:
         defs:
-          STEP_BY: 24
+          STEP_BY: 12
         request:
           param: "{param}"
-      142.128/143.128/144.128/228.128:
-        defs:
-          STEP_BY: 24
-        vmin: 0.
-        preprocessing:
-          - operation: scale
-            value: 0.00001157407
-        request:
-          param: "{param}"
-        accumulations:
-          step:
-            include_start_step: True
-            deaccumulate: True
-      40.128/41.128/42.128/170.128:
-        defs:
-          STEP_BY: 24
-        request:
-          param: "{param}"
-      "235117":
+      "237117":
         request:
           param: "59.128"
         metadata:
@@ -542,19 +552,4 @@ filter:type:
           parameterCategory: 7
           parameterNumber: 6
           typeOfFirstFixedSurface: 17
-          typeOfStatisticalProcessing: 0
-      "202":
-        request:
-          param: "122.128"
-        metadata:
-          indicatorOfParameter: 202
-      "201":
-        request:
-          param: "121.128"
-        metadata:
-          indicatorOfParameter: 201
-      "130.128/129.128/138.128/155.128/131.128/132.128/133.128/1.128/2.128/60.128/3.128":
-        defs:
-          STEP_BY: 24
-        request:
-          param: "{param}"
+          typeOfStatisticalProcessing: 2
