@@ -6,6 +6,7 @@ from typing import Optional
 from pproc.common.accumulation import Accumulator, Coord
 from pproc.common.accumulation_manager import AccumulationManager
 from pproc.common.steps import parse_step
+from pproc.config.accumulation import LegacyStepAccumulation
 
 
 class WindowManager:
@@ -22,9 +23,7 @@ class WindowManager:
         :raises: RuntimeError if no window operation was provided, or could be derived
         """
         if "windows" in accumulations:
-            step_config = accumulations.copy()
-            step_config["type"] = "legacywindow"
-            accumulations = {"step": step_config}
+            accumulations = {"step": LegacyStepAccumulation(**accumulations)}
         self.mgr = AccumulationManager.create(accumulations, metadata)
 
     @property

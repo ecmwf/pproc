@@ -10,8 +10,10 @@ from pproc.common.parallel import (
     SynchronousExecutor,
     QueueingExecutor,
     parallel_data_retrieval,
-    sigterm_handler
+    sigterm_handler,
 )
+from pproc.common.recovery import Recovery
+from pproc.common.parameter import create_parameter
 from pproc.prob.parallel import prob_iteration
 from pproc.prob.config import ProbConfig
 from pproc.prob.window_manager import AnomalyWindowManager
@@ -33,19 +35,21 @@ def main(args=None):
     date = datetime.strptime(args.date, "%Y%m%d%H")
     cfg = ProbConfig(args, ["out_prob"])
 
-    recovery = common.Recovery(
-        cfg.options["root_dir"], cfg.options, args.recover
-    )
+    recovery = Recovery(cfg.options["root_dir"], cfg.options, args.recover)
     executor = (
         SynchronousExecutor()
         if cfg.n_par_compute == 1
-        else QueueingExecutor(cfg.n_par_compute, cfg.window_queue_size, initializer=signal.signal,
-                              initargs=(signal.SIGTERM, signal.SIG_DFL))
+        else QueueingExecutor(
+            cfg.n_par_compute,
+            cfg.window_queue_size,
+            initializer=signal.signal,
+            initargs=(signal.SIGTERM, signal.SIG_DFL),
+        )
     )
 
     with executor:
         for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
-            param = common.create_parameter(
+            param = create_parameter(
                 param_name,
                 date,
                 cfg.global_input_cfg,
@@ -78,7 +82,7 @@ def main(args=None):
                 [param, clim],
                 cfg.n_par_compute > 1,
                 initializer=signal.signal,
-                initargs=(signal.SIGTERM, signal.SIG_DFL)
+                initargs=(signal.SIGTERM, signal.SIG_DFL),
             ):
                 step = keys["step"]
                 with ResourceMeter(f"Process step {step}"):

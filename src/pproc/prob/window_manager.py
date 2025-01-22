@@ -1,7 +1,7 @@
 from typing import Iterator, List, Tuple
 import numpy as np
 
-from pproc.common import WindowManager
+from pproc.common.window_manager import WindowManager
 from pproc.common.accumulation import Accumulator, Coord
 from pproc.common.accumulation_manager import AccumulationManager
 from pproc.common.window import legacy_window_factory

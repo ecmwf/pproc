@@ -19,6 +19,10 @@ def from_outputs(args, overrides: dict):
     with open(args.out_config, "w") as f:
         yaml.dump(config_dict, f, sort_keys=False)
 
+    if args.inputs:
+        with open(args.inputs, "w") as f:
+            yaml.dump(config.inputs(), f, sort_keys=False)
+
 
 def from_inputs(args, overrides: dict):
     with open(args.inputs, "r") as f:

@@ -116,7 +116,7 @@ def signi_iteration(
     with ResourceMeter(f"{param.name}, window {window_id}: Retrieve climatology"):
         steprange = accum.grib_keys()["stepRange"]
         clim_accum, clim_template = retrieve_clim(
-            param.clim_param,
+            param.clim,
             config.sources,
             ["clim"],
             config.clim_num_members,
@@ -127,7 +127,7 @@ def signi_iteration(
         assert clim is not None
         if config.use_clim_anomaly:
             clim_em_accum, _ = retrieve_clim(
-                param.clim_em_param,
+                param.clim_em,
                 config.sources,
                 ["clim_em"],
                 step=steprange,

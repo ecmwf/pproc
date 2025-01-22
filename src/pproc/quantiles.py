@@ -119,7 +119,7 @@ def main(args=None):
                 {
                     **cfg.outputs.quantiles.metadata,
                     **param.metadata,
-                }
+                },
             )
 
             checkpointed_windows = recovery.computed(param.name)

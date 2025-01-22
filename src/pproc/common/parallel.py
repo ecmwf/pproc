@@ -8,7 +8,8 @@ import eccodes
 import psutil
 from meters import ResourceMeter
 
-from pproc.common import Parameter, io
+from pproc.common import io
+from pproc.common.parameter import Parameter
 from pproc.common.param_requester import ParamRequester
 from pproc.common.utils import delayed_map, dict_product
 from pproc.config.base import Parallelisation

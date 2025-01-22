@@ -122,7 +122,11 @@ class ParamRequester:
             )
             for param_req in expand(in_keys, "param"):
                 new_template, data = read_ensemble(
-                    src_config.model_copy(update={"request": param_req}),
+                    Source(
+                        type=self.param.sources[src].get("type", src_config.type),
+                        path=self.param.sources[src].get("path", src_config.path),
+                        request=param_req,
+                    ),
                     self.total,
                     dtype=self.param.dtype,
                     update=self._set_number,

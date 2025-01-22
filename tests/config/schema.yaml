@@ -4,27 +4,22 @@ defs:
     legendre-loader: "shmem"
     matrix-loader: "file-io"
   monthly_ostreams: &mstreams msmm/swmm
+  GRID: O1280
+  STEP_START: 0
+  STEP_END: 360
+  STEP_BY: 6
+  WIDTH: 6
+  INTERVAL: 6
 
 filter:stream:
   oper: 
-    defs:
-      GRID: O1280
-      STEP_START: 0
-      STEP_END: 360
-      STEP_BY: 6
     request:
       stream: "{stream}"
   enfo/waef:
     members: 50
     total_fields: 51
     defs: 
-      GRID: O1280
-      STEP_START: 0
-      STEP_END: 360
-      STEP_BY: 6
       UNPERTURBED: "cf"
-      WIDTH: 6
-      INTERVAL: 6
     request: 
       stream: "{stream}"
       type: ["{UNPERTURBED}", "pf"]
@@ -33,12 +28,8 @@ filter:stream:
     total_fields: 101
     defs:
       GRID: O320
-      STEP_START: 0
       STEP_END: 1104
-      STEP_BY: 6
       UNPERTURBED: "cf"
-      WIDTH: 6
-      INTERVAL: 6
     request: 
       stream: "{stream}"
       type: ["{UNPERTURBED}", "pf"]
@@ -47,10 +38,7 @@ filter:stream:
       start: 0
       end: 50
     defs:
-      GRID: O1280
-      STEP_START: 0
       STEP_END: 5160
-      STEP_BY: 6
     request:
       stream: mmsf
       type: "fc"
@@ -61,10 +49,7 @@ filter:stream:
       start: 0
       end: 50
     defs:
-      GRID: O1280
-      STEP_START: 0
       STEP_END: 5160
-      STEP_BY: 6
     request:
       stream: wasf
       type: "fc"

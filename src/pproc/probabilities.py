@@ -13,9 +13,11 @@ from pproc.common.parallel import (
     parallel_data_retrieval,
     sigterm_handler,
 )
+from pproc.common.recovery import Recovery
 from pproc.prob.parallel import prob_iteration
 from pproc.prob.config import ProbConfig
 from pproc.prob.window_manager import ThresholdWindowManager
+from pproc.common.parameter import create_parameter
 
 
 def main(args=None):
@@ -31,7 +33,7 @@ def main(args=None):
     date = datetime.strptime(args.date, "%Y%m%d%H")
 
     cfg = ProbConfig(args, ["out_prob"])
-    recovery = common.Recovery(cfg.options["root_dir"], cfg.options,  args.recover)
+    recovery = Recovery(cfg.options["root_dir"], cfg.options, args.recover)
     executor = (
         SynchronousExecutor()
         if cfg.n_par_compute == 1
@@ -45,7 +47,7 @@ def main(args=None):
 
     with executor:
         for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
-            param = common.create_parameter(
+            param = create_parameter(
                 param_name,
                 date,
                 cfg.global_input_cfg,

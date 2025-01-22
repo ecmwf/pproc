@@ -433,3 +433,59 @@ def test_factory_from_inputs(request, entrypoint, input_request, periods):
     assert config.model_dump(exclude_defaults=True, by_alias=True) == cfg_type(
         **check
     ).model_dump(exclude_defaults=True, by_alias=True)
+
+
+@pytest.mark.parametrize(
+    "config, expected",
+    [
+        [
+            {
+                "members": 5,
+                "sources": {"default": {"type": "fdb"}},
+                "parameters": {
+                    "2t": {
+                        "sources": {
+                            "fc": {
+                                "request": {
+                                    "param": "228.128",
+                                }
+                            },
+                            "clim": {"request": {"param": "228004"}},
+                        },
+                        "accumulations": {
+                            "step": {
+                                "type": "default",
+                                "coords": [["0-24"], ["48-72"]],
+                            },
+                        },
+                        "clim": {
+                            "accumulations": {
+                                "date": {
+                                    "operation": "mean",
+                                    "coords": [["20241001", "20241002"]],
+                                },
+                            },
+                        },
+                    }
+                },
+            },
+            [
+                {
+                    "param": "228.128",
+                    "step": ["0-24", "48-72"],
+                    "source": "fdb",
+                },
+                {
+                    "param": "228004",
+                    "step": ["0-24", "48-72"],
+                    "date": ["20241001", "20241002"],
+                    "source": "fdb",
+                },
+            ],
+        ],
+    ],
+    ids=["multi-param"],
+)
+def test_inputs(config: dict, expected: list[dict]):
+    config = types.AnomalyConfig(**config)
+    assert config.inputs() == expected

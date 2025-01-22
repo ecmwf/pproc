@@ -189,3 +189,36 @@ class BaseConfig(ConfigModel):
             config["parallelisation"] = parallelisation
         deep_update(config, overrides)
         return cls(**config)
+
+    def inputs(self) -> list[dict]:
+        requests = []
+        for param in self.parameters:
+            for name in self.sources.names:
+                base_source = getattr(self.sources, name)
+                source = io.Source(
+                    type=param.sources[name].get("type", base_source.type),
+                    path=param.sources[name].get("path", base_source.path),
+                    request=param.in_keys(
+                        name, base_source.request, **self.sources.overrides
+                    ),
+                )
+                req = source.request
+                req["source"] = source.path if source.path is not None else source.type
+                accum_updates = (
+                    getattr(param, name).accumulations if hasattr(param, name) else {}
+                )
+                accumulations = deep_update(param.accumulations.copy(), accum_updates)
+                req.update(
+                    {key: accum.unique_coords() for key, accum in accumulations.items()}
+                )
+                for tp_req in io.expand(req, "type"):
+                    if tp_req.get("type", None) in ["pf", "fcmean"]:
+                        if isinstance(self.members, int):
+                            start = 0 if tp_req["type"] == "fcmean" else 1
+                            end = self.members
+                        else:
+                            start = self.members.start
+                            end = self.members.end
+                        tp_req = {**tp_req, "number": list(range(start, end + 1))}
+                    requests.append(tp_req)
+        return requests

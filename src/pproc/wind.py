@@ -21,6 +21,7 @@ from meters import ResourceMeter
 import mir
 
 from pproc import common
+from pproc.common.recovery import Recovery
 from pproc.common.parallel import parallel_processing, sigterm_handler
 from pproc.common.window import parse_window_config
 
@@ -280,7 +281,7 @@ def main(args=None):
     args = parser.parse_args(args)
 
     cfg = ConfigExtreme(args)
-    recovery = common.Recovery(cfg.root_dir, cfg.options, args.recover)
+    recovery = Recovery(cfg.root_dir, cfg.options, args.recover)
 
     plan = []
     for levelist in cfg.levelist:

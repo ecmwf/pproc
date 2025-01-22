@@ -46,16 +46,18 @@ class Source(ConfigModel):
             return {"type": "fileset", "path": data}
         return data
 
+    @property
+    def type(self) -> str:
+        return self.type_
+
     def location(self) -> str:
-        return (
-            f"{self.type_}:{self.path}" if self.type_ == "file" else f"{self.type_}:req"
-        )
+        return f"{self.type}:{self.path}" if self.type == "file" else f"{self.type}:req"
 
     def legacy_config(self) -> dict:
-        cfg = {self.type_: {"req": self.request}}
-        if self.type_ == "fileset":
-            cfg[self.type_]["req"]["location"] = self.path
-        cfg[self.type_]["req"] = expand(cfg[self.type_]["req"], "type")
+        cfg = {self.type: {"req": self.request}}
+        if self.type == "fileset":
+            cfg[self.type]["req"]["location"] = self.path
+        cfg[self.type]["req"] = expand(cfg[self.type]["req"], "type")
         return cfg
 
 
@@ -135,7 +137,7 @@ class OutputsCollection(ConfigModel):
             def_metadata = cls.names[sub] if isinstance(cls.names, dict) else {}
             metadata = {
                 **def_metadata,
-                **defaults.get("metadata", {}),
+                **utils._get(defaults, "metadata", {}),
                 **utils._get(subsec, "metadata", {}),
             }
             # Set target from default, if specified

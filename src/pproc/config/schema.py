@@ -71,9 +71,9 @@ class Schema:
     def _config_from_input(
         cls,
         schema: dict,
-        entrypoint: str,
         input_request: dict,
         configs: Optional[List[dict]] = None,
+        **match,
     ):
         if configs is None:
             configs = [{"out": {}, "request": input_request}]
@@ -95,34 +95,28 @@ class Schema:
                         new_configs.extend(
                             cls._config_from_input(
                                 schema[key][filter_value],
-                                entrypoint,
                                 input_request,
                                 [new_fout],
+                                **match,
                             )
                         )
                 if "*" in schema[key].keys() and len(new_configs) == 0:
                     new_configs = cls._config_from_input(
-                        schema[key]["*"],
-                        entrypoint,
-                        input_request,
-                        configs,
+                        schema[key]["*"], input_request, configs, **match
                     )
                 configs = new_configs
             else:
                 [deep_update(cfg, {key: value}) for cfg in configs]
 
-        return [cfg for cfg in cls.valid_configs(configs, entrypoint, input_request)]
+        return [cfg for cfg in cls.valid_configs(configs, input_request, **match)]
 
     def valid_configs(
         cls,
         configs: List[dict],
-        entrypoint: str,
         input_request: dict,
+        **match,
     ) -> Generator:
         for config in configs:
-            if "entrypoint" in config and config["entrypoint"] != entrypoint:
-                continue
-
             filled_config = yaml.load(
                 yaml.dump(config).format_map(
                     {**config["defs"], **input_request, **config["out"]}
@@ -130,13 +124,21 @@ class Schema:
                 Loader=yaml.SafeLoader,
             )
 
+            is_match = True
+            for key, value in match.items():
+                if filled_config.get(key, value) != value:
+                    is_match = False
+                    break
+            if not is_match:
+                continue
+
             if filled_config["request"] == input_request:
                 yield config
 
-    def config_from_input(self, entrypoint: str, input_request: dict):
+    def config_from_input(self, input_request: dict, **match):
         req = copy.deepcopy(input_request)
         overrides = self.overrides_from_input(req)
-        for config in self._config_from_input(self.schema, entrypoint, req):
+        for config in self._config_from_input(self.schema, req, **match):
             if config.pop("from_inputs", {}).get("exclude", False):
                 continue
             deep_update(config, overrides)

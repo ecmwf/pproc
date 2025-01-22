@@ -26,7 +26,8 @@ import psutil
 import thermofeel as thermofeel
 from meters import metered
 
-from pproc.common import Config, WindowManager, default_parser
+from pproc.common import Config, default_parser
+from pproc.common.window_manager import WindowManager
 from pproc.common.io import target_from_location
 from pproc.common.parallel import (
     SynchronousExecutor,

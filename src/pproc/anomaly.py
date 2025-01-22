@@ -43,7 +43,7 @@ def anomaly_iteration(
         if template.get("levtype") == "pl":
             additional_dims["levelist"] = template.get("level")
         clim_accum, _ = retrieve_clim(
-            param.clim_param,
+            param.clim,
             config.sources,
             ["clim"],
             **additional_dims,

@@ -2,7 +2,7 @@ import datetime
 from typing import Any, Dict, Tuple
 import numpy as np
 
-from pproc.common import Parameter
+from pproc.common.parameter import Parameter
 
 
 class Climatology(Parameter):

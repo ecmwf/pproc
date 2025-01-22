@@ -105,8 +105,6 @@ CONFIGS = {
             "sequence": {
                 "type": "monthly",
                 "date": "20241001",
-            },
-            "coords": {
                 "from": 0,
                 "to": 5160,
                 "by": 6,

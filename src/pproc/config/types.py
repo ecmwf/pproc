@@ -53,8 +53,8 @@ class HistogramConfig(BaseConfig):
 
 
 class SigniParamConfig(ParamConfig):
-    clim_param: ParamConfig
-    clim_em_param: ParamConfig
+    clim: ParamConfig
+    clim_em: ParamConfig
     epsilon: Optional[float] = None
     epsilon_is_abs: bool = True
 
@@ -64,13 +64,13 @@ class SigniParamConfig(ParamConfig):
         clim_options = data.copy()
         if "clim" in data:
             clim_options.update(clim_options.pop("clim"))
-        data["clim_param"] = ParamConfig(**clim_options)
+        data["clim"] = ParamConfig(**clim_options)
         clim_options = data.copy()
         if "clim_em" in data:
             clim_options.update(data.pop("clim_em"))
         elif "clim" in data:
             clim_options.update(data.pop("clim"))
-        data["clim_em_param"] = ParamConfig(**clim_options)
+        data["clim_em"] = ParamConfig(**clim_options)
         return data
 
 
@@ -96,7 +96,7 @@ class SigniConfig(BaseConfig):
 
 
 class AnomalyParamConfig(ParamConfig):
-    clim_param: ParamConfig
+    clim: ParamConfig
 
     @model_validator(mode="before")
     @classmethod
@@ -104,7 +104,7 @@ class AnomalyParamConfig(ParamConfig):
         clim_options = data.copy()
         if "clim" in data:
             clim_options.update(clim_options.pop("clim"))
-        data["clim_param"] = ParamConfig(**clim_options)
+        data["clim"] = ParamConfig(**clim_options)
         return data
 
 
@@ -161,7 +161,7 @@ class ConfigFactory:
     ) -> BaseConfig:
         config = None
         for req in input_requests:
-            for schema_config in schema.config_from_input(entrypoint, req):
+            for schema_config in schema.config_from_input(req, entrypoint=entrypoint):
                 if config is None:
                     config = cls.from_schema_config(
                         entrypoint, schema_config, **overrides

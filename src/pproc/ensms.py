@@ -22,6 +22,7 @@ from pproc.common.accumulation import Accumulator
 from pproc.common.parallel import create_executor, parallel_data_retrieval
 from pproc.common.param_requester import ParamConfig, ParamRequester
 from pproc.common.recovery import create_recovery, BaseRecovery
+from pproc.common.window_manager import WindowManager
 from pproc.config.types import EnsmsConfig
 
 
@@ -82,7 +83,7 @@ def main(args=None):
 
     with create_executor(cfg.parallelisation) as executor:
         for param in cfg.parameters:
-            window_manager = common.WindowManager(
+            window_manager = WindowManager(
                 param.accumulations,
                 {
                     **cfg.outputs.default.metadata,

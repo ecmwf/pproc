@@ -1,9 +1,6 @@
-import tempfile
-import datetime
-import yaml
 import pytest
 
-from pproc.common import Recovery
+from pproc.common.recovery import Recovery
 
 
 def test_config_uniqueness(tmp_path):

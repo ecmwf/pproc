@@ -233,6 +233,6 @@ def test_schema_from_output(req, config):
 )
 def test_schema_from_input(entrypoint, req, num_expected, expected):
     schema = Schema(os.path.join(TEST_DIR, "schema.yaml"))
-    configs = list(schema.config_from_input(entrypoint, req))
+    configs = list(schema.config_from_input(req, entrypoint=entrypoint))
     assert len(configs) == num_expected
     assert configs[0] == expected

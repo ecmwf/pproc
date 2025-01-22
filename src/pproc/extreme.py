@@ -22,6 +22,9 @@ from meters import ResourceMeter
 from pproc import common
 from pproc.common.grib_helpers import construct_message
 from pproc.common import parallel
+from pproc.common.window_manager import WindowManager
+from pproc.common.recovery import Recovery
+from pproc.common.parameter import create_parameter
 from pproc.common.parallel import (
     SynchronousExecutor,
     QueueingExecutor,
@@ -274,7 +277,7 @@ def main(args=None):
     parser.add_argument("--out_sot", required=True, help="Target for SOT")
     args = parser.parse_args(args)
     cfg = ConfigExtreme(args)
-    recovery = common.Recovery(cfg.root_dir, cfg.options, args.recover)
+    recovery = Recovery(cfg.root_dir, cfg.options, args.recover)
     executor = (
         SynchronousExecutor()
         if cfg.n_par_compute == 1
@@ -288,7 +291,7 @@ def main(args=None):
 
     with executor:
         for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
-            param = common.create_parameter(
+            param = create_parameter(
                 param_name,
                 cfg.fc_date,
                 cfg.global_input_cfg,
@@ -296,7 +299,7 @@ def main(args=None):
                 cfg.members,
                 cfg.override_input,
             )
-            window_manager = common.WindowManager(param_cfg, cfg.global_output_cfg)
+            window_manager = WindowManager(param_cfg, cfg.global_output_cfg)
             efi_vars = ExtremeVariables(param_cfg)
 
             checkpointed_windows = recovery.computed(param_name)

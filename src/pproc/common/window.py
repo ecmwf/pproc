@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from typing import Dict, Iterator, Optional, Set, Tuple, Union
-import numpy as np
 
 from pproc.common.accumulation import Accumulation, Coord, create_accumulation
 from pproc.common.steps import Step, step_to_coord
@@ -205,35 +204,6 @@ def create_window(
     return acc
 
 
-def _from_preset(preset: dict) -> list:
-    if preset["type"] == "monthly":
-        return [
-            {"range": [x.start, x.stop - 1, x.step]}
-            for x in stepseq_monthly(
-                preset["date"],
-                int(preset.get("from", 0)),
-                int(preset["to"]),
-                int(preset.get("by", 1)),
-            )
-        ]
-    if preset["type"] == "ranges":
-        return [
-            {"range": [x.start, x.start]}
-            if x.start == x.stop - 1
-            else {"range": [x.start, x.stop - 1, x.step]}
-            for x in stepseq_ranges(
-                int(preset.get("from", 0)),
-                int(preset["to"]),
-                int(preset.get("width", 0)),
-                int(preset.get("interval", 1)),
-                int(preset.get("by", 1)),
-            )
-        ]
-    raise ValueError(
-        f"Unknown preset type {preset['type']} for legacy windows. Accepted types: monthly"
-    )
-
-
 def _iter_legacy_windows(
     windows: list,
     grib_keys: dict,
@@ -244,8 +214,6 @@ def _iter_legacy_windows(
         window_operations = window_operation_from_config(window_config)
         for operation, thresholds in window_operations.items():
             periods = window_config["periods"]
-            if isinstance(periods, dict):
-                periods = _from_preset(periods)
             for period in periods:
                 include_start = bool(window_config.get("include_start_step", False))
                 acc_grib_keys = grib_keys.copy()

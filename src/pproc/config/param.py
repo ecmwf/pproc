@@ -5,13 +5,14 @@ import numpy as np
 from pydantic import BaseModel, Field
 
 from pproc.config.preprocessing import PreprocessingConfig
+from pproc.config.accumulation import AccumulationConfig
 
 
 class ParamConfig(BaseModel):
     name: str
     sources: dict = {}
     preprocessing: PreprocessingConfig = Field(default_factory=PreprocessingConfig)
-    accumulations: dict = {}
+    accumulations: dict[str, AccumulationConfig]
     dtype_: str = Field(alias="dtype", default="float32")
     metadata: Dict[str, Any] = {}
 
