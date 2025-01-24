@@ -1,11 +1,13 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Iterator
 from typing_extensions import Self
+import itertools
 
 import numpy as np
 from pydantic import BaseModel, Field
 
 from pproc.config.preprocessing import PreprocessingConfig
 from pproc.config.accumulation import AccumulationConfig
+from pproc.config.utils import extract_mars
 
 
 class ParamConfig(BaseModel):
@@ -27,6 +29,14 @@ class ParamConfig(BaseModel):
         keys.update(self.sources.get(name, {}).get("request", {}))
         keys.update(kwargs)
         return keys
+
+    def out_keys(self) -> Iterator:
+        base = self.in_keys("fc", self.in_keys("default"))
+        base.update(extract_mars(self.metadata))
+        req = [base]
+        for dim, accum in self.accumulations.items():
+            req = [{**x, **y} for x, y in itertools.product(req, accum.out_mars(dim))]
+        yield from req
 
     def merge(self, other: Self) -> Self:
         """

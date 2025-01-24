@@ -1,8 +1,10 @@
 import argparse
 import sys
+import os
 from typing import List
 
 import yaml
+import json
 
 
 from pproc.config.types import ConfigFactory
@@ -20,8 +22,12 @@ def from_outputs(args, overrides: dict):
         yaml.dump(config_dict, f, sort_keys=False)
 
     if args.inputs:
+        _, extension = os.path.splitext(args.inputs)
         with open(args.inputs, "w") as f:
-            yaml.dump(config.inputs(), f, sort_keys=False)
+            if extension == ".json":
+                json.dump(config.inputs(), f, sort_keys=False, indent=2)
+            else:
+                yaml.dump(config.inputs(), f, sort_keys=False)
 
 
 def from_inputs(args, overrides: dict):
@@ -35,6 +41,14 @@ def from_inputs(args, overrides: dict):
     config_dict = config.model_dump(exclude_none=True, by_alias=True)
     with open(args.out_config, "w") as f:
         yaml.dump(config_dict, f, sort_keys=False)
+
+    if args.outputs:
+        _, extension = os.path.splitext(args.outputs)
+        with open(args.outputs, "w") as f:
+            if extension == ".json":
+                json.dump(config.outputs(), f, sort_keys=False, indent=2)
+            else:
+                yaml.dump(config.outputs(), f, sort_keys=False)
 
 
 def main(args: List[str] = sys.argv[1:]):

@@ -95,7 +95,6 @@ def signi(
     if out_keys is None:
         out_keys = {}
     grib_keys = out_keys.copy()
-    grib_keys.setdefault("type", "taem")
 
     clim_keys = {key: clim_template.get(key) for key in []}
     grib_keys.update(clim_keys)

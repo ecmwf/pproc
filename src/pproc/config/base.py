@@ -1,5 +1,5 @@
 import os
-from typing import Any
+from typing import Any, Iterator
 import yaml
 
 from annotated_types import Annotated
@@ -10,7 +10,7 @@ from typing_extensions import Self
 from pproc.config import io
 from pproc.config.log import LoggingConfig
 from pproc.config.param import ParamConfig
-from pproc.config.utils import deep_update
+from pproc.config.utils import deep_update, extract_mars, expand
 
 
 class Members(ConfigModel):
@@ -190,8 +190,7 @@ class BaseConfig(ConfigModel):
         deep_update(config, overrides)
         return cls(**config)
 
-    def inputs(self) -> list[dict]:
-        requests = []
+    def in_mars(self) -> Iterator:
         for param in self.parameters:
             for name in self.sources.names:
                 base_source = getattr(self.sources, name)
@@ -211,14 +210,41 @@ class BaseConfig(ConfigModel):
                 req.update(
                     {key: accum.unique_coords() for key, accum in accumulations.items()}
                 )
-                for tp_req in io.expand(req, "type"):
-                    if tp_req.get("type", None) in ["pf", "fcmean"]:
-                        if isinstance(self.members, int):
-                            start = 0 if tp_req["type"] == "fcmean" else 1
-                            end = self.members
-                        else:
-                            start = self.members.start
-                            end = self.members.end
-                        tp_req = {**tp_req, "number": list(range(start, end + 1))}
-                    requests.append(tp_req)
-        return requests
+                for tp_req in expand(req, "type"):
+                    yield self._set_number(tp_req)
+
+    def _set_number(self, req: dict) -> dict:
+        if req.get("type", None) not in ["pf", "fcmean", "fcmax", "fcstdev", "fcmin"]:
+            return req
+        if isinstance(self.members, int):
+            if req["type"] == "pf":
+                start, end = 1, self.members
+            else:
+                start, end = 0, self.members - 1
+        else:
+            start = self.members.start
+            end = self.members.end
+        return {**req, "number": list(range(start, end + 1))}
+
+    def out_mars(self) -> Iterator:
+        base_req = getattr(self.sources, "fc").request
+        base_req.update(self.sources.overrides)
+        for param in self.parameters:
+            for name in self.outputs.names:
+                if name == "default":
+                    continue
+                output = getattr(self.outputs, name)
+                if output.target.type_ == "null":
+                    continue
+                req = base_req.copy()
+                req["target"] = (
+                    output.target.path
+                    if hasattr(output.target, "path")
+                    else output.target.type_
+                )
+                for update in param.out_keys():
+                    req.update(update)
+                    req.update(extract_mars(output.metadata))
+                    req.update(extract_mars(self.outputs.overrides))
+                    for tp_req in expand(req, "type"):
+                        yield self._set_number(tp_req)

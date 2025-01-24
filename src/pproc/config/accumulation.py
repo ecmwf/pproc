@@ -8,6 +8,7 @@ from earthkit.time.sequence import Sequence
 from pproc.common.stepseq import stepseq_ranges, stepseq_monthly
 from pproc.common.accumulation import coords_extent
 from pproc.common.window import legacy_window_factory
+from pproc.config.utils import extract_mars
 
 
 class LegacyStepConfig(BaseModel):
@@ -37,7 +38,7 @@ class LegacyPeriodConfig(BaseModel):
     def name(self) -> str:
         return (
             f"{self.range[0]}-{self.range[1]}"
-            if len(self.range) == 2
+            if len(self.range) > 1 and self.range[1] != self.range[0]
             else str(self.range[0])
         )
 
@@ -116,6 +117,9 @@ class LegacyWindowConfig(BaseModel):
         coords = list(coords)
         coords.sort()
         return coords
+
+    def out_mars(self, dim: str) -> dict:
+        return {dim: [x.name() for x in self.periods], **extract_mars(self.grib_set)}
 
 
 def _to_date(
@@ -219,6 +223,22 @@ class DefaultAccumulation(BaseAccumulation):
         coords.sort()
         return coords
 
+    def out_mars(self, dim: str) -> list[dict]:
+        base = extract_mars(self.grib_keys)
+        if self.operation is not None and dim != "step":
+            return [base]
+
+        base[dim] = []
+        for coord in self.coords:
+            if isinstance(coord, list):
+                base[dim].append(
+                    coord[0] if len(coord) == 1 else f"{coord[0]}-{coord[-1]}"
+                )
+            elif isinstance(coord, dict):
+                base[dim].append(f"{coord['from']}-{coord['to']}")
+        print("BASE", base)
+        return [base]
+
 
 class StepSeqAccumulation(BaseAccumulation):
     model_config = ConfigDict(extra="allow")
@@ -240,6 +260,17 @@ class StepSeqAccumulation(BaseAccumulation):
         coords.sort()
         return coords
 
+    def out_mars(self, dim: str) -> list[dict]:
+        return [
+            {
+                dim: [
+                    x if len(x) == 1 else f"{x[0]}-{x[-1]}"
+                    for x in self.sequence.coords()
+                ],
+                **extract_mars(self.grib_keys),
+            }
+        ]
+
 
 class DateSeqAccumulation(BaseAccumulation):
     type_: Literal["dateseq"] = Field("dateseq", alias="type")
@@ -260,6 +291,17 @@ class DateSeqAccumulation(BaseAccumulation):
         coords = list(set.union(*(coord.coords(seq) for coord in self.coords)))
         coords.sort()
         return coords
+
+    def out_mars(self, dim: str):
+        base = extract_mars(self.grib_keys)
+        if self.operation is not None:
+            return [base]
+        seq = _dateseq_factory(self.sequence)
+        dates = base.setdefault(dim, [])
+        for c in self.coords:
+            date_range = c.coords(seq)
+            dates.append(f"{date_range[0]}-{date_range[-1]}")
+        return [base]
 
 
 class LegacyStepAccumulation(BaseModel):
@@ -286,6 +328,9 @@ class LegacyStepAccumulation(BaseModel):
         coords = list(coords)
         coords.sort()
         return coords
+
+    def out_mars(self, dim: str) -> list[dict]:
+        return [window.out_mars(dim) for window in self.windows]
 
 
 AccumulationConfig = Union[

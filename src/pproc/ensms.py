@@ -61,16 +61,16 @@ def ensms_iteration(
         template_mean = template_ensemble(template_ens, accum, out_mean.metadata)
         template_mean.set_array("values", common.io.nan_to_missing(template_mean, mean))
         out_mean.target.write(template_mean)
-        out_mean.target.flush()
 
     with ResourceMeter(f"Window {window_id}: write std output"):
         std = np.std(ens, axis=axes)
         out_std = config.outputs.std
         template_std = template_ensemble(template_ens, accum, out_std.metadata)
         template_std.set_array("values", common.io.nan_to_missing(template_std, std))
-        out_mean.target.write(template_std)
-        out_mean.target.flush()
-
+        out_std.target.write(template_std)
+        
+    out_mean.target.flush()
+    out_std.target.flush()
     recovery.add_checkpoint(param.name, window_id)
 
 

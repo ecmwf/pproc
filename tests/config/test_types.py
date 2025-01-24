@@ -3,9 +3,22 @@ import pytest
 
 from pproc.config.schema import Schema
 from pproc.config import types
-from pproc.config.utils import deep_update
+from pproc.config.utils import deep_update, extract_mars, expand
 
 TEST_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def transform_request(request: dict) -> dict:
+    if isinstance(request["param"], int):
+        param_str = str(request["param"])
+        request["param"] = f"{param_str[3:]}.{param_str[:3]}"
+    return request
+
+
+def check_request_equality(reqs1, reqs2):
+    for i, req in enumerate(reqs1):
+        assert transform_request(req) == transform_request(reqs2[i])
+
 
 DEFAULT_REQUEST = {
     "class": "od",
@@ -107,12 +120,16 @@ TEST_CASES = {
         },
     ],
     "ensms": [
-        {},
+        {
+            "outputs": {
+                "std": {"target": {"type": "null"}},
+            },
+        },
         types.EnsmsConfig,
         {
             "outputs": {
                 "mean": {"metadata": {"type": "em"}, "target": {"type": "fdb"}},
-                "std": {"metadata": {"type": "es"}, "target": {"type": "fdb"}},
+                "std": {"metadata": {"type": "es"}, "target": {"type": "null"}},
             },
             "members": 50,
             "total_fields": 51,
@@ -337,9 +354,20 @@ def test_factory_from_outputs(request, output_request, input_param):
     assert type(config) == cfg_type
     check = default_config(input_param)
     deep_update(check, expected)
-    assert config.model_dump(exclude_defaults=True, by_alias=True) == cfg_type(
-        **check
-    ).model_dump(exclude_defaults=True, by_alias=True)
+    assert config.model_dump(by_alias=True) == cfg_type(**check).model_dump(
+        by_alias=True
+    )
+    check_request_equality(
+        config.out_mars(),
+        [
+            {
+                **config._set_number(x),
+                "target": "fdb",
+                **extract_mars(config.outputs.default.metadata),
+            }
+            for x in requests
+        ],
+    )
 
 
 @pytest.mark.parametrize(
@@ -433,59 +461,10 @@ def test_factory_from_inputs(request, entrypoint, input_request, periods):
     assert config.model_dump(exclude_defaults=True, by_alias=True) == cfg_type(
         **check
     ).model_dump(exclude_defaults=True, by_alias=True)
-
-
-@pytest.mark.parametrize(
-    "config, expected",
-    [
+    check_request_equality(
+        config.in_mars(),
         [
-            {
-                "members": 5,
-                "sources": {"default": {"type": "fdb"}},
-                "parameters": {
-                    "2t": {
-                        "sources": {
-                            "fc": {
-                                "request": {
-                                    "param": "228.128",
-                                }
-                            },
-                            "clim": {"request": {"param": "228004"}},
-                        },
-                        "accumulations": {
-                            "step": {
-                                "type": "default",
-                                "coords": [["0-24"], ["48-72"]],
-                            },
-                        },
-                        "clim": {
-                            "accumulations": {
-                                "date": {
-                                    "operation": "mean",
-                                    "coords": [["20241001", "20241002"]],
-                                },
-                            },
-                        },
-                    }
-                },
-            },
-            [
-                {
-                    "param": "228.128",
-                    "step": ["0-24", "48-72"],
-                    "source": "fdb",
-                },
-                {
-                    "param": "228004",
-                    "step": ["0-24", "48-72"],
-                    "date": ["20241001", "20241002"],
-                    "source": "fdb",
-                },
-            ],
+            {"source": "fdb", **config._set_number(tp)}
+            for tp in expand(input_request, "type")
         ],
-    ],
-    ids=["multi-param"],
-)
-def test_inputs(config: dict, expected: list[dict]):
-    config = types.AnomalyConfig(**config)
-    assert config.inputs() == expected
+    )

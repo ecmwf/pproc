@@ -20,13 +20,14 @@ from pproc.common.parallel import (
     create_executor,
     parallel_data_retrieval,
 )
-from pproc.common.param_requester import ParamRequester, expand
+from pproc.common.param_requester import ParamRequester
 from pproc.common.recovery import create_recovery, BaseRecovery
 from pproc.common.steps import AnyStep
 from pproc.common.window_manager import WindowManager
 from pproc.config.types import HistogramConfig, HistParamConfig
 from pproc.config.targets import Target
 from pproc.config.io import SourceCollection, Source
+from pproc.config.utils import expand
 
 
 def write_histogram(
@@ -67,7 +68,6 @@ def write_histogram(
             "totalNumber": nbins,
             "perturbationNumber": i + 1,
         }
-        grib_keys.setdefault("type", "pd")
         message = construct_message(template, grib_keys)
         message.set_array("values", nan_to_missing(message, hist_bin))
         target.write(message)

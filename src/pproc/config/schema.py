@@ -56,6 +56,7 @@ class Schema:
         return config
 
     def config_from_output(self, output_request: dict) -> dict:
+        output_request = copy.deepcopy(output_request)
         overrides = self.overrides_from_output(output_request)
         config = deep_update(
             self._config_from_output(self.schema, output_request), overrides

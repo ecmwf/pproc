@@ -51,3 +51,33 @@ def deep_update(original: dict, update: dict) -> dict:
         else:
             original[key] = value
     return original
+
+
+def expand(request: dict, dim: str):
+    coords = request.pop(dim, None)
+    if coords is None:
+        return [request]
+    if not isinstance(coords, list):
+        coords = [coords]
+    return [{**request, dim: coord} for coord in coords]
+
+
+def extract_mars(keys: dict) -> dict:
+    if "paramId" in keys:
+        keys["param"] = keys.pop("paramId")
+    mars_namespace = [
+        "class",
+        "stream",
+        "expver",
+        "date",
+        "time",
+        "param",
+        "levtype",
+        "levelist",
+        "type",
+        "number",
+        "step",
+        "hdate",
+        "domain"
+    ]
+    return {k: v for k, v in keys.items() if k in mars_namespace}

@@ -47,7 +47,7 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
         [
             "ensms",
             ensms_main,
-            ["--recover"],
+            [],
             False,
             {"type": "em", "param": 167, "step": [12, 36]},
             2,

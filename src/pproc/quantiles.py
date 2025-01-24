@@ -27,10 +27,9 @@ from pproc.config.types import QuantilesConfig
 
 
 def do_quantiles(
+    config: QuantilesConfig,
     ens: np.ndarray,
     template: eccodes.GRIBMessage,
-    target: Target,
-    n: Union[int, List[float]] = 100,
     out_keys: Optional[Dict[str, Any]] = None,
 ):
     """Compute quantiles
@@ -49,16 +48,13 @@ def do_quantiles(
     out_keys: dict, optional
         Extra GRIB keys to set on the output
     """
-    even_spacing = isinstance(n, int) or np.all(np.diff(n) == n[1] - n[0])
-    num_quantiles = n if isinstance(n, int) else (len(n) - 1)
-    total_number = num_quantiles if even_spacing else 100
     edition = out_keys.get("edition", template.get("edition"))
     if edition not in (1, 2):
         raise ValueError(f"Unsupported GRIB edition {edition}")
     for i, quantile in enumerate(
-        iter_quantiles(ens.reshape((-1, ens.shape[-1])), n, method="sort")
+        iter_quantiles(ens.reshape((-1, ens.shape[-1])), config.quantiles, method="sort")
     ):
-        pert_number = i if even_spacing else int(n[i] * 100)
+        pert_number, total_number = config.quantile_indices(i)
         grib_keys = {**out_keys}
         if edition == 1:
             grib_keys.update(
@@ -75,11 +71,9 @@ def do_quantiles(
                     "quantileValue": pert_number,
                 }
             )
-        grib_keys.setdefault("type", "pb")
         message = construct_message(template, grib_keys)
         message.set_array("values", nan_to_missing(message, quantile))
-        target.write(message)
-        target.flush()
+        config.outputs.quantiles.target.write(message)
 
 
 def quantiles_iteration(
@@ -96,10 +90,9 @@ def quantiles_iteration(
         ens = accum.values
         assert ens is not None
         do_quantiles(
+            config,
             ens,
             template,
-            config.outputs.quantiles.target,
-            n=config.quantiles,
             out_keys=accum.grib_keys(),
         )
         config.outputs.quantiles.target.flush()

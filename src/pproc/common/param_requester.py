@@ -7,7 +7,8 @@ from pproc.common.dataset import open_multi_dataset
 from pproc.common.io import missing_to_nan
 from pproc.common.steps import AnyStep
 from pproc.config.base import Members
-from pproc.config.io import Source, SourceCollection, expand
+from pproc.config.io import Source, SourceCollection
+from pproc.config.utils import expand
 from pproc.config.param import ParamConfig
 
 IndexFunc = Callable[[eccodes.GRIBMessage], int]

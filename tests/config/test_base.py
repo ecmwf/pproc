@@ -284,4 +284,4 @@ def test_merge(other: dict, merged: dict):
 )
 def test_inputs(overrides: dict, expected: list[dict]):
     config = BaseConfig(**deep_update(copy.deepcopy(base_config), overrides))
-    assert config.inputs() == expected
+    assert list(config.in_mars()) == expected

@@ -1,6 +1,8 @@
-from typing import Optional, List, Any, Annotated
+from typing import Optional, List, Any, Annotated, Iterator
 from typing_extensions import Self
 from pydantic import model_validator, Field
+import numpy as np
+import datetime
 
 from conflator import CLIArg
 
@@ -9,6 +11,7 @@ from pproc.config.base import BaseConfig, Parallelisation
 from pproc.config import io
 from pproc.config.param import ParamConfig
 from pproc.config.schema import Schema
+from pproc.common.stepseq import steprange_to_fcmonth
 
 
 class EnsmsConfig(BaseConfig):
@@ -20,6 +23,46 @@ class QuantilesConfig(BaseConfig):
     parallelisation: Parallelisation = Parallelisation()
     outputs: io.QuantilesOutputModel = io.QuantilesOutputModel()
     quantiles: int | List[float] = 100
+    _total_number: int = 0
+    _even_spacing: bool = None
+
+    @property
+    def even_spacing(self) -> bool:
+        if self._even_spacing is None:
+            self._even_spacing = isinstance(self.quantiles, int) or np.all(
+                np.diff(self.quantiles) == self.quantiles[1] - self.quantiles[0]
+            )
+        return self._even_spacing
+
+    @property
+    def total_number(self) -> int:
+        if self._total_number == 0:
+            num_quantiles = (
+                self.quantiles
+                if isinstance(self.quantiles, int)
+                else (len(self.quantiles) - 1)
+            )
+            self._total_number = num_quantiles if self._even_spacing else 100
+        return self._total_number
+
+    def quantile_indices(self, index: int) -> List[int]:
+        pert_number = index if self.even_spacing else int(self.quantiles[index] * 100)
+        return pert_number, self.total_number
+
+    def out_mars(self) -> Iterator:
+        num_quantiles = (
+            self.quantiles
+            if isinstance(self.quantiles, int)
+            else (len(self.quantiles) - 1)
+        )
+        for req in super().out_mars():
+            yield {
+                **req,
+                "quantile": [
+                    f"{qindices[0]}:{qindices[1]}"
+                    for qindices in map(self.quantile_indices, range(num_quantiles + 1))
+                ],
+            }
 
 
 class AccumParamConfig(ParamConfig):
@@ -38,12 +81,28 @@ class MonthlyStatsConfig(BaseConfig):
     outputs: io.MonthlyStatsOutputModel = io.MonthlyStatsOutputModel()
     parameters: list[AccumParamConfig]
 
+    def out_mars(self) -> Iterator:
+        for req in super().out_mars():
+            step_ranges = req.pop("step")
+            date = datetime.datetime.strptime(req["date"], "%Y%m%d")
+            fcmonths = [
+                steprange_to_fcmonth(date, step_range) for step_range in step_ranges
+            ]
+            yield {**req, "forecastMonth": fcmonths}
+
 
 class HistParamConfig(ParamConfig):
     bins: List[float]
     mod: Optional[int] = None
     normalise: bool = True
     scale_out: Optional[float] = None
+
+    def out_mars(self) -> Iterator:
+        for req in super().out_mars():
+            yield {
+                **req,
+                "quantile": [f"{x}:{len(self.bins)}" for x in range(1, len(self.bins))],
+            }
 
 
 class HistogramConfig(BaseConfig):

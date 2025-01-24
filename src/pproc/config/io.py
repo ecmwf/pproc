@@ -23,15 +23,6 @@ from pproc.config.targets import (
 )
 
 
-def expand(request: dict, dim: str):
-    coords = request.pop(dim, None)
-    if coords is None:
-        return [request]
-    if not isinstance(coords, list):
-        coords = [coords]
-    return [{**request, dim: coord} for coord in coords]
-
-
 class Source(ConfigModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -57,7 +48,7 @@ class Source(ConfigModel):
         cfg = {self.type: {"req": self.request}}
         if self.type == "fileset":
             cfg[self.type]["req"]["location"] = self.path
-        cfg[self.type]["req"] = expand(cfg[self.type]["req"], "type")
+        cfg[self.type]["req"] = utils.expand(cfg[self.type]["req"], "type")
         return cfg
 
 
@@ -189,12 +180,14 @@ EnsmsOutputModel = create_output_model(
     "Ensms",
     {"mean": {"type": "em"}, "std": {"type": "es"}},
 )
-QuantilesOutputModel = create_output_model("Quantiles", ["quantiles"])
+QuantilesOutputModel = create_output_model("Quantiles", {"quantiles": {"type": "pb"}})
 AccumOutputModel = create_output_model("Accum", ["accum"])
 MonthlyStatsOutputModel = create_output_model("MonthlyStats", ["stats"])
-HistogramOutputModel = create_output_model("Histogram", ["histogram"])
+HistogramOutputModel = create_output_model("Histogram", {"histogram": {"type": "pd"}})
 SignificanceSourceModel = create_source_model("Significance", ["fc", "clim", "clim_em"])
-SignificanceOutputModel = create_output_model("Significance", ["signi"])
+SignificanceOutputModel = create_output_model(
+    "Significance", {"signi": {"type": "taem"}}
+)
 AnomalySourceModel = create_source_model("Anomaly", ["fc", "clim"])
 AnomalyOutputModel = create_output_model(
     "Anomaly", {"ens": {"type": "fcmean"}, "ensm": {"type": "taem"}}
