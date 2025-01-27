@@ -23,11 +23,12 @@ def from_outputs(args, overrides: dict):
 
     if args.inputs:
         _, extension = os.path.splitext(args.inputs)
+        inputs = list(config.in_mars())
         with open(args.inputs, "w") as f:
             if extension == ".json":
-                json.dump(config.inputs(), f, sort_keys=False, indent=2)
+                json.dump(inputs, f, sort_keys=False, indent=2)
             else:
-                yaml.dump(config.inputs(), f, sort_keys=False)
+                yaml.dump(inputs, f, sort_keys=False)
 
 
 def from_inputs(args, overrides: dict):
@@ -44,11 +45,12 @@ def from_inputs(args, overrides: dict):
 
     if args.outputs:
         _, extension = os.path.splitext(args.outputs)
+        outputs = list(config.out_mars())
         with open(args.outputs, "w") as f:
             if extension == ".json":
-                json.dump(config.outputs(), f, sort_keys=False, indent=2)
+                json.dump(outputs, f, sort_keys=False, indent=2)
             else:
-                yaml.dump(config.outputs(), f, sort_keys=False)
+                yaml.dump(outputs, f, sort_keys=False)
 
 
 def main(args: List[str] = sys.argv[1:]):

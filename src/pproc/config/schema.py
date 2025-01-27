@@ -175,7 +175,7 @@ class Schema:
                 fcmonths = [fcmonths]
             for fcmonth in fcmonths:
                 start, end = fcmonth_to_steprange(
-                    datetime.strptime(output_request["date"], "%Y%m%d"), fcmonth
+                    datetime.strptime(str(output_request["date"]), "%Y%m%d"), fcmonth
                 ).split("-")
                 overrides["accumulations"]["step"]["coords"].append(
                     {"from": start, "to": end, "by": "{STEP_BY}"}

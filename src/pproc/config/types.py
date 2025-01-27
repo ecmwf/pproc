@@ -84,7 +84,7 @@ class MonthlyStatsConfig(BaseConfig):
     def out_mars(self) -> Iterator:
         for req in super().out_mars():
             step_ranges = req.pop("step")
-            date = datetime.datetime.strptime(req["date"], "%Y%m%d")
+            date = datetime.datetime.strptime(str(req["date"]), "%Y%m%d")
             fcmonths = [
                 steprange_to_fcmonth(date, step_range) for step_range in step_ranges
             ]
