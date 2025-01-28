@@ -13,8 +13,10 @@ defs:
 
 filter:stream:
   oper: 
+    members: 1
     request:
       stream: "{stream}"
+      type: fc
   enfo/waef:
     members: 50
     total_fields: 51
