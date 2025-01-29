@@ -18,13 +18,24 @@ dependencies = [
     "earthkit-data == 0.9.0",
     "earthkit-meteo >= 0.1.1",
     "earthkit-time >= 0.1.3",
+    "eccodes >= 1.6.1",
     "filelock >= 3.12.0",
+    "mir-python >= 0.2.0",
+    "meteokit == 0.1.0",
+    "numexpr",
+    "numpy",
+    "pandas >= 1.3.4",
+    "psutil",
+    "pyfdb",
     "thermofeel >= 2.1.0",
+    "scikit-learn",
     "scipy >= 1.8",
+    "xarray",
 ]
 
 [project.optional-dependencies]
-test = ["requests"]
+tcycl = ["pyinfero >= 0.1.1", "wget"]
+test = ["pytest", "requests"]
 
 [project.scripts]
 pproc-extreme-forecast-simple = "pproc.extreme_forecast_simple:main"
