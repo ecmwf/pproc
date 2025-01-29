@@ -1,5 +1,5 @@
 import os
-from typing import Any, Iterator
+from typing import Any, Iterator, Optional
 import yaml
 
 from annotated_types import Annotated
@@ -190,7 +190,7 @@ class BaseConfig(ConfigModel):
         deep_update(config, overrides)
         return cls(**config)
 
-    def in_mars(self) -> Iterator:
+    def in_mars(self, sources: Optional[list[str]] = None) -> Iterator:
         for param in self.parameters:
             for name in self.sources.names:
                 base_source = getattr(self.sources, name)
@@ -201,6 +201,8 @@ class BaseConfig(ConfigModel):
                         name, base_source.request, **self.sources.overrides
                     ),
                 )
+                if sources and source.type not in sources:
+                    continue
                 req = source.request
                 req["source"] = source.path if source.path is not None else source.type
                 accum_updates = (
@@ -226,7 +228,7 @@ class BaseConfig(ConfigModel):
             end = self.members.end
         return {**req, "number": list(range(start, end + 1))}
 
-    def out_mars(self) -> Iterator:
+    def out_mars(self, targets: Optional[list[str]] = None) -> Iterator:
         base_req = getattr(self.sources, "fc").request
         base_req.update(self.sources.overrides)
         for param in self.parameters:
@@ -235,6 +237,8 @@ class BaseConfig(ConfigModel):
                     continue
                 output = getattr(self.outputs, name)
                 if output.target.type_ == "null":
+                    continue
+                if targets and output.target.type_ not in targets:
                     continue
                 req = base_req.copy()
                 req["target"] = (

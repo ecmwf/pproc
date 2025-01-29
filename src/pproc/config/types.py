@@ -49,13 +49,13 @@ class QuantilesConfig(BaseConfig):
         pert_number = index if self.even_spacing else int(self.quantiles[index] * 100)
         return pert_number, self.total_number
 
-    def out_mars(self) -> Iterator:
+    def out_mars(self, targets: Optional[list[str]] = None) -> Iterator:
         num_quantiles = (
             self.quantiles
             if isinstance(self.quantiles, int)
             else (len(self.quantiles) - 1)
         )
-        for req in super().out_mars():
+        for req in super().out_mars(targets):
             yield {
                 **req,
                 "quantile": [
@@ -81,8 +81,8 @@ class MonthlyStatsConfig(BaseConfig):
     outputs: io.MonthlyStatsOutputModel = io.MonthlyStatsOutputModel()
     parameters: list[AccumParamConfig]
 
-    def out_mars(self) -> Iterator:
-        for req in super().out_mars():
+    def out_mars(self, targets: Optional[list[str]] = None) -> Iterator:
+        for req in super().out_mars(targets):
             step_ranges = req.pop("step")
             date = datetime.datetime.strptime(str(req["date"]), "%Y%m%d")
             fcmonths = [
@@ -97,8 +97,8 @@ class HistParamConfig(ParamConfig):
     normalise: bool = True
     scale_out: Optional[float] = None
 
-    def out_mars(self) -> Iterator:
-        for req in super().out_mars():
+    def out_mars(self, targets: Optional[list[str]] = None) -> Iterator:
+        for req in super().out_mars(targets):
             yield {
                 **req,
                 "quantile": [f"{x}:{len(self.bins)}" for x in range(1, len(self.bins))],
@@ -182,7 +182,15 @@ class ConfigFactory:
     }
 
     @classmethod
-    def from_schema_config(
+    def from_dict(cls, entrypoint: str, **config) -> BaseConfig:
+        if entrypoint not in cls.types:
+            raise ValueError(
+                f"Config generation current not supported for {entrypoint}"
+            )
+        return cls.types[entrypoint](**config)
+
+    @classmethod
+    def _from_schema_config(
         cls, entrypoint: str, schema_config: dict, **overrides
     ) -> BaseConfig:
         if entrypoint not in cls.types:
@@ -202,12 +210,12 @@ class ConfigFactory:
 
             if entrypoint is None:
                 entrypoint = schema_config.pop("entrypoint")
-                config = cls.from_schema_config(entrypoint, schema_config, **overrides)
+                config = cls._from_schema_config(entrypoint, schema_config, **overrides)
             else:
                 if entrypoint != schema_config.pop("entrypoint"):
                     raise ValueError("All requests must have the same entrypoint")
                 config = config.merge(
-                    cls.from_schema_config(entrypoint, schema_config, **overrides)
+                    cls._from_schema_config(entrypoint, schema_config, **overrides)
                 )
         assert (
             config is not None
@@ -222,12 +230,12 @@ class ConfigFactory:
         for req in input_requests:
             for schema_config in schema.config_from_input(req, entrypoint=entrypoint):
                 if config is None:
-                    config = cls.from_schema_config(
+                    config = cls._from_schema_config(
                         entrypoint, schema_config, **overrides
                     )
                 else:
                     config = config.merge(
-                        cls.from_schema_config(entrypoint, schema_config, **overrides)
+                        cls._from_schema_config(entrypoint, schema_config, **overrides)
                     )
         assert config is not None, f"No config generated for requests: {input_requests}"
         return config

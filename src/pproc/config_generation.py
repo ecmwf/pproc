@@ -11,27 +11,28 @@ from pproc.config.types import ConfigFactory
 from pproc.config.schema import Schema
 
 
-def from_outputs(args, overrides: dict):
+def from_outputs(args):
+    overrides = {}
+    if args.overrides:
+        with open(args.overrides, "r") as f:
+            overrides = yaml.safe_load(f)
+
     with open(args.outputs, "r") as f:
         output_requests = yaml.safe_load(f)
 
     schema = Schema(args.schema)
     config = ConfigFactory.from_outputs(schema, output_requests, **overrides)
     config_dict = config.model_dump(exclude_none=True, by_alias=True)
-    with open(args.out_config, "w") as f:
+    with open(args.config, "w") as f:
         yaml.dump(config_dict, f, sort_keys=False)
-
-    if args.inputs:
-        _, extension = os.path.splitext(args.inputs)
-        inputs = list(config.in_mars())
-        with open(args.inputs, "w") as f:
-            if extension == ".json":
-                json.dump(inputs, f, sort_keys=False, indent=2)
-            else:
-                yaml.dump(inputs, f, sort_keys=False)
 
 
 def from_inputs(args, overrides: dict):
+    overrides = {}
+    if args.overrides:
+        with open(args.overrides, "r") as f:
+            overrides = yaml.safe_load(f)
+
     with open(args.inputs, "r") as f:
         input_requests = yaml.safe_load(f)
 
@@ -40,14 +41,51 @@ def from_inputs(args, overrides: dict):
         schema, args.entrypoint, input_requests, **overrides
     )
     config_dict = config.model_dump(exclude_none=True, by_alias=True)
-    with open(args.out_config, "w") as f:
+    with open(args.config, "w") as f:
         yaml.dump(config_dict, f, sort_keys=False)
+
+
+def to_mars(requests: list[dict]) -> str:
+    ret = ""
+    for req in requests:
+        req.pop("source", None)
+        req.pop("target", None)
+        ret += "retrieve,\n"
+        ret += ",\n".join(
+            [
+                f"{k}={'/'.join(map(str, v))}"
+                if isinstance(v, (list, range))
+                else f"{k}={v}"
+                for k, v in req.items()
+            ]
+        )
+        ret += "\n"
+    return ret
+
+
+def requests(args):
+    with open(args.config, "r") as f:
+        config_dict = yaml.safe_load(f)
+    config = ConfigFactory.from_dict(args.entrypoint, **config_dict)
+
+    if args.inputs:
+        _, extension = os.path.splitext(args.inputs)
+        inputs = list(config.in_mars(args.source))
+        with open(args.inputs, "w") as f:
+            if args.mars:
+                f.write(to_mars(inputs))
+            elif extension == ".json":
+                json.dump(inputs, f, sort_keys=False, indent=2)
+            else:
+                yaml.dump(inputs, f, sort_keys=False)
 
     if args.outputs:
         _, extension = os.path.splitext(args.outputs)
-        outputs = list(config.out_mars())
+        outputs = list(config.out_mars(args.target))
         with open(args.outputs, "w") as f:
-            if extension == ".json":
+            if args.mars:
+                f.write(to_mars(outputs))
+            elif extension == ".json":
                 json.dump(outputs, f, sort_keys=False, indent=2)
             else:
                 yaml.dump(outputs, f, sort_keys=False)
@@ -56,16 +94,10 @@ def from_inputs(args, overrides: dict):
 def main(args: List[str] = sys.argv[1:]):
     parser = argparse.ArgumentParser("Generate configuration file for pproc")
     parser.add_argument(
-        "--out-config",
+        "--config",
         type=str,
         required=True,
-        help="Path to output configuration file",
-    )
-    parser.add_argument(
-        "--overrides",
-        type=str,
-        required=False,
-        help="Path to configuration template for overriding default configuration",
+        help="Path to configuration file",
     )
 
     subparsers = parser.add_subparsers(required=True)
@@ -76,11 +108,10 @@ def main(args: List[str] = sys.argv[1:]):
         "--outputs", type=str, required=True, help="Path to output request file"
     )
     output_parser.add_argument(
-        "--inputs",
+        "--overrides",
         type=str,
         required=False,
-        default=None,
-        help="Path to generated input request file",
+        help="Path to configuration template for overriding default configuration",
     )
     output_parser.add_argument(
         "--schema", type=str, required=True, help="Path to products schema"
@@ -101,31 +132,53 @@ def main(args: List[str] = sys.argv[1:]):
         "--inputs", type=str, required=True, help="Path to input request file"
     )
     input_parser.add_argument(
-        "--outputs",
-        type=str,
-        required=False,
-        default=None,
-        help="Path to generated output request file",
-    )
-    input_parser.add_argument(
         "--schema",
         type=str,
         required=True,
         help="Path to products schema",
     )
+    input_parser.add_argument(
+        "--overrides",
+        type=str,
+        required=False,
+        help="Path to configuration template for overriding default configuration",
+    )
     input_parser.set_defaults(func=from_inputs)
 
-    args = parser.parse_args(args)
-
-    overrides = {}
-    if args.overrides:
-        with open(args.overrides, "r") as f:
-            overrides = yaml.safe_load(f)
-
-    args.func(
-        args,
-        overrides,
+    request_parser = subparsers.add_parser(
+        "requests", help="Generate input/output requests from PProc config file"
     )
+    request_parser.add_argument(
+        "--entrypoint", type=str, required=True, help="PProc entrypoint"
+    )
+    request_parser.add_argument(
+        "--outputs", type=str, required=False, help="Path to output request file"
+    )
+    request_parser.add_argument(
+        "--target",
+        action="append",
+        default=None,
+        help="Target type to select output requests for",
+    )
+    request_parser.add_argument(
+        "--inputs", type=str, required=False, help="Path to input request file"
+    )
+    request_parser.add_argument(
+        "--source",
+        action="append",
+        default=None,
+        help="Source type to select input requests for",
+    )
+    request_parser.add_argument(
+        "--mars",
+        action="store_true",
+        default=False,
+        help="Output in MARS request format",
+    )
+    request_parser.set_defaults(func=requests)
+
+    args = parser.parse_args(args)
+    args.func(args)
 
 
 if __name__ == "__main__":
