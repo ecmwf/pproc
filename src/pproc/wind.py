@@ -24,11 +24,10 @@ from pproc.common.utils import dict_product
 from pproc.common.param_requester import ParamConfig, ParamRequester, index_ensembles
 
 
-def wind_template(template: eccodes.GRIBMessage, step: int, marstype: str, **out_keys):
+def wind_template(template: eccodes.GRIBMessage, step: int, **out_keys):
     new_template = template.copy()
     grib_sets = {
         "bitsPerValue": 24,
-        "marsType": marstype,
         "step": step,
         **out_keys,
     }
@@ -121,20 +120,20 @@ def wind_iteration_gen(
                     template,
                     **dims,
                     number=number,
-                    marstype=marstype,
+                    type=marstype,
                     **config.out_keys,
                 )
                 common.write_grib(out_ws, template, ens[number])
 
         if not isinstance(out_mean, common.io.NullTarget):
             template_mean = wind_template(
-                template, **dims, marstype="em", **config.out_keys
+                template, **dims, **config.out_keys, **config.out_keys_em
             )
             common.write_grib(out_mean, template_mean, np.mean(ens, axis=0))
 
         if not isinstance(out_std, common.io.NullTarget):
             template_std = wind_template(
-                template, **dims, marstype="es", **config.out_keys
+                template, **dims, **config.out_keys, **config.out_keys_es
             )
             common.write_grib(out_std, template_std, np.std(ens, axis=0))
 
