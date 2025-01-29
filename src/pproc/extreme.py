@@ -10,11 +10,11 @@
 # does it submit to any jurisdiction.
 
 
-import numpy as np
 import sys
 from datetime import datetime
 import functools
 import signal
+from typing import Dict, Any
 
 import eccodes
 from earthkit.meteo import extreme
@@ -28,36 +28,78 @@ from pproc.common.parallel import (
     parallel_data_retrieval,
     sigterm_handler,
 )
+from pproc.common.param_requester import ParamConfig, ParamRequester, index_ensembles
+from pproc.signi.clim import retrieve_clim
 
 
-class ExtremeVariables:
-    def __init__(self, efi_cfg):
-        self.eps = float(efi_cfg["eps"])
-        self.sot = list(map(int, efi_cfg["sot"]))
+class ExtremeParamConfig(ParamConfig):
+    def __init__(
+        self, name: str, options: Dict[str, Any], overrides: Dict[str, Any] = {}
+    ):
+        super().__init__(name, options, overrides)
+        clim_options = options.copy()
+        if "clim" in options:
+            clim_options.update(clim_options.pop("clim"))
+        self.clim_param = ParamConfig(f"clim_{name}", clim_options)
+        self.eps = float(options["eps"])
+        self.sot = list(map(int, options["sot"]))
 
 
-def read_clim(fdb, climatology, accum, n_clim=101, overrides={}):
+class ConfigExtreme(common.Config):
+    def __init__(self, args):
+        super().__init__(args)
+
+        self.fc_date = datetime.strptime(str(self.options["fc_date"]), "%Y%m%d%H")
+        self.members = self.options.get("members", 51)
+        self.total_fields = self.options.get("total_fields", self.members)
+        self.n_par_compute = self.options.get("n_par_compute", 1)
+        self.n_par_read = self.options.get("n_par_read", 1)
+        self.window_queue_size = self.options.get("queue_size", self.n_par_compute)
+
+        self.root_dir = self.options["root_dir"]
+        self.out_keys = self.options.get("out_keys", {})
+
+        self.sources = self.options.get("sources", {})
+
+        self.steps = self.options.get("steps", [])
+        self.windows = self.options.get("windows", [])
+
+        self.parameters = [
+            ExtremeParamConfig(pname, popt, overrides=self.override_input)
+            for pname, popt in self.options["parameters"].items()
+        ]
+        self.clim_loc = args.in_clim
+
+        for attr in ["out_efi", "out_sot"]:
+            location = getattr(args, attr)
+            target = common.io.target_from_location(
+                location, overrides=self.override_output
+            )
+            if self.n_par_compute > 1:
+                target.enable_parallel(parallel)
+            if args.recover:
+                target.enable_recovery()
+            self.__setattr__(attr, target)
+
+
+def read_clim(config: ConfigExtreme, param: ExtremeParamConfig, accum, n_clim=101):
     grib_keys = accum.grib_keys()
     clim_step = grib_keys.get("stepRange", grib_keys.get("step", None))
-    assert clim_step is not None
-
-    req = climatology["clim_keys"].copy()
-    assert "date" in req
-    req["time"] = "0000"
-    req["quantile"] = ["{}:100".format(i) for i in range(n_clim)]
-    if clim_step in climatology.get("steps", {}):
-        req["step"] = climatology["steps"][clim_step]
-    else:
-        req["step"] = clim_step
-    req.update(overrides)
-
-    print("Climatology request: ", req)
-    da_clim = common.fdb_read(fdb, req)
-    assert da_clim.values.shape[0] == n_clim
-    da_clim_sorted = da_clim.reindex(quantile=[f"{x}:100" for x in range(n_clim)])
-    print(da_clim_sorted)
-
-    return np.asarray(da_clim_sorted.values), da_clim.attrs["grib_template"]
+    in_keys = param.clim_param._in_keys
+    in_keys["quantile"] = ["{}:100".format(i) for i in range(n_clim)]
+    step = in_keys.get("step", {}).get(clim_step, clim_step)
+    clim_accum, clim_template = retrieve_clim(
+        param.clim_param,
+        config.sources,
+        config.clim_loc,
+        1,
+        n_clim,
+        index_func=lambda x: int(x.get("quantile").split(":")[0]),
+        step=step,
+    )
+    if not isinstance(clim_template, eccodes.GRIBMessage):
+        clim_template = common.io.read_template(clim_template)
+    return clim_accum.values, clim_template
 
 
 def extreme_template(accum, template_fc, template_clim):
@@ -158,7 +200,7 @@ def efi_template_control(template):
 def sot_template(template, sot):
     template_sot = template.copy()
     template_sot["marsType"] = 38
-    
+
     if sot == 90:
         efi_order = 99
     elif sot == 10:
@@ -185,9 +227,7 @@ def sot_template(template, sot):
     return template_sot
 
 
-def efi_sot(
-    cfg, param, climatology, efi_vars, recovery, template_filename, window_id, accum
-):
+def efi_sot(cfg, param, recovery, template_filename, window_id, accum):
     with ResourceMeter(f"Window {window_id}, computing EFI/SOT"):
         message_template = (
             template_filename
@@ -195,12 +235,7 @@ def efi_sot(
             else common.io.read_template(template_filename)
         )
 
-        clim, template_clim = read_clim(
-            common.io.fdb(),
-            climatology,
-            accum,
-            overrides=cfg.override_input,
-        )
+        clim, template_clim = read_clim(cfg, param, accum)
         print(f"Climatology array: {clim.shape}")
 
         template_extreme = extreme_template(accum, message_template, template_clim)
@@ -208,19 +243,18 @@ def efi_sot(
         ens = accum.values
         assert ens is not None
 
-        ens_types = param.base_request["type"].split("/")
-        if "cf" in ens_types or "fc" in ens_types:
-            efi_control = extreme.efi(clim, ens.sel(number=[0]).values, efi_vars.eps)
+        if message_template.get("type") in ["cf", "fc"]:
+            efi_control = extreme.efi(clim, ens[:1, :], param.eps)
             template_efi = efi_template_control(template_extreme)
             common.write_grib(cfg.out_efi, template_efi, efi_control)
 
-        efi = extreme.efi(clim, ens.values, efi_vars.eps)
+        efi = extreme.efi(clim, ens, param.eps)
         template_efi = efi_template(template_extreme)
         common.write_grib(cfg.out_efi, template_efi, efi)
 
         sot = {}
-        for perc in efi_vars.sot:
-            sot[perc] = extreme.sot(clim, ens.values, perc, efi_vars.eps)
+        for perc in param.sot:
+            sot[perc] = extreme.sot(clim, ens, perc, param.eps)
             template_sot = sot_template(template_extreme, perc)
             common.write_grib(cfg.out_sot, template_sot, sot[perc])
 
@@ -229,49 +263,15 @@ def efi_sot(
         recovery.add_checkpoint(param.name, window_id)
 
 
-class ConfigExtreme(common.Config):
-    def __init__(self, args):
-        super().__init__(args)
-
-        self.fc_date = datetime.strptime(str(self.options["fc_date"]), "%Y%m%d%H")
-
-        if isinstance(self.options["members"], dict):
-            self.members = range(
-                self.options["members"]["start"], self.options["members"]["end"] + 1
-            )
-        else:
-            self.members = int(self.options["members"])
-        self.n_par_compute = self.options.get("n_par_compute", 1)
-        self.n_par_read = self.options.get("n_par_read", 1)
-        self.window_queue_size = self.options.get("queue_size", self.n_par_compute)
-
-        self.root_dir = self.options["root_dir"]
-
-        self.global_input_cfg = self.options.get("global_input_keys", {})
-        self.global_output_cfg = self.options.get("global_output_keys", {})
-
-        for attr in ["out_efi", "out_sot"]:
-            location = getattr(args, attr)
-            target = common.io.target_from_location(
-                location, overrides=self.override_output
-            )
-            if self.n_par_compute > 1:
-                target.enable_parallel(parallel)
-            if args.recover:
-                target.enable_recovery()
-            self.__setattr__(attr, target)
-
-        print(f"Forecast date is {self.fc_date}")
-        print(f"Root directory is {self.root_dir}")
-
-
 def main(args=None):
     sys.stdout.reconfigure(line_buffering=True)
     signal.signal(signal.SIGTERM, sigterm_handler)
 
     parser = common.default_parser("Compute EFI and SOT from forecast and climatology")
-    parser.add_argument("--out_efi", required=True, help="Target for EFI")
-    parser.add_argument("--out_sot", required=True, help="Target for SOT")
+    parser.add_argument("--in-ens", required=True, help="Source for forecast")
+    parser.add_argument("--in-clim", required=True, help="Source for climatology")
+    parser.add_argument("--out-efi", required=True, help="Target for EFI")
+    parser.add_argument("--out-sot", required=True, help="Target for SOT")
     args = parser.parse_args(args)
     cfg = ConfigExtreme(args)
     recovery = common.Recovery(cfg.root_dir, args.config, cfg.fc_date, args.recover)
@@ -288,38 +288,37 @@ def main(args=None):
     )
 
     with executor:
-        for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
-            param = common.create_parameter(
-                param_name,
-                cfg.fc_date,
-                cfg.global_input_cfg,
-                param_cfg,
+        for param in cfg.parameters:
+            requester = ParamRequester(
+                param,
+                cfg.sources,
+                args.in_ens,
                 cfg.members,
-                cfg.override_input,
+                cfg.total_fields,
+                index_ensembles,
             )
-            window_manager = common.WindowManager(param_cfg, cfg.global_output_cfg)
-            efi_vars = ExtremeVariables(param_cfg)
-
+            window_manager = common.WindowManager(
+                param.window_config(cfg.windows, cfg.steps),
+                param.out_keys(cfg.out_keys),
+            )
             if last_checkpoint:
-                if param_name not in last_checkpoint:
-                    print(f"Recovery: skipping completed param {param_name}")
+                if param.name not in last_checkpoint:
+                    print(f"Recovery: skipping completed param {param.name}")
                     continue
                 checkpointed_windows = [
                     recovery.checkpoint_identifiers(x)[1]
                     for x in recovery.checkpoints
-                    if param_name in x
+                    if param.name in x
                 ]
                 new_start = window_manager.delete_windows(checkpointed_windows)
-                print(f"Recovery: param {param_name} looping from step {new_start}")
+                print(f"Recovery: param {param.name} looping from step {new_start}")
                 last_checkpoint = None  # All remaining params have not been run
 
-            efi_partial = functools.partial(
-                efi_sot, cfg, param, param_cfg["climatology"], efi_vars, recovery
-            )
+            efi_partial = functools.partial(efi_sot, cfg, param, recovery)
             for keys, retrieved_data in parallel_data_retrieval(
                 cfg.n_par_read,
                 window_manager.dims,
-                [param],
+                [requester],
                 cfg.n_par_compute > 1,
                 initializer=signal.signal,
                 initargs=(signal.SIGTERM, signal.SIG_DFL),

@@ -10,148 +10,27 @@
 # does it submit to any jurisdiction.
 import functools
 import sys
-from io import BytesIO
 from datetime import datetime
 import numpy as np
 import signal
 
 import eccodes
-import pyfdb # Needs to be imported before mir to avoid seg fault
 from meters import ResourceMeter
-import mir
 
 from pproc import common
 from pproc.common import parallel
 from pproc.common.parallel import parallel_processing, sigterm_handler
-from pproc.common.window import parse_window_config
+from pproc.common.utils import dict_product
+from pproc.common.param_requester import ParamConfig, ParamRequester, index_ensembles
 
 
-def retrieve_messages(cfg, req, cached_file):
-    req.update(cfg.override_input)
-    if cfg.vod2uv:
-        print(req)
-        common.fdb_read_to_file(cfg.fdb, req, cached_file)
-        messages = mir_wind(cfg, cached_file)
-    else:
-        out = common.fdb_retrieve(cfg.fdb, req, cfg.interpolation_keys)
-        reader = eccodes.StreamReader(out)
-        if not reader.peek():
-            raise RuntimeError(f"No data retrieved for request {req}")
-        messages = list(reader)
-    return messages
-
-
-def fdb_request_det(cfg, levelist, steps, name):
-    """
-    Retrieve vorticity and divergence or u/v for deterministic forecast
-    """
-
-    req = cfg.request.copy()
-    req.pop("stream_ens")
-    req["stream"] = req.pop("stream_det")
-    req["date"] = cfg.date.strftime("%Y%m%d")
-    req["time"] = cfg.date.strftime("%H") + "00"
-    if req["levtype"] != "sfc":
-        req["levelist"] = levelist
-    req["step"] = steps
-    req["type"] = "fc"
-
-    try:
-        stepid = list(steps)[0]
-    except (TypeError, ValueError):
-        stepid = steps
-
-    return retrieve_messages(cfg, req, f"wind_det_{levelist}_{name}_{stepid}.grb")
-
-
-def fdb_request_ens(cfg, levelist, steps, name):
-    """
-    Retrieve vorticity and divergence or u/v for ensemble forecast
-    (control + perturbed)
-    """
-
-    req = cfg.request.copy()
-    req.pop("stream_det", None)
-    req["stream"] = req.pop("stream_ens")
-    req["date"] = cfg.date.strftime("%Y%m%d")
-    req["time"] = cfg.date.strftime("%H") + "00"
-    if req["levtype"] != "sfc":
-        req["levelist"] = levelist
-    req["step"] = steps
-
-    try:
-        stepid = list(steps)[0]
-    except (TypeError, ValueError):
-        stepid = steps
-
-    messages = []
-    for param_type in cfg.ens_types:
-        req_param = req.copy()
-        req_param["type"] = param_type
-        if param_type == "pf":
-            req_param["number"] = range(1, cfg.members + 1)
-        messages += retrieve_messages(cfg, req_param, f"wind_{param_type}_{levelist}_{name}_{stepid}.grb")
-    return messages
-
-
-def mir_wind(cfg, cached_file):
-    """
-    Compute wind components from cached grib file
-    The grib file contains the vorticity and the divergence
-    returns a list of messages containing the two components of velocity
-    """
-
-    interp_keys = cfg.interpolation_keys
-
-    out = BytesIO()
-    inp = mir.MultiDimensionalGribFileInput(cached_file, 2)
-
-    job = mir.Job(vod2uv="1", **interp_keys)
-    job.execute(inp, out)
-
-    out.seek(0)
-    reader = eccodes.StreamReader(out)
-    messages = list(reader)
-
-    return messages
-
-
-def wind_speed(messages):
-    """
-    Compute wind speed from grib messages containing u and v
-    """
-    steps = list(set([m["step"] for m in messages]))
-    wind_paramids = list(set([m["paramId"] for m in messages]))
-    assert len(wind_paramids) == 2
-
-    u = {step: [] for step in steps}
-    v = {step: [] for step in steps}
-    for m in messages:
-        step = m["step"]
-        param = m["paramId"]
-        if param == wind_paramids[0]:
-            u[step].append(m.get_array("values"))
-        elif param == wind_paramids[1]:
-            v[step].append(m.get_array("values"))
-        else:
-            raise ValueError(f"Wrong paramId in message: {param}")
-
-    u = np.asarray(list(u.values()))
-    v = np.asarray(list(v.values()))
-
-    ws = np.sqrt(u * u + v * v)
-    ws = dict(zip(steps, ws))
-
-    return ws
-
-
-def basic_template(cfg, template, step, marstype):
+def wind_template(template: eccodes.GRIBMessage, step: int, marstype: str, **out_keys):
     new_template = template.copy()
     grib_sets = {
         "bitsPerValue": 24,
         "marsType": marstype,
         "step": step,
-        **cfg.options.get("grib_set", {})
+        **out_keys,
     }
     if step == 0:
         grib_sets["timeRangeIndicator"] = 1
@@ -159,106 +38,144 @@ def basic_template(cfg, template, step, marstype):
         grib_sets["timeRangeIndicator"] = 10
     else:
         grib_sets["timeRangeIndicator"] = 0
-    
+
     new_template.set(grib_sets)
     return new_template
 
 
-def eps_speed_template(cfg, template, step, number):
-    if number == 0:
-        eps_template = basic_template(cfg, template, step, cfg.control_type)
-    else:
-        eps_template = basic_template(cfg, template, step, "pf")
-        eps_template.set("number", number)
-    return eps_template
+class WindParamConfig(ParamConfig):
+    def __init__(self, name, options, overrides=None):
+        super().__init__(name, options, overrides)
+        self.total_fields = 1
+        if self._in_keys.get("interpolate", {}).get("vod2uv", False):
+            self.in_paramids = [self.in_paramids]
+            self.total_fields = 2
 
 
-class ConfigExtreme(common.Config):
+class WindConfig(common.Config):
     def __init__(self, args):
         super().__init__(args)
 
+        self.members = self.options["members"]
+        self.total_fields = self.options.get("total_fields", self.members)
         self.date = datetime.strptime(str(self.options["fc_date"]), "%Y%m%d%H")
         self.root_dir = self.options["root_dir"]
+        self.sources = self.options.get("sources", {})
+        self.det_loc = args.in_det
+        self.ens_loc = args.in_ens
 
         self.n_par = self.options.get("n_par", 1)
-        self._fdb = None
 
-        self.request = self.options["request"]
-        self.ens_types = self.request.pop("type_ens", "cf/pf").split("/")
-        if len(self.ens_types) != 2:
-            raise ValueError("Unperturbed and perturbed types expected for ensemble")
-        self.control_type = self.ens_types[(self.ens_types.index("pf") + 1) % 2]
-        self.windows = self.options["windows"]
-        self.levelist = self.options.get("levelist", [0])
-        self.interpolation_keys = self.options.get("interpolation_keys", None)
-        self.vod2uv = bool(self.options.get("vod2uv", False))
+        self.out_keys = self.options.get("out_keys", {})
+        self.out_keys_em = {"type": "em", **self.options.get("out_keys_em", {})}
+        self.out_keys_es = {"type": "es", **self.options.get("out_keys_es", {})}
 
-        self.members = int(self.options["members"]) if "members" in self.options else None
+        self.parameters = [
+            WindParamConfig(pname, popt, overrides=self.override_input)
+            for pname, popt in self.options["parameters"].items()
+        ]
+        self.steps = self.options.get("steps", [])
+        self.windows = self.options.get("windows", [])
 
         for attr in ["out_det_ws", "out_eps_ws", "out_eps_mean", "out_eps_std"]:
             location = getattr(args, attr)
-            target = common.io.target_from_location(location, overrides=self.override_output)
+            target = common.io.target_from_location(
+                location, overrides=self.override_output
+            )
             if self.n_par > 1:
                 target.enable_parallel(parallel)
             if args.recover:
                 target.enable_recovery()
             self.__setattr__(attr, target)
 
-    @property
-    def fdb(self):
-        if self._fdb is None:
-            self._fdb = common.io.fdb()
-        return self._fdb
 
-
-def wind_iteration_gen(config, tp, levelist, name, step, out_ws, out_mean=common.io.NullTarget, out_std=common.io.NullTarget):
-    if np.all([isinstance(x, common.io.NullTarget) for x in [out_ws, out_mean, out_std]]):
+def wind_iteration_gen(
+    config: WindConfig,
+    loc: str,
+    param: ParamConfig,
+    dims: dict,
+    members: int,
+    total_fields: int,
+    out_ws: common.io.Target,
+    out_mean=common.io.NullTarget,
+    out_std=common.io.NullTarget,
+):
+    if np.all(
+        [isinstance(x, common.io.NullTarget) for x in [out_ws, out_mean, out_std]]
+    ):
         return
 
-    fdb_req = fdb_request_det if tp == "det" else fdb_request_ens
-    tpname = "deterministic" if tp == "det" else "ensemble"
-    mk_template = (
-        (lambda cfg, msg, stp, num: basic_template(cfg, msg, stp, "fc"))
-        if tp == "det"
-        else eps_speed_template
+    requester = ParamRequester(
+        param, config.sources, loc, members, total_fields, index_func=index_ensembles
     )
-    numbers = [0] if tp == "det" else range(config.members + 1)
-
-    with ResourceMeter(
-        f"Window {name}, step {step}, {tpname}: read forecast"
-    ):
-        messages = fdb_req(config, levelist, step, name)
-    with ResourceMeter(
-        f"Window {name}, step {step}, {tpname}: compute speed"
-    ):
-        spd = wind_speed(messages)
-    with ResourceMeter(
-        f"Window {name}, step {step}, {tpname}: write output"
-    ):
-        template = messages[0]
+    template, ens = requester.retrieve_data(None, **dims)
+    with ResourceMeter(f"Param {param.name}, {dims}"):
         if not isinstance(out_ws, common.io.NullTarget):
-            for number in numbers:
-                template = mk_template(config, template, step, number)
-                common.write_grib(out_ws, template, spd[step][number])
+            for number in ens.shape[0]:
+                marstype = (
+                    "pf"
+                    if number > 0 and template.get("type") in ["cf", "fc"]
+                    else template.get("type")
+                )
+                template = wind_template(
+                    template,
+                    **dims,
+                    number=number,
+                    marstype=marstype,
+                    **config.out_keys,
+                )
+                common.write_grib(out_ws, template, ens[number])
 
         if not isinstance(out_mean, common.io.NullTarget):
-            template_mean = basic_template(config, template, step, "em")
-            common.write_grib(out_mean, template_mean, np.mean(spd[step], axis=0))
+            template_mean = wind_template(
+                template, **dims, marstype="em", **config.out_keys
+            )
+            common.write_grib(out_mean, template_mean, np.mean(ens, axis=0))
 
         if not isinstance(out_std, common.io.NullTarget):
-            template_std = basic_template(config, template, step, "es")
-            common.write_grib(out_std, template_std, np.std(spd[step], axis=0))
+            template_std = wind_template(
+                template, **dims, marstype="es", **config.out_keys
+            )
+            common.write_grib(out_std, template_std, np.std(ens, axis=0))
 
 
-def wind_iteration(config, recovery, levelist, name, step):
+def wind_iteration(
+    config: WindConfig, recovery: common.Recovery, param: ParamConfig, dims: dict
+):
     # calculate wind speed for type=fc (deterministic)
-    wind_iteration_gen(config, "det", levelist, name, step, config.out_det_ws, common.io.NullTarget(), common.io.NullTarget())
+    wind_iteration_gen(
+        config,
+        config.det_loc,
+        param,
+        dims,
+        1,
+        param.total_fields,
+        config.out_det_ws,
+        common.io.NullTarget(),
+        common.io.NullTarget(),
+    )
 
     # calculate wind speed, mean/stddev of wind speed for type=pf/cf (eps)
-    wind_iteration_gen(config, "eps", levelist, name, step, config.out_eps_ws, config.out_eps_mean, config.out_eps_std)
+    wind_iteration_gen(
+        config,
+        config.ens_loc,
+        param,
+        dims,
+        config.members,
+        config.total_fields * param.total_fields,
+        config.out_eps_ws,
+        config.out_eps_mean,
+        config.out_eps_std,
+    )
 
-    config.fdb.flush()
-    recovery.add_checkpoint(levelist, name, step)
+    for target in [
+        config.out_det_ws,
+        config.out_eps_ws,
+        config.out_eps_mean,
+        config.out_eps_std,
+    ]:
+        target.flush()
+    recovery.add_checkpoint(param.name, *dims.values())
 
 
 def main(args=None):
@@ -267,40 +184,48 @@ def main(args=None):
 
     parser = common.default_parser("Calculate wind speed")
     parser.add_argument(
-        "--out_det_ws", default="null:", help="Target for wind speed for type=fc"
+        "--in-det", required=True, help="Source for deterministic forecast"
+    )
+    parser.add_argument("--in-ens", required=True, help="Source for ensemble forecast")
+    parser.add_argument(
+        "--out-det-ws", default="null:", help="Target for wind speed for type=fc"
     )
     parser.add_argument(
-        "--out_eps_ws", default="null:", help="Target for wind speed for type=pf/cf"
+        "--out-eps-ws", default="null:", help="Target for wind speed for type=pf/cf"
     )
     parser.add_argument(
-        "--out_eps_mean", required=True, help="Target for mean wind speed for type=pf/cf"
+        "--out-eps-mean",
+        required=True,
+        help="Target for mean wind speed for type=pf/cf",
     )
     parser.add_argument(
-        "--out_eps_std", required=True, help="Target for wind speed std for type=pf/cf"
+        "--out-eps-std", required=True, help="Target for wind speed std for type=pf/cf"
     )
     args = parser.parse_args(args)
 
-    cfg = ConfigExtreme(args)
+    cfg = WindConfig(args)
     recovery = common.Recovery(cfg.root_dir, args.config, cfg.date, args.recover)
 
     plan = []
-    for levelist in cfg.levelist:
-        for window_options in cfg.windows:
-
-            window = parse_window_config(window_options, include_init=True)
-
-            for step in window.steps:
-                if recovery.existing_checkpoint(levelist, window.name, step):
-                    print(
-                        f"Recovery: skipping level {levelist} window {window.name} step {step}"
-                    )
-                    continue
-
-                plan.append((levelist, window.name, step))
+    for param in cfg.parameters:
+        window_manager = common.WindowManager(
+            param.window_config(cfg.windows, cfg.steps),
+            param.out_keys(cfg.out_keys),
+        )
+        for dims in dict_product(window_manager.dims):
+            if recovery.existing_checkpoint(param.name, *dims.values()):
+                print(f"Recovery: skipping dims: {param.name} {dims}")
+                continue
+            plan.append((param, dims))
 
     iteration = functools.partial(wind_iteration, cfg, recovery)
-    parallel_processing(iteration, plan, cfg.n_par, initializer=signal.signal,
-                        initargs=(signal.SIGTERM, signal.SIG_DFL))
+    parallel_processing(
+        iteration,
+        plan,
+        cfg.n_par,
+        initializer=signal.signal,
+        initargs=(signal.SIGTERM, signal.SIG_DFL),
+    )
 
     recovery.clean_file()
 

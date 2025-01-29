@@ -1,15 +1,18 @@
-members: 5
-leg: 1
-global_input_keys:
-  expver: "0001"
-global_output_keys:
+members: 6
+out_keys:
   expver: "0001"
   type: ep
   localDefinitionNumber: 5
   bitsPerValue: 8
 parameters:
   t850:
-    in_paramid: 130
+    in: 130
+    in_keys:
+      interpolate:
+        grid: O640
+        intgrid: none
+        legendre-loader: shmem
+        matrix-loader: file-io
     steps:
     - interval: 12
       start_step: 0
@@ -75,24 +78,55 @@ parameters:
         packingType: grid_ccsds
         scaleFactorOfUpperLimit: MISSING
         scaledValueOfUpperLimit: MISSING
-    base_request:
-      class: od
-      stream: enfo
-      levelist: 850
-      levtype: pl
-      type: cf/pf
-      domain: g
-    interpolation_keys:
-      grid: O640
-      intgrid: none
-      legendre-loader: shmem
-      matrix-loader: file-io
-    climatology:
-      clim_keys:
+    clim:
+      in_keys:
+        interpolate:
+          grid: O640
+          intgrid: none
+          legendre-loader: shmem
+          matrix-loader: file-io
+        step:
+          0: 12
+          12: 24
+          24: 36
+sources:
+  fdb:
+    ens:
+      - class: od
+        stream: enfo
+        expver: '0001'
+        levelist: 850
+        levtype: pl
+        type: cf
+        domain: g
+        date: 20240507
+        time: 12
+      - class: od
+        stream: enfo
+        expver: '0001'
+        levelist: 850
+        levtype: pl
+        type: pf
+        domain: g
+        date: 20240507
+        time: 12
+    clim:
+      - class: od
         stream: efhs
-        type: em/es
+        expver: '0001'
+        levelist: 850
+        levtype: pl
+        stream: efhs
+        type: em
         date: 20240506
-      steps:
-        0: 12
-        12: 24
-        24: 36
+        domain: g
+        time: 00
+      - class: od
+        stream: efhs
+        expver: '0001'
+        levelist: 850
+        levtype: pl
+        type: es
+        date: 20240506
+        domain: g
+        time: 00

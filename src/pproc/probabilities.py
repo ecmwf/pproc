@@ -13,9 +13,19 @@ from pproc.common.parallel import (
     parallel_data_retrieval,
     sigterm_handler,
 )
+from pproc.common.param_requester import ParamRequester, ParamConfig
 from pproc.prob.parallel import prob_iteration
-from pproc.prob.config import ProbConfig
+from pproc.prob.config import BaseProbConfig
 from pproc.prob.window_manager import ThresholdWindowManager
+
+
+class ProbConfig(BaseProbConfig):
+    def __init__(self, args, out_keys):
+        super().__init__(args, out_keys)
+        self.parameters = [
+            ParamConfig(pname, popt, overrides=self.override_input)
+            for pname, popt in self.options["parameters"].items()
+        ]
 
 
 def main(args=None):
@@ -24,8 +34,9 @@ def main(args=None):
 
     parser = common.default_parser("Compute instantaneous and period probabilites")
     parser.add_argument("-d", "--date", required=True, help="Forecast date")
+    parser.add_argument("--in-ens", required=True, help="Source for forecast")
     parser.add_argument(
-        "--out_prob", required=True, help="Target for threshold probabilities"
+        "--out-prob", required=True, help="Target for threshold probabilities"
     )
     args = parser.parse_args()
     date = datetime.strptime(args.date, "%Y%m%d%H")
@@ -45,27 +56,29 @@ def main(args=None):
     )
 
     with executor:
-        for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
-            param = common.create_parameter(
-                param_name,
-                date,
-                cfg.global_input_cfg,
-                param_cfg,
-                cfg.n_ensembles,
-                cfg.override_input,
+        for param in cfg.parameters:
+            requester = ParamRequester(
+                param,
+                cfg.sources,
+                args.in_ens,
+                cfg.members,
+                cfg.total_fields,
             )
-            window_manager = ThresholdWindowManager(param_cfg, cfg.global_output_cfg)
+            window_manager = ThresholdWindowManager(
+                param.window_config(cfg.windows, cfg.steps),
+                param.out_keys(cfg.out_keys),
+            )
             if last_checkpoint:
-                if param_name not in last_checkpoint:
-                    print(f"Recovery: skipping completed param {param_name}")
+                if param.name not in last_checkpoint:
+                    print(f"Recovery: skipping completed param {param.name}")
                     continue
                 checkpointed_windows = [
                     recovery.checkpoint_identifiers(x)[1]
                     for x in recovery.checkpoints
-                    if param_name in x
+                    if param.name in x
                 ]
                 new_start = window_manager.delete_windows(checkpointed_windows)
-                print(f"Recovery: param {param_name} looping from step {new_start}")
+                print(f"Recovery: param {param.name} looping from step {new_start}")
                 last_checkpoint = None  # All remaining params have not been run
 
             prob_partial = functools.partial(
@@ -74,7 +87,7 @@ def main(args=None):
             for keys, retrieved_data in parallel_data_retrieval(
                 cfg.n_par_read,
                 window_manager.dims,
-                [param],
+                [requester],
                 cfg.n_par_compute > 1,
                 initializer=signal.signal,
                 initargs=(signal.SIGTERM, signal.SIG_DFL),

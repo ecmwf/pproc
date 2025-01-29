@@ -58,13 +58,12 @@ def read_ensemble(
             message = reader.peek()
             if message is None:
                 raise EOFError(f"No data in {loc!r}")
-            if template is None:
-                template = message
-                data = np.empty(
-                    (total, template.get("numberOfDataPoints")), dtype=dtype
-                )
+            if data is None:
+                data = np.empty((total, message.get("numberOfDataPoints")), dtype=dtype)
             for message in reader:
                 i = n_read if index_func is None else index_func(message)
+                if i == 0 and template is None:
+                    template = message
                 data[i, :] = missing_to_nan(message)
                 n_read += 1
     if n_read != total:
@@ -165,6 +164,12 @@ class ParamConfig:
         return config
 
 
+def index_ensembles(message: eccodes.GRIBMessage) -> int:
+    if message.get("type") in ["cf", "fc"]:
+        return 0
+    return message.get("number")
+
+
 class ParamRequester:
     def __init__(
         self,
@@ -206,10 +211,11 @@ class ParamRequester:
                 **filt_keys,
             )
         comp = numexpr.evaluate(
-            "data " + filt.comparison + " threshold", local_dict={
+            "data " + filt.comparison + " threshold",
+            local_dict={
                 "data": fdata,
                 "threshold": np.asarray(filt.threshold, dtype=fdata.dtype),
-                }
+            },
         )
         return np.where(comp, filt.replacement, data)
 
@@ -245,7 +251,8 @@ class ParamRequester:
             data_list.append(data)
         return (
             template,
-            self.filter_data(self.combine_data(data_list), step, **kwargs) * self.param.scale,
+            self.filter_data(self.combine_data(data_list), step, **kwargs)
+            * self.param.scale,
         )
 
     @property
