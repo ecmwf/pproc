@@ -50,7 +50,7 @@ class ConfigExtreme(common.Config):
         super().__init__(args)
 
         self.fc_date = datetime.strptime(str(self.options["fc_date"]), "%Y%m%d%H")
-        self.members = self.options.get("members", 51)
+        self.members = self.options.get("num_members", 51)
         self.total_fields = self.options.get("total_fields", self.members)
         self.n_par_compute = self.options.get("n_par_compute", 1)
         self.n_par_read = self.options.get("n_par_read", 1)

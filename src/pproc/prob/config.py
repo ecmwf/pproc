@@ -5,7 +5,7 @@ from pproc.common import parallel
 class BaseProbConfig(common.Config):
     def __init__(self, args, target_types):
         super().__init__(args)
-        self.members = self.options.get("members", 50)
+        self.members = self.options.get("num_members", 51)
         self.total_fields = self.options.get("total_fields", self.members)
         self.out_keys = self.options.get("out_keys", {})
         self.n_par_read = self.options.get("n_par_read", 1)

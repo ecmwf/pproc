@@ -55,7 +55,7 @@ class WindConfig(common.Config):
     def __init__(self, args):
         super().__init__(args)
 
-        self.members = self.options["members"]
+        self.members = self.options["num_members"]
         self.total_fields = self.options.get("total_fields", self.members)
         self.date = datetime.strptime(str(self.options["fc_date"]), "%Y%m%d%H")
         self.root_dir = self.options["root_dir"]
