@@ -16,13 +16,33 @@ from pproc.common.recovery import Recovery
 from pproc.common.stepseq import steprange_to_fcmonth
 
 
-def mstat_keys(fcdate: datetime, step_range: str) -> Dict[str, Any]:
-    start, end = map(int, step_range.split("-"))
-    this_month = fcdate + timedelta(hours=int(start))
-    return {
-        "forecastMonth": steprange_to_fcmonth(fcdate, step_range),
-        "verifyingMonth": f"{this_month.year:02d}{this_month.month:02d}",
+def mstat_keys(template, out_keys: dict, interval: int):
+    steprange = out_keys.pop("stepRange")
+    start, end = map(int, steprange.split("-"))
+    if out_keys.get("edition", template.get("edition")) == 1:
+        date = datetime.strptime(template.get("dataDate:str"), "%Y%m%d")
+        this_month = date + timedelta(hours=int(start))
+        return {
+            "localDefinitionNumber": 16,
+            **out_keys,
+            "stepType": "instant",
+            "timeRangeIndicator": 10,
+            "unitOfTimeRange": 1,
+            "forecastMonth": steprange_to_fcmonth(date, steprange),
+            "verifyingMonth": f"{this_month.year:02d}{this_month.month:02d}",
+            "step": end,
+            "averagingPeriod": interval,
+        }
+    return lambda tp: {
+        "localDefinitionNumber": 16,
+        **out_keys,
+        "stepType": "instant",
+        "productDefinitionTemplateNumber": 11,
+        "indicatorOfUnitForTimeIncrement": 1,
+        "timeIncrement": interval,
         "step": end,
+        "typeOfGeneratingProcess": template.get("typeOfGeneratingProcess"),
+        "typeOfProcessedData": tp,
     }
 
 
@@ -39,18 +59,9 @@ def postproc_iteration(
 
     intervals = np.diff(accum["step"].coords)
     assert np.all(intervals == intervals[0]), "Step intervals must be equal"
-    date = datetime.strptime(template.get("dataDate:str"), "%Y%m%d")
-    accum_keys = accum.grib_keys()
-    steprange = accum_keys.pop("stepRange")
     out_keys = {
-        "localDefinitionNumber": 16,
-        **accum_keys,
+        **accum.grib_keys(),
         **cfg.outputs.stats.metadata,
-        "stepType": "instant",
-        "timeRangeIndicator": 10,
-        "unitOfTimeRange": 1,
-        **mstat_keys(date, steprange),
-        "averagingPeriod": intervals[0],
     }
     with ResourceMeter(f"{param.name}, step {window_id}: Post-process"):
         ens = accum.values
@@ -61,13 +72,13 @@ def postproc_iteration(
             cfg.outputs.stats.target,
             vmin=param.vmin,
             vmax=param.vmax,
-            out_keys=out_keys,
+            out_keys=mstat_keys(template, out_keys, intervals[0]),
         )
         cfg.outputs.stats.target.flush()
-    recovery.add_checkpoint(param.name, window_id)
+    recovery.add_checkpoint(param=param.name, window=window_id)
 
 
-def main(args=None):
+def main():
     sys.stdout.reconfigure(line_buffering=True)
     cfg = Conflator(app_name="pproc-monthly-stats", model=MonthlyStatsConfig).load()
     cfg.print()

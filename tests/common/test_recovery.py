@@ -29,11 +29,13 @@ def test_recovery(tmp_path, recover: bool, num_checkpoints: int):
     )
 
     # Should take arguments of different types
-    recover1.add_checkpoint("2t", "10-20", 10)
+    recover1.add_checkpoint(param="2t", window="10-20", step=10)
     assert len(recover1.checkpoints) == 1
-    assert recover1.computed("2t") == ["10-20"]
+    computed = recover1.computed(param="2t")
+    assert len(computed) == 1
+    assert computed[0] == {"param": "2t", "window": "10-20", "step": "10"}
 
-    recover1.add_checkpoint("2t", "10-20", 10)
+    recover1.add_checkpoint(param="2t", window="10-20", step=10)
     assert len(recover1.checkpoints) == 1
 
     recover2 = Recovery(

@@ -16,7 +16,7 @@ from pproc.common.recovery import Recovery
 def postproc_iteration(
     param: AccumParamConfig,
     cfg: AccumConfig,
-    recovery: Optional[Recovery],
+    recovery: Recovery,
     template: Union[str, eccodes.GRIBMessage],
     window_id: str,
     accum: Accumulator,
@@ -38,8 +38,7 @@ def postproc_iteration(
             },
         )
         cfg.outputs.accum.target.flush()
-    if recovery is not None:
-        recovery.add_checkpoint(param.name, window_id)
+    recovery.add_checkpoint(param=param.name, window=window_id)
 
 
 def main(args=None):

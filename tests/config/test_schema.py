@@ -111,8 +111,57 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
                 },
             },
         ],
+        [
+            {
+                "class": "od",
+                "stream": "enfo",
+                "expver": "0001",
+                "levtype": "pl",
+                "levelist": [250, 850],
+                "domain": "g",
+                "param": "130.128",
+                "date": "20241001",
+                "time": "00",
+                "step": [0, 6, 12],
+                "type": "em",
+                "interp_grid": "O640",
+            },
+            {
+                "entrypoint": "pproc-ensms",
+                "accumulations": {
+                    "step": {
+                        "type": "legacywindow",
+                        "coords": [[0], [6], [12]],
+                    },
+                },
+                "members": 50,
+                "total_fields": 51,
+                "request": {
+                    "class": "od",
+                    "stream": "enfo",
+                    "expver": "0001",
+                    "levtype": "pl",
+                    "domain": "g",
+                    "param": "130.128",
+                    "date": "20241001",
+                    "time": "00",
+                    "type": ["cf", "pf"],
+                    "levelist": [250, 850],
+                    "interpolate": {
+                        "grid": "O640",
+                        "intgrid": "none",
+                        "legendre-loader": "shmem",
+                        "matrix-loader": "file-io",
+                    },
+                },
+                "metadata": {
+                    "bitsPerValue": 16,
+                    "perturbationNumber": 0,
+                },
+            },
+        ],
     ],
-    ids=["2t", "tp"],
+    ids=["2t", "tp", "T"],
 )
 def test_schema_from_output(req, config):
     schema = Schema(os.path.join(TEST_DIR, "schema.yaml"))
@@ -228,8 +277,64 @@ def test_schema_from_output(req, config):
                 },
             },
         ],
+        [
+            "pproc-ensms",
+            {
+                "class": "od",
+                "stream": "enfo",
+                "expver": "0001",
+                "levtype": "pl",
+                "levelist": [250, 850],
+                "domain": "g",
+                "param": "130.128",
+                "date": "20241001",
+                "time": "0",
+                "step": [0, 6, 12, 18, 24],
+                "type": ["cf", "pf"],
+                "interp_grid": "O640",
+            },
+            2,
+            {
+                "entrypoint": "pproc-ensms",
+                "request": {
+                    "class": "od",
+                    "stream": "enfo",
+                    "expver": "0001",
+                    "levtype": "pl",
+                    "levelist": [250, 850],
+                    "domain": "g",
+                    "param": "130.128",
+                    "date": "20241001",
+                    "time": "0",
+                    "type": ["cf", "pf"],
+                    "interpolate": {
+                        "grid": "O640",
+                        "intgrid": "none",
+                        "legendre-loader": "shmem",
+                        "matrix-loader": "file-io",
+                    },
+                },
+                "members": 50,
+                "total_fields": 51,
+                "accumulations": {
+                    "step": {
+                        "type": "legacywindow",
+                        "coords": {
+                            "type": "ranges",
+                            "from": "0",
+                            "to": "24",
+                            "interval": "6",
+                        },
+                    }
+                },
+                "metadata": {
+                    "bitsPerValue": 16,
+                    "perturbationNumber": 0,
+                },
+            },
+        ],
     ],
-    ids=["2t", "tp"],
+    ids=["2t", "tp", "T"],
 )
 def test_schema_from_input(entrypoint, req, num_expected, expected):
     schema = Schema(os.path.join(TEST_DIR, "schema.yaml"))

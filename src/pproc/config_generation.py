@@ -27,7 +27,7 @@ def from_outputs(args):
         yaml.dump(config_dict, f, sort_keys=False)
 
 
-def from_inputs(args, overrides: dict):
+def from_inputs(args):
     overrides = {}
     if args.overrides:
         with open(args.overrides, "r") as f:

@@ -33,16 +33,25 @@ def postprocess(
     out_keys: dict, optional
         Extra GRIB keys to set on the output
     """
+    start_index = template.get("number", 0)
     for i, field in enumerate(ens.reshape((-1, ens.shape[-1]))):
         if vmin is not None or vmax is not None:
             np.clip(field, vmin, vmax, out=field)
 
+        index = start_index + i
+        tp = (
+            "pf" if index > 0 and template.get("type") == "cf" else template.get("type")
+        )
+
+        out_keys = {} if out_keys is None else out_keys
+        if callable(out_keys):
+            out_keys = out_keys(tp)
+
         grib_keys = {
             **out_keys,
-            "perturbationNumber": i,
+            "perturbationNumber": index,
         }
-        if template.get("type") == "cf" and i > 0:
-            grib_keys.setdefault("type", "pf")
+        grib_keys.setdefault("type", tp)
         message = construct_message(template, grib_keys)
         message.set_array("values", nan_to_missing(message, field))
         target.write(message)

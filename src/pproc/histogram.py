@@ -182,7 +182,7 @@ def write_iteration(
             param.scale_out,
             out_keys=accum.grib_keys(),
         )
-    recovery.add_checkpoint(param.name, str(window_id))
+    recovery.add_checkpoint(param=param.name, window=str(window_id))
 
 
 def main(args=None):
@@ -202,7 +202,9 @@ def main(args=None):
                     **param.metadata,
                 },
             )
-            checkpointed_windows = recovery.computed(param.name)
+            checkpointed_windows = [
+                x["window"] for x in recovery.computed(param=param.name)
+            ]
             new_start = window_manager.delete_windows(checkpointed_windows)
             if new_start is None:
                 print(f"Recovery: skipping completed param {param.name}")

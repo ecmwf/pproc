@@ -258,7 +258,7 @@ def wind_iteration(config, recovery, levelist, name, step):
     wind_iteration_gen(config, "eps", levelist, name, step, config.out_eps_ws, config.out_eps_mean, config.out_eps_std)
 
     config.fdb.flush()
-    recovery.add_checkpoint(levelist, name, step)
+    recovery.add_checkpoint(levelist=levelist, window=name, step=step)
 
 
 def main(args=None):
@@ -290,7 +290,7 @@ def main(args=None):
             window = parse_window_config(window_options, include_init=True)
 
             for step in window.steps:
-                if recovery.existing_checkpoint(levelist, window.name, step):
+                if recovery.existing_checkpoint(levelist=levelist, window=window.name, step=step):
                     print(
                         f"Recovery: skipping level {levelist} window {window.name} step {step}"
                     )

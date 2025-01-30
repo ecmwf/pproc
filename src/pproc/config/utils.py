@@ -78,6 +78,6 @@ def extract_mars(keys: dict) -> dict:
         "number",
         "step",
         "hdate",
-        "domain"
+        "domain",
     ]
     return {k: v for k, v in keys.items() if k in mars_namespace}

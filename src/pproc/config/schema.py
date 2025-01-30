@@ -63,6 +63,8 @@ class Schema:
         )
         defs = config.pop("defs")
         config.pop("from_inputs", None)
+        if grid := config["request"].pop("interp_grid", None):
+            config["request"]["interpolate"] = {"grid": grid, **defs["interp_keys"]}
         out = yaml.load(
             yaml.dump(config).format_map({**defs, **output_request}),
             Loader=yaml.SafeLoader,
@@ -143,8 +145,9 @@ class Schema:
             if config.pop("from_inputs", {}).get("exclude", False):
                 continue
             deep_update(config, overrides)
+            defs = config.pop("defs")
             replace = {
-                **config.pop("defs"),
+                **defs,
                 **req,
                 **config.pop("out"),
             }
@@ -152,6 +155,11 @@ class Schema:
                 yaml.dump(config).format_map(replace),
                 Loader=yaml.SafeLoader,
             )
+            if grid := filled_config["request"].pop("interp_grid", None):
+                filled_config["request"]["interpolate"] = {
+                    "grid": grid,
+                    **defs["interp_keys"],
+                }
             yield filled_config
 
     def overrides_from_output(self, output_request: dict) -> dict:
@@ -185,6 +193,9 @@ class Schema:
     def overrides_from_input(self, input_request: dict) -> dict:
         overrides = {}
         if members := input_request.pop("number", None):
+            if isinstance(members, (int, str)):
+                members = [members]
+            members = list(map(int, members))
             overrides["members"] = {
                 "start": min(members),
                 "end": max(members),

@@ -140,7 +140,7 @@ def process_step(args, config, window_id, fields, recovery):
     # standard effective temperature 261019
 
     config.flush_targets()
-    recovery.add_checkpoint(window_id)
+    recovery.add_checkpoint(window=window_id)
 
     if args.usage:
         print_usage()
@@ -356,7 +356,7 @@ def main(args: List[str] = sys.argv[1:]):
     )
 
     window_manager = WindowManager(config.options, {})
-    checkpointed_windows = recovery.computed()
+    checkpointed_windows = [x["window"] for x in recovery.computed()]
     if new_start := window_manager.delete_windows(checkpointed_windows):
         assert new_start is not None
         logger.info(f"Recovery: looping from step {new_start}")

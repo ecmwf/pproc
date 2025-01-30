@@ -23,7 +23,9 @@ def main(cfg: Config, postproc_iteration: Any):
                 },
             )
 
-            checkpointed_windows = recover.computed(param.name)
+            checkpointed_windows = [
+                x["window"] for x in recover.computed(param=param.name)
+            ]
             new_start = window_manager.delete_windows(checkpointed_windows)
             if new_start is None:
                 print(f"Recovery: skipping completed param {param.name}")

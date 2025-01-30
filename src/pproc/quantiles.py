@@ -52,7 +52,9 @@ def do_quantiles(
     if edition not in (1, 2):
         raise ValueError(f"Unsupported GRIB edition {edition}")
     for i, quantile in enumerate(
-        iter_quantiles(ens.reshape((-1, ens.shape[-1])), config.quantiles, method="sort")
+        iter_quantiles(
+            ens.reshape((-1, ens.shape[-1])), config.quantiles, method="sort"
+        )
     ):
         pert_number, total_number = config.quantile_indices(i)
         grib_keys = {**out_keys}
@@ -96,7 +98,7 @@ def quantiles_iteration(
             out_keys=accum.grib_keys(),
         )
         config.outputs.quantiles.target.flush()
-    recovery.add_checkpoint(param.name, window_id)
+    recovery.add_checkpoint(param=param.name, window=window_id)
 
 
 def main(args=None):
@@ -115,7 +117,9 @@ def main(args=None):
                 },
             )
 
-            checkpointed_windows = recovery.computed(param.name)
+            checkpointed_windows = [
+                x["window"] for x in recovery.computed(param=param.name)
+            ]
             new_start = window_manager.delete_windows(checkpointed_windows)
             if new_start is None:
                 print(f"Recovery: skipping completed param {param.name}")

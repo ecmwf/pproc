@@ -2,7 +2,7 @@ import abc
 import hashlib
 import logging
 import os
-from typing import List
+from typing import List, Optional
 
 import yaml
 from filelock import FileLock
@@ -14,23 +14,27 @@ logger = logging.getLogger(__name__)
 
 class BaseRecovery(abc.ABC):
     @abc.abstractmethod
-    def existing_checkpoint(self, *checkpoint_identifiers) -> bool:
+    def existing_checkpoint(self, **checkpoint_identifiers) -> bool:
         pass
 
     @abc.abstractmethod
-    def computed(self, identifier: str) -> List[str]:
+    def computed(self, **match) -> List[dict]:
         pass
 
     @classmethod
-    def checkpoint_key(cls, checkpoint_identifiers: List):
-        return "/".join(map(str, checkpoint_identifiers))
+    def checkpoint_key(cls, checkpoint_identifiers: dict) -> str:
+        return "/".join([f"{k}={v}" for k, v in checkpoint_identifiers.items()])
 
     @classmethod
-    def checkpoint_identifiers(cls, key: str) -> List[str]:
-        return key.split("/")
+    def checkpoint_identifiers(cls, key: str) -> dict:
+        ret = {}
+        for pair in key.split("/"):
+            k, v = pair.split("=")
+            ret[k] = v
+        return ret
 
     @abc.abstractmethod
-    def add_checkpoint(self, *checkpoint_identifiers):
+    def add_checkpoint(self, **checkpoint_identifiers):
         pass
 
     @abc.abstractmethod
@@ -39,13 +43,13 @@ class BaseRecovery(abc.ABC):
 
 
 class NullRecovery(BaseRecovery):
-    def existing_checkpoint(self, *checkpoint_identifiers) -> bool:
+    def existing_checkpoint(self, **checkpoint_identifiers) -> bool:
         return False
 
-    def computed(self, identifier: str) -> List[str]:
-        return []
+    def computed(self, **match) -> List[dict]:
+        return {}
 
-    def add_checkpoint(self, *checkpoint_identifiers):
+    def add_checkpoint(self, **checkpoint_identifiers):
         pass
 
     def clean_file(self):
@@ -82,14 +86,15 @@ class Recovery(BaseRecovery):
             self.clean_file()
         self.lock = FileLock(self.filename + ".lock", thread_local=False)
 
-    def computed(self, identifier: str = "") -> List[str]:
-        return [
-            self.checkpoint_identifiers(x)[1]
-            for x in self.checkpoints
-            if identifier in x
-        ]
+    def computed(self, **match) -> List[dict]:
+        ret = []
+        for x in self.checkpoints:
+            x_id = self.checkpoint_identifiers(x)
+            if len(match) == 0 or (all(x_id[k] == str(v) for k, v in match.items())):
+                ret.append(x_id)
+        return ret
 
-    def existing_checkpoint(self, *checkpoint_identifiers) -> bool:
+    def existing_checkpoint(self, **checkpoint_identifiers) -> bool:
         """
         Returns whether a checkpoint for the checkpoint_identifiers exists
 
@@ -100,7 +105,7 @@ class Recovery(BaseRecovery):
         checkpoint = self.checkpoint_key(checkpoint_identifiers)
         return checkpoint in self.checkpoints
 
-    def add_checkpoint(self, *checkpoint_identifiers):
+    def add_checkpoint(self, **checkpoint_identifiers):
         """
         Add checkpoint to recover file. If it is an existing checkpoint
         then return
@@ -108,7 +113,7 @@ class Recovery(BaseRecovery):
         :param checkpoint_identifiers: unique list of parameters specifying
         checkpoint
         """
-        if self.existing_checkpoint(*checkpoint_identifiers):
+        if self.existing_checkpoint(**checkpoint_identifiers):
             return
         checkpoint = self.checkpoint_key(checkpoint_identifiers)
         # Append new completed step to file

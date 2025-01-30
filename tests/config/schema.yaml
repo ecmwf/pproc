@@ -1,10 +1,8 @@
 defs:
-  interp_keys: &interp_keys
+  interp_keys:
     intgrid: "none"
     legendre-loader: "shmem"
     matrix-loader: "file-io"
-  monthly_ostreams: &mstreams msmm/swmm
-  GRID: O1280
   STEP_START: 0
   STEP_END: 360
   STEP_BY: 6
@@ -29,7 +27,6 @@ filter:stream:
     members: 100
     total_fields: 101
     defs:
-      GRID: O320
       STEP_END: 1104
       UNPERTURBED: "cf"
     request: 
@@ -61,20 +58,14 @@ filter:param:
   "*": {}
   "207.128":
     request:
-      param: [165, 166]
-      interpolate:
-        <<: *interp_keys
-        grid: "{GRID}"
+      param: ["165.128", "166.128"]
     preprocessing:
       - operation: norm
     metadata: 
       paramId: 207
   "249.228":
     request:
-      param: [228246, 228247]
-      interpolate:
-        <<: *interp_keys
-        grid: "{GRID}"
+      param: ["246.228", "247.228"]
     preprocessing: 
       - operation: norm 
     metadata: 
@@ -110,12 +101,7 @@ filter:type:
           interval: "{INTERVAL}"
     filter:param:
       "*": {}
-      "129.128/130.128": 
-        request:
-          interpolate:
-            <<: *interp_keys
-            grid: "{GRID}"
-      "200228":
+      "228.200":
         request:
           param: "228.128"
         accumulations:
@@ -144,7 +130,7 @@ filter:type:
               interval: 24 
               width: 168
               by: "{STEP_BY}"
-      *mstreams:
+      msmm/swmm:
         entrypoint: pproc-monthly-stats
         accumulations:
           step:
@@ -196,7 +182,7 @@ filter:type:
               interval: 24 
               width: 168
               by: "{STEP_BY}"
-      *mstreams:
+      msmm/swmm:
         entrypoint: pproc-monthly-stats
         accumulations:
           step:
@@ -248,7 +234,7 @@ filter:type:
               interval: 24 
               width: 168
               by: "{STEP_BY}"
-      *mstreams:
+      msmm/swmm:
         entrypoint: pproc-monthly-stats
         accumulations:
           step:
@@ -320,7 +306,7 @@ filter:type:
               interval: 24 
               width: 168
               by: "{STEP_BY}"
-      *mstreams:
+      msmm/swmm:
         entrypoint: pproc-monthly-stats
         accumulations:
           step:

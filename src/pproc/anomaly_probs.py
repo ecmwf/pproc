@@ -65,7 +65,9 @@ def main(args=None):
                 cfg.override_input,
             )
             window_manager = AnomalyWindowManager(param_cfg, cfg.global_output_cfg)
-            checkpointed_windows = recovery.computed(param_name)
+            checkpointed_windows = [
+                x["window"] for x in recovery.computed(param=param_name)
+            ]
             new_start = window_manager.delete_windows(checkpointed_windows)
             if new_start is None:
                 print(f"Recovery: skipping completed param {param_name}")

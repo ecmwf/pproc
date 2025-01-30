@@ -103,4 +103,4 @@ def prob_iteration(
             )
 
         out_prob.flush()
-        recovery.add_checkpoint(param.name, window_id)
+        recovery.add_checkpoint(param=param.name, window=window_id)

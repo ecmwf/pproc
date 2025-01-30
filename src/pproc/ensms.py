@@ -68,10 +68,10 @@ def ensms_iteration(
         template_std = template_ensemble(template_ens, accum, out_std.metadata)
         template_std.set_array("values", common.io.nan_to_missing(template_std, std))
         out_std.target.write(template_std)
-        
+
     out_mean.target.flush()
     out_std.target.flush()
-    recovery.add_checkpoint(param.name, window_id)
+    recovery.add_checkpoint(param=param.name, window=window_id)
 
 
 def main(args=None):
@@ -91,7 +91,9 @@ def main(args=None):
                 },
             )
 
-            checkpointed_windows = recover.computed(param.name)
+            checkpointed_windows = [
+                x["window"] for x in recover.computed(param=param.name)
+            ]
             new_start = window_manager.delete_windows(checkpointed_windows)
             if new_start is None:
                 print(f"Recovery: skipping completed param {param.name}")
