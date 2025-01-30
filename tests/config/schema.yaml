@@ -56,21 +56,23 @@ filter:stream:
       stream: "{stream}"
 filter:param:
   "*": {}
-  "207.128":
+  "207":
+    name: "207"
     request:
-      param: ["165.128", "166.128"]
+      param: ["165", "166"]
     preprocessing:
       - operation: norm
     metadata: 
       paramId: 207
-  "249.228":
+  "228249":
+    name: "228249"
     request:
-      param: ["246.228", "247.228"]
+      param: ["228246", "228247"]
     preprocessing: 
       - operation: norm 
     metadata: 
       paramId: 228249
-  "228.172":
+  "172228":
     defs:
       STEP_BY: 24
     vmin: 0.
@@ -78,7 +80,7 @@ filter:param:
       - operation: scale
         value: 0.00001157407
     request:
-      param: "228.128"
+      param: "228"
     accumulations:
       step:
         include_start_step: True
@@ -101,9 +103,9 @@ filter:type:
           interval: "{INTERVAL}"
     filter:param:
       "*": {}
-      "228.200":
+      "200228":
         request:
-          param: "228.128"
+          param: "228"
         accumulations:
           step:
             operation: diff
@@ -146,19 +148,19 @@ filter:type:
               by: "{STEP_BY}"
     filter:param:
       "*": {}
-      40.128/41.128/42.128/170.128/229.140/231.140/232.140/233.140/245.140:
+      40/41/42/170/140229/140231/140232/140233/140245:
         defs:
           STEP_BY: 24
         request:
           param: "{param}"
-      130.128/129.128/138.128/155.128/131.128/132.128/133.128/1.128/2.128/60.128/3.128:
+      130/129/138/155/131/132/133/1/2/60/3:
         defs:
           STEP_BY: 12
         request:
           param: "{param}"
       "235117":
         request:
-          param: "59.128"
+          param: "59"
         metadata:
           discipline: 0
           parameterCategory: 7
@@ -198,19 +200,19 @@ filter:type:
               by: "{STEP_BY}"
     filter:param:
       "*": {}
-      40.128/41.128/42.128/170.128/229.140/231.140/232.140/233.140/245.140:
+      40/41/42/170/140229/140231/140232/140233/140245:
         defs:
           STEP_BY: 24
         request:
           param: "{param}"
-      130.128/129.128/138.128/155.128/131.128/132.128/133.128/1.128/2.128/60.128/3.128:
+      130/129/138/155/131/132/133/1/2/60/3:
         defs:
           STEP_BY: 12
         request:
           param: "{param}"
       "239117":
         request:
-          param: "59.128"
+          param: "59"
         metadata:
           discipline: 0
           parameterCategory: 7
@@ -250,39 +252,39 @@ filter:type:
               by: "{STEP_BY}"
     filter:param:
       "*": {}
-      "142.172":
+      "172142":
         request:
-          param: "142.128"
+          param: "142"
         from_inputs:
           exclude: True
-      "143.172":
+      "172143":
         request:
-          param: "143.128"
+          param: "143"
         from_inputs:
           exclude: True
-      "144.172":
+      "172144":
         request:
-          param: "144.128"
+          param: "144"
         from_inputs:
           exclude: True
-      "228.172":
+      "172228":
         request:
-          param: "228.128"
+          param: "228"
         from_inputs:
           exclude: True
-      40.128/41.128/42.128/170.128/229.140/231.140/232.140/233.140/245.140:
+      40/41/42/170/140229/140231/140232/140233/140245:
         defs:
           STEP_BY: 24
         request:
           param: "{param}"
-      130.128/129.128/138.128/155.128/131.128/132.128/133.128/1.128/2.128/60.128/3.128:
+      130/129/138/155/131/132/133/1/2/60/3:
         defs:
           STEP_BY: 12
         request:
           param: "{param}"
-      "238117":
+      "239117":
         request:
-          param: "59.128"
+          param: "59"
         metadata:
           discipline: 0
           parameterCategory: 7
@@ -322,19 +324,19 @@ filter:type:
               by: "{STEP_BY}"
     filter:param:
       "*": {}
-      40.128/41.128/42.128/170.128/229.140/231.140/232.140/233.140/245.140:
+      40/41/42/170/140229/140231/140232/140233/140245:
         defs:
           STEP_BY: 24
         request:
           param: "{param}"
-      130.128/129.128/138.128/155.128/131.128/132.128/133.128/1.128/2.128/60.128/3.128:
+      130/129/138/155/131/132/133/1/2/60/3:
         defs:
           STEP_BY: 12
         request:
           param: "{param}"
-      "237117":
+      "239117":
         request:
-          param: "59.128"
+          param: "59"
         metadata:
           discipline: 0
           parameterCategory: 7

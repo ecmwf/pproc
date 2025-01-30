@@ -56,7 +56,7 @@ class Schema:
         return config
 
     def config_from_output(self, output_request: dict) -> dict:
-        output_request = copy.deepcopy(output_request)
+        output_request = self.validate_request(output_request)
         overrides = self.overrides_from_output(output_request)
         config = deep_update(
             self._config_from_output(self.schema, output_request), overrides
@@ -138,8 +138,17 @@ class Schema:
             if filled_config["request"] == input_request:
                 yield config
 
+    @classmethod
+    def validate_request(cls, request: dict) -> dict:
+        out = copy.deepcopy(request)
+        if isinstance(out["param"], int):
+            out["param"] = str(out["param"])
+        elif isinstance(out["param"], list):
+            out["param"] = [str(param) for param in out["param"]]
+        return out
+
     def config_from_input(self, input_request: dict, **match):
-        req = copy.deepcopy(input_request)
+        req = self.validate_request(input_request)
         overrides = self.overrides_from_input(req)
         for config in self._config_from_input(self.schema, req, **match):
             if config.pop("from_inputs", {}).get("exclude", False):

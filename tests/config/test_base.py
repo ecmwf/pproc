@@ -167,7 +167,7 @@ def test_merge(other: dict, merged: dict):
                 "parameters": {
                     "2t": {
                         "sources": {
-                            "fc": {"request": {"param": "167.128", "levtype": "sfc"}}
+                            "fc": {"request": {"param": "167", "levtype": "sfc"}}
                         },
                         "accumulations": {
                             "step": {
@@ -187,7 +187,7 @@ def test_merge(other: dict, merged: dict):
                 {
                     "class": "od",
                     "stream": "enfo",
-                    "param": "167.128",
+                    "param": "167",
                     "levtype": "sfc",
                     "step": list(range(0, 25, 6)),
                     "type": "cf",
@@ -196,7 +196,7 @@ def test_merge(other: dict, merged: dict):
                 {
                     "class": "od",
                     "stream": "enfo",
-                    "param": "167.128",
+                    "param": "167",
                     "levtype": "sfc",
                     "step": list(range(0, 25, 6)),
                     "type": "pf",
@@ -254,7 +254,7 @@ def test_merge(other: dict, merged: dict):
                         "sources": {
                             "fc": {
                                 "request": {
-                                    "param": "167.128",
+                                    "param": "167",
                                     "levtype": "sfc",
                                 },
                             }
@@ -272,7 +272,7 @@ def test_merge(other: dict, merged: dict):
                 {
                     "class": "ai",
                     "stream": "enfo",
-                    "param": "167.128",
+                    "param": "167",
                     "levtype": "sfc",
                     "step": ["0-24", "48-72"],
                     "source": "fdb",

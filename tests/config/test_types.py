@@ -10,8 +10,7 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def transform_request(request: dict) -> dict:
     if isinstance(request["param"], int):
-        param_str = str(request["param"])
-        request["param"] = f"{param_str[3:]}.{param_str[:3]}"
+        request["param"] = str(request["param"])
     return request
 
 
@@ -84,32 +83,32 @@ TEST_CASES = {
                                     "window_operation": "mean",
                                     "grib_set": {"type": "fcmean"},
                                     "periods": [
-                                        {"range": [0, 168, 6]},
-                                        {"range": [24, 192, 6]},
+                                        {"range": [0, 168, 12]},
+                                        {"range": [24, 192, 12]},
                                     ],
                                 },
                                 {
                                     "window_operation": "standard_deviation",
                                     "grib_set": {"type": "fcstdev"},
                                     "periods": [
-                                        {"range": [0, 168, 6]},
-                                        {"range": [24, 192, 6]},
+                                        {"range": [0, 168, 12]},
+                                        {"range": [24, 192, 12]},
                                     ],
                                 },
                                 {
                                     "window_operation": "minimum",
                                     "grib_set": {"type": "fcmin"},
                                     "periods": [
-                                        {"range": [0, 168, 6]},
-                                        {"range": [24, 192, 6]},
+                                        {"range": [0, 168, 12]},
+                                        {"range": [24, 192, 12]},
                                     ],
                                 },
                                 {
                                     "window_operation": "maximum",
                                     "grib_set": {"type": "fcmax"},
                                     "periods": [
-                                        {"range": [0, 168, 6]},
-                                        {"range": [24, 192, 6]},
+                                        {"range": [0, 168, 12]},
+                                        {"range": [24, 192, 12]},
                                     ],
                                 },
                             ],
@@ -166,7 +165,7 @@ TEST_CASES = {
             "members": {"start": 0, "end": 50},
             "total_fields": 51,
             "parameters": {
-                "228.128": {
+                "228": {
                     "preprocessing": [
                         {
                             "operation": "scale",
@@ -178,7 +177,7 @@ TEST_CASES = {
                         "fc": {
                             "request": {
                                 "levtype": "sfc",
-                                "param": "228.128",
+                                "param": "228",
                                 "stream": "mmsf",
                                 "type": "fc",
                             }
@@ -258,32 +257,32 @@ TEST_CASES = {
                                     "window_operation": "mean",
                                     "grib_set": {"type": "fcmean"},
                                     "periods": [
-                                        {"range": [0, 168, 6]},
-                                        {"range": [24, 192, 6]},
+                                        {"range": [0, 168, 12]},
+                                        {"range": [24, 192, 12]},
                                     ],
                                 },
                                 {
                                     "window_operation": "standard_deviation",
                                     "grib_set": {"type": "fcstdev"},
                                     "periods": [
-                                        {"range": [0, 168, 6]},
-                                        {"range": [24, 192, 6]},
+                                        {"range": [0, 168, 12]},
+                                        {"range": [24, 192, 12]},
                                     ],
                                 },
                                 {
                                     "window_operation": "minimum",
                                     "grib_set": {"type": "fcmin"},
                                     "periods": [
-                                        {"range": [0, 168, 6]},
-                                        {"range": [24, 192, 6]},
+                                        {"range": [0, 168, 12]},
+                                        {"range": [24, 192, 12]},
                                     ],
                                 },
                                 {
                                     "window_operation": "maximum",
                                     "grib_set": {"type": "fcmax"},
                                     "periods": [
-                                        {"range": [0, 168, 6]},
-                                        {"range": [24, 192, 6]},
+                                        {"range": [0, 168, 12]},
+                                        {"range": [24, 192, 12]},
                                     ],
                                 },
                             ],
@@ -321,12 +320,12 @@ TEST_CASES = {
             {
                 **DEFAULT_REQUEST,
                 "levtype": "sfc",
-                "param": "228.172",
+                "param": "172228",
                 "stream": "msmm",
                 "type": ["fcmean", "fcstdev", "fcmax"],
                 "forecastMonth": [1, 2, 3],
             },
-            "228.128",
+            "228",
         ],
         [
             {
@@ -410,7 +409,7 @@ def test_factory_from_outputs(request, output_request, input_param):
             {
                 **DEFAULT_REQUEST,
                 "levtype": "sfc",
-                "param": "228.128",
+                "param": "228",
                 "stream": "mmsf",
                 "type": "fc",
                 "step": list(range(0, 2209, 24)),
