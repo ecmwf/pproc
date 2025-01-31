@@ -295,7 +295,7 @@ def main(args=None):
                 args.in_ens,
                 cfg.members,
                 cfg.total_fields,
-                index_ensembles,
+                index_ensembles if cfg.members == cfg.total_fields else None,
             )
             window_manager = common.WindowManager(
                 param.window_config(cfg.windows, cfg.steps),

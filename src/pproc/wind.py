@@ -105,7 +105,12 @@ def wind_iteration_gen(
         return
 
     requester = ParamRequester(
-        param, config.sources, loc, members, total_fields, index_func=index_ensembles
+        param,
+        config.sources,
+        loc,
+        members,
+        total_fields,
+        index_func=index_ensembles if members == total_fields else None,
     )
     template, ens = requester.retrieve_data(None, **dims)
     with ResourceMeter(f"Param {param.name}, {dims}"):
