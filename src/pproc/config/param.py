@@ -31,7 +31,7 @@ class ParamConfig(BaseModel):
         return keys
 
     def out_keys(self) -> Iterator:
-        base = self.in_keys("fc", self.in_keys("default"))
+        base = self.in_keys("fc")
         base.update(extract_mars(self.metadata))
         req = [base]
         for dim, accum in self.accumulations.items():

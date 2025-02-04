@@ -13,7 +13,7 @@ from pproc.config.utils import deep_update
 def config(tmpdir) -> str:
     required = {
         "members": 5,
-        "sources": {"default": {"type": "fdb", "request": {}}},
+        "sources": {"fc": {"type": "fdb", "request": {}}},
         "parameters": [],
     }
     with open(f"{tmpdir}/config.yaml", "w") as file:
@@ -23,7 +23,7 @@ def config(tmpdir) -> str:
 
 base_config = {
     "members": 5,
-    "sources": {"default": {"type": "fdb", "request": {}}},
+    "sources": {"fc": {"type": "fdb", "request": {}}},
     "parameters": {
         "2t": {
             "accumulations": {
@@ -67,7 +67,7 @@ def test_cli_overrides(config, cli_args, attr, expected):
         [
             {
                 "members": 5,
-                "sources": {"default": {"type": "fdb", "request": {}}},
+                "sources": {"fc": {"type": "fdb", "request": {}}},
                 "parameters": {
                     "tp": {
                         "accumulations": {
@@ -81,7 +81,7 @@ def test_cli_overrides(config, cli_args, attr, expected):
             },
             {
                 "members": 5,
-                "sources": {"default": {"type": "fdb", "request": {}}},
+                "sources": {"fc": {"type": "fdb", "request": {}}},
                 "parameters": {
                     "2t": {
                         "accumulations": {
@@ -105,7 +105,7 @@ def test_cli_overrides(config, cli_args, attr, expected):
         [
             {
                 "members": 5,
-                "sources": {"default": {"type": "fdb", "request": {}}},
+                "sources": {"fc": {"type": "fdb", "request": {}}},
                 "parameters": {
                     "2t": {
                         "accumulations": {
@@ -119,7 +119,7 @@ def test_cli_overrides(config, cli_args, attr, expected):
             },
             {
                 "members": 5,
-                "sources": {"default": {"type": "fdb", "request": {}}},
+                "sources": {"fc": {"type": "fdb", "request": {}}},
                 "parameters": {
                     "2t": {
                         "accumulations": {
@@ -156,7 +156,7 @@ def test_merge(other: dict, merged: dict):
         [
             {
                 "sources": {
-                    "default": {
+                    "fc": {
                         "request": {
                             "class": "od",
                             "stream": "enfo",
@@ -207,7 +207,7 @@ def test_merge(other: dict, merged: dict):
         ],
         [
             {
-                "sources": {"default": {"request": {"class": "od", "stream": "enfo"}}},
+                "sources": {"fc": {"request": {"class": "od", "stream": "enfo"}}},
                 "parameters": {
                     "2t": {
                         "sources": {
@@ -246,7 +246,7 @@ def test_merge(other: dict, merged: dict):
         [
             {
                 "sources": {
-                    "default": {"request": {"class": "od", "stream": "enfo"}},
+                    "fc": {"request": {"class": "od", "stream": "enfo"}},
                     "overrides": {"class": "ai"},
                 },
                 "parameters": {

@@ -48,7 +48,6 @@ class Source(ConfigModel):
         cfg = {self.type: {"req": self.request}}
         if self.type == "fileset":
             cfg[self.type]["req"]["location"] = self.path
-        cfg[self.type]["req"] = utils.expand(cfg[self.type]["req"], "type")
         return cfg
 
 
@@ -67,18 +66,6 @@ class SourceCollection(ConfigModel):
             default_factory=dict, description="Override input requests with these keys"
         ),
     ]
-
-    @model_validator(mode="before")
-    @classmethod
-    def set_defaults(cls, data: Any) -> Any:
-        defaults = data.get("default")
-        if defaults is None:
-            return data
-
-        for sub in cls.names:
-            subsec = data.get(sub, {})
-            data[sub] = utils.model_update(copy.deepcopy(defaults), subsec)
-        return data
 
 
 def target_discriminator(target: Any):

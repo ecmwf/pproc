@@ -175,7 +175,7 @@ class BaseConfig(ConfigModel):
         config = {
             "members": schema_config.pop("members"),
             "total_fields": schema_config.pop("total_fields", 0),
-            "sources": {"default": {"type": "fdb"}},
+            "sources": {"fc": {"type": "fdb"}},
             "outputs": {"default": {"target": {"type": "fdb"}}},
             "parameters": {
                 schema_config.get("name", str(request["param"])): {
