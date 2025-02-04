@@ -115,27 +115,21 @@ class ParamRequester:
         metadata = []
         data_list = []
         template = None
-        in_keys = self.param.in_keys(
+        in_sources = self.param.in_sources(
+            self.sources,
             self.src_name,
             step=str(step),
             **kwargs,
-            **self.sources.overrides,
         )
-        src_config: Source = getattr(self.sources, self.src_name)
-        for param_req in expand(in_keys, "param"):
+        for param_source in in_sources:
             new_template, data = read_ensemble(
-                Source(
-                    type=self.param.sources[self.src_name].get("type", src_config.type),
-                    path=self.param.sources[self.src_name].get("path", src_config.path),
-                    request=src_config.request,
-                ),
+                param_source,
                 self.total,
                 dtype=self.param.dtype,
                 update=self._set_number,
                 index_func=self.index_func,
-                **param_req,
             )
-            metadata.append(param_req)
+            metadata.append(param_source.base_request())
             data_list.append(data)
             if template is None:
                 template = new_template

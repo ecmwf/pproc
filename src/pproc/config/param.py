@@ -1,13 +1,16 @@
-from typing import Any, Dict, Optional, Iterator
+from typing import Any, Dict, Iterator
 from typing_extensions import Self
 import itertools
 
 import numpy as np
+import pandas as pd
 from pydantic import BaseModel, Field
 
 from pproc.config.preprocessing import PreprocessingConfig
 from pproc.config.accumulation import AccumulationConfig
 from pproc.config.utils import extract_mars
+from pproc.config.io import Source, SourceCollection
+from pproc.config.utils import update_request
 
 
 class ParamConfig(BaseModel):
@@ -22,21 +25,41 @@ class ParamConfig(BaseModel):
     def dtype(self) -> type[Any]:
         return np.dtype(self.dtype_).type
 
-    def in_keys(
-        self, name: str, base: Optional[Dict[str, Any]] = None, **kwargs
-    ) -> dict:
-        keys = base.copy() if base is not None else {}
-        keys.update(self.sources.get(name, {}).get("request", {}))
-        keys.update(kwargs)
-        return keys
+    def in_sources(self, sources: SourceCollection, name: str, **kwargs) -> Source:
+        base_config: Source = getattr(sources, name)
+        config = self.sources.get(name, {})
+        reqs = update_request(
+            base_config.request,
+            config.get("request", {}),
+            **kwargs,
+            **sources.overrides,
+        )
+        if isinstance(reqs, dict):
+            reqs = [reqs]
 
-    def out_keys(self) -> Iterator:
-        base = self.in_keys("fc")
-        base.update(extract_mars(self.metadata))
-        req = [base]
+        return [
+            Source(
+                type=config.get("type", base_config.type),
+                path=config.get("path", base_config.path),
+                request=items.to_dict("records"),
+            )
+            for _, items in pd.DataFrame(reqs).groupby("param")
+        ]
+
+    def out_keys(self, sources: SourceCollection) -> Iterator:
+        base_source: Source = getattr(sources, "fc")
+        param_source = self.sources.get("fc", {})
+        reqs = update_request(
+            base_source.request,
+            param_source.get("request", {}),
+            **sources.overrides,
+            **extract_mars(self.metadata),
+        )
+        if isinstance(reqs, dict):
+            reqs = [reqs]
         for dim, accum in self.accumulations.items():
-            req = [{**x, **y} for x, y in itertools.product(req, accum.out_mars(dim))]
-        yield from req
+            reqs = [{**x, **y} for x, y in itertools.product(reqs, accum.out_mars(dim))]
+        yield from reqs
 
     def merge(self, other: Self) -> Self:
         """

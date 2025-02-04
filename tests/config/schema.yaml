@@ -18,20 +18,21 @@ filter:stream:
   enfo/waef:
     members: 50
     total_fields: 51
-    defs: 
-      UNPERTURBED: "cf"
     request: 
-      stream: "{stream}"
-      type: ["{UNPERTURBED}", "pf"]
+      - stream: "{stream}"
+        type: "cf"
+      - stream: "{stream}"
+        type: "pf"
   eefo/weef:
     members: 100
     total_fields: 101
     defs:
       STEP_END: 1104
-      UNPERTURBED: "cf"
     request: 
-      stream: "{stream}"
-      type: ["{UNPERTURBED}", "pf"]
+      - stream: "{stream}"
+        type: "cf"
+      - stream: "{stream}"
+        type: "pf"
   msmm:
     members:
       start: 0

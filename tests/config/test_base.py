@@ -157,11 +157,18 @@ def test_merge(other: dict, merged: dict):
             {
                 "sources": {
                     "fc": {
-                        "request": {
-                            "class": "od",
-                            "stream": "enfo",
-                            "type": ["cf", "pf"],
-                        }
+                        "request": [
+                            {
+                                "class": "od",
+                                "stream": "enfo",
+                                "type": "cf",
+                            },
+                            {
+                                "class": "od",
+                                "stream": "enfo",
+                                "type": "pf",
+                            },
+                        ],
                     }
                 },
                 "parameters": {

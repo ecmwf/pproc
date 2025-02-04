@@ -1,6 +1,7 @@
 import os
 from typing import Any, Iterator, Optional
 import yaml
+import itertools
 
 from annotated_types import Annotated
 from conflator import CLIArg, ConfigModel
@@ -141,13 +142,17 @@ class BaseConfig(ConfigModel):
 
     @classmethod
     def from_schema_config(cls, schema_config: dict, **overrides) -> Self:
-        request = schema_config.pop("request")
-        if levelist := request.pop("levelist", None):
-            schema_config["accumulations"]["levelist"] = {
-                "coords": [[level] for level in levelist]
-            }
-        if schema_config["accumulations"]["step"].get("type", None) == "legacywindow":
-            window_config = schema_config["accumulations"].pop("step")
+        reqs = schema_config.pop("request")
+        if not isinstance(reqs, list):
+            reqs = [reqs]
+        accum = schema_config.setdefault("accumulations", {})
+        for req in reqs:
+            if levelist := req.pop("levelist", None):
+                accum.setdefault(
+                    "levelist", {"coords": [[level] for level in levelist]}
+                )
+        if accum["step"].get("type", None) == "legacywindow":
+            window_config = accum.pop("step")
             coords = window_config.pop("coords")
             if isinstance(coords, list):
                 coords = [
@@ -158,7 +163,7 @@ class BaseConfig(ConfigModel):
                     )
                     for x in coords
                 ]
-            schema_config["accumulations"]["step"] = {
+            accum["step"] = {
                 "type": window_config.pop("type"),
                 "windows": [
                     {
@@ -169,8 +174,8 @@ class BaseConfig(ConfigModel):
                     }
                 ],
             }
-        for dim in schema_config["accumulations"].keys():
-            request.pop(dim, None)
+        for dim in accum.keys():
+            [req.pop(dim, None) for req in reqs]
         parallelisation = schema_config.pop("parallelisation", None)
         config = {
             "members": schema_config.pop("members"),
@@ -178,8 +183,8 @@ class BaseConfig(ConfigModel):
             "sources": {"fc": {"type": "fdb"}},
             "outputs": {"default": {"target": {"type": "fdb"}}},
             "parameters": {
-                schema_config.get("name", str(request["param"])): {
-                    "sources": {"fc": {"request": request}},
+                schema_config.get("name", str(reqs[0]["param"])): {
+                    "sources": {"fc": {"request": reqs if len(reqs) > 1 else reqs[0]}},
                     "metadata": schema_config.pop("metadata", {}),
                     **schema_config,
                 }
@@ -193,27 +198,33 @@ class BaseConfig(ConfigModel):
     def in_mars(self, sources: Optional[list[str]] = None) -> Iterator:
         for param in self.parameters:
             for name in self.sources.names:
-                base_source = getattr(self.sources, name)
-                source = io.Source(
-                    type=param.sources[name].get("type", base_source.type),
-                    path=param.sources[name].get("path", base_source.path),
-                    request=param.in_keys(
-                        name, base_source.request, **self.sources.overrides
-                    ),
-                )
+                source = param.in_sources(self.sources, name)[0]
                 if sources and source.type not in sources:
                     continue
-                req = source.request
-                req["source"] = source.path if source.path is not None else source.type
-                accum_updates = (
-                    getattr(param, name).accumulations if hasattr(param, name) else {}
+                reqs = (
+                    source.request
+                    if isinstance(source.request, list)
+                    else [source.request]
                 )
-                accumulations = deep_update(param.accumulations.copy(), accum_updates)
-                req.update(
-                    {key: accum.unique_coords() for key, accum in accumulations.items()}
-                )
-                for tp_req in expand(req, "type"):
-                    yield self._set_number(tp_req)
+                for req in reqs:
+                    req["source"] = (
+                        source.path if source.path is not None else source.type
+                    )
+                    accum_updates = (
+                        getattr(param, name).accumulations
+                        if hasattr(param, name)
+                        else {}
+                    )
+                    accumulations = deep_update(
+                        param.accumulations.copy(), accum_updates
+                    )
+                    req.update(
+                        {
+                            key: accum.unique_coords()
+                            for key, accum in accumulations.items()
+                        }
+                    )
+                    yield self._set_number(req)
 
     def _set_number(self, req: dict) -> dict:
         if req.get("type", None) not in ["pf", "fcmean", "fcmax", "fcstdev", "fcmin"]:
@@ -229,26 +240,27 @@ class BaseConfig(ConfigModel):
         return {**req, "number": list(range(start, end + 1))}
 
     def out_mars(self, targets: Optional[list[str]] = None) -> Iterator:
-        base_req = getattr(self.sources, "fc").request
-        base_req.update(self.sources.overrides)
-        for param in self.parameters:
-            for name in self.outputs.names:
-                if name == "default":
-                    continue
-                output = getattr(self.outputs, name)
-                if output.target.type_ == "null":
-                    continue
-                if targets and output.target.type_ not in targets:
-                    continue
-                req = base_req.copy()
+        outputs = []
+        for name in self.outputs.names:
+            if name == "default":
+                continue
+            output = getattr(self.outputs, name)
+            out_type = output.target.type_
+            if out_type == "null" or (targets and out_type not in targets):
+                continue
+            outputs.append(output)
+
+        seen = set()
+        for param, output in itertools.product(self.parameters, outputs):
+            for req in param.out_keys(self.sources):
                 req["target"] = (
                     output.target.path
                     if hasattr(output.target, "path")
                     else output.target.type_
                 )
-                for update in param.out_keys():
-                    req.update(update)
-                    req.update(extract_mars(output.metadata))
-                    req.update(extract_mars(self.outputs.overrides))
-                    for tp_req in expand(req, "type"):
-                        yield self._set_number(tp_req)
+                req.update(extract_mars(output.metadata))
+                req.update(extract_mars(self.outputs.overrides))
+                req = self._set_number(req)
+                if str(req) not in seen:
+                    seen.add(str(req))
+                    yield req

@@ -43,17 +43,30 @@ def default_config(param: str):
             param: {
                 "sources": {
                     "fc": {
-                        "request": {
-                            "class": "od",
-                            "stream": "enfo",
-                            "expver": "0001",
-                            "levtype": "pl",
-                            "domain": "g",
-                            "param": param,
-                            "date": "20241001",
-                            "time": "0",
-                            "type": ["cf", "pf"],
-                        }
+                        "request": [
+                            {
+                                "class": "od",
+                                "stream": "enfo",
+                                "expver": "0001",
+                                "levtype": "pl",
+                                "domain": "g",
+                                "param": param,
+                                "date": "20241001",
+                                "time": "0",
+                                "type": "cf",
+                            },
+                            {
+                                "class": "od",
+                                "stream": "enfo",
+                                "expver": "0001",
+                                "levtype": "pl",
+                                "domain": "g",
+                                "param": param,
+                                "date": "20241001",
+                                "time": "0",
+                                "type": "pf",
+                            },
+                        ],
                     }
                 },
                 "accumulations": {
@@ -176,6 +189,7 @@ TEST_CASES = {
                     "sources": {
                         "fc": {
                             "request": {
+                                **DEFAULT_REQUEST,
                                 "levtype": "sfc",
                                 "param": "228",
                                 "stream": "mmsf",
@@ -342,7 +356,7 @@ TEST_CASES = {
 def test_factory_from_outputs(request, output_request, input_param):
     schema = Schema(os.path.join(TEST_DIR, "schema.yaml"))
 
-    overrides, cfg_type, expected = TEST_CASES[request.node.callspec.id]
+    overrides, cfg_type, updates = TEST_CASES[request.node.callspec.id]
     output_types = output_request.get("type")
     requests = (
         [output_request]
@@ -352,7 +366,7 @@ def test_factory_from_outputs(request, output_request, input_param):
     config = types.ConfigFactory.from_outputs(schema, requests, **overrides)
     assert type(config) == cfg_type
     check = default_config(input_param)
-    deep_update(check, expected)
+    deep_update(check, updates)
     assert config.model_dump(by_alias=True) == cfg_type(**check).model_dump(
         by_alias=True
     )
@@ -374,12 +388,20 @@ def test_factory_from_outputs(request, output_request, input_param):
     [
         [
             "pproc-accumulate",
-            {
-                **DEFAULT_REQUEST,
-                "levelist": [250, 500],
-                "step": list(range(0, 193, 6)),
-                "type": ["cf", "pf"],
-            },
+            [
+                {
+                    **DEFAULT_REQUEST,
+                    "levelist": [250, 500],
+                    "step": list(range(0, 193, 6)),
+                    "type": "cf",
+                },
+                {
+                    **DEFAULT_REQUEST,
+                    "levelist": [250, 500],
+                    "step": list(range(0, 193, 6)),
+                    "type": "pf",
+                },
+            ],
             {
                 "type": "ranges",
                 "from": "0",
@@ -391,12 +413,20 @@ def test_factory_from_outputs(request, output_request, input_param):
         ],
         [
             "pproc-ensms",
-            {
-                **DEFAULT_REQUEST,
-                "levelist": [250, 500],
-                "step": list(range(0, 193, 6)),
-                "type": ["cf", "pf"],
-            },
+            [
+                {
+                    **DEFAULT_REQUEST,
+                    "levelist": [250, 500],
+                    "step": list(range(0, 193, 6)),
+                    "type": "cf",
+                },
+                {
+                    **DEFAULT_REQUEST,
+                    "levelist": [250, 500],
+                    "step": list(range(0, 193, 6)),
+                    "type": "pf",
+                },
+            ],
             {
                 "type": "ranges",
                 "from": "0",
@@ -406,14 +436,16 @@ def test_factory_from_outputs(request, output_request, input_param):
         ],
         [
             "pproc-monthly-stats",
-            {
-                **DEFAULT_REQUEST,
-                "levtype": "sfc",
-                "param": "228",
-                "stream": "mmsf",
-                "type": "fc",
-                "step": list(range(0, 2209, 24)),
-            },
+            [
+                {
+                    **DEFAULT_REQUEST,
+                    "levtype": "sfc",
+                    "param": "228",
+                    "stream": "mmsf",
+                    "type": "fc",
+                    "step": list(range(0, 2209, 24)),
+                }
+            ],
             {
                 "type": "monthly",
                 "date": "20241001",
@@ -424,12 +456,20 @@ def test_factory_from_outputs(request, output_request, input_param):
         ],
         [
             "pproc-accumulate",
-            {
-                **DEFAULT_REQUEST,
-                "levelist": [250, 500],
-                "step": list(range(0, 193, 6)),
-                "type": ["cf", "pf"],
-            },
+            [
+                {
+                    **DEFAULT_REQUEST,
+                    "levelist": [250, 500],
+                    "step": list(range(0, 193, 6)),
+                    "type": "cf",
+                },
+                {
+                    **DEFAULT_REQUEST,
+                    "levelist": [250, 500],
+                    "step": list(range(0, 193, 6)),
+                    "type": "pf",
+                },
+            ],
             {
                 "type": "ranges",
                 "from": "0",
@@ -445,25 +485,64 @@ def test_factory_from_outputs(request, output_request, input_param):
 def test_factory_from_inputs(request, entrypoint, input_request, periods):
     schema = Schema(os.path.join(TEST_DIR, "schema.yaml"))
 
-    overrides, cfg_type, expected = TEST_CASES[request.node.callspec.id]
-    windows = expected["parameters"][input_request["param"]]["accumulations"]["step"][
+    overrides, cfg_type, updates = TEST_CASES[request.node.callspec.id]
+    config = types.ConfigFactory.from_inputs(
+        schema, entrypoint, input_request, **overrides
+    )
+    assert type(config) == cfg_type
+    check = default_config(input_request[0]["param"])
+    windows = updates["parameters"][input_request[0]["param"]]["accumulations"]["step"][
         "windows"
     ]
     for window in windows:
         window["periods"] = periods
-    config = types.ConfigFactory.from_inputs(
-        schema, entrypoint, [input_request], **overrides
-    )
-    assert type(config) == cfg_type
-    check = default_config(input_request["param"])
-    deep_update(check, expected)
+    deep_update(check, updates)
     assert config.model_dump(exclude_defaults=True, by_alias=True) == cfg_type(
         **check
     ).model_dump(exclude_defaults=True, by_alias=True)
     check_request_equality(
         config.in_mars(),
-        [
-            {"source": "fdb", **config._set_number(tp)}
-            for tp in expand(input_request, "type")
-        ],
+        [{"source": "fdb", **config._set_number(req)} for req in input_request],
+    )
+
+
+def test_wind():
+    schema = Schema(os.path.join(TEST_DIR, "schema.yaml"))
+
+    input_request = [
+        {
+            **DEFAULT_REQUEST,
+            "levelist": [250, 500],
+            "step": list(range(0, 193, 6)),
+            "type": "cf",
+            "param": [165, 166],
+        },
+        {
+            **DEFAULT_REQUEST,
+            "levelist": [250, 500],
+            "step": list(range(0, 193, 6)),
+            "type": "pf",
+            "param": [165, 166],
+        },
+    ]
+    config = types.ConfigFactory.from_inputs(schema, "pproc-ensms", input_request)
+    check_request_equality(
+        config.out_mars(),
+        sum(
+            [
+                [
+                    {
+                        "target": "fdb",
+                        **DEFAULT_REQUEST,
+                        "levelist": [250, 500],
+                        "step": list(map(str, range(0, 193, 6))),
+                        "type": tp,
+                        "param": param,
+                    }
+                    for tp in ["em", "es"]
+                ]
+                for param in [165, 166, 207]
+            ],
+            [],
+        ),
     )

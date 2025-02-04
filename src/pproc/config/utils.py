@@ -53,6 +53,16 @@ def deep_update(original: dict, update: dict) -> dict:
     return original
 
 
+def update_request(base: dict | list[dict], update: dict | list[dict], **kwargs):
+    if isinstance(base, dict):
+        if isinstance(update, dict):
+            return {**base, **update, **kwargs}
+        return [{**base, **ureq, **kwargs} for ureq in update]
+    if isinstance(update, dict):
+        return [{**breq, **update, **kwargs} for breq in base]
+    return [{**breq, **ureq, **kwargs} for breq, ureq in zip(base, update)]
+
+
 def expand(request: dict, dim: str):
     coords = request.pop(dim, None)
     if coords is None:

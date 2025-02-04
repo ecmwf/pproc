@@ -1,4 +1,3 @@
-import copy
 from typing import Any, ClassVar, Optional, Union
 
 from annotated_types import Annotated
@@ -49,6 +48,15 @@ class Source(ConfigModel):
         if self.type == "fileset":
             cfg[self.type]["req"]["location"] = self.path
         return cfg
+
+    def base_request(self) -> dict:
+        if isinstance(self.request, dict):
+            return self.request
+        return {
+            k: v
+            for k, v in self.request[0].items()
+            if all(v == x[k] for x in self.request)
+        }
 
 
 class SourceCollection(ConfigModel):

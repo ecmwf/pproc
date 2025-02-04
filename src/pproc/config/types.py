@@ -3,6 +3,8 @@ from typing_extensions import Self
 from pydantic import model_validator, Field
 import numpy as np
 import datetime
+import pandas as pd
+import copy
 
 from conflator import CLIArg
 
@@ -11,6 +13,7 @@ from pproc.config.base import BaseConfig, Parallelisation
 from pproc.config import io
 from pproc.config.param import ParamConfig
 from pproc.config.schema import Schema
+from pproc.config.utils import expand
 from pproc.common.stepseq import steprange_to_fcmonth
 
 
@@ -205,7 +208,10 @@ class ConfigFactory:
     ) -> BaseConfig:
         entrypoint = None
         config = None
-        for req in output_requests:
+        expanded_requests = sum(
+            [expand(x, "param") for x in copy.deepcopy(output_requests)], []
+        )
+        for req in expanded_requests:
             schema_config = schema.config_from_output(req)
 
             if entrypoint is None:
@@ -227,7 +233,23 @@ class ConfigFactory:
         cls, schema: Schema, entrypoint: str, input_requests: List[dict], **overrides
     ) -> BaseConfig:
         config = None
-        for req in input_requests:
+        expanded_requests = sum(
+            [expand(x, "param") for x in copy.deepcopy(input_requests)], []
+        )
+        df = pd.DataFrame(expanded_requests)
+        for _, param_combination in schema.combined_params():
+            selection = df.loc[df["param"] == param_combination[0]]
+            for row in selection.iterrows():
+                condition = np.logical_and.reduce(
+                    [df[k] == v for k, v in row.items() if k != "param"]
+                )
+                if len(
+                    df.loc[condition & df.loc["param"].isin(param_combination)]
+                ) == len(param_combination):
+                    df.add({**row, "param": param_combination})
+
+        for _, pgroup in df.groupby("param"):
+            req = pgroup.to_dict("records")
             for schema_config in schema.config_from_input(req, entrypoint=entrypoint):
                 if config is None:
                     config = cls._from_schema_config(

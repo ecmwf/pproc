@@ -1,11 +1,11 @@
 import yaml
 import copy
 import numpy as np
-from typing import List, Optional, Generator
+from typing import List, Optional, Generator, Iterator
 from datetime import datetime
 
 from pproc.common.stepseq import fcmonth_to_steprange
-from pproc.config.utils import deep_update
+from pproc.config.utils import deep_update, update_request
 
 
 class Schema:
@@ -40,6 +40,13 @@ class Schema:
             )
         return ret
 
+    def combined_params(self) -> Iterator:
+        params = self.schema.get("filter:param", {})
+        for paramId, config in params.items():
+            req_params = config.get("request", {}).get("param", [])
+            if isinstance(req_params, list) and len(req_params) > 1:
+                yield paramId, req_params
+
     def _config_from_output(
         cls, sub_schema: dict, output_request: dict, config: Optional[dict] = None
     ) -> dict:
@@ -51,6 +58,8 @@ class Schema:
                 cls._config_from_output(
                     cls.subschema(key, value, output_request), output_request, config
                 )
+            elif key == "request":
+                config["request"] = update_request(config.get("request", {}), value)
             else:
                 deep_update(config, {key: value})
         return config
@@ -63,8 +72,14 @@ class Schema:
         )
         defs = config.pop("defs")
         config.pop("from_inputs", None)
-        if grid := config["request"].pop("interp_grid", None):
-            config["request"]["interpolate"] = {"grid": grid, **defs["interp_keys"]}
+        reqs = (
+            config["request"]
+            if isinstance(config["request"], list)
+            else [config["request"]]
+        )
+        for req in reqs:
+            if grid := req.pop("interp_grid", None):
+                req["interpolate"] = {"grid": grid, **defs["interp_keys"]}
         out = yaml.load(
             yaml.dump(config).format_map({**defs, **output_request}),
             Loader=yaml.SafeLoader,
@@ -74,12 +89,12 @@ class Schema:
     def _config_from_input(
         cls,
         schema: dict,
-        input_request: dict,
+        input_requests: list[dict],
         configs: Optional[List[dict]] = None,
         **match,
     ):
         if configs is None:
-            configs = [{"out": {}, "request": input_request}]
+            configs = [{"out": {}, "request": input_requests}]
 
         for key, value in schema.items():
             if cls.is_subschema(key):
@@ -98,31 +113,36 @@ class Schema:
                         new_configs.extend(
                             cls._config_from_input(
                                 schema[key][filter_value],
-                                input_request,
+                                input_requests,
                                 [new_fout],
                                 **match,
                             )
                         )
                 if "*" in schema[key].keys() and len(new_configs) == 0:
                     new_configs = cls._config_from_input(
-                        schema[key]["*"], input_request, configs, **match
+                        schema[key]["*"], input_requests, configs, **match
                     )
                 configs = new_configs
+            elif key == "request":
+                [
+                    deep_update(cfg, {key: update_request(cfg.get("request"), value)})
+                    for cfg in configs
+                ]
             else:
                 [deep_update(cfg, {key: value}) for cfg in configs]
 
-        return [cfg for cfg in cls.valid_configs(configs, input_request, **match)]
+        return [cfg for cfg in cls.valid_configs(configs, input_requests, **match)]
 
     def valid_configs(
         cls,
         configs: List[dict],
-        input_request: dict,
+        input_requests: list[dict],
         **match,
     ) -> Generator:
         for config in configs:
             filled_config = yaml.load(
                 yaml.dump(config).format_map(
-                    {**config["defs"], **input_request, **config["out"]}
+                    {**config["defs"], **input_requests[0], **config["out"]}
                 ),
                 Loader=yaml.SafeLoader,
             )
@@ -135,7 +155,7 @@ class Schema:
             if not is_match:
                 continue
 
-            if filled_config["request"] == input_request:
+            if filled_config["request"] == input_requests:
                 yield config
 
     @classmethod
@@ -145,30 +165,39 @@ class Schema:
             out["param"] = str(out["param"])
         elif isinstance(out["param"], list):
             out["param"] = [str(param) for param in out["param"]]
+        if isinstance(out["type"], list):
+            raise ValueError("Multiple types in request are not allowed")
         return out
 
-    def config_from_input(self, input_request: dict, **match):
-        req = self.validate_request(input_request)
-        overrides = self.overrides_from_input(req)
-        for config in self._config_from_input(self.schema, req, **match):
+    def config_from_input(self, input_requests: list[dict], **match):
+        reqs = [self.validate_request(x) for x in input_requests]
+        reqs.sort(key=lambda x: x["type"])
+        overrides = self.overrides_from_input(reqs)
+        for config in self._config_from_input(self.schema, reqs, **match):
             if config.pop("from_inputs", {}).get("exclude", False):
                 continue
             deep_update(config, overrides)
             defs = config.pop("defs")
             replace = {
                 **defs,
-                **req,
+                **reqs[0],
                 **config.pop("out"),
             }
             filled_config = yaml.load(
                 yaml.dump(config).format_map(replace),
                 Loader=yaml.SafeLoader,
             )
-            if grid := filled_config["request"].pop("interp_grid", None):
-                filled_config["request"]["interpolate"] = {
-                    "grid": grid,
-                    **defs["interp_keys"],
-                }
+            reqs = (
+                filled_config["request"]
+                if isinstance(config["request"], list)
+                else [filled_config["request"]]
+            )
+            for req in reqs:
+                if grid := req.pop("interp_grid", None):
+                    req["interpolate"] = {
+                        "grid": grid,
+                        **defs["interp_keys"],
+                    }
             yield filled_config
 
     def overrides_from_output(self, output_request: dict) -> dict:
@@ -199,26 +228,31 @@ class Schema:
                 )
         return overrides
 
-    def overrides_from_input(self, input_request: dict) -> dict:
+    def overrides_from_input(self, reqs: list[dict]) -> dict:
         overrides = {}
-        if members := input_request.pop("number", None):
-            if isinstance(members, (int, str)):
-                members = [members]
-            members = list(map(int, members))
-            overrides["members"] = {
-                "start": min(members),
-                "end": max(members),
-            }
-        if steps := input_request.pop("step"):
-            try:
-                steps = list(map(int, steps))
-            except ValueError:
-                return overrides
-            diff = np.diff(steps)
-            assert np.all(diff == diff[0]), "Step intervals must be equal"
-            overrides["defs"] = {
-                "STEP_START": min(steps),
-                "STEP_END": max(steps),
-                "STEP_BY": diff[0],
-            }
+        for req in reqs:
+            if members := req.pop("number", None):
+                if isinstance(members, (int, str)):
+                    members = [members]
+                members = list(map(int, members))
+                set_members = {
+                    "start": min(members),
+                    "end": max(members),
+                }
+                if overrides.setdefault("members", set_members) != set_members:
+                    raise ValueError(f"Multiple member ranges in {reqs}")
+            if steps := req.pop("step"):
+                try:
+                    steps = list(map(int, steps))
+                except ValueError:
+                    return overrides
+                diff = np.diff(steps)
+                assert np.all(diff == diff[0]), "Step intervals must be equal"
+                set_steps = {
+                    "STEP_START": min(steps),
+                    "STEP_END": max(steps),
+                    "STEP_BY": diff[0],
+                }
+                if overrides.setdefault("defs", set_steps) != set_steps:
+                    raise ValueError(f"Multiple step ranges in {reqs}")
         return overrides
