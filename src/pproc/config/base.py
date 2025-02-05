@@ -224,6 +224,7 @@ class BaseConfig(ConfigModel):
                             for key, accum in accumulations.items()
                         }
                     )
+                    req.pop("interpolate", None)
                     yield self._set_number(req)
 
     def _set_number(self, req: dict) -> dict:
@@ -261,6 +262,7 @@ class BaseConfig(ConfigModel):
                 req.update(extract_mars(output.metadata))
                 req.update(extract_mars(self.outputs.overrides))
                 req = self._set_number(req)
+                req.pop("interpolate", None)
                 if str(req) not in seen:
                     seen.add(str(req))
                     yield req
