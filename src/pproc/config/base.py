@@ -32,7 +32,7 @@ class Recovery(ConfigModel):
         CLIArg("--recover", action="store_true", default=False),
         Field(description="Recover from checkpoint"),
     ] = False
-    root_dir: str = os.getcwd()
+    root_dir: Optional[str] = None
 
     @model_validator(mode="before")
     @classmethod

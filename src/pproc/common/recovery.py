@@ -136,8 +136,9 @@ class Recovery(BaseRecovery):
 
 def create_recovery(config: BaseConfig) -> BaseRecovery:
     if config.recovery.enable_checkpointing:
+        root_dir = config.root_dir or os.getcwd()
         return Recovery(
-            config.recovery.root_dir,
+            root_dir,
             config.model_dump(exclude_defaults=True),
             config.recovery.from_checkpoint,
         )
