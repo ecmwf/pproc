@@ -3,7 +3,7 @@ out_keys:
   localDefinitionNumber: 5
   mars.expver: '0001'
   type: ep
-members: 6
+num_members: 6
 total_fields: 5
 n_par_compute: 1
 n_par_read: 2

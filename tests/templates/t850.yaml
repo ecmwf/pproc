@@ -1,4 +1,4 @@
-members: 6
+num_members: 6
 out_keys:
   expver: "0001"
   type: ep
@@ -79,6 +79,7 @@ parameters:
         scaleFactorOfUpperLimit: MISSING
         scaledValueOfUpperLimit: MISSING
     clim:
+      in: 130
       in_keys:
         interpolate:
           grid: O640

@@ -47,5 +47,5 @@ parameters:
         coords: [[250], [850]]
       step:
         coords: [[0], [3], [6]]
-members: 6
+num_members: 6
 n_par: 1

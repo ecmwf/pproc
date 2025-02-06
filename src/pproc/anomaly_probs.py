@@ -22,10 +22,9 @@ from pproc.prob.climatology import Climatology
 
 class ProbParamConfig(ParamConfig):
     def __init__(self, name, options: Dict[str, Any], overrides: Dict[str, Any] = {}):
+        options = options.copy()
+        clim_options = options.pop("clim")
         super().__init__(name, options, overrides)
-        clim_options = options.copy()
-        if "clim" in options:
-            clim_options.update(clim_options.pop("clim"))
         self.clim_param = ParamConfig(f"clim_{name}", clim_options, overrides)
 
 
