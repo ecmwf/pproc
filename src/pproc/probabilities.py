@@ -22,10 +22,11 @@ from pproc.prob.window_manager import ThresholdWindowManager
 class ProbConfig(BaseProbConfig):
     def __init__(self, args, out_keys):
         super().__init__(args, out_keys)
-        self.parameters = [
-            ParamConfig(pname, popt, overrides=self.override_input)
-            for pname, popt in self.options["parameters"].items()
-        ]
+        self.parameters = []
+        for pname, popt in self.options["parameters"].items():
+            param = ParamConfig(pname, popt, overrides=self.override_input)
+            assert param._windows is None, "Use accumulation window configuration"
+            self.parameters.append(param)
 
 
 def main(args=None):

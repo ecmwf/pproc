@@ -10,23 +10,26 @@ n_par_read: 2
 parameters:
   2t:
     in: 167
-    steps:
-    - end_step: 36
-      interval: 12
-      start_step: 12
-    windows:
-    - periods:
-      - range:
-        - 12
-        - 12
-      - range:
-        - 12
-        - 36
-      thresholds:
-      - comparison: <=
-        localDecimalScaleFactor: 2
-        out_paramid: 131073
-        value: 273.15
+    accumulations:
+      step:
+        type: legacywindow
+        steps:
+        - end_step: 36
+          interval: 12
+          start_step: 12
+        windows:
+        - periods:
+          - range:
+            - 12
+            - 12
+          - range:
+            - 12
+            - 36
+          thresholds:
+          - comparison: <=
+            localDecimalScaleFactor: 2
+            out_paramid: 131073
+            value: 273.15
 queue_size: 1
 sources:  
   fdb:

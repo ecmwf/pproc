@@ -25,6 +25,7 @@ class ProbParamConfig(ParamConfig):
         options = options.copy()
         clim_options = options.pop("clim")
         super().__init__(name, options, overrides)
+        assert self._windows is None, "Use accumulation window configuration"
         self.clim_param = ParamConfig(f"clim_{name}", clim_options, overrides)
 
 

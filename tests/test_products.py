@@ -48,10 +48,10 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
                 "levtype": "pl",
                 "levelist": 850,
                 "type": "ep",
-                "param": 131022,
+                "param": [131022, 133093],
                 "step": [0, 12],
             },
-            2,
+            4,
         ],
         [
             "ensms",
