@@ -215,7 +215,7 @@ class Schema:
                     overrides["accumulations"]["step"]["coords"].append(
                         {"from": steprange[0], "to": steprange[1], "by": "{STEP_BY}"}
                     )
-        elif fcmonths := output_request.pop("forecastMonth", None):
+        elif fcmonths := output_request.pop("fcmonth", None):
             overrides["accumulations"] = {"step": {"coords": []}}
             if isinstance(fcmonths, (int, str)):
                 fcmonths = [fcmonths]

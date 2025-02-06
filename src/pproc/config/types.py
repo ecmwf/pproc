@@ -91,7 +91,7 @@ class MonthlyStatsConfig(BaseConfig):
             fcmonths = [
                 steprange_to_fcmonth(date, step_range) for step_range in step_ranges
             ]
-            yield {**req, "forecastMonth": fcmonths}
+            yield {**req, "fcmonth": fcmonths}
 
 
 class HistParamConfig(ParamConfig):
