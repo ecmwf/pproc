@@ -21,7 +21,7 @@ from pproc import common
 from pproc.common import parallel
 from pproc.common.parallel import parallel_processing, sigterm_handler
 from pproc.common.utils import dict_product
-from pproc.common.param_requester import ParamConfig, ParamRequester, index_ensembles
+from pproc.common.param_requester import ParamConfig, ParamRequester
 
 
 def wind_template(template: eccodes.GRIBMessage, step: int, **out_keys):
@@ -45,8 +45,9 @@ def wind_template(template: eccodes.GRIBMessage, step: int, **out_keys):
 class WindParamConfig(ParamConfig):
     def __init__(self, name, options, overrides=None):
         super().__init__(name, options, overrides)
+        self.vod2uv = self._in_keys.get("interpolate", {}).get("vod2uv", False)
         self.total_fields = 1
-        if self._in_keys.get("interpolate", {}).get("vod2uv", False):
+        if self.vod2uv:
             self.in_paramids = [self.in_paramids]
             self.total_fields = 2
 
@@ -91,7 +92,7 @@ class WindConfig(common.Config):
 def wind_iteration_gen(
     config: WindConfig,
     loc: str,
-    param: ParamConfig,
+    param: WindParamConfig,
     dims: dict,
     members: int,
     total_fields: int,
@@ -109,10 +110,10 @@ def wind_iteration_gen(
         config.sources,
         loc,
         members,
-        total_fields,
-        index_func=index_ensembles if members == total_fields else None,
+        total_fields * param.total_fields,
     )
     template, ens = requester.retrieve_data(None, **dims)
+    assert ens.shape[0] == total_fields, f"Expected {total_fields}, got {ens.shape[0]}"
     with ResourceMeter(f"Param {param.name}, {dims}"):
         if not isinstance(out_ws, common.io.NullTarget):
             for number in ens.shape[0]:
@@ -153,7 +154,7 @@ def wind_iteration(
         param,
         dims,
         1,
-        param.total_fields,
+        1,
         config.out_det_ws,
         common.io.NullTarget(),
         common.io.NullTarget(),
@@ -166,7 +167,7 @@ def wind_iteration(
         param,
         dims,
         config.members,
-        config.total_fields * param.total_fields,
+        config.total_fields,
         config.out_eps_ws,
         config.out_eps_mean,
         config.out_eps_std,

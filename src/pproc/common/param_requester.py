@@ -164,12 +164,6 @@ class ParamConfig:
         return config
 
 
-def index_ensembles(message: eccodes.GRIBMessage) -> int:
-    if message.get("type") in ["cf", "fc"]:
-        return 0
-    return message.get("number")
-
-
 class ParamRequester:
     def __init__(
         self,
@@ -226,6 +220,12 @@ class ParamRequester:
             ), "Multiple input fields require a combine operation"
             return data_list[0]
         if self.param.combine == "norm":
+            if getattr(self.param, "vod2uv", False):
+                assert len(data_list) == 1
+                data_list = np.asarray(data_list[0], dtype=self.param.dtype)
+                data_list = np.reshape(
+                    data_list, (2, int(self.total / 2), *data_list.shape[1:]), order="F"
+                )
             return np.linalg.norm(data_list, axis=0)
         if self.param.combine == "direction":
             assert len(data_list) == 2, "'direction' requires exactly 2 input fields"

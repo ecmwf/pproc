@@ -28,7 +28,7 @@ from pproc.common.parallel import (
     parallel_data_retrieval,
     sigterm_handler,
 )
-from pproc.common.param_requester import ParamConfig, ParamRequester, index_ensembles
+from pproc.common.param_requester import ParamConfig, ParamRequester
 from pproc.signi.clim import retrieve_clim
 
 
@@ -293,8 +293,7 @@ def main(args=None):
                 cfg.sources,
                 args.in_ens,
                 cfg.members,
-                cfg.total_fields,
-                index_ensembles if cfg.members == cfg.total_fields else None,
+                cfg.total_fields
             )
             window_manager = common.WindowManager(
                 param.window_config(cfg.windows, cfg.steps),
