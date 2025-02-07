@@ -337,7 +337,7 @@ TEST_CASES = {
                 "param": "172228",
                 "stream": "msmm",
                 "type": ["fcmean", "fcstdev", "fcmax"],
-                "forecastMonth": [1, 2, 3],
+                "fcmonth": [1, 2, 3],
             },
             "228",
         ],

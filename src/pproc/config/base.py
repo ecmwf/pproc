@@ -1,4 +1,3 @@
-import os
 from typing import Any, Iterator, Optional
 import yaml
 import itertools
@@ -196,19 +195,19 @@ class BaseConfig(ConfigModel):
         return cls(**config)
 
     def in_mars(self, sources: Optional[list[str]] = None) -> Iterator:
-        for param in self.parameters:
-            for name in self.sources.names:
-                source = param.in_sources(self.sources, name)[0]
-                if sources and source.type not in sources:
+        seen = set()
+        for param, name in itertools.product(self.parameters, self.sources.names):
+            for psource in param.in_sources(self.sources, name):
+                if sources and psource.type not in sources:
                     continue
                 reqs = (
-                    source.request
-                    if isinstance(source.request, list)
-                    else [source.request]
+                    psource.request
+                    if isinstance(psource.request, list)
+                    else [psource.request]
                 )
                 for req in reqs:
                     req["source"] = (
-                        source.path if source.path is not None else source.type
+                        psource.path if psource.path is not None else psource.type
                     )
                     accum_updates = (
                         getattr(param, name).accumulations
@@ -225,7 +224,10 @@ class BaseConfig(ConfigModel):
                         }
                     )
                     req.pop("interpolate", None)
-                    yield self._set_number(req)
+                    req = self._set_number(req)
+                    if str(req) not in seen:
+                        seen.add(str(req))
+                        yield req
 
     def _set_number(self, req: dict) -> dict:
         if req.get("type", None) not in ["pf", "fcmean", "fcmax", "fcstdev", "fcmin"]:

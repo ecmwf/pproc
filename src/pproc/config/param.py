@@ -10,7 +10,7 @@ from pproc.config.preprocessing import PreprocessingConfig
 from pproc.config.accumulation import AccumulationConfig
 from pproc.config.utils import extract_mars
 from pproc.config.io import Source, SourceCollection
-from pproc.config.utils import update_request
+from pproc.config.utils import update_request, expand
 
 
 class ParamConfig(BaseModel):
@@ -35,7 +35,9 @@ class ParamConfig(BaseModel):
             **sources.overrides,
         )
         if isinstance(reqs, dict):
-            reqs = [reqs]
+            reqs = expand(reqs, "param")
+        else:
+            reqs = sum([expand(req, "param") for req in reqs], [])
 
         return [
             Source(

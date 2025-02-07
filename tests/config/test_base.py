@@ -25,7 +25,7 @@ base_config = {
     "members": 5,
     "sources": {"fc": {"type": "fdb", "request": {}}},
     "parameters": {
-        "2t": {
+        "param": {
             "accumulations": {
                 "step": {
                     "type": "legacywindow",
@@ -83,7 +83,7 @@ def test_cli_overrides(config, cli_args, attr, expected):
                 "members": 5,
                 "sources": {"fc": {"type": "fdb", "request": {}}},
                 "parameters": {
-                    "2t": {
+                    "param": {
                         "accumulations": {
                             "step": {
                                 "type": "legacywindow",
@@ -107,7 +107,7 @@ def test_cli_overrides(config, cli_args, attr, expected):
                 "members": 5,
                 "sources": {"fc": {"type": "fdb", "request": {}}},
                 "parameters": {
-                    "2t": {
+                    "param": {
                         "accumulations": {
                             "step": {
                                 "type": "legacywindow",
@@ -121,7 +121,7 @@ def test_cli_overrides(config, cli_args, attr, expected):
                 "members": 5,
                 "sources": {"fc": {"type": "fdb", "request": {}}},
                 "parameters": {
-                    "2t": {
+                    "param": {
                         "accumulations": {
                             "step": {
                                 "type": "legacywindow",
@@ -172,7 +172,7 @@ def test_merge(other: dict, merged: dict):
                     }
                 },
                 "parameters": {
-                    "2t": {
+                    "param": {
                         "sources": {
                             "fc": {"request": {"param": "167", "levtype": "sfc"}}
                         },
@@ -216,7 +216,7 @@ def test_merge(other: dict, merged: dict):
             {
                 "sources": {"fc": {"request": {"class": "od", "stream": "enfo"}}},
                 "parameters": {
-                    "2t": {
+                    "param": {
                         "sources": {
                             "fc": {
                                 "request": {
@@ -257,7 +257,7 @@ def test_merge(other: dict, merged: dict):
                     "overrides": {"class": "ai"},
                 },
                 "parameters": {
-                    "2t": {
+                    "param": {
                         "sources": {
                             "fc": {
                                 "request": {
@@ -286,8 +286,71 @@ def test_merge(other: dict, merged: dict):
                 }
             ],
         ],
+        [
+            {
+                "sources": {
+                    "fc": {
+                        "request": [
+                            {
+                                "param": ["165", "166"],
+                                "class": "od",
+                                "stream": "enfo",
+                                "type": "cf",
+                            },
+                            {
+                                "param": ["165", "166"],
+                                "class": "od",
+                                "stream": "enfo",
+                                "type": "pf",
+                            },
+                        ],
+                    }
+                },
+                "parameters": {
+                    "param": {
+                        "preprocessing": [{"operation": "norm"}],
+                        "accumulations": {
+                            "step": {
+                                "type": "legacywindow",
+                                "windows": [
+                                    {
+                                        "window_operation": "mean",
+                                        "periods": [{"range": [0, 24, 6]}],
+                                    }
+                                ],
+                            }
+                        },
+                    }
+                },
+            },
+            sum(
+                [
+                    [
+                        {
+                            "class": "od",
+                            "stream": "enfo",
+                            "param": param,
+                            "step": list(range(0, 25, 6)),
+                            "type": "cf",
+                            "source": "fdb",
+                        },
+                        {
+                            "class": "od",
+                            "stream": "enfo",
+                            "param": param,
+                            "step": list(range(0, 25, 6)),
+                            "type": "pf",
+                            "source": "fdb",
+                            "number": [1, 2, 3, 4, 5],
+                        },
+                    ]
+                    for param in ["165", "166"]
+                ],
+                [],
+            ),
+        ],
     ],
-    ids=["ensemble", "multi-accum", "overrides"],
+    ids=["ensemble", "multi-accum", "overrides", "wind"],
 )
 def test_inputs(overrides: dict, expected: list[dict]):
     config = BaseConfig(**deep_update(copy.deepcopy(base_config), overrides))
