@@ -116,7 +116,7 @@ def wind_iteration_gen(
     assert ens.shape[0] == total_fields, f"Expected {total_fields}, got {ens.shape[0]}"
     with ResourceMeter(f"Param {param.name}, {dims}"):
         if not isinstance(out_ws, common.io.NullTarget):
-            for number in ens.shape[0]:
+            for number in range(ens.shape[0]):
                 marstype = (
                     "pf"
                     if number > 0 and template.get("type") in ["cf", "fc"]
