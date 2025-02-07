@@ -196,7 +196,6 @@ class ThermoConfig(Config):
                 )
             else:
                 self.members = list(range(1, int(self.options["members"]) + 1))
-        self._parse_windows()
         self._create_targets(args.recover)
 
     def _parse_windows(cls, window_config):
