@@ -104,7 +104,7 @@ def read_clim(config: ConfigExtreme, param: ExtremeParamConfig, accum, n_clim=10
 def extreme_template(accum, template_fc, template_clim):
 
     template_ext = construct_message(template_fc, accum.grib_keys())
-    grib_keys = accum.grib_keys()
+    grib_keys = {}
 
     edition = template_ext["edition"]
     clim_edition = template_clim["edition"]
