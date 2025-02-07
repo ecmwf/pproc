@@ -1,231 +1,283 @@
+from dataclasses import dataclass
+from typing import Dict, Iterator, Optional, Set, Tuple, Union
 import numpy as np
-from typing import Dict
 
-from pproc.common.steps import AnyStep, Step
+from pproc.common.accumulation import Accumulation, Coord, create_accumulation
+from pproc.common.steps import Step, step_to_coord
+from pproc.common.stepseq import stepseq_monthly
 
 
-class Window:
+@dataclass
+class WindowConfig:
+    start: int
+    end: int
+    step: int
+    name: str
+    suffix: str
+    steps: list
+    include_init: bool
+
+
+def parse_window_config(config: dict, include_init: bool = True) -> WindowConfig:
+    start = int(config["range"][0])
+    end = int(config["range"][1])
+    step = int(config["range"][2]) if len(config["range"]) > 2 else 1
+    window_size = end - start
+    name = str(end) if window_size == 0 else f"{start}-{end}"
+    suffix = f"{window_size:0>3}_{start:0>3}h_{end:0>3}h"
+    if include_init:
+        steps = list(range(start, end + 1, step))
+    else:
+        steps = list(range(start + step, end + 1, step))
+    return WindowConfig(start, end, step, name, suffix, steps, include_init)
+
+
+def window_operation_from_config(window_config: dict) -> Dict[str, list]:
     """
-    Class for collating data for all ensembles over an step interval
+    Derives window operation from config. If no window operation is explicitly
+    specified then attempts to derive it from the thresholds.
+
+    :param window_config: window configuration dictionary
+    :return: dict mapping window operations to associated thresholds, if any
     """
+    # Get window operation, or if not provided in config, derive from threshold
+    window_operations = {}
+    if "window_operation" in window_config:
+        thresholds = window_config.get("thresholds", [])
+        for threshold in thresholds:
+            if isinstance(threshold["value"], str):
+                threshold["value"] = float(threshold["value"])
+        window_operations[window_config["window_operation"]] = thresholds
+    elif "thresholds" in window_config:
+        # Derive from threshold comparison parameter
+        for threshold in window_config["thresholds"]:
+            if isinstance(threshold["value"], str):
+                threshold["value"] = float(threshold["value"])
+            comparison = threshold["comparison"]
+            if "<" in comparison:
+                operation = "minimum"
+            elif ">" in comparison:
+                operation = "maximum"
+            else:
+                raise RuntimeError(f"Unknown threshold comparison {comparison}")
+            window_operations.setdefault(operation, []).append(threshold)
+    else:
+        window_operations["none"] = []
 
-    def __init__(self, window_options, include_init: bool = True):
+    return window_operations
 
-        """
-        :param window_options: specifies start and end step of window
-        :param include_init: boolean specifying whether to include start step in window
-        """
-        self.start = int(window_options["range"][0])
-        self.end = int(window_options["range"][1])
-        self.include_init = include_init
-        window_size = self.end - self.start
-        self.suffix = f"{window_size:0>3}_{self.start:0>3}h_{self.end:0>3}h"
-        if window_size == 0:
-            self.name = str(self.end)
-        else:
-            self.name = f"{self.start}-{self.end}"
 
-        self.step = (
-            int(window_options["range"][2]) if len(window_options["range"]) > 2 else 1
+def translate_window_config(
+    window_options,
+    window_operation: str,
+    include_start: bool,
+    grib_keys: Optional[dict] = None,
+    deaccumulate: bool = False,
+) -> Tuple[str, dict]:
+    """
+    Create window configuration for the given operation
+
+    :param window_options: window range specification
+    :param window operation: window operation: one of none, diff, add, minimum,
+        maximum, weightedsum, diffdailyrate, mean, precomputed
+    :param grib_keys: additional grib keys to tie to the window
+    :param deaccumulate: if True, deaccumulate steps before performed window operation
+    :return: Window name, Accumulation configuration dict
+    :raises: ValueError for unsupported window operation string
+    """
+    include_init = (
+        window_options["range"][0] == window_options["range"][1]
+    ) or include_start
+
+    config = None
+    operation = None
+    coords = None
+    extra = {}
+    if window_operation == "none":
+        config = parse_window_config(window_options, include_init)
+        if len(config.steps) > 1:
+            raise ValueError(
+                "Window operation can not be none for windows containing more than a single step"
+            )
+        operation = "aggregation"
+    elif window_operation == "diff":
+        config = parse_window_config(window_options, True)
+        config.steps = [config.start, config.end]
+        operation = "difference"
+    elif window_operation == "add":
+        config = parse_window_config(window_options, include_init)
+        operation = "sum"
+    elif window_operation in ["minimum", "maximum", "mean", "aggregation"]:
+        config = parse_window_config(window_options, include_init)
+        operation = window_operation
+    elif window_operation == "weightedsum":
+        config = parse_window_config(window_options, False)
+        operation = "weighted_mean"
+        coords = [config.start] + config.steps
+    elif window_operation == "diffdailyrate":
+        config = parse_window_config(window_options, True)
+        config.steps = [config.start, config.end]
+        extra["factor"] = 1.0 / 24.0
+        operation = "difference_rate"
+    elif window_operation == "difference_rate":
+        config = parse_window_config(window_options, True)
+        config.steps = [config.start, config.end]
+        extra["factor"] = window_options.get("factor", 1.0)
+        operation = "difference_rate"
+    elif window_operation == "precomputed":
+        config = parse_window_config(window_options, True)
+        config.steps = [Step(config.start, config.end)]
+        operation = "aggregation"
+    elif window_operation == "standard_deviation":
+        config = parse_window_config(window_options, include_init)
+        operation = "standard_deviation"
+
+    if config is None:
+        raise ValueError(
+            f"Unsupported window operation {window_operation}. Supported types: "
+            + "diff, minimum, maximum, add, weightedsum, diffdailyrate, mean, "
+            + "aggregation and precomputed"
         )
-        if include_init:
-            self.steps = list(range(self.start, self.end + 1, self.step))
-        else:
-            self.steps = list(range(self.start + self.step, self.end + 1, self.step))
 
-        self.step_values = []
-        self.config_grib_header = {}
+    if coords is None:
+        coords = [step_to_coord(step) for step in config.steps]
 
-    def operation(self, new_step_values: np.array):
-        """
-        Combines data from unprocessed steps with existing step data values,
-        and updates step data values. Any processing involving NaN values
-        must return NaN to be compatible with MARS compute
+    grib_header = {} if grib_keys is None else grib_keys.copy()
 
-        :param new_step_values: data from new step
-        """
-        raise NotImplementedError
-
-    def __contains__(self, step: AnyStep) -> bool:
-        """
-        :param step: current step
-        :return: boolean specifying if step is in window interval
-        """
-        return step in self.steps
-
-    def add_step_values(self, step: AnyStep, step_values: np.array):
-        """
-        Adds contribution of data values for specified step, if inside window, by computing
-        reduction operation on existing step values and new step values - only the reduction
-        operation on processed steps is stored
-
-        :param step: step to update window with
-        :param step_values: data values for step
-        """
-        if step not in self:
-            return
-        if len(self.step_values) == 0:
-            self.step_values = step_values.copy()
-        else:
-            self.operation(step_values)
-
-    def reached_end_step(self, step: AnyStep) -> bool:
-        """
-        :param step: current step
-        :return: boolean specifying if current step is equal to window end step
-        """
-        return step == self.end
-
-    def size(self) -> int:
-        """
-        :return: size of window interval
-        """
-        return self.end - self.start
-
-    def grib_header(self) -> Dict:
-        """
-        Returns window specific grib headers, including headers defined in
-        config file
-
-        :return: dictionary of header keys and values
-        """
-        header = {}
-        if self.size() > 0 and self.end >= 256:
+    if config.end > config.start and config.end >= 256:
+        if grib_header.get("edition", 1) == 1:
             # The range is encoded as two 8-bit integers
-            header["unitOfTimeRange"] = 11
+            grib_header.setdefault("unitOfTimeRange", 11)
 
-        header.update(self.config_grib_header)
-        if self.size() == 0:
-            header["step"] = self.name
+    if config.end == config.start and "timeRangeIndicator" not in grib_header:
+        if config.end >= 256:
+            grib_header["timeRangeIndicator"] = 10
+        elif config.end == 0:
+            grib_header["timeRangeIndicator"] = 1
         else:
-            header.setdefault("stepType", "max")  # Don't override if set in config
-            header["stepRange"] = self.name
+            grib_header["timeRangeIndicator"] = 0
 
-        return header
+    if config.end == config.start:
+        grib_header["step"] = config.name
+    else:
+        grib_header.setdefault("stepType", "max")  # Don't override if set in config
+        grib_header["stepRange"] = config.name
+
+    acc_config = {
+        "operation": operation,
+        "coords": coords,
+        "sequential": True,
+        "grib_keys": grib_header,
+        "deaccumulate": deaccumulate,
+        **extra,
+    }
+
+    return config.name, acc_config
 
 
-class SimpleOpWindow(Window):
+def create_window(
+    window_options,
+    window_operation: str,
+    include_start: bool,
+    grib_keys: Optional[dict] = None,
+    deaccumulate: bool = False,
+    return_name: bool = False,
+) -> Union[Accumulation, Tuple[Accumulation, str]]:
     """
-    Window with operation minimum, maximum, add
+    Create window for the given operation
+
+    :param window_options: window range specification
+    :param window operation: window operation: one of none, diff, add, minimum,
+        maximum, weightedsum, diffdailyrate, mean, precomputed
+    :param grib_keys: additional grib keys to tie to the window
+    :param deaccumulate: if True, deaccumulate steps before performed window operation
+    :param return_name: if True, return the window name as well
+    :return: Window instance that performs the operation, window name (only if
+        `return_name` is True)
+    :raises: ValueError for unsupported window operation string
     """
-
-    def __init__(
-        self, window_options, window_operation: str, include_init: bool = False
-    ):
-        """
-        :param window_options: config specifying start and end of window
-        :param window_operation: name of reduction operation out of minimum, maximum, add
-        :param include_init: boolean specifying whether to include start step
-        """
-        super().__init__(window_options, include_init)
-        self.operation_str = window_operation
-
-    def operation(self, new_step_values: np.array):
-        """
-        Combines data from unprocessed steps with existing step data values,
-        and updates step data values
-
-        :param new_step_values: data from new step
-        """
-        self.step_values = getattr(np, self.operation_str)(
-            self.step_values, new_step_values
-        )
+    name, config = translate_window_config(
+        window_options, window_operation, include_start, grib_keys, deaccumulate
+    )
+    acc = create_accumulation(config)
+    if return_name:
+        return acc, name
+    return acc
 
 
-class WeightedSumWindow(SimpleOpWindow):
-    """
-    Window with weighted sum operation. Weighted sum is computed by weighting the
-    data for each step by the step duration, and then dividing the sum by the total duration of the
-    window.
-    """
-
-    def __init__(self, window_options):
-        super().__init__(window_options, "add", include_init=False)
-        self.previous_step = self.start
-
-    def add_step_values(self, step: int, step_values: np.array):
-        """
-        Adds the contributions data_i * dt_i where data_i and dt_i is the data and step duration for step i,
-        if step i is in the window. When final step has been reached, divides sum by the total duration of
-        window.
-
-        :param step: step to update window with
-        :param step_values: data values for step
-        """
-        if step not in self:
-            return
-        step_duration = step - self.previous_step
-        if len(self.step_values) == 0:
-            self.step_values = step_values * step_duration
-        else:
-            self.operation(step_values * step_duration)
-
-        self.previous_step = step
-        if self.reached_end_step(step):
-            self.step_values = self.step_values / self.size()
+def _from_preset(preset: dict, coords_override: Set[Coord]) -> list:
+    assert coords_override is not None
+    steps = list(coords_override)
+    steps.sort()
+    if preset["type"] == "monthly":
+        diff = np.diff(steps)
+        if np.any(diff != diff[0]):
+            raise ValueError(
+                "Step sequence must have a constant interval for monthly step ranges"
+            )
+        return [
+            {"range": [x.start, x.stop - 1, x.step]}
+            for x in stepseq_monthly(preset["date"], steps[0], steps[-1], diff[0])
+        ]
+    raise ValueError(
+        f"Unknown preset type {preset['type']} for legacy windows. Accepted types: monthly"
+    )
 
 
-class DiffWindow(Window):
-    """
-    Window with operation that takes difference between the end and start step. Only accepts data
-    from these two steps
-    """
-
-    def __init__(self, window_options):
-        super().__init__(window_options, include_init=True)
-        self.steps = [self.start, self.end]
-
-    def operation(self, new_step_values: np.array):
-        """
-        Combines data from unprocessed steps with existing step data values,
-        and updates step data values
-
-        :param new_step_values: data from new step
-        """
-        self.step_values = new_step_values - self.step_values
-
-
-class DiffDailyRateWindow(DiffWindow):
-    """
-    Window with operation that takes difference between end and start step and then divides difference
-    by the total number of days in the window. Only accepts data for start and end step
-    """
-
-    def operation(self, new_step_values: np.array):
-        num_days = (self.end - self.start) / 24
-        self.step_values = new_step_values - self.step_values
-        self.step_values = self.step_values / num_days
-
-
-class MeanWindow(SimpleOpWindow):
-    """
-    Window with operation that computes mean over the steps in window
-    """
-
-    def __init__(self, window_options, include_init=False):
-        super().__init__(window_options, "add", include_init=include_init)
-        self.num_steps = 0
-
-    def add_step_values(self, step: int, step_values: np.array):
-        super().add_step_values(step, step_values)
-        if step in self:
-            self.num_steps += 1
-
-        if self.reached_end_step(step):
-            self.step_values = self.step_values / self.num_steps
+def _iter_legacy_windows(
+    windows: list,
+    grib_keys: dict,
+    coords_override: Optional[Set[Coord]] = None,
+    prefix: str = "",
+) -> Iterator[Tuple[str, dict]]:
+    for window_index, window_config in enumerate(windows):
+        window_operations = window_operation_from_config(window_config)
+        for operation, thresholds in window_operations.items():
+            periods = window_config["periods"]
+            if isinstance(periods, dict):
+                periods = _from_preset(periods, coords_override)
+            for period in periods:
+                include_start = bool(window_config.get("include_start_step", False))
+                acc_grib_keys = grib_keys.copy()
+                acc_grib_keys.update(window_config.get("grib_set", {}))
+                window_name, acc_config = translate_window_config(
+                    period,
+                    operation,
+                    include_start,
+                    acc_grib_keys,
+                    window_config.get("deaccumulate", False),
+                )
+                window_id = (
+                    f"{prefix}{window_name}_{operation}_{window_index}"
+                    if len(window_operations) > 1
+                    else f"{prefix}{window_name}_{window_index}"
+                )
+                if coords_override is not None:
+                    acc_config["coords"] = sorted(
+                        coords_override.intersection(acc_config["coords"])
+                    )
+                if thresholds:
+                    acc_config["thresholds"] = thresholds
+                yield window_id, acc_config
 
 
-class PrecomputedWindow(Window):
-    """
-    Window containing a single pre-computed accumulation with the given step range
-    """
-    def __init__(self, window_options):
-        super().__init__(window_options, include_init=True)
-        self.steps = [Step(self.start, self.end)]
+def legacy_window_factory(config: dict, grib_keys: dict) -> Iterator[Tuple[str, dict]]:
+    coords_override = None
+    if "steps" in config:
+        coords_override = set()
+        for steps in config["steps"]:
+            start_step = steps["start_step"]
+            end_step = steps["end_step"]
+            interval = steps["interval"]
+            range_len = steps.get("range", None)
 
-    def reached_end_step(self, step: AnyStep) -> bool:
-        """
-        :param step: current step
-        :return: boolean specifying if current step is equal to window end step
-        """
-        return step == self.steps[0]
+            if range_len is None:
+                coords_override.update(range(start_step, end_step + 1, interval))
+            else:
+                for sstep in range(start_step, end_step - range_len + 1, interval):
+                    coords_override.add(step_to_coord(Step(sstep, sstep + range_len)))
+
+    yield from _iter_legacy_windows(config["windows"], grib_keys, coords_override)
+    yield from _iter_legacy_windows(
+        config.get("std_anomaly_windows", []), grib_keys, coords_override, prefix="std_"
+    )

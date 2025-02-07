@@ -1,8 +1,10 @@
-import bisect
-from typing import Iterator, List
+from typing import Iterator, List, Tuple
 import numpy as np
 
-from pproc.common import WindowManager, Window, create_window
+from pproc.common import WindowManager
+from pproc.common.accumulation import Accumulator, Coord
+from pproc.common.accumulation_manager import AccumulationManager
+from pproc.common.window import legacy_window_factory
 
 
 class ThresholdWindowManager(WindowManager):
@@ -16,65 +18,18 @@ class ThresholdWindowManager(WindowManager):
 
     def __init__(self, parameter, global_config):
         self.window_thresholds = {}
-        WindowManager.__init__(self, parameter, global_config)
-
-    @classmethod
-    def window_operation_from_config(cls, window_config) -> str:
-        """
-        Derives window operation from config. If no window operation is explicitly
-        specified then attempts to derive it from the thresholds - requires all
-        comparison operators in the windows to be the same type.
-
-        :param window_config: window configuration dictionary
-        :return: string specifying window operation
-        :raises: RuntimeError if no window operation could be derived
-        """
-        # Get window operation, or if not provided in config, derive from threshold
-        window_operations = {}
-        if "window_operation" in window_config:
-            thresholds = window_config.get("thresholds", [])
-            for threshold in thresholds:
-                if isinstance(threshold["value"], str):
-                    threshold["value"] = float(threshold["value"])
-            window_operations[window_config["window_operation"]] = thresholds
-        elif "thresholds" in window_config:
-            # Derive from threshold comparison parameter
-            for threshold in window_config["thresholds"]:
-                if isinstance(threshold["value"], str):
-                    threshold["value"] = float(threshold["value"])
-                comparison = threshold["comparison"]
-                if "<" in comparison:
-                    operation = "minimum"
-                elif ">" in comparison:
-                    operation = "maximum"
-                else:
-                    raise RuntimeError(f"Unknown threshold comparison {comparison}")
-                window_operations.setdefault(operation, []).append(threshold)
-
-        if len(window_operations) == 0:
-            raise RuntimeError(
-                "Window with no operation specified, or none could be derived"
-            )
-        return window_operations
+        accum_configs = {"step": self.create_windows(parameter, global_config)}
+        self.mgr = AccumulationManager(accum_configs)
 
     def create_windows(self, parameter, global_config):
-
-        for window_index, window_config in enumerate(parameter["windows"]):
-            window_operations = self.window_operation_from_config(window_config)
-
-            for operation, thresholds in window_operations.items():
-                for period in window_config["periods"]:
-                    include_start = bool(window_config.get("include_start_step", False))
-                    new_window = create_window(period, operation, include_start)
-                    new_window.config_grib_header = global_config.copy()
-                    new_window.config_grib_header.update(
-                        window_config.get("grib_set", {})
-                    )
-                    window_id = f"{new_window.name}_{operation}_{window_index}"
-                    if window_id in self.windows:
-                        raise Exception(f"Duplicate window {window_id}")
-                    self.windows[window_id] = new_window
-                    self.window_thresholds[window_id] = thresholds
+        for window_id, acc_config in legacy_window_factory(parameter, global_config):
+            thresholds = acc_config.pop("thresholds", [])
+            if not thresholds:
+                raise RuntimeError(
+                    "Window with no operation specified, or none could be derived"
+                )
+            self.window_thresholds[window_id] = thresholds
+            yield (window_id, acc_config)
 
     def thresholds(self, identifier):
         """
@@ -82,71 +37,38 @@ class ThresholdWindowManager(WindowManager):
         """
         return self.window_thresholds.pop(identifier)
 
-    def update_from_checkpoint(self, checkpoint_step: int):
-        """
-        Find the earliest start step for windows not completed by
-        checkpoint and update list of unique steps. Remove all
-        completed windows and their associated thresholds.
-
-        :param checkpoint_step: step reached at last checkpoint
-        """
-        deleted_windows = super().update_from_checkpoint(checkpoint_step)
-        for window in deleted_windows:
-            del self.window_thresholds[window]
-
-    def delete_windows(self, window_ids: List[str]):
-        super().delete_windows(window_ids)
+    def delete_windows(self, window_ids: List[str]) -> Coord:
+        new_start = super().delete_windows(window_ids)
         for window_id in window_ids:
             del self.window_thresholds[window_id]
+        return new_start
 
 
 class AnomalyWindowManager(ThresholdWindowManager):
     def __init__(self, parameter, global_config):
         ThresholdWindowManager.__init__(self, parameter, global_config)
 
-    def create_windows(self, parameter, global_config):
-        super().create_windows(parameter, global_config)
-        if "std_anomaly_windows" in parameter:
-            # Create windows for standard anomaly
-            for window_index, window_config in enumerate(parameter["std_anomaly_windows"]):
-                window_operations = self.window_operation_from_config(window_config)
-
-                for operation, thresholds in window_operations.items():
-                    for period in window_config["periods"]:
-                        include_start = bool(
-                            window_config.get("include_start_step", False)
-                        )
-                        new_window = create_window(period, operation, include_start)
-                        new_window.config_grib_header = global_config.copy()
-                        new_window.config_grib_header.update(
-                            window_config.get("grib_set", {})
-                        )
-                        window_id = f"std_{new_window.name}_{operation}_{window_index}"
-                        if window_id in self.windows:
-                            raise Exception(f"Duplicate window {window_id}")
-                        self.windows[window_id] = new_window
-                        self.window_thresholds[window_id] = thresholds
-
     def update_windows(
-        self, step, data: np.array, clim_mean: np.array, clim_std: np.array
-    ) -> Iterator[Window]:
+        self, keys: dict, data: np.array, clim_mean: np.array, clim_std: np.array
+    ) -> Iterator[Tuple[str, Accumulator]]:
         """
-        Updates all windows that include step with either the anomaly with clim_mean
-        or standardised anomaly including clim_std. Function modifies input data array.
+        Updates all windows that include the given keys with either the anomaly
+        with clim_mean or standardised anomaly including clim_std. Function
+        modifies input data array.
 
-        :param step: new step
-        :param data: data for step
+        :param keys: keys identifying the new chunk of data
+        :param data: data chunk
         :param clim_mean: mean from climatology
         :param clim_std: standard deviation from climatology
         :return: generator for completed windows
         """
         anomaly = data - clim_mean
         std_anomaly = anomaly / clim_std
-        for identifier, window in list(self.windows.items()):
-            if identifier.split('_')[0] == "std":
-                window.add_step_values(step, std_anomaly)
+        for identifier, accum in list(self.mgr.accumulations.items()):
+            if identifier.split("_")[0] == "std":
+                processed = accum.feed(keys, std_anomaly)
             else:
-                window.add_step_values(step, anomaly)
+                processed = accum.feed(keys, anomaly)
 
-            if window.reached_end_step(step):
-                yield identifier, self.windows.pop(identifier)
+            if processed and accum.is_complete():
+                yield identifier, self.mgr.accumulations.pop(identifier)

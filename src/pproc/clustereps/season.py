@@ -27,6 +27,14 @@ class Season:
         all_months = list(range(1, 13)) * 2
         self.months = all_months[startMonth - 1 : (endMonth + jumpYear*12)]
 
+        self.leapday = None
+        if startMonth > endMonth and endMonth >= 2:
+            if calendar.isleap(baseYear):
+                self.leapday = datetime(baseYear, 2, 29)
+        elif startMonth <= 2 and endMonth >= startMonth:
+            if calendar.isleap(startYear):
+                self.leapday = self.leapday = datetime(baseYear, 2, 29)
+
         self.name = ''.join([
             datetime.strptime(f"1970{mon:02d}01", "%Y%m%d").strftime("%b").lower()[0] for mon in self.months
         ])
@@ -34,10 +42,8 @@ class Season:
     @property
     def ndays(self) -> int:
         count = (self.end - self.start).days + 1
-        if 2 in self.months:
-            feb_year = self.start.year if self.start.month <= 2 else self.end.year
-            if calendar.isleap(feb_year):
-                return count - 1
+        if self.leapday is not None:
+            return count - 1
         return count
 
     @property
@@ -45,10 +51,8 @@ class Season:
         return [(self.start + timedelta(days=i)).timetuple().tm_yday - 1 for i in range(self.ndays)]
 
     def dos(self, date: datetime) -> int:
-        if calendar.isleap(date.year) and 2 in self.months:
-            feb_non_leap = datetime(date.year, 2, 28)
-            if date > feb_non_leap:
-                return (date - self.start).days - 1
+        if self.leapday is not None and date >= self.leapday:
+            return (date - self.start).days - 1
         return (date - self.start).days
 
     def __len__(self) -> int:

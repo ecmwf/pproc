@@ -23,6 +23,7 @@ import mir
 from pproc import common
 from pproc.common import parallel
 from pproc.common.parallel import parallel_processing, sigterm_handler
+from pproc.common.window import parse_window_config
 
 
 def retrieve_messages(cfg, req, cached_file):
@@ -70,7 +71,7 @@ def fdb_request_ens(cfg, levelist, steps, name):
     """
 
     req = cfg.request.copy()
-    req.pop("stream_det")
+    req.pop("stream_det", None)
     req["stream"] = req.pop("stream_ens")
     req["date"] = cfg.date.strftime("%Y%m%d")
     req["time"] = cfg.date.strftime("%H") + "00"
@@ -83,15 +84,13 @@ def fdb_request_ens(cfg, levelist, steps, name):
     except (TypeError, ValueError):
         stepid = steps
 
-    req_cf = req.copy()
-    req_cf["type"] = "cf"
-    messages = retrieve_messages(cfg, req_cf, f"wind_cf_{levelist}_{name}_{stepid}.grb")
-
-    req_pf = req.copy()
-    req_pf["type"] = "pf"
-    req_pf["number"] = range(1, cfg.members + 1)
-    messages += retrieve_messages(cfg, req_pf, f"wind_pf_{levelist}_{name}_{stepid}.grb")
-
+    messages = []
+    for param_type in cfg.ens_types:
+        req_param = req.copy()
+        req_param["type"] = param_type
+        if param_type == "pf":
+            req_param["number"] = range(1, cfg.members + 1)
+        messages += retrieve_messages(cfg, req_param, f"wind_{param_type}_{levelist}_{name}_{stepid}.grb")
     return messages
 
 
@@ -148,23 +147,26 @@ def wind_speed(messages):
 
 def basic_template(cfg, template, step, marstype):
     new_template = template.copy()
-    new_template.set("bitsPerValue", 24)
-    new_template.set("marsType", marstype)
-    new_template.set("step", step)
+    grib_sets = {
+        "bitsPerValue": 24,
+        "marsType": marstype,
+        "step": step,
+        **cfg.options.get("grib_set", {})
+    }
     if step == 0:
-        new_template.set("timeRangeIndicator", 1)
+        grib_sets["timeRangeIndicator"] = 1
     elif step > 255:
-        new_template.set('timeRangeIndicator', 10)
+        grib_sets["timeRangeIndicator"] = 10
     else:
-        new_template.set("timeRangeIndicator", 0)
-    for key, value in cfg.options["grib_set"].items():
-        new_template.set(key, value)
+        grib_sets["timeRangeIndicator"] = 0
+    
+    new_template.set(grib_sets)
     return new_template
 
 
 def eps_speed_template(cfg, template, step, number):
     if number == 0:
-        eps_template = basic_template(cfg, template, step, "cf")
+        eps_template = basic_template(cfg, template, step, cfg.control_type)
     else:
         eps_template = basic_template(cfg, template, step, "pf")
         eps_template.set("number", number)
@@ -182,6 +184,10 @@ class ConfigExtreme(common.Config):
         self._fdb = None
 
         self.request = self.options["request"]
+        self.ens_types = self.request.pop("type_ens", "cf/pf").split("/")
+        if len(self.ens_types) != 2:
+            raise ValueError("Unperturbed and perturbed types expected for ensemble")
+        self.control_type = self.ens_types[(self.ens_types.index("pf") + 1) % 2]
         self.windows = self.options["windows"]
         self.levelist = self.options.get("levelist", [0])
         self.interpolation_keys = self.options.get("interpolation_keys", None)
@@ -281,12 +287,12 @@ def main(args=None):
     for levelist in cfg.levelist:
         for window_options in cfg.windows:
 
-            window = common.Window(window_options, include_init=True)
+            window = parse_window_config(window_options, include_init=True)
 
             for step in window.steps:
                 if recovery.existing_checkpoint(levelist, window.name, step):
                     print(
-                        f"Recovery: skipping level {levelist} window {window} step {step}"
+                        f"Recovery: skipping level {levelist} window {window.name} step {step}"
                     )
                     continue
 

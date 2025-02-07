@@ -1,9 +1,8 @@
-
 import dataclasses
 
 import pytest
 
-from pproc.common.steps import Step, parse_step
+from pproc.common.steps import Step, parse_step, step_to_coord
 
 
 def test_simple_step():
@@ -101,12 +100,21 @@ def test_simple_step_range():
     assert r == s
 
 
-@pytest.mark.parametrize("inp, exp", [
-    ("168", 168),
-    (240, 240),
-    (Step(360), Step(360)),
-    ("72-96", Step(72, 96)),
-    (Step(120, 168), Step(120, 168)),
-])
+@pytest.mark.parametrize(
+    "inp, exp",
+    [
+        ("168", 168),
+        (240, 240),
+        (Step(360), Step(360)),
+        ("72-96", Step(72, 96)),
+        (Step(120, 168), Step(120, 168)),
+    ],
+)
 def test_parse_step(inp, exp):
     assert parse_step(inp) == exp
+
+
+def test_step_to_coord():
+    assert step_to_coord(18) == 18
+    assert step_to_coord(Step(12)) == 12
+    assert step_to_coord(Step(0, 24)) == "0-24"

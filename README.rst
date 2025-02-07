@@ -21,6 +21,7 @@ modules::
 
 Build and install the underlying C/C++ software stack::
 
+  export CMAKE_PREFIX_PATH=$openblas_DIR:$CMAKE_PREFIX_PATH
   cd pproc-bundle
   ./pproc-bundle create
   ./pproc-bundle build
@@ -54,7 +55,7 @@ Build and install mir-python::
   python3 -m pip install cython
   export MIR_INCLUDE_DIRS=/path/to/pproc-bundle/install/include
   export MIR_LIB_DIR=/path/to/pproc-bundle/install/lib64
-  python3 -m pip install git+ssh://git@git.ecmwf.int/mir/mir-python.git
+  python3 -m pip install git+ssh://git@github.com/ecmwf/mir-python.git
 
 Install Python modules
 ----------------------

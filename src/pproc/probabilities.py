@@ -25,26 +25,23 @@ def main(args=None):
     parser = common.default_parser("Compute instantaneous and period probabilites")
     parser.add_argument("-d", "--date", required=True, help="Forecast date")
     parser.add_argument(
-        "--out_ensemble",
-        default="null:",
-        help="Target for ensemble members",
-    )
-    parser.add_argument(
         "--out_prob", required=True, help="Target for threshold probabilities"
     )
     args = parser.parse_args()
     date = datetime.strptime(args.date, "%Y%m%d%H")
 
-    cfg = ProbConfig(args, ["out_ensemble", "out_prob"])
-    recovery = common.Recovery(
-        cfg.options["root_dir"], args.config, date, args.recover
-    )
+    cfg = ProbConfig(args, ["out_prob"])
+    recovery = common.Recovery(cfg.options["root_dir"], args.config, date, args.recover)
     last_checkpoint = recovery.last_checkpoint()
     executor = (
         SynchronousExecutor()
         if cfg.n_par_compute == 1
-        else QueueingExecutor(cfg.n_par_compute, cfg.window_queue_size, initializer=signal.signal,
-                              initargs=(signal.SIGTERM, signal.SIG_DFL))
+        else QueueingExecutor(
+            cfg.n_par_compute,
+            cfg.window_queue_size,
+            initializer=signal.signal,
+            initargs=(signal.SIGTERM, signal.SIG_DFL),
+        )
     )
 
     with executor:
@@ -67,34 +64,33 @@ def main(args=None):
                     for x in recovery.checkpoints
                     if param_name in x
                 ]
-                window_manager.delete_windows(checkpointed_windows)
-                print(
-                    f"Recovery: param {param_name} looping from step {window_manager.unique_steps[0]}"
-                )
+                new_start = window_manager.delete_windows(checkpointed_windows)
+                print(f"Recovery: param {param_name} looping from step {new_start}")
                 last_checkpoint = None  # All remaining params have not been run
 
             prob_partial = functools.partial(
-                prob_iteration, param, recovery, cfg.out_ensemble, cfg.out_prob
+                prob_iteration, param, recovery, cfg.out_prob
             )
-            for step, retrieved_data in parallel_data_retrieval(
+            for keys, retrieved_data in parallel_data_retrieval(
                 cfg.n_par_read,
-                window_manager.unique_steps,
+                window_manager.dims,
                 [param],
-                cfg.n_par_compute > 1, 
+                cfg.n_par_compute > 1,
                 initializer=signal.signal,
-                initargs=(signal.SIGTERM, signal.SIG_DFL)
+                initargs=(signal.SIGTERM, signal.SIG_DFL),
             ):
+                step = keys["step"]
                 with ResourceMeter(f"Process step {step}"):
                     message_template, data = retrieved_data[0]
                     assert data.ndim == 2
 
-                    completed_windows = window_manager.update_windows(step, data)
-                    for window_id, window in completed_windows:
+                    completed_windows = window_manager.update_windows(keys, data)
+                    for window_id, accum in completed_windows:
                         executor.submit(
                             prob_partial,
                             message_template,
                             window_id,
-                            window,
+                            accum,
                             window_manager.thresholds(window_id),
                         )
             executor.wait()

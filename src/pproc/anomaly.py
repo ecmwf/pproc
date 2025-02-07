@@ -1,25 +1,18 @@
 import argparse
-from datetime import datetime
 import functools
 import sys
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
-import numpy as np
-
 import eccodes
-from earthkit.meteo.stats import iter_quantiles
+import numpy as np
 from meters import ResourceMeter
 
+from pproc.common import parallel
 from pproc.common.accumulation import Accumulator
 from pproc.common.config import Config, default_parser
 from pproc.common.grib_helpers import construct_message
-from pproc.common.io import (
-    Target,
-    nan_to_missing,
-    read_template,
-    target_from_location,
-)
-from pproc.common import parallel
+from pproc.common.io import Target, nan_to_missing, read_template, target_from_location
 from pproc.common.parallel import (
     QueueingExecutor,
     SynchronousExecutor,
@@ -28,99 +21,42 @@ from pproc.common.parallel import (
 from pproc.common.param_requester import ParamConfig, ParamRequester
 from pproc.common.recovery import Recovery
 from pproc.common.window_manager import WindowManager
-
-
-def do_quantiles(
-    ens: np.ndarray,
-    template: eccodes.GRIBMessage,
-    target: Target,
-    out_paramid: Optional[str] = None,
-    n: Union[int, List[float]] = 100,
-    out_keys: Optional[Dict[str, Any]] = None,
-):
-    """Compute quantiles
-
-    Parameters
-    ----------
-    ens: numpy array (..., npoints)
-        Ensemble data (all dimensions but the last are squashed together)
-    template: eccodes.GRIBMessage
-        GRIB template for output
-    target: Target
-        Target to write to
-    out_paramid: str, optional
-        Parameter ID to set on the output
-    n: int or list of floats
-        List of quantiles to compute, e.g. `[0., 0.25, 0.5, 0.75, 1.]`, or
-        number of evenly-spaced intervals (default 100 = percentiles).
-    out_keys: dict, optional
-        Extra GRIB keys to set on the output
-    """
-    even_spacing = isinstance(n, int) or np.all(np.diff(n) == n[1] - n[0])
-    num_quantiles = n if isinstance(n, int) else (len(n) - 1)
-    total_number = num_quantiles if even_spacing else 100
-    edition = out_keys.get("edition", template.get("edition"))
-    if edition not in (1, 2):
-        raise ValueError(f"Unsupported GRIB edition {edition}")
-    for i, quantile in enumerate(
-        iter_quantiles(ens.reshape((-1, ens.shape[-1])), n, method="sort")
-    ):
-        pert_number = i if even_spacing else int(n[i] * 100)
-        grib_keys = {**out_keys}
-        if edition == 1:
-            grib_keys.update(
-                {
-                    "totalNumber": total_number,
-                    "perturbationNumber": pert_number,
-                }
-            )
-        else:
-            grib_keys.setdefault("productDefinitionTemplateNumber", 86)
-            grib_keys.update(
-                {
-                    "totalNumberOfQuantiles": total_number,
-                    "quantileValue": pert_number,
-                }
-            )
-        grib_keys.setdefault("type", "pb")
-        if out_paramid is not None:
-            grib_keys["paramId"] = out_paramid
-        message = construct_message(template, grib_keys)
-        message.set_array("values", nan_to_missing(message, quantile))
-        target.write(message)
-        target.flush()
+from pproc.signi.clim import retrieve_clim
 
 
 def get_parser() -> argparse.ArgumentParser:
-    description = "Compute quantiles of an ensemble"
+    description = "Compute weekly anomalies"
     parser = default_parser(description=description)
-    parser.add_argument("--in-ens", required=True, help="Input ensemble source")
-    parser.add_argument("--out-quantiles", required=True, help="Output target")
+    parser.add_argument("--in-ens", required=True, help="Input ensemble forecast")
+    parser.add_argument("--in-clim", required=True, help="Input climatology")
+    parser.add_argument("--out-anom", required=True, help="Output target")
     return parser
 
 
-class QuantilesConfig(Config):
+class AnomParamConfig(ParamConfig):
+    def __init__(self, name, options: Dict[str, Any], overrides: Dict[str, Any] = {}):
+        super().__init__(name, options, overrides)
+        clim_options = options.copy()
+        clim_options.update(options.pop("clim"))
+        self.clim_param = ParamConfig(f"clim_{name}", clim_options, overrides)
+
+
+class AnomConfig(Config):
     def __init__(self, args: argparse.Namespace, verbose: bool = True):
         super().__init__(args, verbose=verbose)
 
         self.num_members = self.options.get("num_members", 51)
-        if "quantiles" in self.options:
-            if "num_quantiles" in self.options:
-                raise ValueError("Cannot specify both num_quantiles and quantiles")
-            self.quantiles = self.options["quantiles"]
-        else:
-            self.quantiles = self.options.get("num_quantiles", 100)
         self.total_fields = self.options.get("total_fields", self.num_members)
-
         self.out_keys = self.options.get("out_keys", {})
+        self.out_ens_keys = {"type": "fcmean", **self.options.get("out_ens_keys", {})}
+        self.out_ensm_keys = {"type": "taem", **self.options.get("out_ensm_keys", {})}
 
         self.params = [
-            ParamConfig(pname, popt, overrides=self.override_input)
-            for pname, popt in self.options["params"].items()
+            AnomParamConfig(pname, popt, overrides=self.override_input)
+            for pname, popt in self.options["parameters"].items()
         ]
-        self.steps = self.options.get("steps", [])
-        self.windows = self.options.get("windows", [])
 
+        self.clim_loc: str = args.in_clim
         self.sources = self.options.get("sources", {})
 
         date = self.options.get("date")
@@ -132,29 +68,70 @@ class QuantilesConfig(Config):
         self.window_queue_size = self.options.get("queue_size", self.n_par_compute)
 
 
-def quantiles_iteration(
-    config: QuantilesConfig,
-    param: ParamConfig,
+def anomaly_iteration(
+    config: AnomConfig,
+    param: AnomParamConfig,
     target: Target,
     recovery: Optional[Recovery],
     template: Union[str, eccodes.GRIBMessage],
     window_id: str,
     accum: Accumulator,
 ):
-    if not isinstance(template, eccodes.GRIBMessage):
-        template = read_template(template)
-    with ResourceMeter(f"{param.name}, step {window_id}: Quantiles"):
+
+    with ResourceMeter(f"{param.name}, window {window_id}: Retrieve climatology"):
+        if not isinstance(template, eccodes.GRIBMessage):
+            template = read_template(template)
+
+        if "stepRange" in accum.grib_keys():
+            steprange = accum.grib_keys()["stepRange"]
+        else:
+            steprange = template.get("stepRange")
+
+        additional_dims = {"step": steprange}
+        if template.get("levtype") == "pl":
+            additional_dims["levelist"] = template.get("level")
+        clim_accum, _ = retrieve_clim(
+            param.clim_param,
+            config.sources,
+            config.clim_loc,
+            **additional_dims,
+        )
+        clim = clim_accum.values
+        assert clim is not None
+
+    with ResourceMeter(f"{param.name}, window {window_id}: Compute anomaly"):
         ens = accum.values
         assert ens is not None
-        do_quantiles(
-            ens,
+
+        # Anomaly for each ensemble member
+        for index, member in enumerate(ens):
+            message = construct_message(
+                template,
+                {
+                    **accum.grib_keys(),
+                    **config.out_ens_keys,
+                    "paramId": param.out_paramid,
+                    "number": index,
+                },
+            )
+            anom = member - clim[0]
+            message.set_array("values", nan_to_missing(message, anom))
+            target.write(message)
+
+        # Anomaly for ensemble mean
+        ensm_anom = np.mean(ens, axis=0) - clim[0]
+        message = construct_message(
             template,
-            target,
-            param.out_paramid,
-            n=config.quantiles,
-            out_keys=accum.grib_keys(),
+            {
+                **accum.grib_keys(),
+                **config.out_ensm_keys,
+                "paramId": param.out_paramid,
+            },
         )
-        target.flush()
+        message.set_array("values", nan_to_missing(message, ensm_anom))
+        target.write(message)
+
+    target.flush()
     if recovery is not None:
         recovery.add_checkpoint(param.name, window_id)
 
@@ -162,8 +139,8 @@ def quantiles_iteration(
 def main(args: List[str] = sys.argv[1:]):
     sys.stdout.reconfigure(line_buffering=True)
     parser = get_parser()
-    args = parser.parse_args(args)
-    config = QuantilesConfig(args)
+    args = parser.parse_args()
+    config = AnomConfig(args)
     if config.root_dir is None or config.date is None:
         print("Recovery disabled. Set root_dir and date in config to enable.")
         recovery = None
@@ -171,7 +148,7 @@ def main(args: List[str] = sys.argv[1:]):
     else:
         recovery = Recovery(config.root_dir, args.config, config.date, args.recover)
         last_checkpoint = recovery.last_checkpoint()
-    target = target_from_location(args.out_quantiles, overrides=config.override_output)
+    target = target_from_location(args.out_anom, overrides=config.override_output)
     if config.n_par_compute > 1:
         target.enable_parallel(parallel)
     if recovery is not None and args.recover:
@@ -186,7 +163,7 @@ def main(args: List[str] = sys.argv[1:]):
     with executor:
         for param in config.params:
             window_manager = WindowManager(
-                param.window_config(config.windows, config.steps),
+                param.window_config([]),
                 param.out_keys(config.out_keys),
             )
             if last_checkpoint:
@@ -209,8 +186,8 @@ def main(args: List[str] = sys.argv[1:]):
                 config.num_members,
                 config.total_fields,
             )
-            quantiles_partial = functools.partial(
-                quantiles_iteration, config, param, target, recovery
+            anom_partial = functools.partial(
+                anomaly_iteration, config, param, target, recovery
             )
             for keys, data in parallel_data_retrieval(
                 config.n_par_read,
@@ -224,7 +201,7 @@ def main(args: List[str] = sys.argv[1:]):
                     completed_windows = window_manager.update_windows(keys, ens)
                     del ens
                 for window_id, accum in completed_windows:
-                    executor.submit(quantiles_partial, template, window_id, accum)
+                    executor.submit(anom_partial, template, window_id, accum)
             executor.wait()
 
     if recovery is not None:

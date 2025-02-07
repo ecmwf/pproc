@@ -136,11 +136,15 @@ class ComputeIndices:
         )
 
     @metered("dsrp", out=logger.debug)
-    def approximate_dsrp(self, fields):
+    def calc_dsrp(self, fields):
         """
         In the absence of dsrp, approximate it with fdir and cossza.
         Note this introduces some amount of error as cossza approaches zero
         """
+        # Will use dsrp if available, otherwise approximate it
+        if "dsrp" in fields.indices()["param"]:
+            return fields.sel(param="dsrp")
+
         fdir = field_values(fields, "fdir")  # W/m2
         cossza = self.calc_field("uvcossza", self.calc_cossza_int, fields).to_array()
 
@@ -282,12 +286,7 @@ class ComputeIndices:
     def calc_mrt(self, fields):
 
         cossza = self.calc_field("uvcossza", self.calc_cossza_int, fields).to_array()
-
-        # will use dsrp if available, otherwise approximate it
-        if "dsrp" in fields.indices()["param"]:
-            dsrp = field_values(fields, "dsrp")
-        else:
-            dsrp = self.calc_field("dsrp", self.approximate_dsrp, fields).to_array()
+        dsrp = self.calc_field("dsrp", self.calc_dsrp, fields).to_array()
 
         delta = step_interval(fields)
         seconds_in_time_step = delta * 3600  # steps are in hours
