@@ -109,8 +109,11 @@ def extreme_template(accum, template_fc, template_clim):
     clim_edition = template_clim["edition"]
     if edition == 1 and clim_edition == 1:
         # EFI specific stuff
-        if int(template_fc["timeRangeIndicator"]) == 3:
-            if template_fc["numberIncludedInAverage"] == 0:
+        if int(grib_keys.get("timeRangeIndicator", 0)) == 3:
+            num_in_avg = grib_keys.get(
+                "numberIncludedInAverage", template_fc["numberIncludedInAverage"]
+            )
+            if num_in_avg == 0:
                 grib_keys["numberIncludedInAverage"] = len(accum)
             grib_keys["numberMissingFromAveragesOrAccumulations"] = 0
 
@@ -289,11 +292,7 @@ def main(args=None):
     with executor:
         for param in cfg.parameters:
             requester = ParamRequester(
-                param,
-                cfg.sources,
-                args.in_ens,
-                cfg.members,
-                cfg.total_fields
+                param, cfg.sources, args.in_ens, cfg.members, cfg.total_fields
             )
             window_manager = common.WindowManager(
                 param.window_config(cfg.windows, cfg.steps),
