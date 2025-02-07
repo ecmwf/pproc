@@ -105,7 +105,7 @@ def extreme_template(accum, template_fc, template_clim):
 
     grib_keys = accum.grib_keys()
 
-    edition = template_fc["edition"]
+    edition = grib_keys.get("edition", template_fc["edition"])
     clim_edition = template_clim["edition"]
     if edition == 1 and clim_edition == 1:
         # EFI specific stuff
