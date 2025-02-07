@@ -103,17 +103,15 @@ def read_clim(config: ConfigExtreme, param: ExtremeParamConfig, accum, n_clim=10
 
 def extreme_template(accum, template_fc, template_clim):
 
+    template_ext = construct_message(template_fc, accum.grib_keys())
     grib_keys = accum.grib_keys()
 
-    edition = grib_keys.get("edition", template_fc["edition"])
+    edition = template_ext["edition"]
     clim_edition = template_clim["edition"]
     if edition == 1 and clim_edition == 1:
         # EFI specific stuff
-        if int(grib_keys.get("timeRangeIndicator", 0)) == 3:
-            num_in_avg = grib_keys.get(
-                "numberIncludedInAverage", template_fc["numberIncludedInAverage"]
-            )
-            if num_in_avg == 0:
+        if int(template_ext["timeRangeIndicator"]) == 3:
+            if template_ext["numberIncludedInAverage"] == 0:
                 grib_keys["numberIncludedInAverage"] = len(accum)
             grib_keys["numberMissingFromAveragesOrAccumulations"] = 0
 
@@ -163,7 +161,8 @@ def extreme_template(accum, template_fc, template_clim):
             f"Unsupported GRIB edition {edition} and clim edition {clim_edition}"
         )
 
-    return construct_message(template_fc, grib_keys)
+    template_ext.set(grib_keys)
+    return template_ext
 
 
 def efi_template(template):
