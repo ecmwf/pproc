@@ -103,16 +103,16 @@ def read_clim(config: ConfigExtreme, param: ExtremeParamConfig, accum, n_clim=10
 
 def extreme_template(accum, template_fc, template_clim):
 
-    template_ext = construct_message(template_fc, accum.grib_keys())
+    grib_keys = accum.grib_keys()
 
-    edition = template_ext["edition"]
+    edition = template_fc["edition"]
     clim_edition = template_clim["edition"]
     if edition == 1 and clim_edition == 1:
         # EFI specific stuff
-        if int(template_ext["timeRangeIndicator"]) == 3:
-            if template_ext["numberIncludedInAverage"] == 0:
-                template_ext["numberIncludedInAverage"] = len(accum)
-            template_ext["numberMissingFromAveragesOrAccumulations"] = 0
+        if int(template_fc["timeRangeIndicator"]) == 3:
+            if template_fc["numberIncludedInAverage"] == 0:
+                grib_keys["numberIncludedInAverage"] = len(accum)
+            grib_keys["numberMissingFromAveragesOrAccumulations"] = 0
 
         # set clim keys
         clim_keys = [
@@ -122,10 +122,9 @@ def extreme_template(accum, template_fc, template_clim):
             "numberOfDaysInClimateSamplingWindow",
             "sampleSizeOfModelClimate",
             "versionOfModelClimate",
-            "numberOfBitsContainingEachPackedValue",
         ]
         for key in clim_keys:
-            template_ext[key] = template_clim[key]
+            grib_keys[key] = template_clim[key]
 
         # set fc keys
         fc_keys = [
@@ -134,7 +133,7 @@ def extreme_template(accum, template_fc, template_clim):
             "totalNumber",
         ]
         for key in fc_keys:
-            template_ext[key] = template_fc[key]
+            grib_keys[key] = template_fc[key]
     elif edition == 2 and clim_edition == 2:
         clim_keys = [
             "typeOfReferenceDataset",
@@ -150,17 +149,18 @@ def extreme_template(accum, template_fc, template_clim):
             "indicatorOfUnitForTimeRangeForReferencePeriod",
             "lengthOfTimeRangeForReferencePeriod",
         ]
-        grib_keys = {
-            "productDefinitionTemplateNumber": 105,
-            **{key: template_clim[key] for key in clim_keys},
-        }
-        template_ext.set(grib_keys)
+        grib_keys.update(
+            {
+                "productDefinitionTemplateNumber": 105,
+                **{key: template_clim[key] for key in clim_keys},
+            }
+        )
     else:
         raise Exception(
             f"Unsupported GRIB edition {edition} and clim edition {clim_edition}"
         )
 
-    return template_ext
+    return construct_message(template_fc, grib_keys)
 
 
 def efi_template(template):
