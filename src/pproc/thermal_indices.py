@@ -266,7 +266,6 @@ def load_input(source: str, config: ThermoConfig, step: int):
         req["step"] = [step]
         if req["type"] == "pf":
             req["number"] = config.members
-        print("REQ", req)
         src = req.pop("source")
         if ":" in src:
             src, loc = src.split(":")
@@ -291,12 +290,6 @@ def load_input(source: str, config: ThermoConfig, step: int):
 def get_parser():
     parser = default_parser("Compute thermal indices")
 
-    parser.add_argument(
-        "-a",
-        "--accelerate",
-        help="accelerate computations using JAX JIT",
-        action="store_true",
-    )
     parser.add_argument(
         "--validateutci",
         help="validate utci by detecting nans and out of bounds values. NOT to use in production. Very verbose option.",
