@@ -185,17 +185,16 @@ class ThermoConfig(Config):
         self.root_dir = self.options.get("root_dir", None)
         self.n_par_compute = self.options.get("n_par_compute", 1)
         self.window_queue_size = self.options.get("queue_size", self.n_par_compute)
-        self.members = 0
-        if "members" in self.options:
-            if isinstance(self.options["members"], dict):
-                self.members = list(
-                    range(
-                        self.options["members"]["start"],
-                        self.options["members"]["end"] + 1,
-                    )
+        members = self.options.get("members", 50)
+        if isinstance(members, dict):
+            self.members = list(
+                range(
+                    int(members["start"]),
+                    int(members["end"]) + 1,
                 )
-            else:
-                self.members = list(range(1, int(self.options["members"]) + 1))
+            )
+        else:
+            self.members = list(range(1, int(members) + 1))
         self._create_targets(args.recover)
 
     def _parse_windows(cls, window_config):
