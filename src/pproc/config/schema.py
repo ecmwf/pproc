@@ -165,7 +165,7 @@ class Schema:
             out["param"] = str(out["param"])
         elif isinstance(out["param"], list):
             out["param"] = [str(param) for param in out["param"]]
-        if isinstance(out["type"], list):
+        if isinstance(out["type"], list) and len(out["type"]) > 1:
             raise ValueError("Multiple types in request are not allowed")
         return out
 

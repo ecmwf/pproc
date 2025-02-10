@@ -209,7 +209,7 @@ class ConfigFactory:
         entrypoint = None
         config = None
         expanded_requests = sum(
-            [expand(x, "param") for x in copy.deepcopy(output_requests)], []
+            [expand(y, "type") for x in copy.deepcopy(output_requests) for y in expand(x, "param")], []
         )
         for req in expanded_requests:
             schema_config = schema.config_from_output(req)
@@ -234,7 +234,7 @@ class ConfigFactory:
     ) -> BaseConfig:
         config = None
         expanded_requests = sum(
-            [expand(x, "param") for x in copy.deepcopy(input_requests)], []
+            [expand(y, "type") for x in copy.deepcopy(input_requests) for y in expand(x, "param")], []
         )
         df = pd.DataFrame(expanded_requests)
         for _, param_combination in schema.combined_params():

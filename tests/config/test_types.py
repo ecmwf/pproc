@@ -357,28 +357,29 @@ def test_factory_from_outputs(request, output_request, input_param):
     schema = Schema(os.path.join(TEST_DIR, "schema.yaml"))
 
     overrides, cfg_type, updates = TEST_CASES[request.node.callspec.id]
-    output_types = output_request.get("type")
-    requests = (
-        [output_request]
-        if not isinstance(output_types, list)
-        else [{**output_request, "type": t} for t in output_types]
-    )
-    config = types.ConfigFactory.from_outputs(schema, requests, **overrides)
+    config = types.ConfigFactory.from_outputs(schema, [output_request], **overrides)
     assert type(config) == cfg_type
     check = default_config(input_param)
     deep_update(check, updates)
     assert config.model_dump(by_alias=True) == cfg_type(**check).model_dump(
         by_alias=True
     )
+    output_types = (
+        [output_request["type"]]
+        if isinstance(output_request["type"], str)
+        else output_request["type"]
+    )
     check_request_equality(
         config.out_mars(),
         [
             {
-                **config._set_number(x),
+                **output_request,
+                **config._set_number({"type": tp}),
                 "target": "fdb",
                 **extract_mars(config.outputs.default.metadata),
+                "type": tp,
             }
-            for x in requests
+            for tp in output_types
         ],
     )
 
@@ -514,14 +515,7 @@ def test_wind():
             **DEFAULT_REQUEST,
             "levelist": [250, 500],
             "step": list(range(0, 193, 6)),
-            "type": "cf",
-            "param": [165, 166],
-        },
-        {
-            **DEFAULT_REQUEST,
-            "levelist": [250, 500],
-            "step": list(range(0, 193, 6)),
-            "type": "pf",
+            "type": ["cf", "pf"],
             "param": [165, 166],
         },
     ]
