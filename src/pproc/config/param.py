@@ -37,7 +37,7 @@ class ParamConfig(BaseModel):
         if isinstance(reqs, dict):
             reqs = expand(reqs, "param")
         else:
-            reqs = sum([expand(req, "param") for req in reqs], [])
+            reqs = sum([list(expand(req, "param")) for req in reqs], [])
 
         return [
             Source(

@@ -329,6 +329,7 @@ def test_schema_from_output(req, config):
                     }
                 },
                 "members": {"start": 1, "end": 20},
+                "total_fields": 0,
                 "vmin": 0.0,
                 "preprocessing": [
                     {

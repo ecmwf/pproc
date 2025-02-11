@@ -1,6 +1,7 @@
 from typing import Any, Iterator, Optional
 import yaml
 import itertools
+import numpy as np
 
 from annotated_types import Annotated
 from conflator import CLIArg, ConfigModel
@@ -84,12 +85,24 @@ class BaseConfig(ConfigModel):
 
     @model_validator(mode="after")
     def check_totalfields(self) -> Self:
-        if self.total_fields == 0:
-            self.total_fields = (
-                self.members
-                if isinstance(self.members, int)
-                else self.members.end - self.members.start + 1
-            )
+        if self.total_fields == 0 and len(self.parameters) > 0:
+            source = self.parameters[0].in_sources(self.sources, "fc")
+            if len(source) == 0:
+                return self
+            reqs = source[0].request
+            if isinstance(reqs, dict):
+                reqs = [reqs]
+            for req in reqs:
+                # TODO: Remove members, and have number directly in request as 
+                # distinguishing by type is not sufficient when we have monthly streams with type fc
+                if req.get("type", None) in ["pf", "fcmean"]:
+                    self.total_fields += (
+                        self.members
+                        if isinstance(self.members, int)
+                        else self.members.end - self.members.start + 1
+                    )
+                else:
+                    self.total_fields += 1
         return self
 
     @field_validator("parameters", mode="before")
@@ -147,6 +160,7 @@ class BaseConfig(ConfigModel):
         accum = schema_config.setdefault("accumulations", {})
         for req in reqs:
             if levelist := req.pop("levelist", None):
+                levelist = [levelist] if np.ndim(levelist) == 0 else levelist
                 accum.setdefault(
                     "levelist", {"coords": [[level] for level in levelist]}
                 )

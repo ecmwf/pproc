@@ -37,6 +37,7 @@ filter:stream:
     members:
       start: 0
       end: 50
+    total_fields: 51
     defs:
       STEP_END: 5160
     request:
@@ -48,6 +49,7 @@ filter:stream:
     members:
       start: 0
       end: 50
+    total_fields: 51
     defs:
       STEP_END: 5160
     request:

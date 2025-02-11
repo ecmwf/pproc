@@ -45,7 +45,7 @@ class Schema:
         for paramId, config in params.items():
             req_params = config.get("request", {}).get("param", [])
             if isinstance(req_params, list) and len(req_params) > 1:
-                yield paramId, req_params
+                yield int(paramId), list(map(int, req_params))
 
     def _config_from_output(
         cls, sub_schema: dict, output_request: dict, config: Optional[dict] = None
@@ -163,7 +163,7 @@ class Schema:
         out = copy.deepcopy(request)
         if isinstance(out["param"], int):
             out["param"] = str(out["param"])
-        elif isinstance(out["param"], list):
+        elif np.ndim(out["param"]) > 0:
             out["param"] = [str(param) for param in out["param"]]
         if isinstance(out["type"], list) and len(out["type"]) > 1:
             raise ValueError("Multiple types in request are not allowed")
@@ -241,6 +241,8 @@ class Schema:
                 }
                 if overrides.setdefault("members", set_members) != set_members:
                     raise ValueError(f"Multiple member ranges in {reqs}")
+                # Ensure preset in schema is not used
+                overrides.setdefault("total_fields", 0)
             if steps := req.pop("step"):
                 try:
                     steps = list(map(int, steps))

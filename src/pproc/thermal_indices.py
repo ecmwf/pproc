@@ -38,7 +38,7 @@ from pproc.thermo import helpers
 from pproc.thermo.indices import ComputeIndices
 from pproc.thermo.wrappers import ArrayFieldList
 
-logging.getLogger("pproc").setLevel(os.environ.get("PPROC_LOGLEVEL", "INFO").upper())
+logging.getLogger("pproc").setLevel(os.environ.get("PPROC_LOG", "INFO").upper())
 logging.basicConfig(format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 __version__ = "2.0.0"

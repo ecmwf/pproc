@@ -9,6 +9,7 @@ import json
 
 from pproc.config.types import ConfigFactory
 from pproc.config.schema import Schema
+from pproc.common import mars
 
 
 def from_outputs(args):
@@ -45,22 +46,14 @@ def from_inputs(args):
         yaml.dump(config_dict, f, sort_keys=False)
 
 
-def to_mars(requests: list[dict]) -> str:
-    ret = ""
+def _to_mars(requests: list[dict]) -> str:
+    ret = b""
     for req in requests:
         req.pop("source", None)
         req.pop("target", None)
-        ret += "retrieve,\n"
-        ret += ",\n".join(
-            [
-                f"{k}={'/'.join(map(str, v))}"
-                if isinstance(v, (list, range))
-                else f"{k}={v}"
-                for k, v in req.items()
-            ]
-        )
-        ret += "\n"
-    return ret
+        ret += mars.to_mars(b"retrieve", req)
+        ret += b"\n"
+    return ret.decode("utf-8")
 
 
 def requests(args):
@@ -73,7 +66,7 @@ def requests(args):
         inputs = list(config.in_mars(args.source))
         with open(args.inputs, "w") as f:
             if args.mars:
-                f.write(to_mars(inputs))
+                f.write(_to_mars(inputs))
             elif extension == ".json":
                 json.dump(inputs, f, sort_keys=False, indent=2)
             else:
@@ -84,7 +77,7 @@ def requests(args):
         outputs = list(config.out_mars(args.target))
         with open(args.outputs, "w") as f:
             if args.mars:
-                f.write(to_mars(outputs))
+                f.write(_to_mars(outputs))
             elif extension == ".json":
                 json.dump(outputs, f, sort_keys=False, indent=2)
             else:

@@ -26,6 +26,7 @@ base_config = {
     "sources": {"fc": {"type": "fdb", "request": {}}},
     "parameters": {
         "param": {
+            "sources": {"fc": {"request": {"param": "param"}}},
             "accumulations": {
                 "step": {
                     "type": "legacywindow",
@@ -70,6 +71,7 @@ def test_cli_overrides(config, cli_args, attr, expected):
                 "sources": {"fc": {"type": "fdb", "request": {}}},
                 "parameters": {
                     "tp": {
+                        "sources": {"fc": {"request": {"param": "tp"}}},
                         "accumulations": {
                             "step": {
                                 "type": "legacywindow",
@@ -84,6 +86,7 @@ def test_cli_overrides(config, cli_args, attr, expected):
                 "sources": {"fc": {"type": "fdb", "request": {}}},
                 "parameters": {
                     "param": {
+                        "sources": {"fc": {"request": {"param": "param"}}},
                         "accumulations": {
                             "step": {
                                 "type": "legacywindow",
@@ -92,6 +95,7 @@ def test_cli_overrides(config, cli_args, attr, expected):
                         },
                     },
                     "tp": {
+                        "sources": {"fc": {"request": {"param": "tp"}}},
                         "accumulations": {
                             "step": {
                                 "type": "legacywindow",
@@ -108,6 +112,7 @@ def test_cli_overrides(config, cli_args, attr, expected):
                 "sources": {"fc": {"type": "fdb", "request": {}}},
                 "parameters": {
                     "param": {
+                        "sources": {"fc": {"request": {"param": "param"}}},
                         "accumulations": {
                             "step": {
                                 "type": "legacywindow",
@@ -122,6 +127,7 @@ def test_cli_overrides(config, cli_args, attr, expected):
                 "sources": {"fc": {"type": "fdb", "request": {}}},
                 "parameters": {
                     "param": {
+                        "sources": {"fc": {"request": {"param": "param"}}},
                         "accumulations": {
                             "step": {
                                 "type": "legacywindow",
@@ -288,27 +294,27 @@ def test_merge(other: dict, merged: dict):
         ],
         [
             {
-                "sources": {
-                    "fc": {
-                        "request": [
-                            {
-                                "param": ["165", "166"],
-                                "class": "od",
-                                "stream": "enfo",
-                                "type": "cf",
-                            },
-                            {
-                                "param": ["165", "166"],
-                                "class": "od",
-                                "stream": "enfo",
-                                "type": "pf",
-                            },
-                        ],
-                    }
-                },
                 "parameters": {
                     "param": {
                         "preprocessing": [{"operation": "norm"}],
+                        "sources": {
+                            "fc": {
+                                "request": [
+                                    {
+                                        "param": ["165", "166"],
+                                        "class": "od",
+                                        "stream": "enfo",
+                                        "type": "cf",
+                                    },
+                                    {
+                                        "param": ["165", "166"],
+                                        "class": "od",
+                                        "stream": "enfo",
+                                        "type": "pf",
+                                    },
+                                ]
+                            }
+                        },
                         "accumulations": {
                             "step": {
                                 "type": "legacywindow",

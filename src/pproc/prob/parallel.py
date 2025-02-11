@@ -93,7 +93,7 @@ def prob_iteration(
                     grib_set.get("edition", 1), threshold, climatology_headers
                 )
             )
-            common.write_grib(
+            common.io.write_grib(
                 out_prob,
                 construct_message(
                     message_template,

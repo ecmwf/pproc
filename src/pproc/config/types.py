@@ -1,3 +1,4 @@
+import os
 from typing import Optional, List, Any, Annotated, Iterator
 from typing_extensions import Self
 from pydantic import model_validator, Field
@@ -5,6 +6,7 @@ import numpy as np
 import datetime
 import pandas as pd
 import copy
+import logging
 
 from conflator import CLIArg
 
@@ -13,8 +15,12 @@ from pproc.config.base import BaseConfig, Parallelisation
 from pproc.config import io
 from pproc.config.param import ParamConfig
 from pproc.config.schema import Schema
-from pproc.config.utils import expand
+from pproc.config.utils import expand, squeeze
 from pproc.common.stepseq import steprange_to_fcmonth
+
+logging.getLogger("pproc").setLevel(os.environ.get("PPROC_LOG", "INFO").upper())
+logging.basicConfig(format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+logger = logging.getLogger(__name__)
 
 
 class EnsmsConfig(BaseConfig):
@@ -208,10 +214,9 @@ class ConfigFactory:
     ) -> BaseConfig:
         entrypoint = None
         config = None
-        expanded_requests = sum(
-            [expand(y, "type") for x in copy.deepcopy(output_requests) for y in expand(x, "param")], []
-        )
-        for req in expanded_requests:
+        expanded = sum([list(expand(x)) for x in output_requests], [])
+        reqs = squeeze(expanded, ["levelist", "step", "fcmonth", "number", "quantiles"])
+        for req in reqs:
             schema_config = schema.config_from_output(req)
 
             if entrypoint is None:
@@ -233,24 +238,29 @@ class ConfigFactory:
         cls, schema: Schema, entrypoint: str, input_requests: List[dict], **overrides
     ) -> BaseConfig:
         config = None
-        expanded_requests = sum(
-            [expand(y, "type") for x in copy.deepcopy(input_requests) for y in expand(x, "param")], []
-        )
+        expanded_requests = sum([list(expand(x)) for x in input_requests], [])
         df = pd.DataFrame(expanded_requests)
         for _, param_combination in schema.combined_params():
             selection = df.loc[df["param"] == param_combination[0]]
-            for row in selection.iterrows():
+            for paramid, row in selection.iterrows():
+                req = row.dropna().to_dict()
                 condition = np.logical_and.reduce(
-                    [df[k] == v for k, v in row.items() if k != "param"]
+                    [df[k] == v for k, v in req.items() if k != "param"]
                 )
-                if len(
-                    df.loc[condition & df.loc["param"].isin(param_combination)]
-                ) == len(param_combination):
-                    df.add({**row, "param": param_combination})
+                meets_condition = df.loc[
+                    condition & df["param"].isin(param_combination)
+                ]
+                if len(meets_condition) == len(param_combination):
+                    logger.debug(
+                        f"Add param {paramid}, computed from {param_combination}"
+                    )
+                    df.loc[len(df)] = {**req, "param": tuple(param_combination)}
 
-        for _, pgroup in df.groupby("param"):
-            req = pgroup.to_dict("records")
-            for schema_config in schema.config_from_input(req, entrypoint=entrypoint):
+        for _, pgroup in df.groupby("param", sort=False):
+            # Squeeze certain back together into a single request
+            squeeze_dims = ["step", "number", "levelist"]
+            reqs = list(squeeze(pgroup.to_dict("records"), squeeze_dims))
+            for schema_config in schema.config_from_input(reqs, entrypoint=entrypoint):
                 if config is None:
                     config = cls._from_schema_config(
                         entrypoint, schema_config, **overrides
