@@ -43,7 +43,7 @@ def postprocess(
             **out_keys,
             "perturbationNumber": i,
         }
-        if template.get("type") == "cf" and i > 0:
+        if template.get("type") in ["cf", "fc"] and i > 0:
             grib_keys.setdefault("type", "pf")
         if out_paramid is not None:
             grib_keys["paramId"] = out_paramid

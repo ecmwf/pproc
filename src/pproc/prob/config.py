@@ -2,15 +2,19 @@ from pproc import common
 from pproc.common import parallel
 
 
-class ProbConfig(common.Config):
+class BaseProbConfig(common.Config):
     def __init__(self, args, target_types):
         super().__init__(args)
-        self.n_ensembles = int(self.options.get("members", 50))
-        self.global_input_cfg = self.options.get("global_input_keys", {})
-        self.global_output_cfg = self.options.get("global_output_keys", {})
+        self.members = self.options.get("num_members", 51)
+        self.total_fields = self.options.get("total_fields", self.members)
+        self.out_keys = self.options.get("out_keys", {})
         self.n_par_read = self.options.get("n_par_read", 1)
         self.n_par_compute = self.options.get("n_par_compute", 1)
         self.window_queue_size = self.options.get("queue_size", self.n_par_compute)
+        self.sources = self.options.get("sources", {})
+
+        self.steps = self.options.get("steps", [])
+        self.windows = self.options.get("windows", [])
 
         for attr in target_types:
             location = getattr(args, attr)

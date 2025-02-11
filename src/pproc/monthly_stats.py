@@ -1,6 +1,7 @@
 import sys
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Union
+import numpy as np
 
 import eccodes
 from earthkit.time.calendar import MonthInYear
@@ -48,7 +49,8 @@ def postproc_iteration(
     if not isinstance(template, eccodes.GRIBMessage):
         template = read_template(template)
 
-    interval = param._accumulations["step"]["steps"][0]["interval"]
+    intervals = np.diff(accum["step"].coords)
+    assert np.all(intervals == intervals[0]), "Step intervals must be equal"
     date = datetime.strptime(template.get("dataDate:str"), "%Y%m%d")
     accum_keys = accum.grib_keys()
     steprange = accum_keys.pop("stepRange")
@@ -59,7 +61,7 @@ def postproc_iteration(
         "timeRangeIndicator": 10,
         "unitOfTimeRange": 1,
         **mstat_keys(date, steprange),
-        "averagingPeriod": interval,
+        "averagingPeriod": intervals[0],
     }
     with ResourceMeter(f"{param.name}, step {window_id}: Post-process"):
         ens = accum.values

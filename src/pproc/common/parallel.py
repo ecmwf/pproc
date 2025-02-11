@@ -7,11 +7,9 @@ import sys
 import multiprocessing
 from meters import ResourceMeter
 
-from pproc.common import Parameter, io
+from pproc.common import io
 from pproc.common.param_requester import ParamRequester
 from pproc.common.utils import delayed_map, dict_product
-
-GenericParam = Union[Parameter, ParamRequester]
 
 
 class SynchronousExecutor(fut.Executor):
@@ -105,7 +103,7 @@ def parallel_processing(process, plan, n_par, initializer=None, initargs=()):
 
 
 def fdb_retrieve(
-    data_requesters: List[GenericParam], grib_to_file: bool = False, **kwargs
+    data_requesters: List[ParamRequester], grib_to_file: bool = False, **kwargs
 ):
     """
     Retrieve data function for multiple data requests
@@ -141,7 +139,7 @@ def fdb_retrieve(
 def parallel_data_retrieval(
     num_processes: int,
     dims: dict,
-    data_requesters: List[GenericParam],
+    data_requesters: List[ParamRequester],
     grib_to_file: bool = False,
     initializer=None,
     initargs=(),

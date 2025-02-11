@@ -18,7 +18,7 @@ class ThresholdWindowManager(WindowManager):
 
     def __init__(self, parameter, global_config):
         self.window_thresholds = {}
-        accum_configs = {"step": self.create_windows(parameter, global_config)}
+        accum_configs = {"step": self.create_windows(parameter["accumulations"]["step"], global_config)}
         self.mgr = AccumulationManager(accum_configs)
 
     def create_windows(self, parameter, global_config):

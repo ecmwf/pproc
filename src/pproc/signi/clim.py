@@ -3,7 +3,7 @@ from typing import Optional, Tuple
 import eccodes
 from meters import ResourceMeter
 
-from pproc.common.param_requester import ParamConfig, ParamRequester
+from pproc.common.param_requester import ParamConfig, ParamRequester, IndexFunc
 from pproc.common.accumulation import Accumulator
 from pproc.common.window_manager import WindowManager
 from pproc.common.parallel import parallel_data_retrieval
@@ -15,6 +15,7 @@ def retrieve_clim(
     loc: str,
     members: int = 1,
     total: Optional[int] = None,
+    index_func: Optional[IndexFunc] = None,
     **additional_dims,
 ) -> Tuple[Accumulator, eccodes.GRIBMessage]:
 
@@ -26,7 +27,7 @@ def retrieve_clim(
         accums[dim] = {"operation": "aggregation", "coords": [[value]]}
     window_manager = WindowManager(win_cfg, param.out_keys())
 
-    requester = ParamRequester(param, sources, loc, members, total)
+    requester = ParamRequester(param, sources, loc, members, total, index_func)
     res_accum: Optional[Accumulator] = None
     res_template: Optional[eccodes.GRIBMessage] = None
     for keys, data in parallel_data_retrieval(1, window_manager.dims, [requester]):

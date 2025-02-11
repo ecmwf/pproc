@@ -59,8 +59,6 @@ class EnsmsConfig(common.Config):
         self.n_par_compute = self.options.get("n_par_compute", 1)
         self.window_queue_size = self.options.get("queue_size", self.n_par_compute)
 
-        self._fdb = None
-
         self.out_keys = self.options.get("out_keys", {})
         self.out_keys_em = {"type": "em", **self.options.get("out_keys_em", {})}
         self.out_keys_es = {"type": "es", **self.options.get("out_keys_es", {})}
@@ -82,12 +80,6 @@ class EnsmsConfig(common.Config):
             if args.recover:
                 target.enable_recovery()
             self.__setattr__(attr, target)
-
-    @property
-    def fdb(self):
-        if self._fdb is None:
-            self._fdb = common.io.fdb()
-        return self._fdb
 
 
 def ensms_iteration(
