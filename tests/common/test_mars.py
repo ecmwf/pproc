@@ -39,4 +39,4 @@ def test_to_mars():
         "param": (129, 130),
     }
     expected = b"retrieve,class=od,expver=0001,stream=enfo,date=20201011,time=0000,type=pf,number=1/to/50,step=24/36/72,levtype=pl,levelist=500,param=129/130"
-    assert mars._to_mars(b"retrieve", req) == expected
+    assert mars.to_mars(b"retrieve", req) == expected
