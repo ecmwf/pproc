@@ -185,6 +185,16 @@ class ThermoConfig(Config):
         self.root_dir = self.options.get("root_dir", None)
         self.n_par_compute = self.options.get("n_par_compute", 1)
         self.window_queue_size = self.options.get("queue_size", self.n_par_compute)
+        members = self.options.get("members", 50)
+        if isinstance(members, dict):
+            self.members = list(
+                range(
+                    int(members["start"]),
+                    int(members["end"]) + 1,
+                )
+            )
+        else:
+            self.members = list(range(1, int(members) + 1))
         self._create_targets(args.recover)
 
     def _parse_windows(cls, window_config):
@@ -243,40 +253,43 @@ class ThermoConfig(Config):
 
 
 def load_input(source: str, config: ThermoConfig, step: int):
-    req = config.sources.get(source, {}).copy()
-    if len(req) == 0:
-        return None
-    req.update(config.override_input)
-    req["step"] = [step]
+    reqs = config.sources.get(source, {})
+    if isinstance(reqs, dict):
+        reqs = [reqs]
 
-    src = req.pop("source")
-    if ":" in src:
-        src, loc = src.split(":")
-    if src == "fdb":
-        ds = earthkit.data.from_source("fdb", req, stream=True, read_all=True)
-    elif src == "fileset":
-        loc.format_map(req)
-        req["paramId"] = req.pop("param")
-        ds = earthkit.data.from_source("file", loc).sel(req)
-    elif src == "mars":
-        ds = earthkit.data.from_source("mars", req)
-    else:
-        raise ValueError(f"Unknown source {source}")
+    ret = earthkit.data.FieldList()
+    for req in reqs:
+        if len(req) == 0:
+            return None
+        req = req.copy()
+        req.update(config.override_input)
+        req["step"] = [step]
+        if req["type"] == "pf":
+            req["number"] = config.members
+        src = req.pop("source")
+        if ":" in src:
+            src, loc = src.split(":")
+        if src == "fdb":
+            ds = earthkit.data.from_source("fdb", req, stream=True, read_all=True)
+        elif src == "fileset":
+            loc.format_map(req)
+            req["paramId"] = req.pop("param")
+            ds = earthkit.data.from_source("file", loc).sel(req)
+        elif src == "mars":
+            ds = earthkit.data.from_source("mars", req)
+        else:
+            raise ValueError(f"Unknown source {source}")
 
-    if len(ds) == 0:
-        raise ValueError(f"No data found for request {req} from source {source}")
-    return earthkit.data.FieldList.from_array(ds.values, ds.metadata())
+        if len(ds) == 0:
+            raise ValueError(f"No data found for request {req} from source {source}")
+
+        ret += earthkit.data.FieldList.from_array(ds.values, ds.metadata())
+    return ret
 
 
 def get_parser():
     parser = default_parser("Compute thermal indices")
 
-    parser.add_argument(
-        "-a",
-        "--accelerate",
-        help="accelerate computations using JAX JIT",
-        action="store_true",
-    )
     parser.add_argument(
         "--validateutci",
         help="validate utci by detecting nans and out of bounds values. NOT to use in production. Very verbose option.",
