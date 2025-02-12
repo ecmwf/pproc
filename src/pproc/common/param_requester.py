@@ -53,14 +53,13 @@ def read_ensemble(
         with reader:
             message = reader.peek()
             if message is None:
-                raise EOFError(f"No data in {source!r}")
-            if template is None:
-                template = message
-                data = np.empty(
-                    (total, template.get("numberOfDataPoints")), dtype=dtype
-                )
+                raise EOFError(f"No data in {loc!r}")
+            if data is None:
+                data = np.empty((total, message.get("numberOfDataPoints")), dtype=dtype)
             for message in reader:
                 i = n_read if index_func is None else index_func(message)
+                if i == 0 and template is None:
+                    template = message
                 data[i, :] = missing_to_nan(message)
                 n_read += 1
     if n_read != total:

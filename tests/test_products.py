@@ -4,8 +4,8 @@ import shutil
 import yaml
 
 import pyfdb
+import eccodes
 
-from pproc.common.io import fdb_read_with_template
 from pproc.probabilities import main as prob_main
 from pproc.anomaly_probs import main as anomaly_prob_main
 from pproc.ensms import main as ensms_main
@@ -25,7 +25,7 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
         [
             "prob",
             prob_main,
-            ["-d", "2024050712", "--out_prob", "fdb:"],
+            ["-d", "2024050712", "--in-ens", "fdb:ens", "--out-prob", "fdb:"],
             False,
             {"type": "ep", "param": 131073, "step": ["12", "12-36"]},
             2,
@@ -33,16 +33,25 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
         [
             "t850",
             anomaly_prob_main,
-            ["-d", "2024050712", "--out_prob", "fdb:"],
+            [
+                "-d",
+                "2024050712",
+                "--in-ens",
+                "fdb:ens",
+                "--in-clim",
+                "fdb:clim",
+                "--out-prob",
+                "fdb:",
+            ],
             False,
             {
                 "levtype": "pl",
                 "levelist": 850,
                 "type": "ep",
-                "param": 131022,
+                "param": [131022, 133093],
                 "step": [0, 12],
             },
-            2,
+            4,
         ],
         [
             "ensms",
@@ -56,9 +65,13 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
             "extreme",
             extreme_main,
             [
-                "--out_efi",
+                "--in-ens",
+                "fdb:ens",
+                "--in-clim",
+                "fdb:clim",
+                "--out-efi",
                 "fdb:",
-                "--out_sot",
+                "--out-sot",
                 "fdb:",
             ],
             False,
@@ -86,9 +99,13 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
             "wind",
             wind_main,
             [
-                "--out_eps_mean",
+                "--in-ens",
+                "fdb:ens",
+                "--in-det",
+                "fdb:det",
+                "--out-eps-mean",
                 "fdb:",
-                "--out_eps_std",
+                "--out-eps-std",
                 "fdb:",
             ],
             False,
@@ -214,5 +231,5 @@ def test_products(
         "domain": "g",
     }
     request.update(req)
-    _, messages = fdb_read_with_template(test_fdb, request)
+    messages = list(eccodes.StreamReader(test_fdb.retrieve(request)))
     assert len(messages) == length

@@ -1,31 +1,32 @@
-import datetime
-from typing import Any, Dict, Tuple
+from typing import Dict, Tuple
 import numpy as np
 
-from pproc.common.parameter import Parameter
+import eccodes
+
+from pproc.common.param_requester import ParamRequester, ParamConfig
 
 
-class Climatology(Parameter):
+class Climatology(ParamRequester):
     """
     Retrieves data for mean and standard deviation of climatology
     """
 
     def __init__(
         self,
-        dt: datetime.datetime,
-        param_id: int,
-        global_input_cfg,
-        param_cfg: Dict,
-        overrides: Dict[str, Any] = {},
+        param: ParamConfig,
+        sources: dict,
+        loc: str,
     ):
-        Parameter.__init__(
-            self, "clim", dt, param_id, global_input_cfg, param_cfg, 0, overrides
-        )
-        self.base_request["time"] = "00"
-        assert "date" in param_cfg["climatology"]["clim_keys"]
-        for key, value in param_cfg["climatology"]["clim_keys"].items():
-            self.base_request[key] = value
-        self.steps = param_cfg["climatology"].get("steps", None)
+        super().__init__(param, sources, loc, 1, 2, self._index_func)
+        self.steps = self.param._in_keys.pop("step", None)
+
+    @classmethod
+    def _index_func(cls, msg: eccodes.GRIBMessage) -> int:
+        if msg.get("type") == "em":
+            return 0
+        if msg.get("type") == "es":
+            return 1
+        raise ValueError(f"Unexpected message type {msg.get('type')}")
 
     @classmethod
     def grib_header(cls, grib_msg):
@@ -51,6 +52,6 @@ class Climatology(Parameter):
         """
         cstep = step if not self.steps else self.steps[step]
         temp_message, ret = super().retrieve_data(
-            step=cstep, join_dim="type", **kwargs
+            step=cstep, **kwargs
         )
         return self.grib_header(temp_message), ret

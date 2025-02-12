@@ -2,6 +2,7 @@ import sys
 from datetime import datetime
 import functools
 import signal
+from typing import Any, Dict
 
 from meters import ResourceMeter
 
@@ -13,11 +14,29 @@ from pproc.common.parallel import (
     sigterm_handler,
 )
 from pproc.common.recovery import Recovery
-from pproc.common.parameter import create_parameter
+from pproc.common.param_requester import ParamRequester, ParamConfig
 from pproc.prob.parallel import prob_iteration
-from pproc.prob.config import ProbConfig
+from pproc.prob.config import BaseProbConfig
 from pproc.prob.window_manager import AnomalyWindowManager
 from pproc.prob.climatology import Climatology
+
+
+class ProbParamConfig(ParamConfig):
+    def __init__(self, name, options: Dict[str, Any], overrides: Dict[str, Any] = {}):
+        options = options.copy()
+        clim_options = options.pop("clim")
+        super().__init__(name, options, overrides)
+        assert self._windows is None, "Use accumulation window configuration"
+        self.clim_param = ParamConfig(f"clim_{name}", clim_options, overrides)
+
+
+class ProbConfig(BaseProbConfig):
+    def __init__(self, args, out_keys):
+        super().__init__(args, out_keys)
+        self.parameters = [
+            ProbParamConfig(pname, popt, overrides=self.override_input)
+            for pname, popt in self.options["parameters"].items()
+        ]
 
 
 def main(args=None):
@@ -28,8 +47,10 @@ def main(args=None):
         "Compute instantaneous and period probabilites for anomalies"
     )
     parser.add_argument("-d", "--date", required=True, help="Forecast date")
+    parser.add_argument("--in-ens", required=True, help="Source for forecast")
+    parser.add_argument("--in-clim", required=True, help="Source for climatology")
     parser.add_argument(
-        "--out_prob", required=True, help="Target for threshold probabilities"
+        "--out-prob", required=True, help="Target for threshold probabilities"
     )
     args = parser.parse_args()
     date = datetime.strptime(args.date, "%Y%m%d%H")
@@ -48,29 +69,29 @@ def main(args=None):
     )
 
     with executor:
-        for param_name, param_cfg in sorted(cfg.options["parameters"].items()):
-            param = create_parameter(
-                param_name,
-                date,
-                cfg.global_input_cfg,
-                param_cfg,
-                cfg.n_ensembles,
-                cfg.override_input,
+        for param in cfg.parameters:
+            requester = ParamRequester(
+                param,
+                cfg.sources,
+                args.in_ens,
+                cfg.members,
+                cfg.total_fields,
             )
             clim = Climatology(
-                date,
-                param_cfg["in_paramid"],
-                cfg.global_input_cfg,
-                param_cfg,
-                cfg.override_input,
+                param.clim_param,
+                cfg.sources,
+                args.in_clim,
             )
-            window_manager = AnomalyWindowManager(param_cfg, cfg.global_output_cfg)
+            window_manager = AnomalyWindowManager(
+                param.window_config(cfg.windows, cfg.steps),
+                param.out_keys(cfg.out_keys),
+            )
             checkpointed_windows = [
-                x["window"] for x in recovery.computed(param=param_name)
+                x["window"] for x in recovery.computed(param=param.name)
             ]
             new_start = window_manager.delete_windows(checkpointed_windows)
             if new_start is None:
-                print(f"Recovery: skipping completed param {param_name}")
+                print(f"Recovery: skipping completed param {param.name}")
                 continue
 
             print(f"Recovery: param {param_name} starting from step {new_start}")
@@ -81,7 +102,7 @@ def main(args=None):
             for keys, retrieved_data in parallel_data_retrieval(
                 cfg.n_par_read,
                 window_manager.dims,
-                [param, clim],
+                [requester, clim],
                 cfg.n_par_compute > 1,
                 initializer=signal.signal,
                 initargs=(signal.SIGTERM, signal.SIG_DFL),
@@ -95,8 +116,8 @@ def main(args=None):
                     completed_windows = window_manager.update_windows(
                         keys,
                         data,
-                        clim_data.sel(type="em"),
-                        clim_data.sel(type="es"),
+                        clim_data[0],
+                        clim_data[1],
                     )
                     for window_id, accum in completed_windows:
                         executor.submit(

@@ -179,7 +179,7 @@ from pproc.prob.window_manager import ThresholdWindowManager, AnomalyWindowManag
     ],
 )
 def test_create_threshold(config, expected, exp_coords):
-    win_mgr = ThresholdWindowManager(config, {})
+    win_mgr = ThresholdWindowManager({"accumulations": {"step": config}}, {})
     acc_mgr = win_mgr.mgr
     assert set(acc_mgr.accumulations.keys()) == set(expected.keys())
     assert set(win_mgr.window_thresholds.keys()) == set(expected.keys())
@@ -281,7 +281,7 @@ def test_create_threshold(config, expected, exp_coords):
     ],
 )
 def test_create_anomaly(config, expected, exp_coords):
-    win_mgr = AnomalyWindowManager(config, {})
+    win_mgr = AnomalyWindowManager({"accumulations": {"step": config}}, {})
     acc_mgr = win_mgr.mgr
     assert set(acc_mgr.accumulations.keys()) == set(expected.keys())
     assert set(win_mgr.window_thresholds.keys()) == set(expected.keys())

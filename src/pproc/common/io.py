@@ -37,19 +37,25 @@ class GRIBFields:
                 set_coords.add(key_dict[dim])
             dim_sizes[dim] = len(set_coords)
             coords[dim] = sorted(list(set_coords))
-        
+
         # add values dimensions, no coords
-        ndata = self.template.get_size('values')
-        dim_sizes['data'] = ndata
+        ndata = self.template.get_size("values")
+        dim_sizes["data"] = ndata
         dims = self.dims.copy()
-        dims.append('data')
-        
+        dims.append("data")
+
         data_np = np.empty(tuple(dim_sizes.values()))
         for key, value in self.data.items():
             key_dict = eval(key)
             indexes = [coords[dim].index(coord) for dim, coord in key_dict.items()]
             data_np[tuple(indexes)] = value
-        da = xr.DataArray(data_np, name=self.template['shortName'], coords=coords, dims=dims, attrs={'grib_template': self.template})
+        da = xr.DataArray(
+            data_np,
+            name=self.template["shortName"],
+            coords=coords,
+            dims=dims,
+            attrs={"grib_template": self.template},
+        )
 
         return da
 
@@ -72,7 +78,9 @@ def extract(keys, message):
         if isinstance(key, str):
             res[key] = message.get(key)
         else:
-            raise ValueError(f'Key format {type(key)} for {key} not supported, on support strings')
+            raise ValueError(
+                f"Key format {type(key)} for {key} not supported, on support strings"
+            )
             # res.append(key(message))
     return str(res)
 
@@ -93,9 +101,9 @@ def missing_to_nan(message, data=None):
         Data with NaN for missing values
     """
     if data is None:
-        data = message.get_array('values')
-    if message.get('bitmapPresent'):
-        missing = message.get('missingValue')
+        data = message.get_array("values")
+    if message.get("bitmapPresent"):
+        missing = message.get("missingValue")
         data[data == missing] = np.nan
     return data
 
@@ -118,12 +126,12 @@ def nan_to_missing(message, data, missing=None):
         Data with NaN replaced by `missing`
     """
     if missing is None:
-        missing = message.get('missingValue')
+        missing = message.get("missingValue")
     missing_mask = np.isnan(data)
     if np.any(missing_mask):
         data[missing_mask] = missing
-        message.set('missingValue', missing)
-        message.set('bitmapPresent', 1)
+        message.set("missingValue", missing)
+        message.set("bitmapPresent", 1)
     return data
 
 
@@ -149,6 +157,27 @@ def read_grib_messages(messages, dims=()):
     return fields
 
 
+def mir_wind_input(fdb_reader, request, cached_file=None):
+    if not cached_file:
+        cached_file = (
+            "_".join(
+                [
+                    f"{key}{len(value)}"
+                    if isinstance(value, (list, range))
+                    else f"{key}{value}"
+                    for key, value in request.items()
+                ]
+            )
+            + ".grb"
+        )
+    outfile = open(cached_file, "wb")
+    for data in iter((lambda: fdb_reader.read(4096)), b""):
+        outfile.write(data)
+    if os.path.getsize(cached_file) == 0:
+        raise RuntimeError(f"No data retrieved for request {request}")
+    return mir.MultiDimensionalGribFileInput(cached_file, 2)
+
+
 def fdb_retrieve(fdb, request, mir_options=None):
     """Retrieve grib messages from FDB from request and returns fdb reader object
     If mir options specified, also performs interpolation
@@ -166,6 +195,10 @@ def fdb_retrieve(fdb, request, mir_options=None):
     """
     fdb_reader = fdb.retrieve(request)
     if mir_options:
+        if mir_options.get("vod2uv", False):
+            mir_options = mir_options.copy()
+            mir_options["vod2uv"] = "1"
+            fdb_reader = mir_wind_input(fdb_reader, request)
         job = mir.Job(**mir_options)
         stream = BytesIO()
         job.execute(fdb_reader, stream)
@@ -194,43 +227,18 @@ def fdb_read(fdb, request, mir_options=None):
     fdb_reader = fdb_retrieve(fdb, request, mir_options)
     eccodes_reader = eccodes.StreamReader(fdb_reader)
     if not eccodes_reader.peek():
-        raise RuntimeError(f'No data retrieved for request {request}')
+        raise RuntimeError(f"No data retrieved for request {request}")
     fields_dims = [key for key in request if isinstance(request[key], (list, range))]
     fields = read_grib_messages(eccodes_reader, fields_dims)
     if fields is None:
-        raise Exception(f"Could not perform the following retrieve:\n{yaml.dump(request)}")
+        raise Exception(
+            f"Could not perform the following retrieve:\n{yaml.dump(request)}"
+        )
 
     return fields.to_xarray()
 
 
-def fdb_read_with_template(fdb, request, mir_options=None):
-    """Load grib messages from FDB from request and returns Numpy Array
-    If mir options specified, also performs interpolation
-
-    Parameters
-    ----------
-    messages: grib messages
-    dims: tuple of strings
-    mir_options: dict
-
-    Returns
-    -------
-    GribMessage
-        GribMessage object, containing data from first grib message for use as template
-    Numpy Array
-        Numpy Array object, containing the data 
-    """
-
-    fdb_reader = fdb_retrieve(fdb, request, mir_options)
-    eccodes_reader = eccodes.StreamReader(fdb_reader)
-    if not eccodes_reader.peek():
-        raise RuntimeError(f'No data retrieved for request {request}')
-    messages = list(eccodes_reader)
-
-    return messages[0], np.asarray([missing_to_nan(message) for message in messages])
-
-
-def fdb_read_to_file(fdb, request, file_out, mir_options=None, mode='wb'):
+def fdb_read_to_file(fdb, request, file_out, mir_options=None, mode="wb"):
     """Load grib messages from FDB from request and writes to temporary file
 
     Parameters
@@ -249,25 +257,29 @@ def fdb_read_to_file(fdb, request, file_out, mir_options=None, mode='wb'):
     for data in iter((lambda: fdb_reader.read(4096)), b""):
         outfile.write(data)
     if os.path.getsize(file_out) == 0:
-        raise RuntimeError(f'No data retrieved for request {request}')
-    
+        raise RuntimeError(f"No data retrieved for request {request}")
+
 
 def fdb_write_ufunc(data, coords, fdb, template):
 
-    message = template.copy()  # are we always copying the full message with the data values?
+    message = (
+        template.copy()
+    )  # are we always copying the full message with the data values?
 
     for key, value in coords:
         if len(value) > 1:
-            raise Exception("Can't have more than one coordinate in the parallel write function")
+            raise Exception(
+                "Can't have more than one coordinate in the parallel write function"
+            )
         message.set(key, value.values[0])
-    
+
     # Set GRIB data and write to FDB
     message.set_array("values", data)
     nan_to_missing(message, data)
     fdb.write(message)
 
 
-def iterate_xarray(func, args, data_array, core_dims='data'):
+def iterate_xarray(func, args, data_array, core_dims="data"):
     if list(data_array.dims) == list(core_dims):
         return func(data_array, *args)
     else:
@@ -275,12 +287,16 @@ def iterate_xarray(func, args, data_array, core_dims='data'):
             return iterate_xarray(func, args, sub_array, core_dims)
 
 
-def write_message(target, template, data_array): 
-    message = template.copy()  # are we always copying the full message with the data values?
+def write_message(target, template, data_array):
+    message = (
+        template.copy()
+    )  # are we always copying the full message with the data values?
     for key, value in data_array.coords:
         if len(value) > 1:
-            raise Exception("Can't have more than one coordinate in the parallel write function")
-        message.set(key, value.values)  
+            raise Exception(
+                "Can't have more than one coordinate in the parallel write function"
+            )
+        message.set(key, value.values)
     # Set GRIB data and write to FDB
     message.set_array("values", data_array.values)
     nan_to_missing(message, data_array.values)
@@ -293,7 +309,7 @@ def write(target, template, attributes, data_array):
     for key, value in attributes.items():
         message[key] = value
 
-    iterate_xarray(write_message, (target, template), data_array, 'data')
+    iterate_xarray(write_message, (target, template), data_array, "data")
     # xr.apply_ufunc(fdb_write_ufunc, data_array, data_array.coords,
     #                input_core_dims=[['data'], []],
     #                dask='parallelized',
@@ -321,7 +337,6 @@ def target_factory(target_option, out_file=None, fdb=None, overrides=None):
         return OverrideTargetWrapper(target=target, overrides=overrides)
     return target
 
-    
 
 def write_grib(target, template, data, missing=-9999):
 
@@ -331,16 +346,18 @@ def write_grib(target, template, data, missing=-9999):
     is_missing = np.isnan(data).any()
     if is_missing:
         data[np.isnan(data)] = missing
-        message.set('missingValue', missing)
-        message.set('bitmapPresent', 1)
-    
-    message.set_array('values', data)
+        message.set("missingValue", missing)
+        message.set("bitmapPresent", 1)
+
+    message.set_array("values", data)
 
     if is_missing:
-        n_missing1 = len(data[data==missing])
-        n_missing2 = message.get('numberOfMissing')
+        n_missing1 = len(data[data == missing])
+        n_missing2 = message.get("numberOfMissing")
         if n_missing1 != n_missing2:
-            raise Exception(f'Number of missing values in the message not consistent, is {n_missing1} and should be {n_missing2}')
+            raise Exception(
+                f"Number of missing values in the message not consistent, is {n_missing1} and should be {n_missing2}"
+            )
 
     target.write(message)
 
@@ -350,7 +367,7 @@ class FDBNotOpenError(RuntimeError):
 
 
 def fdb(create: bool = True) -> pyfdb.FDB:
-    instance = getattr(fdb, '_instance', None)
+    instance = getattr(fdb, "_instance", None)
     if instance is None:
         if not create:
             raise FDBNotOpenError("FDB not open")
@@ -359,10 +376,12 @@ def fdb(create: bool = True) -> pyfdb.FDB:
     return instance
 
 
-_LOCATION_RE = re.compile('^([a-z](?:[a-z0-9+-.])*):(.*)$', re.I)
+_LOCATION_RE = re.compile("^([a-z](?:[a-z0-9+-.])*):(.*)$", re.I)
 
 
-def split_location(loc: str, default: Optional[str] = None) -> Tuple[Optional[str], str]:
+def split_location(
+    loc: str, default: Optional[str] = None
+) -> Tuple[Optional[str], str]:
     m = _LOCATION_RE.fullmatch(loc)
     if m is None:
         return (default, loc)
