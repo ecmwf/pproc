@@ -58,13 +58,12 @@ def read_ensemble(
             message = reader.peek()
             if message is None:
                 raise EOFError(f"No data in {loc!r}")
-            if template is None:
-                template = message
-                data = np.empty(
-                    (total, template.get("numberOfDataPoints")), dtype=dtype
-                )
+            if data is None:
+                data = np.empty((total, message.get("numberOfDataPoints")), dtype=dtype)
             for message in reader:
                 i = n_read if index_func is None else index_func(message)
+                if i == 0 and template is None:
+                    template = message
                 data[i, :] = missing_to_nan(message)
                 n_read += 1
     if n_read != total:
@@ -206,10 +205,11 @@ class ParamRequester:
                 **filt_keys,
             )
         comp = numexpr.evaluate(
-            "data " + filt.comparison + " threshold", local_dict={
+            "data " + filt.comparison + " threshold",
+            local_dict={
                 "data": fdata,
                 "threshold": np.asarray(filt.threshold, dtype=fdata.dtype),
-                }
+            },
         )
         return np.where(comp, filt.replacement, data)
 
@@ -220,6 +220,12 @@ class ParamRequester:
             ), "Multiple input fields require a combine operation"
             return data_list[0]
         if self.param.combine == "norm":
+            if getattr(self.param, "vod2uv", False):
+                assert len(data_list) == 1
+                data_list = np.asarray(data_list[0], dtype=self.param.dtype)
+                data_list = np.reshape(
+                    data_list, (2, int(self.total / 2), *data_list.shape[1:]), order="F"
+                )
             return np.linalg.norm(data_list, axis=0)
         if self.param.combine == "direction":
             assert len(data_list) == 2, "'direction' requires exactly 2 input fields"
@@ -245,7 +251,8 @@ class ParamRequester:
             data_list.append(data)
         return (
             template,
-            self.filter_data(self.combine_data(data_list), step, **kwargs) * self.param.scale,
+            self.filter_data(self.combine_data(data_list), step, **kwargs)
+            * self.param.scale,
         )
 
     @property

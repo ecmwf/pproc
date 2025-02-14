@@ -31,12 +31,6 @@ def test_fdb_read(fdb):
     assert not np.any(np.isnan(data))
 
 
-def test_fdb_read_with_template(fdb):
-    template, data = io.fdb_read_with_template(fdb, request)
-    assert len(data) == 6
-    assert isinstance(template, eccodes.highlevel.message.GRIBMessage)
-
-
 def test_fdb_read_to_file(tmpdir, fdb):
     io.fdb_read_to_file(fdb, request, f"{tmpdir}/test.grib")
     data = [msg for msg in eccodes.FileReader(f"{tmpdir}/test.grib")]
@@ -47,7 +41,6 @@ def test_fdb_read_to_file(tmpdir, fdb):
     "func",
     [
         io.fdb_read,
-        io.fdb_read_with_template,
         io.fdb_read_to_file,
     ],
 )
@@ -60,25 +53,18 @@ def test_fdb_no_data(tmpdir, fdb, func):
         func(fdb, no_data)
 
 
-@pytest.mark.parametrize(
-    "func",
-    [
-        io.fdb_read,
-        lambda fdb, req: io.fdb_read_with_template(fdb, req)[1],
-    ],
-)
-def test_fdb_missing_values(fdb, func):
+def test_fdb_missing_values(fdb):
     has_missing = request.copy()
     has_missing.pop("levelist")
     has_missing.update(
         {"stream": "waef", "param": 140232, "step": 12, "levtype": "sfc"}
     )
-    data = func(fdb, has_missing)
+    data = io.fdb_read(fdb, has_missing)
     assert np.any(np.isnan(data))
     assert not np.any(data == 9999)
 
 
-def test_fdb_target(fdb):
+def test_fdb_target():
     target = io.target_from_location("fdb:")
     for msg in eccodes.FileReader(f"{DATA_DIR}/wind.grib"):
         msg.set("type", "em")
@@ -86,7 +72,7 @@ def test_fdb_target(fdb):
     target.flush()
     req = request.copy()
     req["type"] = "em"
-    _, data = io.fdb_read_with_template(target.fdb, req)
+    data = list(eccodes.StreamReader(target.fdb.retrieve(req)))
     assert len(data) == 6
 
 
