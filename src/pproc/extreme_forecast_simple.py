@@ -14,7 +14,7 @@ import argparse
 import numpy as np
 
 import eccodes
-from meteokit import extreme
+from earthkit.meteo import extreme
 
 
 def compute_efi(fcs, clim, eps):

@@ -4,7 +4,7 @@ import time
 import numpy as np
 import xarray as xr
 
-from meteokit import extreme
+from earthkit.meteo import extreme
 from io import BytesIO
 
 import eccodes
