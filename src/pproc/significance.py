@@ -117,7 +117,7 @@ def signi_iteration(
         clim_accum, clim_template = retrieve_clim(
             param.clim,
             config.sources,
-            ["clim"],
+            "clim",
             config.clim_num_members,
             config.clim_total_fields,
             step=steprange,
@@ -128,7 +128,7 @@ def signi_iteration(
             clim_em_accum, _ = retrieve_clim(
                 param.clim_em,
                 config.sources,
-                ["clim_em"],
+                "clim_em",
                 step=steprange,
             )
             clim_em = clim_em_accum.values

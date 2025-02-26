@@ -72,10 +72,9 @@ class BaseConfig(ConfigModel):
 
         for name in self.outputs.names:
             target = getattr(self.outputs, name).target
-            if (
-                isinstance(self.parallelisation, int)
-                and self.parallelisation > 1
-                or self.parallelisation.n_par_compute > 1
+            if (isinstance(self.parallelisation, int) and self.parallelisation > 1) or (
+                isinstance(self.parallelisation, Parallelisation)
+                and self.parallelisation.n_par_compute > 1
             ):
                 target.enable_parallel()
             if self.recovery.from_checkpoint:
@@ -93,7 +92,7 @@ class BaseConfig(ConfigModel):
             if isinstance(reqs, dict):
                 reqs = [reqs]
             for req in reqs:
-                # TODO: Remove members, and have number directly in request as 
+                # TODO: Remove members, and have number directly in request as
                 # distinguishing by type is not sufficient when we have monthly streams with type fc
                 if req.get("type", None) in ["pf", "fcmean"]:
                     self.total_fields += (

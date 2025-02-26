@@ -8,7 +8,6 @@ from pproc.common.io import missing_to_nan
 from pproc.common.steps import AnyStep
 from pproc.config.base import Members
 from pproc.config.io import Source, SourceCollection
-from pproc.config.utils import expand
 from pproc.config.param import ParamConfig
 
 IndexFunc = Callable[[eccodes.GRIBMessage], int]
@@ -53,7 +52,7 @@ def read_ensemble(
         with reader:
             message = reader.peek()
             if message is None:
-                raise EOFError(f"No data in {loc!r}")
+                raise EOFError(f"No data in {source.location()}")
             if data is None:
                 data = np.empty((total, message.get("numberOfDataPoints")), dtype=dtype)
             for message in reader:
@@ -135,6 +134,14 @@ class ParamRequester:
 
         assert template is not None, "No data fetched"
 
+        if getattr(self.param, "vod2uv", False):
+            assert len(data_list) == 1
+            data_list = np.asarray(data_list[0])
+            data_list = np.reshape(
+                data_list,
+                (2, int(data_list.shape[0] / 2), *data_list.shape[1:]),
+                order="F",
+            )
         new_metadata, data_list = self.param.preprocessing.apply(metadata, data_list)
         assert len(data_list) == 1, "More than one output of preprocessing"
         metadata_set = {k: v for k, v in new_metadata[0].items() if v != metadata[0][k]}

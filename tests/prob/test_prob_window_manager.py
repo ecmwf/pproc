@@ -1,12 +1,12 @@
 import pytest
 
 from pproc.common.accumulation import (
-    Aggregation,
     Difference,
     DifferenceRate,
     Mean,
     SimpleAccumulation,
 )
+from pproc.config.accumulation import LegacyStepAccumulation
 from pproc.prob.window_manager import ThresholdWindowManager, AnomalyWindowManager
 
 
@@ -179,7 +179,7 @@ from pproc.prob.window_manager import ThresholdWindowManager, AnomalyWindowManag
     ],
 )
 def test_create_threshold(config, expected, exp_coords):
-    win_mgr = ThresholdWindowManager({"accumulations": {"step": config}}, {})
+    win_mgr = ThresholdWindowManager({"step": LegacyStepAccumulation(**config)}, {})
     acc_mgr = win_mgr.mgr
     assert set(acc_mgr.accumulations.keys()) == set(expected.keys())
     assert set(win_mgr.window_thresholds.keys()) == set(expected.keys())
@@ -281,7 +281,7 @@ def test_create_threshold(config, expected, exp_coords):
     ],
 )
 def test_create_anomaly(config, expected, exp_coords):
-    win_mgr = AnomalyWindowManager({"accumulations": {"step": config}}, {})
+    win_mgr = AnomalyWindowManager({"step": LegacyStepAccumulation(**config)}, {})
     acc_mgr = win_mgr.mgr
     assert set(acc_mgr.accumulations.keys()) == set(expected.keys())
     assert set(win_mgr.window_thresholds.keys()) == set(expected.keys())

@@ -1,11 +1,10 @@
 import os
 from typing import Optional, List, Any, Annotated, Iterator
-from typing_extensions import Self
-from pydantic import model_validator, Field
+from typing_extensions import Self, Union
+from pydantic import model_validator, Field, Tag, Discriminator
 import numpy as np
 import datetime
 import pandas as pd
-import copy
 import logging
 
 from conflator import CLIArg
@@ -15,7 +14,7 @@ from pproc.config.base import BaseConfig, Parallelisation
 from pproc.config import io
 from pproc.config.param import ParamConfig
 from pproc.config.schema import Schema
-from pproc.config.utils import expand, squeeze
+from pproc.config.utils import expand, squeeze, _get, update_request
 from pproc.common.stepseq import steprange_to_fcmonth
 
 logging.getLogger("pproc").setLevel(os.environ.get("PPROC_LOG", "INFO").upper())
@@ -178,9 +177,96 @@ class AnomalyParamConfig(ParamConfig):
 
 class AnomalyConfig(BaseConfig):
     parallelisation: Parallelisation = Parallelisation()
-    sources: io.AnomalySourceModel
+    sources: io.ClimSourceModel
     outputs: io.AnomalyOutputModel = io.AnomalyOutputModel()
     parameters: list[AnomalyParamConfig]
+
+
+def anom_discriminator(config: Any) -> str:
+    clim = _get(config, "clim", None)
+    return "clim" if clim else "base"
+
+
+class ProbConfig(BaseConfig):
+    parallelisation: Parallelisation = Parallelisation()
+    sources: Annotated[
+        Union[
+            Annotated[io.BaseSourceModel, Tag("base")],
+            Annotated[io.ClimSourceModel, Tag("clim")],
+        ],
+        Discriminator(anom_discriminator),
+    ]
+    outputs: io.ProbOutputModel = io.ProbOutputModel()
+    parameters: list[ParamConfig]
+
+
+class ExtremeParamConfig(ParamConfig):
+    eps: float
+    sot: list[int]
+
+
+class ExtremeConfig(BaseConfig):
+    parallelisation: Parallelisation = Parallelisation()
+    sources: io.ClimSourceModel
+    outputs: io.ExtremeOutputModel = io.ExtremeOutputModel()
+    parameters: list[ExtremeParamConfig]
+
+
+class WindParamConfig(ParamConfig):
+    vod2uv: bool = False
+    total_fields: int = 1
+
+    @model_validator(mode="after")
+    def set_vod2uv(self) -> Self:
+        self.vod2uv = (
+            self.sources.get("fc", {})
+            .get("request", {})
+            .get("interpolate")
+            .get("vod2uv", False)
+        )
+        if self.vod2uv:
+            self.total_fields = 2
+        return self
+
+    def in_sources(
+        self, sources: io.SourceCollection, name: str, **kwargs
+    ) -> list[io.Source]:
+        base_config: io.Source = getattr(sources, name)
+        config = self.sources.get(name, {})
+        reqs = update_request(
+            base_config.request,
+            config.get("request", {}),
+            **kwargs,
+            **sources.overrides,
+        )
+        if self.vod2uv:
+            return [
+                io.Source(
+                    type=config.get("type", base_config.type),
+                    path=config.get("path", base_config.path),
+                    request=reqs,
+                )
+            ]
+
+        if isinstance(reqs, dict):
+            reqs = expand(reqs, "param")
+        else:
+            reqs = sum([list(expand(req, "param")) for req in reqs], [])
+
+        return [
+            io.Source(
+                type=config.get("type", base_config.type),
+                path=config.get("path", base_config.path),
+                request=items.to_dict("records"),
+            )
+            for _, items in pd.DataFrame(reqs).groupby("param")
+        ]
+
+
+class WindConfig(BaseConfig):
+    parallelisation: int = 1
+    outputs: io.WindOutputModel = io.WindOutputModel()
+    parameters: list[WindParamConfig]
 
 
 class ConfigFactory:

@@ -1,40 +1,44 @@
-
-fc_date: '2024050712'
-num_members: 6
-n_par_compute: 1
-n_par_read: 2
-queue_size: 2
+members: 5
+parallelisation:
+  n_par_compute: 1
+  n_par_read: 2
+  queue_size: 2
 parameters:
   2t:
     eps: -1e-4
-    in: '167'
     sot:
-    - 10
-    - 90
-    windows:
-    - grib_set:
-        edition: 1
-        gribTablesVersionNo: 132
-        indicatorOfParameter: 167
-        localDefinitionNumber: 19
-        mars.expver: '0001'
-        timeRangeIndicator: 3
-        stepType: avg
-      periods:
-      - range:
-        - 12
-        - 36
-        - 6
-      window_operation: mean
-    clim:
-      in: 228004
-      in_keys:
-        step:
-          12-36: 0-24 
-queue_size: 2
+      - 10
+      - 90
+    sources:
+      fc:
+        request:
+          param: '167'
+      clim:
+        request:
+          param: 228004
+          step:
+            12-36: 0-24 
+    accumulations:
+      step:
+        type: legacywindow
+        windows:
+        - grib_set:
+            edition: 1
+            gribTablesVersionNo: 132
+            indicatorOfParameter: 167
+            localDefinitionNumber: 19
+            mars.expver: '0001'
+            timeRangeIndicator: 3
+            stepType: avg
+          periods:
+          - range:
+            - 12
+            - 36
+            - 6
+          window_operation: mean
 sources:
-  fdb:
-    ens:
+  fc:
+    request:
       - class: od
         domain: g
         expver: '0001'
@@ -50,8 +54,10 @@ sources:
         stream: enfo
         date: 20240507
         time: 12
-        type: pf    
-    clim:
+        type: pf 
+    type: fdb   
+  clim:
+    request:
       class: od
       date: '20240506'
       time: '00'
@@ -60,3 +66,8 @@ sources:
       levtype: sfc
       stream: efhs
       type: cd
+    type: fdb
+outputs:
+  default:
+    target:
+      type: fdb

@@ -45,7 +45,7 @@ def anomaly_iteration(
         clim_accum, _ = retrieve_clim(
             param.clim,
             config.sources,
-            ["clim"],
+            "clim",
             **additional_dims,
         )
         clim = clim_accum.values
@@ -114,7 +114,7 @@ def main(args=None):
             print(f"Recovery: param {param.name} starting from step {new_start}")
 
             requester = ParamRequester(
-                param, cfg.sources, cfg.members, cfg.total_fields, ["fc"]
+                param, cfg.sources, cfg.members, cfg.total_fields, "fc"
             )
             anom_partial = functools.partial(anomaly_iteration, cfg, param, recovery)
             for keys, data in parallel_data_retrieval(

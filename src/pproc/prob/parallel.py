@@ -1,10 +1,15 @@
 import eccodes
 from meters import ResourceMeter
 from typing import Dict
+import numpy as np
+import numexpr
 
 from pproc import common
+from pproc.config.param import ParamConfig
+from pproc.config.targets import Target
+from pproc.common.recovery import BaseRecovery
+from pproc.common.accumulation import Accumulator
 from pproc.common.grib_helpers import construct_message
-from pproc.prob.math import ensemble_probability
 
 
 def threshold_grib_headers(
@@ -60,14 +65,39 @@ def threshold_grib_headers(
     return threshold_dict
 
 
+def ensemble_probability(data: np.array, threshold: Dict) -> np.array:
+    """Ensemble Probabilities:
+
+    Computes the probability of a given parameter crossing a given threshold,
+    by checking how many times it occurs across all ensembles.
+    e.g. the chance of temperature being less than 0C
+
+    """
+
+    # Find all locations where np.nan appears as an ensemble value
+    is_nan = np.isnan(data).any(axis=0)
+
+    # Read threshold configuration and compute probability
+    comparison = threshold["comparison"]
+    comp = numexpr.evaluate(
+        "data " + comparison + str(threshold["value"]), local_dict={"data": data}
+    )
+    probability = np.where(comp, 100, 0).mean(axis=0)
+
+    # Put in missing values
+    probability = np.where(is_nan, np.nan, probability)
+
+    return probability
+
+
 def prob_iteration(
-    param,
-    recovery,
-    out_prob,
-    template_filename,
-    window_id,
-    accum,
-    thresholds,
+    param: ParamConfig,
+    recovery: BaseRecovery,
+    out_prob: Target,
+    template_filename: str,
+    window_id: str,
+    accum: Accumulator,
+    thresholds: list,
     climatology_headers={},
 ):
     with ResourceMeter(f"Window {window_id}, computing threshold probs"):

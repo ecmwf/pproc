@@ -1,10 +1,10 @@
-from typing import Iterator, List, Tuple
+from typing import Iterator, List, Tuple, Optional
 import numpy as np
 
 from pproc.common.window_manager import WindowManager
 from pproc.common.accumulation import Accumulator, Coord
 from pproc.common.accumulation_manager import AccumulationManager
-from pproc.common.window import legacy_window_factory
+from pproc.config.accumulation import LegacyStepAccumulation
 
 
 class ThresholdWindowManager(WindowManager):
@@ -16,20 +16,20 @@ class ThresholdWindowManager(WindowManager):
     :raises: RuntimeError if no window operation was provided, or could be derived
     """
 
-    def __init__(self, parameter, global_config):
+    def __init__(
+        self,
+        accumulations: dict[str, LegacyStepAccumulation],
+        metadata: Optional[dict] = None,
+    ):
         self.window_thresholds = {}
-        accum_configs = {"step": self.create_windows(parameter["accumulations"]["step"], global_config)}
-        self.mgr = AccumulationManager(accum_configs)
-
-    def create_windows(self, parameter, global_config):
-        for window_id, acc_config in legacy_window_factory(parameter, global_config):
-            thresholds = acc_config.pop("thresholds", [])
+        for window_id, config in accumulations["step"].make_configs(metadata):
+            thresholds = config.pop("thresholds", [])
             if not thresholds:
                 raise RuntimeError(
                     "Window with no operation specified, or none could be derived"
                 )
             self.window_thresholds[window_id] = thresholds
-            yield (window_id, acc_config)
+        self.mgr = AccumulationManager.create(accumulations, metadata)
 
     def thresholds(self, identifier):
         """
@@ -45,9 +45,6 @@ class ThresholdWindowManager(WindowManager):
 
 
 class AnomalyWindowManager(ThresholdWindowManager):
-    def __init__(self, parameter, global_config):
-        ThresholdWindowManager.__init__(self, parameter, global_config)
-
     def update_windows(
         self, keys: dict, data: np.array, clim_mean: np.array, clim_std: np.array
     ) -> Iterator[Tuple[str, Accumulator]]:

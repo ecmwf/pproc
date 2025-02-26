@@ -1,9 +1,10 @@
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional
 import numpy as np
 
 import eccodes
 
 from pproc.common.param_requester import ParamRequester, ParamConfig
+from pproc.config.io import SourceCollection
 
 
 class Climatology(ParamRequester):
@@ -14,11 +15,19 @@ class Climatology(ParamRequester):
     def __init__(
         self,
         param: ParamConfig,
-        sources: dict,
-        loc: str,
+        sources: SourceCollection,
+        src_name: Optional[str] = None,
     ):
-        super().__init__(param, sources, loc, 1, 2, self._index_func)
-        self.steps = self.param._in_keys.pop("step", None)
+        super().__init__(
+            param,
+            sources,
+            members=1,
+            total=2,
+            src_name=src_name,
+            index_func=self._index_func,
+        )
+        clim_request = param.sources["clim"]["request"]
+        self.steps = clim_request.get("step", None)
 
     @classmethod
     def _index_func(cls, msg: eccodes.GRIBMessage) -> int:
@@ -27,17 +36,6 @@ class Climatology(ParamRequester):
         if msg.get("type") == "es":
             return 1
         raise ValueError(f"Unexpected message type {msg.get('type')}")
-
-    @classmethod
-    def grib_header(cls, grib_msg):
-        """
-        Get climatology period from grib message
-        """
-        return {
-            "climateDateFrom": grib_msg.get("climateDateFrom"),
-            "climateDateTo": grib_msg.get("climateDateTo"),
-            "referenceDate": grib_msg.get("referenceDate"),
-        }
 
     def retrieve_data(
         self, step: int, **kwargs
@@ -51,7 +49,10 @@ class Climatology(ParamRequester):
         and
         """
         cstep = step if not self.steps else self.steps[step]
-        temp_message, ret = super().retrieve_data(
-            step=cstep, **kwargs
-        )
-        return self.grib_header(temp_message), ret
+        temp_message, ret = super().retrieve_data(step=cstep, **kwargs)
+        clim_grib = {
+            "climateDateFrom": temp_message.get("climateDateFrom"),
+            "climateDateTo": temp_message.get("climateDateTo"),
+            "referenceDate": temp_message.get("referenceDate"),
+        }
+        return clim_grib, ret

@@ -25,7 +25,9 @@ class ParamConfig(BaseModel):
     def dtype(self) -> type[Any]:
         return np.dtype(self.dtype_).type
 
-    def in_sources(self, sources: SourceCollection, name: str, **kwargs) -> Source:
+    def in_sources(
+        self, sources: SourceCollection, name: str, **kwargs
+    ) -> list[Source]:
         base_config: Source = getattr(sources, name)
         config = self.sources.get(name, {})
         reqs = update_request(

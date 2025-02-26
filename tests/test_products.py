@@ -25,7 +25,7 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
         [
             "prob",
             prob_main,
-            ["-d", "2024050712", "--in-ens", "fdb:ens", "--out-prob", "fdb:"],
+            [],
             False,
             {"type": "ep", "param": 131073, "step": ["12", "12-36"]},
             2,
@@ -33,16 +33,7 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
         [
             "t850",
             anomaly_prob_main,
-            [
-                "-d",
-                "2024050712",
-                "--in-ens",
-                "fdb:ens",
-                "--in-clim",
-                "fdb:clim",
-                "--out-prob",
-                "fdb:",
-            ],
+            [],
             False,
             {
                 "levtype": "pl",
@@ -64,16 +55,7 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
         [
             "extreme",
             extreme_main,
-            [
-                "--in-ens",
-                "fdb:ens",
-                "--in-clim",
-                "fdb:clim",
-                "--out-efi",
-                "fdb:",
-                "--out-sot",
-                "fdb:",
-            ],
+            [],
             False,
             {
                 "type": "efi",
@@ -98,16 +80,7 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
         [
             "wind",
             wind_main,
-            [
-                "--in-ens",
-                "fdb:ens",
-                "--in-det",
-                "fdb:det",
-                "--out-eps-mean",
-                "fdb:",
-                "--out-eps-std",
-                "fdb:",
-            ],
+            [],
             False,
             {
                 "type": "es",

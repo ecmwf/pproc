@@ -10,19 +10,20 @@
 # does it submit to any jurisdiction.
 import functools
 import sys
-from datetime import datetime
 import numpy as np
 import signal
 
 import eccodes
 from meters import ResourceMeter
+from conflator import Conflator
 
 from pproc import common
-from pproc.common.recovery import Recovery
-from pproc.common.parallel import parallel_processing, sigterm_handler
+from pproc.common.window_manager import WindowManager
+from pproc.common.recovery import Recovery, create_recovery
+from pproc.common.parallel import parallel_processing
 from pproc.common.utils import dict_product
-from pproc.common.param_requester import ParamConfig, ParamRequester
-from pproc.config.targets import Target, NullTarget
+from pproc.common.param_requester import ParamRequester
+from pproc.config.types import WindParamConfig, WindConfig
 
 
 def wind_template(template: eccodes.GRIBMessage, step: int, **out_keys):
@@ -43,199 +44,91 @@ def wind_template(template: eccodes.GRIBMessage, step: int, **out_keys):
     return new_template
 
 
-class WindParamConfig(ParamConfig):
-    def __init__(self, name, options, overrides=None):
-        super().__init__(name, options, overrides)
-        self.vod2uv = self._in_keys.get("interpolate", {}).get("vod2uv", False)
-        self.total_fields = 1
-        if self.vod2uv:
-            self.in_paramids = [self.in_paramids]
-            self.total_fields = 2
-
-
-class WindConfig(common.Config):
-    def __init__(self, args):
-        super().__init__(args)
-
-        self.members = self.options["num_members"]
-        self.total_fields = self.options.get("total_fields", self.members)
-        self.date = datetime.strptime(str(self.options["fc_date"]), "%Y%m%d%H")
-        self.root_dir = self.options["root_dir"]
-        self.sources = self.options.get("sources", {})
-        self.det_loc = args.in_det
-        self.ens_loc = args.in_ens
-
-        self.n_par = self.options.get("n_par", 1)
-
-        self.out_keys = self.options.get("out_keys", {})
-        self.out_keys_em = {"type": "em", **self.options.get("out_keys_em", {})}
-        self.out_keys_es = {"type": "es", **self.options.get("out_keys_es", {})}
-
-        self.parameters = [
-            WindParamConfig(pname, popt, overrides=self.override_input)
-            for pname, popt in self.options["parameters"].items()
-        ]
-        self.steps = self.options.get("steps", [])
-        self.windows = self.options.get("windows", [])
-
-        for attr in ["out_det_ws", "out_eps_ws", "out_eps_mean", "out_eps_std"]:
-            location = getattr(args, attr)
-            target = common.io.target_from_location(
-                location, overrides=self.override_output
-            )
-            if self.n_par > 1:
-                target.enable_parallel()
-            if args.recover:
-                target.enable_recovery()
-            self.__setattr__(attr, target)
-
-
-def wind_iteration_gen(
+def wind_iteration(
     config: WindConfig,
-    loc: str,
+    recovery: Recovery,
     param: WindParamConfig,
     dims: dict,
-    members: int,
-    total_fields: int,
-    out_ws: Target,
-    out_mean: Target = NullTarget,
-    out_std: Target = NullTarget,
 ):
-    if np.all(
-        [isinstance(x, NullTarget) for x in [out_ws, out_mean, out_std]]
-    ):
-        return
-
     requester = ParamRequester(
         param,
         config.sources,
-        loc,
-        members,
-        total_fields * param.total_fields,
+        src_name="fc",
+        members=config.members,
+        total=config.total_fields * param.total_fields,
     )
-    template, ens = requester.retrieve_data(None, **dims)
-    assert ens.shape[0] == total_fields, f"Expected {total_fields}, got {ens.shape[0]}"
+    template, ens = requester.retrieve_data(**dims)
+    assert (
+        ens.shape[0] == config.total_fields
+    ), f"Expected {config.total_fields}, got {ens.shape[0]}"
     with ResourceMeter(f"Param {param.name}, {dims}"):
-        if not isinstance(out_ws, NullTarget):
-            for number in range(ens.shape[0]):
-                marstype = (
-                    "pf"
-                    if number > 0 and template.get("type") in ["cf", "fc"]
-                    else template.get("type")
-                )
-                template = wind_template(
-                    template,
-                    **dims,
-                    number=number,
-                    type=marstype,
-                    **config.out_keys,
-                )
-                common.io.write_grib(out_ws, template, ens[number])
-
-        if not isinstance(out_mean, NullTarget):
-            template_mean = wind_template(
-                template, **dims, **config.out_keys, **config.out_keys_em
+        for number in range(ens.shape[0]):
+            marstype = (
+                "pf"
+                if number > 0 and template.get("type") in ["cf", "fc"]
+                else template.get("type")
             )
-            common.io.write_grib(out_mean, template_mean, np.mean(ens, axis=0))
-
-        if not isinstance(out_std, NullTarget):
-            template_std = wind_template(
-                template, **dims, **config.out_keys, **config.out_keys_es
+            template = wind_template(
+                template,
+                **dims,
+                number=number,
+                type=marstype,
+                **config.outputs.default.metadata,
+                **param.metadata,
             )
-            common.io.write_grib(out_std, template_std, np.std(ens, axis=0))
+            common.io.write_grib(config.outputs.ws.target, template, ens[number])
 
+        template_mean = wind_template(
+            template,
+            **dims,
+            **config.outputs.mean.metadata,
+            **param.metadata,
+        )
+        common.io.write_grib(
+            config.outputs.mean.target, template_mean, np.mean(ens, axis=0)
+        )
 
-def wind_iteration(
-    config: WindConfig, recovery: Recovery, param: ParamConfig, dims: dict
-):
-    # calculate wind speed for type=fc (deterministic)
-    wind_iteration_gen(
-        config,
-        config.det_loc,
-        param,
-        dims,
-        1,
-        1,
-        config.out_det_ws,
-        NullTarget(),
-        NullTarget(),
-    )
+        template_std = wind_template(
+            template,
+            **dims,
+            **config.outputs.std.metadata,
+            **param.metadata,
+        )
+        common.io.write_grib(
+            config.outputs.std.target, template_std, np.std(ens, axis=0)
+        )
 
-    # calculate wind speed, mean/stddev of wind speed for type=pf/cf (eps)
-    wind_iteration_gen(
-        config,
-        config.ens_loc,
-        param,
-        dims,
-        config.members,
-        config.total_fields,
-        config.out_eps_ws,
-        config.out_eps_mean,
-        config.out_eps_std,
-    )
-
-    for target in [
-        config.out_det_ws,
-        config.out_eps_ws,
-        config.out_eps_mean,
-        config.out_eps_std,
-    ]:
-        target.flush()
+    for name in config.outputs.names:
+        getattr(config.outputs, name).target.flush()
     recovery.add_checkpoint(param=param.name, **dims)
 
 
 def main(args=None):
     sys.stdout.reconfigure(line_buffering=True)
-    signal.signal(signal.SIGTERM, sigterm_handler)
-
-    parser = common.default_parser("Calculate wind speed")
-    parser.add_argument(
-        "--in-det", required=True, help="Source for deterministic forecast"
-    )
-    parser.add_argument("--in-ens", required=True, help="Source for ensemble forecast")
-    parser.add_argument(
-        "--out-det-ws", default="null:", help="Target for wind speed for type=fc"
-    )
-    parser.add_argument(
-        "--out-eps-ws", default="null:", help="Target for wind speed for type=pf/cf"
-    )
-    parser.add_argument(
-        "--out-eps-mean",
-        required=True,
-        help="Target for mean wind speed for type=pf/cf",
-    )
-    parser.add_argument(
-        "--out-eps-std", required=True, help="Target for wind speed std for type=pf/cf"
-    )
-    args = parser.parse_args(args)
-
-    cfg = WindConfig(args)
-    recovery = Recovery(cfg.root_dir, config.options, args.recover)
+    cfg = Conflator(app_name="pproc-wind", model=WindConfig).load()
+    cfg.print()
+    recover = create_recovery(cfg)
 
     plan = []
     for param in cfg.parameters:
-        window_manager = common.WindowManager(
-            param.window_config(cfg.windows, cfg.steps),
-            param.out_keys(cfg.out_keys),
-        )
+        window_manager = WindowManager(param.accumulations)
         for dims in dict_product(window_manager.dims):
-            if recovery.existing_checkpoint(param=param.name, **dims):
+            if recover.existing_checkpoint(param=param.name, **dims):
                 print(f"Recovery: skipping dims: {param.name} {dims}")
                 continue
             plan.append((param, dims))
 
-    iteration = functools.partial(wind_iteration, cfg, recovery)
+    iteration = functools.partial(wind_iteration, cfg, recover)
     parallel_processing(
         iteration,
         plan,
-        cfg.n_par,
+        cfg.parallelisation,
         initializer=signal.signal,
         initargs=(signal.SIGTERM, signal.SIG_DFL),
     )
 
-    recovery.clean_file()
+    recover.clean_file()
 
 
 if __name__ == "__main__":
-
-    main(sys.argv)
+    main()

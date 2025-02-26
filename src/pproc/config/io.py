@@ -183,7 +183,13 @@ SignificanceSourceModel = create_source_model("Significance", ["fc", "clim", "cl
 SignificanceOutputModel = create_output_model(
     "Significance", {"signi": {"type": "taem"}}
 )
-AnomalySourceModel = create_source_model("Anomaly", ["fc", "clim"])
+ClimSourceModel = create_source_model("Clim", ["fc", "clim"])
 AnomalyOutputModel = create_output_model(
     "Anomaly", {"ens": {"type": "fcmean"}, "ensm": {"type": "taem"}}
+)
+ProbOutputModel = create_output_model("Prob", ["prob"])
+ExtremeOutputModel = create_output_model("Extreme", ["efi", "sot"])
+WindOutputModel = create_output_model(
+    "Wind",
+    {"mean": {"type": "em"}, "std": {"type": "es"}, "ws": {}},
 )
