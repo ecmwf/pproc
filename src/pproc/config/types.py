@@ -14,7 +14,7 @@ from pproc.config.base import BaseConfig, Parallelisation
 from pproc.config import io
 from pproc.config.param import ParamConfig
 from pproc.config.schema import Schema
-from pproc.config.utils import expand, squeeze, _get, update_request
+from pproc.config.utils import expand, squeeze, _set, _get, update_request
 from pproc.common.stepseq import steprange_to_fcmonth
 
 logging.getLogger("pproc").setLevel(os.environ.get("PPROC_LOG", "INFO").upper())
@@ -119,8 +119,20 @@ class HistogramConfig(BaseConfig):
     parameters: list[HistParamConfig]
 
 
-class SigniParamConfig(ParamConfig):
+class ClimParamConfig(ParamConfig):
     clim: ParamConfig
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_source(cls, data: Any) -> Any:
+        clim = _get(data, "clim", {})
+        if isinstance(clim, dict):
+            clim_options = {**data, **clim}
+            _set(data, "clim", ParamConfig(**clim_options))
+        return data
+
+
+class SigniParamConfig(ClimParamConfig):
     clim_em: ParamConfig
     epsilon: Optional[float] = None
     epsilon_is_abs: bool = True
@@ -128,10 +140,7 @@ class SigniParamConfig(ParamConfig):
     @model_validator(mode="before")
     @classmethod
     def validate_source(cls, data: Any) -> Any:
-        clim_options = data.copy()
-        if "clim" in data:
-            clim_options.update(clim_options.pop("clim"))
-        data["clim"] = ParamConfig(**clim_options)
+        data = super().validate_source(data)
         clim_options = data.copy()
         if "clim_em" in data:
             clim_options.update(data.pop("clim_em"))
@@ -162,29 +171,35 @@ class SigniConfig(BaseConfig):
         return self
 
 
-class AnomalyParamConfig(ParamConfig):
-    clim: ParamConfig
-
-    @model_validator(mode="before")
-    @classmethod
-    def validate_source(cls, data: Any) -> Any:
-        clim_options = data.copy()
-        if "clim" in data:
-            clim_options.update(clim_options.pop("clim"))
-        data["clim"] = ParamConfig(**clim_options)
-        return data
-
-
 class AnomalyConfig(BaseConfig):
     parallelisation: Parallelisation = Parallelisation()
     sources: io.ClimSourceModel
     outputs: io.AnomalyOutputModel = io.AnomalyOutputModel()
-    parameters: list[AnomalyParamConfig]
+    parameters: list[ClimParamConfig]
 
 
 def anom_discriminator(config: Any) -> str:
     clim = _get(config, "clim", None)
     return "clim" if clim else "base"
+
+
+class ProbParamConfig(ClimParamConfig):
+    clim: Optional[ParamConfig] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_source(cls, data: Any) -> Any:
+        clim = _get(data, "clim", None)
+        if isinstance(clim, dict):
+            clim_options = {
+                **data,
+                "preprocessing": [],
+                "accumulations": {},
+                "metadata": {},
+                **clim,
+            }
+            _set(data, "clim", ParamConfig(**clim_options))
+        return data
 
 
 class ProbConfig(BaseConfig):
@@ -197,12 +212,40 @@ class ProbConfig(BaseConfig):
         Discriminator(anom_discriminator),
     ]
     outputs: io.ProbOutputModel = io.ProbOutputModel()
-    parameters: list[ParamConfig]
+    parameters: list[ProbParamConfig]
+
+    @model_validator(mode="after")
+    def validate_param(self) -> Self:
+        if isinstance(self.sources, io.ClimSourceModel):
+            for param in self.parameters:
+                if not param.clim:
+                    param.clim = ParamConfig(
+                        **param.model_dump(
+                            exclude=("preprocessing", "accumulations", "metadata"),
+                        ),
+                        accumulations={},
+                    )
+        return self
 
 
-class ExtremeParamConfig(ParamConfig):
+class ExtremeParamConfig(ClimParamConfig):
     eps: float
     sot: list[int]
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_source(cls, data: Any) -> Any:
+        clim = _get(data, "clim", {})
+        if isinstance(clim, dict):
+            clim_options = {
+                **data,
+                "preprocessing": [],
+                "accumulations": {},
+                "metadata": {},
+                **clim,
+            }
+            _set(data, "clim", ParamConfig(**clim_options))
+        return data
 
 
 class ExtremeConfig(BaseConfig):

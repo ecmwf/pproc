@@ -27,7 +27,9 @@ from pproc.config.types import WindParamConfig, WindConfig
 from pproc.config.targets import NullTarget
 
 
-def wind_template(template: eccodes.GRIBMessage, step: int, **out_keys):
+def wind_template(
+    template: eccodes.GRIBMessage, step: int, **out_keys
+) -> eccodes.GRIBMessage:
     new_template = template.copy()
     grib_sets = {
         "bitsPerValue": 24,

@@ -12,6 +12,7 @@
 
 import sys
 import functools
+import numpy as np
 
 import eccodes
 from earthkit.meteo import extreme
@@ -19,16 +20,22 @@ from meters import ResourceMeter
 from conflator import Conflator
 
 from pproc import common
+from pproc.common.accumulation import Accumulator
 from pproc.common.grib_helpers import construct_message
 from pproc.common.window_manager import WindowManager
-from pproc.common.recovery import create_recovery
+from pproc.common.recovery import create_recovery, Recovery
 from pproc.common.parallel import create_executor, parallel_data_retrieval
 from pproc.common.param_requester import ParamRequester
 from pproc.config.types import ExtremeParamConfig, ExtremeConfig
 from pproc.signi.clim import retrieve_clim
 
 
-def read_clim(config: ExtremeConfig, param: ExtremeParamConfig, accum, n_clim=101):
+def read_clim(
+    config: ExtremeConfig,
+    param: ExtremeParamConfig,
+    accum: Accumulator,
+    n_clim: int = 101,
+) -> tuple[np.ndarray, eccodes.GRIBMessage]:
     grib_keys = accum.grib_keys()
     clim_step = grib_keys.get("stepRange", grib_keys.get("step", None))
     clim_request = param.sources["clim"]["request"]
@@ -48,7 +55,11 @@ def read_clim(config: ExtremeConfig, param: ExtremeParamConfig, accum, n_clim=10
     return clim_accum.values, clim_template
 
 
-def extreme_template(accum, template_fc, template_clim):
+def extreme_template(
+    accum: Accumulator,
+    template_fc: eccodes.GRIBMessage,
+    template_clim: eccodes.GRIBMessage,
+) -> eccodes.GRIBMessage:
 
     template_ext = construct_message(template_fc, accum.grib_keys())
     grib_keys = {}
@@ -112,7 +123,7 @@ def extreme_template(accum, template_fc, template_clim):
     return template_ext
 
 
-def efi_template(template):
+def efi_template(template: eccodes.GRIBMessage) -> eccodes.GRIBMessage:
     template_efi = template.copy()
     template_efi["marsType"] = 27
 
@@ -128,7 +139,7 @@ def efi_template(template):
     return template_efi
 
 
-def efi_template_control(template):
+def efi_template_control(template: eccodes.GRIBMessage) -> eccodes.GRIBMessage:
     template_efi = template.copy()
     template_efi["marsType"] = 28
 
@@ -145,7 +156,7 @@ def efi_template_control(template):
     return template_efi
 
 
-def sot_template(template, sot):
+def sot_template(template: eccodes.GRIBMessage, sot: float) -> eccodes.GRIBMessage:
     template_sot = template.copy()
     template_sot["marsType"] = 38
 
@@ -175,7 +186,14 @@ def sot_template(template, sot):
     return template_sot
 
 
-def efi_sot(cfg, param, recovery, template_filename, window_id, accum):
+def efi_sot(
+    cfg: ExtremeConfig,
+    param: ExtremeParamConfig,
+    recovery: Recovery,
+    template_filename: str,
+    window_id: str,
+    accum: Accumulator,
+):
     with ResourceMeter(f"Window {window_id}, computing EFI/SOT"):
         message_template = (
             template_filename
@@ -183,7 +201,7 @@ def efi_sot(cfg, param, recovery, template_filename, window_id, accum):
             else common.io.read_template(template_filename)
         )
 
-        clim, template_clim = read_clim(cfg, param, accum)
+        clim, template_clim = read_clim(cfg, param.clim, accum)
         print(f"Climatology array: {clim.shape}")
 
         template_extreme = extreme_template(accum, message_template, template_clim)

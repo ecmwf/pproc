@@ -44,7 +44,7 @@ def main(args=None):
                 param, cfg.sources, cfg.members, cfg.total_fields, "fc"
             )
             clim = Climatology(
-                param,
+                param.clim,
                 cfg.sources,
                 "clim",
             )
