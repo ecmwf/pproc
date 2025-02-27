@@ -31,6 +31,8 @@ dependencies = [
     "scikit-learn",
     "scipy >= 1.8",
     "xarray",
+    "pydantic",
+    "conflator >= 0.1.6",
 ]
 
 [project.optional-dependencies]
@@ -63,6 +65,7 @@ pproc-accumulate = "pproc.accumulate:main"
 pproc-significance = "pproc.significance:main"
 pproc-anomaly = "pproc.anomaly:main"
 pproc-monthly-stats = "pproc.monthly_stats:main"
+pproc-config="pproc.config_generation:main"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
