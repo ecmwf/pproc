@@ -192,7 +192,7 @@ def main(args=None):
                 cfg.sources,
                 cfg.members,
                 cfg.total_fields,
-                ["fc"],
+                "fc",
             )
             signi_partial = functools.partial(signi_iteration, cfg, param, recovery)
             for keys, data in parallel_data_retrieval(

@@ -46,7 +46,9 @@ class Source(ConfigModel):
     def legacy_config(self) -> dict:
         cfg = {self.type: {"req": self.request}}
         if self.type == "fileset":
-            cfg[self.type]["req"]["location"] = self.path
+            cfg[self.type]["req"] = utils.update_request(
+                cfg[self.type]["req"], {"location": self.path}
+            )
         return cfg
 
     def base_request(self) -> dict:
@@ -193,3 +195,5 @@ WindOutputModel = create_output_model(
     "Wind",
     {"mean": {"type": "em"}, "std": {"type": "es"}, "ws": {}},
 )
+ThermoSourceModel = create_source_model("Thermo", ["fc", "inst"])
+ThermoOutputModel = create_output_model("Thermo", ["indices", "accum", "intermediate"])

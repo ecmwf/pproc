@@ -140,13 +140,17 @@ class SigniParamConfig(ClimParamConfig):
     @model_validator(mode="before")
     @classmethod
     def validate_source(cls, data: Any) -> Any:
-        data = super().validate_source(data)
-        clim_options = data.copy()
-        if "clim_em" in data:
-            clim_options.update(data.pop("clim_em"))
-        elif "clim" in data:
-            clim_options.update(data.pop("clim"))
-        data["clim_em"] = ParamConfig(**clim_options)
+        clim = _get(data, "clim", {})
+        if isinstance(clim, dict):
+            clim_options = {**data, **clim}
+            _set(data, "clim", ParamConfig(**clim_options))
+        clim_em = _get(data, "clim_em", {})
+        if isinstance(clim_em, dict):
+            if len(clim_em) > 0:
+                clim_options = {**data, **clim_em}
+            else:
+                clim_options = {**data, **clim}
+            _set(data, "clim_em", ParamConfig(**clim_options))
         return data
 
 
