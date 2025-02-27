@@ -17,13 +17,13 @@ from pproc.common.parallel import (
 from pproc.common.param_requester import ParamRequester
 from pproc.common.recovery import create_recovery, Recovery
 from pproc.common.window_manager import WindowManager
-from pproc.config.types import AnomalyConfig, AnomalyParamConfig
+from pproc.config.types import AnomalyConfig, ClimParamConfig
 from pproc.signi.clim import retrieve_clim
 
 
 def anomaly_iteration(
     config: AnomalyConfig,
-    param: AnomalyParamConfig,
+    param: ClimParamConfig,
     recovery: Recovery,
     template: Union[str, eccodes.GRIBMessage],
     window_id: str,
