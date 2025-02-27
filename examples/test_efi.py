@@ -3,7 +3,7 @@ import time
 import numpy as np
 import eccodes
 import pyfdb
-from meteokit import climatology
+from earthkit.meteo import extreme
 import xarray as xr
 
 
@@ -137,7 +137,7 @@ if __name__ == "__main__":
     print(fc[:, 0])
     print(clim[:, 0])
     t1 = time.perf_counter()
-    efi_array = climatology.efi(clim.astype(np.float64), fc)
+    efi_array = extreme.efi(clim.astype(np.float64), fc)
     print('time to compute efi: {}'.format(time.perf_counter() - t1))
     print(efi_array[0])
     
