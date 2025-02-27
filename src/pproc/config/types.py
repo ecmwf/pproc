@@ -222,6 +222,7 @@ class ProbConfig(BaseConfig):
                     param.clim = ParamConfig(
                         **param.model_dump(
                             exclude=("preprocessing", "accumulations", "metadata"),
+                            by_alias=True,
                         ),
                         accumulations={},
                     )
