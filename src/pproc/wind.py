@@ -24,6 +24,7 @@ from pproc.common.parallel import parallel_processing
 from pproc.common.utils import dict_product
 from pproc.common.param_requester import ParamRequester
 from pproc.config.types import WindParamConfig, WindConfig
+from pproc.config.targets import NullTarget
 
 
 def wind_template(template: eccodes.GRIBMessage, step: int, **out_keys):
@@ -62,21 +63,22 @@ def wind_iteration(
         ens.shape[0] == config.total_fields
     ), f"Expected {config.total_fields}, got {ens.shape[0]}"
     with ResourceMeter(f"Param {param.name}, {dims}"):
-        for number in range(ens.shape[0]):
-            marstype = (
-                "pf"
-                if number > 0 and template.get("type") in ["cf", "fc"]
-                else template.get("type")
-            )
-            template = wind_template(
-                template,
-                **dims,
-                number=number,
-                type=marstype,
-                **config.outputs.default.metadata,
-                **param.metadata,
-            )
-            common.io.write_grib(config.outputs.ws.target, template, ens[number])
+        if not isinstance(config.outputs.ws.target, NullTarget):
+            for number in range(ens.shape[0]):
+                marstype = (
+                    "pf"
+                    if number > 0 and template.get("type") in ["cf", "fc"]
+                    else template.get("type")
+                )
+                template = wind_template(
+                    template,
+                    **dims,
+                    number=number,
+                    type=marstype,
+                    **config.outputs.ws.metadata,
+                    **param.metadata,
+                )
+                common.io.write_grib(config.outputs.ws.target, template, ens[number])
 
         template_mean = wind_template(
             template,
