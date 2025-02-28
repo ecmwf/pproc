@@ -115,30 +115,25 @@ class HistParamRequester(ParamRequester):
         self,
         param: HistParamConfig,
         sources: SourceCollection,
+        members: int,
+        total: int,
     ):
-        super().__init__(param, sources, 0, 0)
+        super().__init__(param, sources, members, total)
 
     def retrieve_data(
         self, step: AnyStep, **kwargs
     ) -> Tuple[eccodes.GRIBMessage, np.ndarray]:
         assert isinstance(self.param, HistParamConfig)
-        source: Source = self.sources.fc
-        metadata = self.param.in_keys(
-            "fc",
-            source.request,
-            step=str(step),
-            **kwargs,
-            **self.sources.overrides,
-        )
+        sources = self.param.in_sources(self.sources, "fc", step=str(step), **kwargs)
+        metadata = [src.base_request() for src in sources]
 
         iterators = tuple(
             iter_ensemble(
-                source.model_copy(update={"request": in_keys}),
+                source,
                 update=self._set_number,
                 dtype=self.param.dtype,
-                **in_keys,
             )
-            for in_keys in expand(metadata, "param")
+            for source in sources
         )
         nbins = len(self.param.bins) - 1
         template = None
@@ -212,7 +207,9 @@ def main(args=None):
 
             print(f"Recovery: param {param.name} starting from step {new_start}")
 
-            requester = HistParamRequester(param, cfg.sources)
+            requester = HistParamRequester(
+                param, cfg.sources, cfg.members, cfg.total_fields
+            )
             write_partial = functools.partial(
                 write_iteration, param, cfg.outputs.histogram.target, recovery
             )
