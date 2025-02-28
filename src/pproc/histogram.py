@@ -180,7 +180,7 @@ def write_iteration(
     recovery.add_checkpoint(param=param.name, window=str(window_id))
 
 
-def main(args=None):
+def main():
     sys.stdout.reconfigure(line_buffering=True)
 
     cfg = Conflator(app_name="pproc-histogram", model=HistogramConfig).load()

@@ -13,7 +13,7 @@ from pproc.prob.window_manager import AnomalyWindowManager
 from pproc.prob.climatology import Climatology
 
 
-def main(args=None):
+def main():
     sys.stdout.reconfigure(line_buffering=True)
 
     cfg = Conflator(app_name="pproc-anomaly-probs", model=ProbConfig).load()

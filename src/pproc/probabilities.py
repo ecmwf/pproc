@@ -13,7 +13,7 @@ from pproc.prob.parallel import prob_iteration
 from pproc.prob.window_manager import ThresholdWindowManager
 
 
-def main(args=None):
+def main():
     sys.stdout.reconfigure(line_buffering=True)
 
     cfg = Conflator(app_name="pproc-probabilities", model=ProbConfig).load()

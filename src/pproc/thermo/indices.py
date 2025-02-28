@@ -178,7 +178,7 @@ class ComputeIndices:
         t2d = field_values(fields, "2d")  # Kelvin
 
         ws = self.calc_field("10si", self.calc_ws, fields).to_array()  # m/s
-        mrt = self.calc_field("mrt", self.calc_mrt, fields).to_array() # Kelvin
+        mrt = self.calc_field("mrt", self.calc_mrt, fields).to_array()  # Kelvin
 
         ehPa = compute_ehPa(t2m, t2d)
 
@@ -209,7 +209,7 @@ class ComputeIndices:
         t2d = field_values(fields, "2d")  # Kelvin
 
         ws = self.calc_field("10si", self.calc_ws, fields).to_array()  # m/s
-        mrt = self.calc_field("mrt", self.calc_mrt, fields).to_array() # Kelvin
+        mrt = self.calc_field("mrt", self.calc_mrt, fields).to_array()  # Kelvin
 
         wbgt = thermofeel.calculate_wbgt(t2m, mrt, ws, t2d)  # Kelvin
 

@@ -103,9 +103,9 @@ class ParamRequester:
         if isinstance(self.members, Members):
             number = range(self.members.start, self.members.end + 1)
         if keys.get("type") == "pf":
-            keys["number"] = number or range(1, self.members + 1)
+            keys.setdefault("number", number or range(1, self.members + 1))
         elif keys.get("type") == "fcmean":
-            keys["number"] = number or range(self.members + 1)
+            keys.setdefault("number", number or range(self.members + 1))
 
     def retrieve_data(
         self, step: AnyStep, **kwargs

@@ -5,7 +5,7 @@ import thermofeel
 from meters import metered
 
 from pproc import common
-from pproc.config.targets import Target
+from pproc.config.io import Output
 
 logger = logging.getLogger(__name__)
 
@@ -171,13 +171,15 @@ def step_interval(fields) -> int:
 
 
 def write(
-    target: Target,
+    output: Output,
     ds: "earthkit.data.FieldList | earthkit.data.core.fieldlist.Field",
 ):
     if isinstance(ds, earthkit.data.FieldList):
         for f in ds:
-            message = f.metadata()._handle
-            common.io.write_grib(target, message, f.values)
+            message = f.metadata()._handle.copy()
+            message.set(output.metadata)
+            common.io.write_grib(output.target, message, f.values)
     else:
-        message = ds.metadata()._handle
-        common.io.write_grib(target, message, ds.values)
+        message = ds.metadata()._handle.copy()
+        message.set(output.metadata)
+        common.io.write_grib(output.target, message, ds.values)

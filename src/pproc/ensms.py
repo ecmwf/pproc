@@ -74,7 +74,7 @@ def ensms_iteration(
     recovery.add_checkpoint(param=param.name, window=window_id)
 
 
-def main(args=None):
+def main():
     sys.stdout.reconfigure(line_buffering=True)
 
     cfg = Conflator(app_name="pproc-ensms", model=EnsmsConfig).load()
@@ -130,4 +130,4 @@ def main(args=None):
 
 
 if __name__ == "__main__":
-    main(sys.argv)
+    sys.exit(main())

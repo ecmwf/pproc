@@ -20,13 +20,12 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
 
 
 @pytest.mark.parametrize(
-    "product, main, custom_args, pass_args, req, length",
+    "product, main, custom_args, req, length",
     [
         [
             "prob",
             prob_main,
             [],
-            False,
             {"type": "ep", "param": 131073, "step": ["12", "12-36"]},
             2,
         ],
@@ -34,7 +33,6 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
             "t850",
             anomaly_prob_main,
             [],
-            False,
             {
                 "levtype": "pl",
                 "levelist": 850,
@@ -48,7 +46,6 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
             "ensms",
             ensms_main,
             [],
-            False,
             {"type": "em", "param": 167, "step": [12, 36]},
             2,
         ],
@@ -56,7 +53,6 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
             "extreme",
             extreme_main,
             [],
-            False,
             {
                 "type": "efi",
                 "param": 167,
@@ -68,7 +64,6 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
             "quantiles",
             quantiles_main,
             [],
-            False,
             {
                 "type": "pb",
                 "param": 167,
@@ -81,7 +76,6 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
             "wind",
             wind_main,
             [],
-            False,
             {
                 "type": "es",
                 "levtype": "pl",
@@ -95,7 +89,6 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
             "thermo",
             thermo_main,
             [],
-            True,
             {
                 "type": "fc",
                 "stream": "oper",
@@ -145,7 +138,6 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
                 "--rep-anomalies",
                 "file:{test_dir}/clr_anom.grib",
             ],
-            False,
             {
                 "levtype": "pl",
                 "levelist": 500,
@@ -170,7 +162,7 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
     ],
 )
 def test_products(
-    tmpdir, monkeypatch, fdb, product, main, custom_args, pass_args, req, length
+    tmpdir, monkeypatch, fdb, product, main, custom_args, req, length
 ):
     monkeypatch.chdir(tmpdir)  # To avoid polluting cwd with grib templates
     shutil.copyfile(f"{TEST_DIR}/templates/{product}.yaml", f"{tmpdir}/{product}.yaml")
@@ -188,11 +180,8 @@ def test_products(
         )
         for x in custom_args
     ]
-    if pass_args:
-        main(args[1:])
-    else:
-        monkeypatch.setattr("sys.argv", args)
-        main()
+    monkeypatch.setattr("sys.argv", args)
+    main()
     test_fdb = pyfdb.FDB()
     request = {
         "class": "od",

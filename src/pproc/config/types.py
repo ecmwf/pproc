@@ -317,6 +317,19 @@ class WindConfig(BaseConfig):
     parameters: list[WindParamConfig]
 
 
+class ThermoParamConfig(ParamConfig):
+    out_params: list[str]
+
+
+class ThermoConfig(BaseConfig):
+    parallelisation: Parallelisation = Parallelisation()
+    sources: io.ThermoSourceModel
+    outputs: io.ThermoOutputModel = io.ThermoOutputModel()
+    parameters: list[ThermoParamConfig]
+    validateutci: bool = False
+    utci_misses: bool = False
+
+
 class ConfigFactory:
     types = {
         "pproc-accumulate": AccumConfig,

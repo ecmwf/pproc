@@ -229,7 +229,7 @@ def efi_sot(
         recovery.add_checkpoint(param=param.name, window=window_id)
 
 
-def main(args=None):
+def main():
     sys.stdout.reconfigure(line_buffering=True)
 
     cfg = Conflator(app_name="pproc-extreme", model=ExtremeConfig).load()

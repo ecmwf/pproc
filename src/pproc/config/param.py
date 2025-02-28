@@ -51,8 +51,9 @@ class ParamConfig(BaseModel):
         ]
 
     def out_keys(self, sources: SourceCollection) -> Iterator:
-        base_source: Source = getattr(sources, "fc")
-        param_source = self.sources.get("fc", {})
+        fc_name = sources.names[0]
+        base_source: Source = getattr(sources, fc_name)
+        param_source = self.sources.get(fc_name, {})
         reqs = update_request(
             base_source.request,
             param_source.get("request", {}),

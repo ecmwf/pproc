@@ -107,7 +107,7 @@ def wind_iteration(
     recovery.add_checkpoint(param=param.name, **dims)
 
 
-def main(args=None):
+def main():
     sys.stdout.reconfigure(line_buffering=True)
     cfg = Conflator(app_name="pproc-wind", model=WindConfig).load()
     cfg.print()

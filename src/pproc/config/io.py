@@ -195,5 +195,5 @@ WindOutputModel = create_output_model(
     "Wind",
     {"mean": {"type": "em"}, "std": {"type": "es"}, "ws": {}},
 )
-ThermoSourceModel = create_source_model("Thermo", ["fc", "inst"])
+ThermoSourceModel = create_source_model("Thermo", ["accum", "inst"])
 ThermoOutputModel = create_output_model("Thermo", ["indices", "accum", "intermediate"])

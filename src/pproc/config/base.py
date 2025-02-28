@@ -84,17 +84,18 @@ class BaseConfig(ConfigModel):
 
     @model_validator(mode="after")
     def check_totalfields(self) -> Self:
+        fc_name = self.sources.names[0]
         if self.total_fields == 0 and len(self.parameters) > 0:
-            source = self.parameters[0].in_sources(self.sources, "fc")
+            source = self.parameters[0].in_sources(self.sources, fc_name)
             if len(source) == 0:
                 return self
             reqs = source[0].request
             if isinstance(reqs, dict):
                 reqs = [reqs]
             for req in reqs:
-                # TODO: Remove members, and have number directly in request as
-                # distinguishing by type is not sufficient when we have monthly streams with type fc
-                if req.get("type", None) in ["pf", "fcmean"]:
+                if number := req.get("number", None):
+                    self.total_fields += 1 if isinstance(number, int) else len(number)
+                elif req.get("type", None) in ["pf", "fcmean"]:
                     self.total_fields += (
                         self.members
                         if isinstance(self.members, int)
@@ -244,6 +245,8 @@ class BaseConfig(ConfigModel):
 
     def _set_number(self, req: dict) -> dict:
         if req.get("type", None) not in ["pf", "fcmean", "fcmax", "fcstdev", "fcmin"]:
+            return req
+        if "number" in req:
             return req
         if isinstance(self.members, int):
             if req["type"] == "pf":
