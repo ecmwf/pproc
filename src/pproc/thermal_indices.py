@@ -55,6 +55,8 @@ def load_input(source: str, config: ThermoConfig, step: int):
                 req.setdefault(
                     "number", range(config.members.start, config.members.end + 1)
                 )
+
+        logger.debug(f"Retrieve: {req} from source {src_config}")
         if src == "fdb":
             ds = earthkit.data.from_source("fdb", req, stream=True, read_all=True)
         elif src == "fileset":
@@ -92,6 +94,7 @@ def process_step(
         inst_fields.values, inst_fields.metadata()
     )
     if len(accum["step"].coords) > 1:
+        logger.debug(f"Write out accum fields to target {config.outputs.accum}")
         # Set step range for de-accumulated fields
         step_range = "-".join(map(str, accum["step"].coords))
         accum_fields = earthkit.data.FieldList.from_array(
@@ -111,7 +114,7 @@ def process_step(
         + f"basetime {basetime.date().isoformat()}, time {time}"
     )
     logger.debug(f"Inputs \n {fields.ls(namespace='mars')}")
-    indices = ComputeIndices(config.outputs.default.metadata)
+    indices = ComputeIndices(config.outputs.indices.metadata)
     params = fields.indices()["param"]
 
     if (not isinstance(config.outputs.intermediate.target, NullTarget)) and len(
