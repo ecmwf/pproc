@@ -110,9 +110,7 @@ def process_step(
         f"Compute indices step {step}, validtime {validtime.isoformat()} - "
         + f"basetime {basetime.date().isoformat()}, time {time}"
     )
-    logger.info(
-        f"Inputs \n {fields.ls(namespace='mars')}, accum {len(accum['step'].coords)}"
-    )
+    logger.debug(f"Inputs \n {fields.ls(namespace='mars')}")
     indices = ComputeIndices(config.outputs.default.metadata)
     params = fields.indices()["param"]
 
