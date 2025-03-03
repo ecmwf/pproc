@@ -329,6 +329,20 @@ class ThermoConfig(BaseConfig):
     validateutci: bool = False
     utci_misses: bool = False
 
+    @model_validator(mode="after")
+    def validate_sources(self) -> Self:
+        if self.sources.accum.type == "null":
+            for param in self.parameters:
+                for out_req in param.accumulations["step"].out_mars("step"):
+                    steps = out_req["step"]
+                    if isinstance(steps, (str, int)):
+                        steps = [steps]
+                    nsteps = list(map(lambda x: len(str(x).split("-")), steps))
+                    assert np.all(
+                        np.asarray(nsteps) == 1
+                    ), f"Accumulation source required for step ranges."
+        return self
+
 
 class ConfigFactory:
     types = {

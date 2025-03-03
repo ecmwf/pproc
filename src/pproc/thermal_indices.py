@@ -41,13 +41,13 @@ def load_input(source: str, config: ThermoConfig, step: int):
     if isinstance(reqs, dict):
         reqs = [reqs]
 
-    ret = earthkit.data.FieldList()
+    ret = earthkit.data.from_source("empty")
     for req in reqs:
         if len(req) == 0:
-            return None
+            continue
         req = req.copy()
         req.update(config.sources.overrides)
-        req["step"] = [step]
+        req["step"] = step
         if req["type"] == "pf":
             if isinstance(config.members, int):
                 req.setdefault("number", range(1, config.members + 1))
@@ -56,7 +56,8 @@ def load_input(source: str, config: ThermoConfig, step: int):
                     "number", range(config.members.start, config.members.end + 1)
                 )
 
-        logger.debug(f"Retrieve: {req} from source {src_config}")
+        logger.debug(f"Retrieve step {step}: source {src_config}")
+        ds = None
         if src == "fdb":
             ds = earthkit.data.from_source("fdb", req, stream=True, read_all=True)
         elif src == "fileset":
@@ -69,7 +70,7 @@ def load_input(source: str, config: ThermoConfig, step: int):
             raise ValueError(f"Unknown source {source}")
 
         if len(ds) == 0:
-            raise ValueError(f"No data found for request {req} from source {source}")
+            raise ValueError(f"No data found from source {source} for step {step}")
 
         ret += earthkit.data.FieldList.from_array(ds.values, ds.metadata())
     return ret
@@ -85,24 +86,10 @@ def process_step(
     param: ThermoParamConfig,
     step: int,
     window_id: str,
-    accum_metadata: list,
+    fields: earthkit.data.FieldList,
     accum: Accumulator,
     recovery: Recovery,
 ):
-    inst_fields = load_input("inst", config, step)
-    fields = earthkit.data.FieldList.from_array(
-        inst_fields.values, inst_fields.metadata()
-    )
-    if len(accum["step"].coords) > 1:
-        logger.debug(f"Write out accum fields to target {config.outputs.accum}")
-        # Set step range for de-accumulated fields
-        step_range = "-".join(map(str, accum["step"].coords))
-        accum_fields = earthkit.data.FieldList.from_array(
-            accum.values,
-            [x.override(stepType="diff", stepRange=step_range) for x in accum_metadata],
-        )
-        helpers.write(config.outputs.accum, accum_fields)
-        fields += accum_fields
 
     helpers.check_field_sizes(fields)
     basetime, validtime = helpers.get_datetime(fields)
@@ -218,38 +205,56 @@ def main():
         f"Parallel processes: {cfg.parallelisation.n_par_compute}, queue size: {cfg.parallelisation.queue_size}"
     )
 
-    for param in cfg.parameters:
-        window_manager = WindowManager(
-            param.accumulations, {**cfg.outputs.default.metadata, **param.metadata}
-        )
-        checkpointed_windows = [
-            x["window"] for x in recovery.computed(param=param.name)
-        ]
-        new_start = window_manager.delete_windows(checkpointed_windows)
-        if new_start is None:
-            logger.info(f"Recovery: skipping completed param {param.name}")
-            continue
+    with create_executor(cfg.parallelisation) as executor:
+        for param in cfg.parameters:
+            window_manager = WindowManager(
+                param.accumulations, {**cfg.outputs.default.metadata, **param.metadata}
+            )
+            checkpointed_windows = [
+                x["window"] for x in recovery.computed(param=param.name)
+            ]
+            new_start = window_manager.delete_windows(checkpointed_windows)
+            if new_start is None:
+                logger.info(f"Recovery: skipping completed param {param.name}")
+                continue
 
-        logger.debug(f"Recovery: param {param.name} starting from step {new_start}")
+            logger.debug(f"Recovery: param {param.name} starting from step {new_start}")
 
-        thermo_partial = functools.partial(process_step, cfg, param, recovery=recovery)
-        with create_executor(cfg.parallelisation) as executor:
+            thermo_partial = functools.partial(
+                process_step, cfg, param, recovery=recovery
+            )
             for step in window_manager.dims["step"]:
                 accum_data = load_input("accum", cfg, step)
                 completed_windows = window_manager.update_windows(
-                    {"step": step}, [] if accum_data is None else accum_data.values
+                    {"step": step},
+                    np.empty((1,)) if len(accum_data) == 0 else accum_data.values,
                 )
                 for window_id, accum in completed_windows:
-
+                    fields = load_input("inst", cfg, step)
+                    if len(accum["step"].coords) > 1:
+                        logger.debug(
+                            f"Write out accum fields to target {cfg.outputs.accum}"
+                        )
+                        # Set step range for de-accumulated fields
+                        step_range = "-".join(map(str, accum["step"].coords))
+                        accum_fields = earthkit.data.FieldList.from_array(
+                            accum.values,
+                            [
+                                x.override(stepType="diff", stepRange=step_range)
+                                for x in accum_data.metadata()
+                            ],
+                        )
+                        helpers.write(cfg.outputs.accum, accum_fields)
+                        fields += accum_fields
                     executor.submit(
                         thermo_partial,
                         step,
                         window_id,
-                        [] if accum_data is None else accum_data.metadata(),
+                        fields,
                         accum,
                     )
 
-        executor.wait()
+            executor.wait()
     recovery.clean_file()
 
 

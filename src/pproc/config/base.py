@@ -11,7 +11,7 @@ from typing_extensions import Self
 from pproc.config import io
 from pproc.config.log import LoggingConfig
 from pproc.config.param import ParamConfig
-from pproc.config.utils import deep_update, extract_mars, expand
+from pproc.config.utils import deep_update, extract_mars, _get, _set
 
 
 class Members(ConfigModel):
@@ -22,7 +22,14 @@ class Members(ConfigModel):
 class Parallelisation(ConfigModel):
     n_par_read: int = 1
     n_par_compute: int = 1
-    queue_size: int = 1
+    queue_size: int
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_queue(cls, data: Any) -> Any:
+        if not _get(data, "queue_size", None):
+            _set(data, "queue_size", _get(data, "n_par_compute", 1))
+        return data
 
 
 class Recovery(ConfigModel):

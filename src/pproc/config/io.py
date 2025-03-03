@@ -100,7 +100,8 @@ class Output(ConfigModel):
 
 
 class OutputsCollection(ConfigModel):
-    names: ClassVar[Union[list[str], dict[str, dict]]]
+    names: ClassVar[list[str]]
+    metadata_defaults: ClassVar[dict[str, dict]]
     default: Output = Output()
     overrides: Annotated[
         dict,
@@ -122,7 +123,7 @@ class OutputsCollection(ConfigModel):
         for sub in cls.names:
             subsec = data.get(sub, {})
             # Insert default metadata for each output type
-            def_metadata = cls.names[sub] if isinstance(cls.names, dict) else {}
+            def_metadata = cls.metadata_defaults.get(sub, {})
             metadata = {
                 **def_metadata,
                 **utils._get(defaults, "metadata", {}),
@@ -136,17 +137,16 @@ class OutputsCollection(ConfigModel):
         return data
 
 
-def create_source_model(name: str, sources: list[str], **kwargs):
+def create_source_model(
+    name: str, sources: list[str], optional: list[str] = [], **kwargs
+):
+    field_definitions = {source: (Source, ...) for source in sources}
+    for source in optional:
+        field_definitions[source] = (Source, Source(type="null"))
     return create_model(
         f"{name}SourceModel",
-        names=(ClassVar[list[str]], sources),
-        **{
-            source: (
-                Source,
-                ...,
-            )
-            for source in sources
-        },
+        names=(ClassVar[list[str]], sources + optional),
+        **field_definitions,
         __base__=SourceCollection,
         **kwargs,
     )
@@ -162,9 +162,14 @@ def create_output_model(
         )
         for output in outputs
     }
+    names = outputs if isinstance(outputs, list) else list(outputs.keys())
     return create_model(
         f"{name}OutputModel",
-        names=(ClassVar[Union[list[str], dict[str, dict]]], outputs),
+        names=(ClassVar[list[str]], names),
+        metadata_defaults=(
+            ClassVar[dict[str, dict]],
+            outputs if isinstance(outputs, dict) else {},
+        ),
         **field_definitions,
         __base__=OutputsCollection,
         **kwargs,
@@ -195,5 +200,5 @@ WindOutputModel = create_output_model(
     "Wind",
     {"mean": {"type": "em"}, "std": {"type": "es"}, "ws": {}},
 )
-ThermoSourceModel = create_source_model("Thermo", ["accum", "inst"])
+ThermoSourceModel = create_source_model("Thermo", ["inst"], optional=["accum"])
 ThermoOutputModel = create_output_model("Thermo", ["indices", "accum", "intermediate"])
