@@ -29,7 +29,7 @@ class Recovery(ConfigModel):
     enable_checkpointing: bool = True
     from_checkpoint: Annotated[
         bool,
-        CLIArg("--recover", action="store_true", default=False),
+        CLIArg("--recover", action="store_true", default=None),
         Field(description="Recover from checkpoint"),
     ] = False
     root_dir: Optional[str] = None

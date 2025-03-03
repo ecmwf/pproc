@@ -52,14 +52,36 @@ base_config = {
             {"class": "ai", "type": "x"},
         ],
         [["--log", "ERROR"], "log.level", "ERROR"],
+        [["--recover"], "recovery.from_checkpoint", True],
     ],
-    ids=["override-input", "override-output", "log-level"],
+    ids=["override-input", "override-output", "log-level", "recovery"],
 )
 def test_cli_overrides(config, cli_args, attr, expected):
     with patch("sys.argv", ["", "-f", config] + cli_args):
         cfg = Conflator(app_name="test", model=BaseConfig).load()
         field, cli = attr.split(".")
         assert getattr(getattr(cfg, field), cli) == expected
+
+
+@pytest.mark.parametrize(
+    "overrides, checkpointing, from_checkpoint",
+    [
+        [{}, True, False],
+        [{"recovery": {"from_checkpoint": True}}, True, True],
+        [{"recovery": {"enable_checkpointing": False}}, False, False],
+    ],
+)
+def test_recovery(config, overrides, checkpointing, from_checkpoint):
+    if len(overrides) > 0:
+        with open(config, "r") as f:
+            cfg = yaml.safe_load(f)
+            cfg.update(overrides)
+        with open(config, "w") as f:
+            f.write(yaml.dump(cfg))
+    with patch("sys.argv", ["", "-f", config]):
+        cfg = Conflator(app_name="test", model=BaseConfig).load()
+    assert cfg.recovery.enable_checkpointing == checkpointing
+    assert cfg.recovery.from_checkpoint == from_checkpoint
 
 
 @pytest.mark.parametrize(
