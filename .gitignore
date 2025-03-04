@@ -35,5 +35,3 @@ profile_default/
 ipython_config.py
 
 tests/data
-env
-venv
