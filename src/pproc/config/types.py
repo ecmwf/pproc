@@ -163,7 +163,7 @@ class SigniConfig(BaseConfig):
     parameters: list[SigniParamConfig]
     use_clim_anomaly: Annotated[
         bool,
-        CLIArg("--use-clim-anomaly", action="store_true", default=False),
+        CLIArg("--use-clim-anomaly", action="store_true", default=None),
         Field(description="Use anomaly of climatology in significance computation"),
     ] = False
 
