@@ -248,6 +248,7 @@ class Schema:
                     steps = list(map(int, steps))
                 except ValueError:
                     return overrides
+                steps.sort()
                 diff = np.diff(steps)
                 assert np.all(diff == diff[0]), "Step intervals must be equal"
                 set_steps = {
