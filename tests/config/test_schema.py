@@ -25,6 +25,32 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
             },
             {
                 "entrypoint": "pproc-accumulate",
+                "defs": {
+                    "interp_keys": {
+                        "intgrid": "none",
+                        "legendre-loader": "shmem",
+                        "matrix-loader": "file-io",
+                    },
+                    "step_by": 6,
+                    "steps": [
+                        {
+                            "by": 1,
+                            "from": 0,
+                            "to": 90,
+                        },
+                        {
+                            "by": 3,
+                            "from": 90,
+                            "to": 144,
+                        },
+                        {
+                            "by": 6,
+                            "from": 144,
+                            "to": 360,
+                        },
+                    ],
+                },
+                "dtype": "float64",
                 "request": [
                     {
                         "class": "od",
@@ -37,6 +63,7 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
                         "date": "20241001",
                         "time": "0",
                         "type": "cf",
+                        "step": "12-744",
                     },
                     {
                         "class": "od",
@@ -49,6 +76,7 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
                         "date": "20241001",
                         "time": "0",
                         "type": "pf",
+                        "step": "12-744",
                     },
                 ],
                 "members": 50,
@@ -58,13 +86,6 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
                         "type": "legacywindow",
                         "operation": "mean",
                         "grib_keys": {"type": "fcmean"},
-                        "coords": [
-                            {
-                                "from": "12",
-                                "to": "744",
-                                "by": "6",
-                            }
-                        ],
                     }
                 },
             },
@@ -72,7 +93,7 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
         [
             {
                 "class": "od",
-                "stream": "enfo",
+                "stream": "eefo",
                 "expver": "0001",
                 "levtype": "sfc",
                 "domain": "g",
@@ -84,24 +105,33 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
             },
             {
                 "entrypoint": "pproc-accumulate",
+                "defs": {
+                    "interp_keys": {
+                        "intgrid": "none",
+                        "legendre-loader": "shmem",
+                        "matrix-loader": "file-io",
+                    },
+                    "step_by": 24,
+                    "steps": [
+                        {
+                            "by": 6,
+                            "from": 0,
+                            "to": 1104,
+                        },
+                    ],
+                },
+                "dtype": "float64",
                 "accumulations": {
                     "step": {
                         "type": "legacywindow",
                         "operation": "mean",
                         "deaccumulate": True,
-                        "include_start_step": True,
+                        "include_start": True,
                         "grib_keys": {"type": "fcmean"},
-                        "coords": [
-                            {
-                                "from": "12",
-                                "to": "744",
-                                "by": "24",
-                            }
-                        ],
                     }
                 },
-                "members": 50,
-                "total_fields": 51,
+                "members": 100,
+                "total_fields": 101,
                 "vmin": 0.0,
                 "preprocessing": [
                     {
@@ -112,7 +142,7 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
                 "request": [
                     {
                         "class": "od",
-                        "stream": "enfo",
+                        "stream": "eefo",
                         "expver": "0001",
                         "levtype": "sfc",
                         "domain": "g",
@@ -120,10 +150,11 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
                         "date": "20241001",
                         "time": "00",
                         "type": "cf",
+                        "step": "12-744",
                     },
                     {
                         "class": "od",
-                        "stream": "enfo",
+                        "stream": "eefo",
                         "expver": "0001",
                         "levtype": "sfc",
                         "domain": "g",
@@ -131,6 +162,7 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
                         "date": "20241001",
                         "time": "00",
                         "type": "pf",
+                        "step": "12-744",
                     },
                 ],
                 "metadata": {
@@ -155,12 +187,31 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
             },
             {
                 "entrypoint": "pproc-ensms",
-                "accumulations": {
-                    "step": {
-                        "type": "legacywindow",
-                        "coords": [[0], [6], [12]],
+                "defs": {
+                    "interp_keys": {
+                        "intgrid": "none",
+                        "legendre-loader": "shmem",
+                        "matrix-loader": "file-io",
                     },
+                    "steps": [
+                        {
+                            "by": 1,
+                            "from": 0,
+                            "to": 90,
+                        },
+                        {
+                            "by": 3,
+                            "from": 90,
+                            "to": 144,
+                        },
+                        {
+                            "by": 6,
+                            "from": 144,
+                            "to": 360,
+                        },
+                    ],
                 },
+                "dtype": "float64",
                 "members": 50,
                 "total_fields": 51,
                 "request": [
@@ -175,12 +226,8 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
                         "time": "00",
                         "type": "cf",
                         "levelist": [250, 850],
-                        "interpolate": {
-                            "grid": "O640",
-                            "intgrid": "none",
-                            "legendre-loader": "shmem",
-                            "matrix-loader": "file-io",
-                        },
+                        "step": [0, 6, 12],
+                        "interp_grid": "O640",
                     },
                     {
                         "class": "od",
@@ -193,12 +240,8 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
                         "time": "00",
                         "type": "pf",
                         "levelist": [250, 850],
-                        "interpolate": {
-                            "grid": "O640",
-                            "intgrid": "none",
-                            "legendre-loader": "shmem",
-                            "matrix-loader": "file-io",
-                        },
+                        "step": [0, 6, 12],
+                        "interp_grid": "O640",
                     },
                 ],
                 "metadata": {
@@ -317,7 +360,7 @@ def test_schema_from_output(req, config):
                         "type": "legacywindow",
                         "operation": "mean",
                         "deaccumulate": True,
-                        "include_start_step": True,
+                        "include_start": True,
                         "grib_keys": {"type": "fcmean"},
                         "coords": {
                             "type": "monthly",

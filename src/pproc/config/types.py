@@ -15,7 +15,7 @@ from pproc.config import io
 from pproc.config.param import ParamConfig
 from pproc.config.schema import Schema
 from pproc.config.utils import expand, squeeze, _set, _get, update_request
-from pproc.common.stepseq import steprange_to_fcmonth
+from pproc.common.stepseq import steprange_to_fcmonth, fcmonth_to_steprange
 
 logging.getLogger("pproc").setLevel(os.environ.get("PPROC_LOG", "INFO").upper())
 logging.basicConfig(format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -97,6 +97,33 @@ class MonthlyStatsConfig(BaseConfig):
                 steprange_to_fcmonth(date, step_range) for step_range in step_ranges
             ]
             yield {**req, "fcmonth": fcmonths}
+
+    @classmethod
+    def _populate_accumulations(cls, req: dict, schema_config: dict):
+        defs = schema_config["defs"]
+        cfg_stepby = defs.get("step_by", None)
+        super()._populate_accumulations(req, schema_config)
+        if fcmonths := req.pop("fcmonth", None):
+            assert cfg_stepby
+            step_accum = schema_config["accumulations"].setdefault("step", {})
+            step_accum["coords"] = []
+            if isinstance(fcmonths, (int, str)):
+                fcmonths = [fcmonths]
+            for fcmonth in fcmonths:
+                start, end = map(
+                    int,
+                    fcmonth_to_steprange(
+                        datetime.datetime.strptime(str(req["date"]), "%Y%m%d"), fcmonth
+                    ).split("-"),
+                )
+                step_accum["coords"].append(
+                    {"from": start, "to": end, "by": cfg_stepby}
+                )
+            if step_accum.get("type") == "legacywindow":
+                schema_config["accumulations"]["step"] = {
+                    "type": step_accum.pop("type"),
+                    "windows": [step_accum],
+                }
 
 
 class HistParamConfig(ParamConfig):

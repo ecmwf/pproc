@@ -69,9 +69,6 @@ def default_config(param: str):
                         ],
                     }
                 },
-                "accumulations": {
-                    "step": {"type": "legacywindow"},
-                },
             }
         },
     }
@@ -87,46 +84,47 @@ TEST_CASES = {
             },
             "parameters": {
                 "130": {
+                    "dtype": "float64",
                     "accumulations": {
                         "levelist": {"coords": [[250], [500]]},
                         "step": {
                             "type": "legacywindow",
                             "windows": [
                                 {
-                                    "window_operation": "mean",
-                                    "grib_set": {"type": "fcmean"},
-                                    "periods": [
-                                        {"range": [0, 168, 12]},
-                                        {"range": [24, 192, 12]},
+                                    "operation": "mean",
+                                    "grib_keys": {"type": "fcmean"},
+                                    "coords": [
+                                        {"from": 0, "to": 168, "by": 12},
+                                        {"from": 24, "to": 192, "by": 12},
                                     ],
                                 },
                                 {
-                                    "window_operation": "standard_deviation",
-                                    "grib_set": {"type": "fcstdev"},
-                                    "periods": [
-                                        {"range": [0, 168, 12]},
-                                        {"range": [24, 192, 12]},
+                                    "operation": "standard_deviation",
+                                    "grib_keys": {"type": "fcstdev"},
+                                    "coords": [
+                                        {"from": 0, "to": 168, "by": 12},
+                                        {"from": 24, "to": 192, "by": 12},
                                     ],
                                 },
                                 {
-                                    "window_operation": "minimum",
-                                    "grib_set": {"type": "fcmin"},
-                                    "periods": [
-                                        {"range": [0, 168, 12]},
-                                        {"range": [24, 192, 12]},
+                                    "operation": "minimum",
+                                    "grib_keys": {"type": "fcmin"},
+                                    "coords": [
+                                        {"from": 0, "to": 168, "by": 12},
+                                        {"from": 24, "to": 192, "by": 12},
                                     ],
                                 },
                                 {
-                                    "window_operation": "maximum",
-                                    "grib_set": {"type": "fcmax"},
-                                    "periods": [
-                                        {"range": [0, 168, 12]},
-                                        {"range": [24, 192, 12]},
+                                    "operation": "maximum",
+                                    "grib_keys": {"type": "fcmax"},
+                                    "coords": [
+                                        {"from": 0, "to": 168, "by": 12},
+                                        {"from": 24, "to": 192, "by": 12},
                                     ],
                                 },
                             ],
                         },
-                    }
+                    },
                 }
             },
         },
@@ -147,22 +145,11 @@ TEST_CASES = {
             "total_fields": 51,
             "parameters": {
                 "130": {
+                    "dtype": "float64",
                     "metadata": {"bitsPerValue": 16, "perturbationNumber": 0},
                     "accumulations": {
                         "levelist": {"coords": [[250], [500]]},
-                        "step": {
-                            "type": "legacywindow",
-                            "windows": [
-                                {
-                                    "window_operation": "none",
-                                    "grib_set": {},
-                                    "periods": [
-                                        {"range": [0, 168, 6]},
-                                        {"range": [24, 192, 6]},
-                                    ],
-                                }
-                            ],
-                        },
+                        "step": {"coords": [[x] for x in range(0, 169, 6)]},
                     },
                 }
             },
@@ -179,6 +166,7 @@ TEST_CASES = {
             "total_fields": 51,
             "parameters": {
                 "228": {
+                    "dtype": "float64",
                     "preprocessing": [
                         {
                             "operation": "scale",
@@ -200,42 +188,43 @@ TEST_CASES = {
                     "metadata": {
                         "paramId": 172228,
                         "stream": "msmm",
+                        "bitsPerValue": 16,
                     },
                     "accumulations": {
                         "step": {
                             "type": "legacywindow",
                             "windows": [
                                 {
-                                    "window_operation": "mean",
-                                    "grib_set": {"type": "fcmean"},
-                                    "include_start_step": True,
+                                    "operation": "mean",
+                                    "grib_keys": {"type": "fcmean"},
+                                    "include_start": True,
                                     "deaccumulate": True,
-                                    "periods": [
-                                        {"range": [0, 744, 24]},
-                                        {"range": [744, 1464, 24]},
-                                        {"range": [1464, 2208, 24]},
+                                    "coords": [
+                                        {"from": 0, "to": 744, "by": 24},
+                                        {"from": 744, "to": 1464, "by": 24},
+                                        {"from": 1464, "to": 2208, "by": 24},
                                     ],
                                 },
                                 {
-                                    "window_operation": "standard_deviation",
-                                    "grib_set": {"type": "fcstdev"},
-                                    "include_start_step": True,
+                                    "operation": "standard_deviation",
+                                    "grib_keys": {"type": "fcstdev"},
+                                    "include_start": True,
                                     "deaccumulate": True,
-                                    "periods": [
-                                        {"range": [0, 744, 24]},
-                                        {"range": [744, 1464, 24]},
-                                        {"range": [1464, 2208, 24]},
+                                    "coords": [
+                                        {"from": 0, "to": 744, "by": 24},
+                                        {"from": 744, "to": 1464, "by": 24},
+                                        {"from": 1464, "to": 2208, "by": 24},
                                     ],
                                 },
                                 {
-                                    "window_operation": "maximum",
-                                    "grib_set": {"type": "fcmax"},
-                                    "include_start_step": True,
+                                    "operation": "maximum",
+                                    "grib_keys": {"type": "fcmax"},
+                                    "include_start": True,
                                     "deaccumulate": True,
-                                    "periods": [
-                                        {"range": [0, 744, 24]},
-                                        {"range": [744, 1464, 24]},
-                                        {"range": [1464, 2208, 24]},
+                                    "coords": [
+                                        {"from": 0, "to": 744, "by": 24},
+                                        {"from": 744, "to": 1464, "by": 24},
+                                        {"from": 1464, "to": 2208, "by": 24},
                                     ],
                                 },
                             ],
@@ -262,46 +251,47 @@ TEST_CASES = {
             "parallelisation": {"n_par_compute": 2},
             "parameters": {
                 "130": {
+                    "dtype": "float64",
                     "accumulations": {
                         "levelist": {"coords": [[250], [500]]},
                         "step": {
                             "type": "legacywindow",
                             "windows": [
                                 {
-                                    "window_operation": "mean",
-                                    "grib_set": {"type": "fcmean"},
-                                    "periods": [
-                                        {"range": [0, 168, 12]},
-                                        {"range": [24, 192, 12]},
+                                    "operation": "mean",
+                                    "grib_keys": {"type": "fcmean"},
+                                    "coords": [
+                                        {"from": 0, "to": 168, "by": 12},
+                                        {"from": 24, "to": 192, "by": 12},
                                     ],
                                 },
                                 {
-                                    "window_operation": "standard_deviation",
-                                    "grib_set": {"type": "fcstdev"},
-                                    "periods": [
-                                        {"range": [0, 168, 12]},
-                                        {"range": [24, 192, 12]},
+                                    "operation": "standard_deviation",
+                                    "grib_keys": {"type": "fcstdev"},
+                                    "coords": [
+                                        {"from": 0, "to": 168, "by": 12},
+                                        {"from": 24, "to": 192, "by": 12},
                                     ],
                                 },
                                 {
-                                    "window_operation": "minimum",
-                                    "grib_set": {"type": "fcmin"},
-                                    "periods": [
-                                        {"range": [0, 168, 12]},
-                                        {"range": [24, 192, 12]},
+                                    "operation": "minimum",
+                                    "grib_keys": {"type": "fcmin"},
+                                    "coords": [
+                                        {"from": 0, "to": 168, "by": 12},
+                                        {"from": 24, "to": 192, "by": 12},
                                     ],
                                 },
                                 {
-                                    "window_operation": "maximum",
-                                    "grib_set": {"type": "fcmax"},
-                                    "periods": [
-                                        {"range": [0, 168, 12]},
-                                        {"range": [24, 192, 12]},
+                                    "operation": "maximum",
+                                    "grib_keys": {"type": "fcmax"},
+                                    "coords": [
+                                        {"from": 0, "to": 168, "by": 12},
+                                        {"from": 24, "to": 192, "by": 12},
                                     ],
                                 },
                             ],
                         },
-                    }
+                    },
                 }
             },
         },
@@ -325,7 +315,7 @@ TEST_CASES = {
             {
                 **DEFAULT_REQUEST,
                 "levelist": [250, 500],
-                "step": ["0-168", "24-192"],
+                "step": list(range(0, 169, 6)),
                 "type": "em",
             },
             "130",

@@ -2,6 +2,7 @@ from typing import Any, Iterator, Optional
 import yaml
 import itertools
 import numpy as np
+import copy
 
 from annotated_types import Annotated
 from conflator import CLIArg, ConfigModel
@@ -161,59 +162,76 @@ class BaseConfig(ConfigModel):
 
     @classmethod
     def from_schema_config(cls, schema_config: dict, **overrides) -> Self:
-        reqs = schema_config.pop("request")
-        if not isinstance(reqs, list):
-            reqs = [reqs]
-        accum = schema_config.setdefault("accumulations", {})
-        for req in reqs:
-            if levelist := req.pop("levelist", None):
-                levelist = [levelist] if np.ndim(levelist) == 0 else levelist
-                accum.setdefault(
-                    "levelist", {"coords": [[level] for level in levelist]}
-                )
-        if accum["step"].get("type", None) == "legacywindow":
-            window_config = accum.pop("step")
-            coords = window_config.pop("coords")
-            if isinstance(coords, list):
-                coords = [
-                    (
-                        {"range": [int(x["from"]), int(x["to"]), int(x["by"])]}
-                        if isinstance(x, dict)
-                        else {"range": [int(x[0]), int(x[0])]}
-                    )
-                    for x in coords
-                ]
-            accum["step"] = {
-                "type": window_config.pop("type"),
-                "windows": [
-                    {
-                        "window_operation": window_config.pop("operation", "none"),
-                        "grib_set": window_config.pop("grib_keys", {}),
-                        "periods": coords,
-                        **window_config,
-                    }
-                ],
-            }
-        for dim in accum.keys():
-            [req.pop(dim, None) for req in reqs]
-        parallelisation = schema_config.pop("parallelisation", None)
+        schema_config = copy.deepcopy(schema_config)
         config = {
             "members": schema_config.pop("members"),
             "total_fields": schema_config.pop("total_fields", 0),
-            "sources": {"fc": {"type": "fdb"}},
+            "sources": {"default": {"type": "fdb"}},
             "outputs": {"default": {"target": {"type": "fdb"}}},
-            "parameters": {
-                schema_config.get("name", str(reqs[0]["param"])): {
-                    "sources": {"fc": {"request": reqs if len(reqs) > 1 else reqs[0]}},
-                    "metadata": schema_config.pop("metadata", {}),
-                    **schema_config,
-                }
-            },
+            "parameters": cls._construct_params(schema_config),
         }
-        if parallelisation:
-            config["parallelisation"] = parallelisation
         deep_update(config, overrides)
         return cls(**config)
+
+    @classmethod
+    def _populate_accumulations(cls, req: dict, schema_config: dict):
+        defs = schema_config["defs"]
+        cfg_steps = sum(
+            [list(range(x["from"], x["to"] + 1, x["by"])) for x in defs["steps"]], []
+        )
+        cfg_stepby = defs.get("step_by", None)
+        accums = schema_config.setdefault("accumulations", {})
+        if levelist := req.get("levelist", None):
+            levelist = [levelist] if np.ndim(levelist) == 0 else levelist
+            accums.setdefault("levelist", {"coords": [[level] for level in levelist]})
+
+        if steps := req.pop("step", None):
+            step_accum = accums.setdefault("step", {})
+            step_accum["coords"] = []
+            if isinstance(steps, (int, str)):
+                steps = [steps]
+            for step in steps:
+                try:
+                    step = int(step)
+                    step_accum["coords"].append([step])
+                except ValueError:
+                    start, end = map(int, step.split("-"))
+                    step_accum["coords"].append(
+                        {"from": start, "to": end, "by": cfg_stepby}
+                        if cfg_stepby
+                        else cfg_steps[
+                            cfg_steps.index(start) : cfg_steps.index(end) + 1
+                        ]
+                    )
+
+            if step_accum.get("type") == "legacywindow":
+                accums["step"] = {
+                    "type": step_accum.pop("type"),
+                    "windows": [step_accum],
+                }
+
+    @classmethod
+    def _construct_params(cls, schema_config: dict) -> dict:
+        reqs = schema_config.pop("request")
+        if not isinstance(reqs, list):
+            reqs = [reqs]
+        for req in reqs:
+            if grid := req.pop("interp_grid", None):
+                req["interpolate"] = {
+                    "grid": grid,
+                    **schema_config["defs"].get("interp_keys", {}),
+                }
+
+        cls._populate_accumulations(reqs[0], schema_config)
+        for dim in schema_config["accumulations"].keys():
+            [req.pop(dim, None) for req in reqs]
+        return {
+            schema_config.get("name", str(reqs[0]["param"])): {
+                "sources": {"fc": {"request": reqs if len(reqs) > 1 else reqs[0]}},
+                "metadata": schema_config.pop("metadata", {}),
+                **schema_config,
+            }
+        }
 
     def in_mars(self, sources: Optional[list[str]] = None) -> Iterator:
         seen = set()

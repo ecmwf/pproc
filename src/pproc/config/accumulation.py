@@ -11,38 +11,6 @@ from pproc.common.window import legacy_window_factory
 from pproc.config.utils import extract_mars
 
 
-class LegacyStepConfig(BaseModel):
-    start_step: int
-    end_step: int
-    interval: int
-    range: Optional[int] = None
-
-    def values(self) -> list:
-        if self.range is None:
-            return list(range(self.start_step, self.end_step + 1, self.interval))
-        return [
-            f"{start}-{start + self.range - 1}"
-            for start in range(
-                self.start_step, self.end_step - self.range + 1, self.interval
-            )
-        ]
-
-
-class LegacyPeriodConfig(BaseModel):
-    range: Union[list[int], str]
-
-    def values(self) -> Iterator:
-        by = self.range[2] if len(self.range) == 3 else 1
-        return range(self.range[0], self.range[1] + 1, by)
-
-    def name(self) -> str:
-        return (
-            f"{self.range[0]}-{self.range[1]}"
-            if len(self.range) > 1 and self.range[1] != self.range[0]
-            else str(self.range[0])
-        )
-
-
 class StepRanges(BaseModel):
     type_: Literal["ranges"] = Field("ranges", alias="type")
     to: int
@@ -59,16 +27,6 @@ class StepRanges(BaseModel):
             )
         ]
 
-    def periods(self) -> list[LegacyPeriodConfig]:
-        return [
-            LegacyPeriodConfig(range=[x[0], x[0]])
-            if len(x) == 1
-            else LegacyPeriodConfig(range=[x[0], x[-1], x[1] - x[0]])
-            for x in stepseq_ranges(
-                self.from_, self.to, self.width, self.interval, self.by
-            )
-        ]
-
 
 class StepMonthly(BaseModel):
     type_: Literal["monthly"] = Field("monthly", alias="type")
@@ -80,46 +38,55 @@ class StepMonthly(BaseModel):
     def coords(self) -> list[list[int]]:
         return [x for x in stepseq_monthly(self.date, self.from_, self.to, self.by)]
 
-    def periods(self) -> list[LegacyPeriodConfig]:
-        return [
-            LegacyPeriodConfig(range=[x[0], x[-1], x[1] - x[0]])
-            for x in stepseq_monthly(self.date, self.from_, self.to, self.by)
-        ]
 
-
-def _to_periods(periods: Any) -> List[LegacyPeriodConfig]:
-    if not isinstance(periods, dict):
-        return periods
-    if periods["type"] == "ranges":
-        return StepRanges(**periods).periods()
-    if periods["type"] == "monthly":
-        return StepMonthly(**periods).periods()
-    raise ValueError(f"Invalid period type {periods['type']!r}")
+def _to_coords(coords: Any) -> list[list[int]]:
+    if not isinstance(coords, dict):
+        return coords
+    if coords["type"] == "ranges":
+        return StepRanges(**coords).coords()
+    if coords["type"] == "monthly":
+        return StepMonthly(**coords).coords()
+    raise ValueError(f"Invalid period type {coords['type']!r}")
 
 
 class LegacyWindowConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
-    window_operation: Optional[str] = None
-    include_start_step: bool = False
+    operation: Optional[str] = None
+    include_start: bool = False
     deaccumulate: bool = False
-    grib_set: dict = {}
-    periods: Annotated[list[LegacyPeriodConfig], BeforeValidator(_to_periods)] = []
+    grib_keys: dict = {}
+    coords: Annotated[
+        list[Union[List[int | str], dict]], BeforeValidator(_to_coords)
+    ] = []
 
     def unique_coords(self):
         coords = set()
-        for period in self.periods:
-            coords.update(
-                period.name()
-                if self.window_operation == "precomputed"
-                else period.values()
-            )
+        for coord in self.coords:
+            if isinstance(coord, list):
+                coords.update(coord)
+            elif isinstance(coord, dict):
+                coords.update(
+                    range(coords.get("from", 0), coords["to"] + 1), coords.get("by", 1)
+                )
         coords = list(coords)
         coords.sort()
         return coords
 
     def out_mars(self, dim: str) -> dict:
-        return {dim: [x.name() for x in self.periods], **extract_mars(self.grib_set)}
+        base = extract_mars(self.grib_keys)
+        if self.operation is not None and dim != "step":
+            return base
+
+        base[dim] = []
+        for coord in self.coords:
+            if isinstance(coord, list):
+                base[dim].append(
+                    coord[0] if len(coord) == 1 else f"{coord[0]}-{coord[-1]}"
+                )
+            elif isinstance(coord, dict):
+                base[dim].append(f"{coord['from']}-{coord['to']}")
+        return base
 
 
 def _to_date(
@@ -236,7 +203,6 @@ class DefaultAccumulation(BaseAccumulation):
                 )
             elif isinstance(coord, dict):
                 base[dim].append(f"{coord['from']}-{coord['to']}")
-        print("BASE", base)
         return [base]
 
 
@@ -308,7 +274,6 @@ class LegacyStepAccumulation(BaseModel):
     type_: Literal["legacywindow"] = Field("legacywindow", alias="type")
     windows: list[LegacyWindowConfig] = []
     std_anomaly_windows: Optional[list[LegacyWindowConfig]] = None
-    steps: Optional[list[LegacyStepConfig]] = None
 
     def make_configs(self, metadata: dict) -> Iterator[Tuple[str, dict]]:
         return legacy_window_factory(
@@ -320,10 +285,6 @@ class LegacyStepAccumulation(BaseModel):
         coords = set()
         for window in self.windows + (self.std_anomaly_windows or []):
             coords.update(window.unique_coords())
-
-        if self.steps:
-            steps = set.union(*(step.values() for step in self.steps))
-            coords = coords.intersection(steps)
 
         coords = list(coords)
         coords.sort()

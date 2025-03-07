@@ -53,7 +53,7 @@ CONFIGS = {
     "factory-legacy": {
         "step": {
             "type": "legacywindow",
-            "windows": [{"periods": [{"range": [24, 24]}, {"range": [48, 48]}]}],
+            "windows": [{"coords": [[24], [48]]}],
         }
     },
     "factory-multidim": {
@@ -61,7 +61,7 @@ CONFIGS = {
         "step": {
             "type": "legacywindow",
             "windows": [
-                {"window_operation": "mean", "periods": [{"range": [0, 24, 6]}]}
+                {"operation": "mean", "coords": [{"from": 0, "to": 24, "by": 6}]}
             ],
         },
     },

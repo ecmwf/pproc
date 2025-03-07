@@ -3,11 +3,6 @@ defs:
     intgrid: "none"
     legendre-loader: "shmem"
     matrix-loader: "file-io"
-  STEP_START: 0
-  STEP_END: 360
-  STEP_BY: 6
-  WIDTH: 6
-  INTERVAL: 6
 
 filter:stream:
   oper: 
@@ -15,6 +10,17 @@ filter:stream:
     request:
       stream: "{stream}"
       type: fc
+    defs:
+      STEPS:
+      - from: 0
+        to: 90
+        by: 1
+      - from: 90
+        to: 144
+        by: 3
+      - from: 144
+        to: 360
+        by: 6 
   enfo/waef:
     members: 50
     total_fields: 51
@@ -23,11 +29,25 @@ filter:stream:
         type: "cf"
       - stream: "{stream}"
         type: "pf"
+    defs:
+      steps:
+      - from: 0
+        to: 90
+        by: 1
+      - from: 90
+        to: 144
+        by: 3
+      - from: 144
+        to: 360
+        by: 6 
   eefo/weef:
     members: 100
     total_fields: 101
     defs:
-      STEP_END: 1104
+      steps:
+      - from: 0
+        to: 1104
+        by: 6
     request: 
       - stream: "{stream}"
         type: "cf"
@@ -39,24 +59,32 @@ filter:stream:
       end: 50
     total_fields: 51
     defs:
-      STEP_END: 5160
+      steps:
+      - from: 0
+        to: 5160
+        by: 6
     request:
       stream: mmsf
       type: "fc"
-    metadata: 
+    metadata:
       stream: "{stream}"
+      bitsPerValue: 16
   swmm:
     members:
       start: 0
       end: 50
     total_fields: 51
     defs:
-      STEP_END: 5160
+      steps:
+      - from: 0
+        to: 5160
+        by: 6
     request:
       stream: wasf
       type: "fc"
-    metadata: 
+    metadata:
       stream: "{stream}"
+      bitsPerValue: 16
 filter:param:
   "*": {}
   "207":
@@ -65,19 +93,206 @@ filter:param:
       param: ["165", "166"]
     preprocessing:
       - operation: norm
-    metadata: 
+    metadata:
       paramId: 207
+  "189/142/143/144/228216/228":
+    accumulation:
+      step:
+        operation: diff
   "228249":
     name: "228249"
     request:
       param: ["228246", "228247"]
     preprocessing: 
-      - operation: norm 
-    metadata: 
+      - operation: norm
+    metadata:
       paramId: 228249
+  "172142":
+    vmin: 0.
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "142"
+    accumulations:
+      step:
+        include_start: True
+        deaccumulate: True
+    metadata:
+      paramId: 172142
+  "172143":
+    vmin: 0.
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "143"
+    accumulations:
+      step:
+        include_start: True
+        deaccumulate: True
+    metadata:
+      paramId: 172143
+  "172144":
+    vmin: 0.
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "144"
+    accumulations:
+      step:
+        include_start: True
+        deaccumulate: True
+    metadata:
+      paramId: 172144
+  "172146":
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "146"
+    accumulations:
+      step:
+        include_start: True
+        deaccumulate: True
+    metadata:
+      paramId: 172146
+  "172147":
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "147"
+    accumulations:
+      step:
+        include_start: True
+        deaccumulate: True
+    metadata:
+      paramId: 172147
+  "172169":
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "169"
+    accumulations:
+      step:
+        include_start: True
+        deaccumulate: True
+    metadata:
+      paramId: 172169
+  "172175": 
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "175"
+    accumulations:
+      step:
+        include_start: True
+        deaccumulate: True
+    metadata:
+      paramId: 172175
+  "172176":
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "176"
+    accumulations:
+      step:
+        include_start: True
+        deaccumulate: True
+    metadata:
+      paramId: 172176
+  "172177":
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "177"
+    accumulations:
+      step:
+        include_start: True
+        deaccumulate: True
+    metadata:
+      paramId: 172177
+  "172178":
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "178"
+    accumulations:
+      step:
+        include_start: True
+        deaccumulate: True
+    metadata:
+      paramId: 172178
+  "172179":
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "179"
+    accumulations:
+      step:
+        include_start: True
+        deaccumulate: True
+    metadata:
+      paramId: 172179
+  "172180":
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "180"
+    accumulations:
+      step:
+        include_start: True
+        deaccumulate: True
+    metadata:
+      paramId: 172180
+  "172181":
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "181"
+    accumulations:
+      step:
+        include_start: True
+        deaccumulate: True
+    metadata:
+      paramId: 172181
+  "172182":
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "182"
+    accumulations:
+      step:
+        include_start: True
+        deaccumulate: True
+    metadata:
+      paramId: 172182
+  "172189":
+    vmin: 0.
+    vmax: 1.
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "189"
+    accumulations:
+      step:
+        include_start: True
+        deaccumulate: True
+    metadata:
+      paramId: 172189
   "172228":
-    defs:
-      STEP_BY: 24
     vmin: 0.
     preprocessing:
       - operation: scale
@@ -86,24 +301,99 @@ filter:param:
       param: "228"
     accumulations:
       step:
-        include_start_step: True
+        include_start: True
         deaccumulate: True
-    metadata: 
-      paramId: 172228 
+    metadata:
+      paramId: 172228
+  "172205":
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "205"
+    accumulations:
+      step:
+        include_start: True
+        deaccumulate: True
+    metadata:
+      paramId: 172205
+  "172008":
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "8"
+    accumulations:
+      step:
+        include_start: True
+        deaccumulate: True
+    metadata:
+      paramId: 172008
+  "172009":
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "9"
+    accumulations:
+      step:
+        include_start: True
+        deaccumulate: True
+    metadata:
+      paramId: 172009
+  "172212":
+    preprocessing:
+      - operation: scale
+        value: 0.00001157407
+    request:
+      param: "212"
+    accumulations:
+      step:
+        include_start: True
+        deaccumulate: True
+    metadata:
+      paramId: 172212
+  "202":
+    request:
+      param: "122"
+    metadata:
+      indicatorOfParameter: 202
+  "201":
+    request:
+      param: "121"
+    metadata:
+      indicatorOfParameter: 201
 filter:type:
+  pf/cf: 
+    filter:param:
+      "261001/261014/261015": # utci
+        entrypoint: pproc-thermal-indices
+        request:
+          - param: ["47", "228021", "169", "175", "176", "177"]
+          - param: ["165", "166", "167", "168"]
+      "261016/260242/260004": # hmdx/2r/heatx
+        entrypoint: pproc-thermal-indices
+        request:
+          param: ["167", "168"]
+      "260005": # wcf
+        entrypoint: pproc-thermal-indices
+        request:
+          param: ["165", "166", "167"]
+      "261018/260255": # nefft/aptmp
+        entrypoint: pproc-thermal-indices
+        request:
+          param: ["165", "166", "167", "168"]
+      "261002": # mrt
+        entrypoint: pproc-thermal-indices
+        request:
+          accum:
+            param: ["47", "228021", "169", "175", "176", "177"]
   em/es:
     entrypoint: pproc-ensms
+    dtype: float64
     metadata: 
       perturbationNumber: 0
       bitsPerValue: 16
-    accumulations:
-      step:
-        type: legacywindow
-        coords:
-          type: ranges 
-          from: "{STEP_START}" 
-          to: "{STEP_END}" 
-          interval: "{INTERVAL}"
     filter:param:
       "*": {}
       "200228":
@@ -112,13 +402,11 @@ filter:type:
         accumulations:
           step:
             operation: diff
-            coords:
-              width: "{WIDTH}"
-              by: "{STEP_BY}"
         metadata:
           stepType: diff
           paramId: 200228 
   fcmean:
+    dtype: float64
     filter:stream:
       "*": 
         entrypoint: pproc-accumulate
@@ -128,13 +416,32 @@ filter:type:
             operation: mean
             grib_keys:
               type: fcmean
-            coords:
-              type: ranges 
-              from: "{STEP_START}" 
-              to: "{STEP_END}" 
-              interval: 24 
-              width: 168
-              by: "{STEP_BY}"
+        filter:param:
+          "*": 
+            defs:
+              step_by: 6
+          172142/172143/172144/172146/172147/172169/172175/172176/172177/172178/172179/172180/172181/172182/172189/172228/172205/172008/172009/172212:
+            defs:
+              step_by: 24
+          40/41/42/170/140229/140231/140232/140233/140245:
+            defs:
+              step_by: 24
+            request:
+              param: "{param}"
+          130/129/138/155/131/132/133/1/2/60/3:
+            defs:
+              step_by: 12
+            request:
+              param: "{param}"
+          "235117":
+            request:
+              param: "59"
+            metadata:
+              discipline: 0
+              parameterCategory: 7
+              parameterNumber: 6
+              typeOfFirstFixedSurface: 17
+              typeOfStatisticalProcessing: 0
       msmm/swmm:
         entrypoint: pproc-monthly-stats
         accumulations:
@@ -143,34 +450,25 @@ filter:type:
             operation: mean
             grib_keys:
               type: fcmean
-            coords: 
-              type: monthly
-              date: "{date}"
-              from: "{STEP_START}" 
-              to: "{STEP_END}"
-              by: "{STEP_BY}"
-    filter:param:
-      "*": {}
-      40/41/42/170/140229/140231/140232/140233/140245:
-        defs:
-          STEP_BY: 24
-        request:
-          param: "{param}"
-      130/129/138/155/131/132/133/1/2/60/3:
-        defs:
-          STEP_BY: 12
-        request:
-          param: "{param}"
-      "235117":
-        request:
-          param: "59"
-        metadata:
-          discipline: 0
-          parameterCategory: 7
-          parameterNumber: 6
-          typeOfFirstFixedSurface: 17
-          typeOfStatisticalProcessing: 0
+        filter:param:
+          "*":
+            defs:
+              step_by: 6
+          172142/172143/172144/172146/172147/172169/172175/172176/172177/172178/172179/172180/172181/172182/172189/172228/172205/172008/172009/172212:
+            defs:
+              step_by: 24
+          31/33/39/40/41/42/49/78/79/137/141/170/183/186/51/52/206/236/243/228008/228014/140229/140231/140232/140220/140221/140244/140233/140245:
+            defs:
+              step_by: 24
+            request:
+              param: "{param}"
+          129/130/138/155/133/203:
+            defs:
+              step_by: 12
+            request:
+              param: "{param}"
   fcstdev:
+    dtype: float64
     filter:stream:
       "*": 
         entrypoint: pproc-accumulate
@@ -180,13 +478,32 @@ filter:type:
             operation: standard_deviation
             grib_keys:
               type: fcstdev
-            coords:
-              type: ranges 
-              from: "{STEP_START}" 
-              to: "{STEP_END}" 
-              interval: 24 
-              width: 168
-              by: "{STEP_BY}"
+        filter:param:
+          "*":             
+            defs:
+              step_by: 6
+          172142/172143/172144/172146/172147/172169/172175/172176/172177/172178/172179/172180/172181/172182/172189/172228/172205/172008/172009/172212:
+            defs:
+              step_by: 24
+          40/41/42/170/140229/140231/140232/140233/140245:
+            defs:
+              step_by: 24
+            request:
+              param: "{param}"
+          130/129/138/155/131/132/133/1/2/60/3:
+            defs:
+              step_by: 12
+            request:
+              param: "{param}"
+          "239117":
+            request:
+              param: "59"
+            metadata:
+              discipline: 0
+              parameterCategory: 7
+              parameterNumber: 6
+              typeOfFirstFixedSurface: 17
+              typeOfStatisticalProcessing: 6
       msmm/swmm:
         entrypoint: pproc-monthly-stats
         accumulations:
@@ -195,34 +512,25 @@ filter:type:
             operation: standard_deviation
             grib_keys:
               type: fcstdev
-            coords: 
-              type: monthly
-              date: "{date}"
-              from: "{STEP_START}" 
-              to: "{STEP_END}"
-              by: "{STEP_BY}"
-    filter:param:
-      "*": {}
-      40/41/42/170/140229/140231/140232/140233/140245:
-        defs:
-          STEP_BY: 24
-        request:
-          param: "{param}"
-      130/129/138/155/131/132/133/1/2/60/3:
-        defs:
-          STEP_BY: 12
-        request:
-          param: "{param}"
-      "239117":
-        request:
-          param: "59"
-        metadata:
-          discipline: 0
-          parameterCategory: 7
-          parameterNumber: 6
-          typeOfFirstFixedSurface: 17
-          typeOfStatisticalProcessing: 6
+        filter:param:
+          "*":              
+            defs:
+              step_by: 6
+          172142/172143/172144/172146/172147/172169/172175/172176/172177/172178/172179/172180/172181/172182/172189/172228/172205/172008/172009/172212:
+            defs:
+              step_by: 24
+          31/33/39/40/41/42/49/78/79/137/141/170/183/186/51/52/206/236/243/228008/228014/140229/140231/140232/140220/140221/140244/140233/140245:
+            defs:
+              step_by: 24
+            request:
+              param: "{param}"
+          129/130/138/155/133/203:
+            defs:
+              step_by: 12
+            request:
+              param: "{param}"
   fcmin:
+    dtype: float64
     filter:stream:
       "*": 
         entrypoint: pproc-accumulate
@@ -232,13 +540,52 @@ filter:type:
             operation: minimum
             grib_keys:
               type: fcmin
-            coords:
-              type: ranges 
-              from: "{STEP_START}" 
-              to: "{STEP_END}" 
-              interval: 24 
-              width: 168
-              by: "{STEP_BY}"
+        filter:param:
+          "*":              
+            defs:
+              step_by: 6
+          "172142":
+            request:
+              param: "142"
+            from_inputs:
+              exclude: True
+          "172143":
+            request:
+              param: "143"
+            from_inputs:
+              exclude: True
+          "172144":
+            request:
+              param: "144"
+            from_inputs:
+              exclude: True
+          "172228":
+            request:
+              param: "228"
+            from_inputs:
+              exclude: True
+          172146/172147/172169/172175/172176/172177/172178/172179/172180/172181/172182/172189/172205/172008/172009/172212:
+            defs:
+              step_by: 24
+          40/41/42/170/140229/140231/140232/140233/140245:
+            defs:
+              step_by: 24
+            request:
+              param: "{param}"
+          130/129/138/155/131/132/133/1/2/60/3:
+            defs:
+              step_by: 12
+            request:
+              param: "{param}"
+          "238117":
+            request:
+              param: "59"
+            metadata:
+              discipline: 0
+              parameterCategory: 7
+              parameterNumber: 6
+              typeOfFirstFixedSurface: 17
+              typeOfStatisticalProcessing: 3
       msmm/swmm:
         entrypoint: pproc-monthly-stats
         accumulations:
@@ -247,54 +594,45 @@ filter:type:
             operation: minimum
             grib_keys:
               type: fcmin
-            coords: 
-              type: monthly
-              date: "{date}"
-              from: "{STEP_START}" 
-              to: "{STEP_END}"
-              by: "{STEP_BY}"
-    filter:param:
-      "*": {}
-      "172142":
-        request:
-          param: "142"
-        from_inputs:
-          exclude: True
-      "172143":
-        request:
-          param: "143"
-        from_inputs:
-          exclude: True
-      "172144":
-        request:
-          param: "144"
-        from_inputs:
-          exclude: True
-      "172228":
-        request:
-          param: "228"
-        from_inputs:
-          exclude: True
-      40/41/42/170/140229/140231/140232/140233/140245:
-        defs:
-          STEP_BY: 24
-        request:
-          param: "{param}"
-      130/129/138/155/131/132/133/1/2/60/3:
-        defs:
-          STEP_BY: 12
-        request:
-          param: "{param}"
-      "239117":
-        request:
-          param: "59"
-        metadata:
-          discipline: 0
-          parameterCategory: 7
-          parameterNumber: 6
-          typeOfFirstFixedSurface: 17
-          typeOfStatisticalProcessing: 3
+        filter:param:
+          "*":              
+            defs:
+              step_by: 6
+          "172142":
+            request:
+              param: "142"
+            from_inputs:
+              exclude: True
+          "172143":
+            request:
+              param: "143"
+            from_inputs:
+              exclude: True
+          "172144":
+            request:
+              param: "144"
+            from_inputs:
+              exclude: True
+          "172228":
+            request:
+              param: "228"
+            from_inputs:
+              exclude: True
+          172146/172147/172169/172175/172176/172177/172178/172179/172180/172181/172182/172189/172205/172008/172009/172212:
+            defs:
+              step_by: 24
+          31/33/39/40/41/42/49/78/79/137/141/170/183/186/51/52/206/236/243/228008/228014/140229/140231/140232/140220/140221/140244/140233/140245:
+            defs:
+              step_by: 24
+            request:
+              param: "{param}"
+          129/130/138/155/133/203:
+            defs:
+              step_by: 12
+            request:
+              param: "{param}"
   fcmax:
+    dtype: float64
     filter:stream:
       "*": 
         entrypoint: pproc-accumulate
@@ -304,13 +642,32 @@ filter:type:
             operation: maximum
             grib_keys:
               type: fcmax
-            coords:
-              type: ranges 
-              from: "{STEP_START}" 
-              to: "{STEP_END}" 
-              interval: 24 
-              width: 168
-              by: "{STEP_BY}"
+        filter:param:
+          "*":              
+            defs:
+              step_by: 6
+          172142/172143/172144/172146/172147/172169/172175/172176/172177/172178/172179/172180/172181/172182/172189/172228/172205/172008/172009/172212:
+            defs:
+              step_by: 24
+          40/41/42/170/140229/140231/140232/140233/140245:
+            defs:
+              step_by: 24
+            request:
+              param: "{param}"
+          130/129/138/155/131/132/133/1/2/60/3:
+            defs:
+              step_by: 12
+            request:
+              param: "{param}"
+          "237117":
+            request:
+              param: "59"
+            metadata:
+              discipline: 0
+              parameterCategory: 7
+              parameterNumber: 6
+              typeOfFirstFixedSurface: 17
+              typeOfStatisticalProcessing: 2
       msmm/swmm:
         entrypoint: pproc-monthly-stats
         accumulations:
@@ -319,30 +676,20 @@ filter:type:
             operation: maximum
             grib_keys:
               type: fcmax
-            coords: 
-              type: monthly
-              date: "{date}"
-              from: "{STEP_START}" 
-              to: "{STEP_END}"
-              by: "{STEP_BY}"
-    filter:param:
-      "*": {}
-      40/41/42/170/140229/140231/140232/140233/140245:
-        defs:
-          STEP_BY: 24
-        request:
-          param: "{param}"
-      130/129/138/155/131/132/133/1/2/60/3:
-        defs:
-          STEP_BY: 12
-        request:
-          param: "{param}"
-      "239117":
-        request:
-          param: "59"
-        metadata:
-          discipline: 0
-          parameterCategory: 7
-          parameterNumber: 6
-          typeOfFirstFixedSurface: 17
-          typeOfStatisticalProcessing: 2
+        filter:param:
+          "*":              
+            defs:
+              step_by: 6
+          172142/172143/172144/172146/172147/172169/172175/172176/172177/172178/172179/172180/172181/172182/172189/172228/172205/172008/172009/172212:
+            defs:
+              step_by: 24
+          31/33/39/40/41/42/49/78/79/137/141/170/183/186/51/52/206/236/243/228008/228014/140229/140231/140232/140220/140221/140244/140233/140245:
+            defs:
+              step_by: 24
+            request:
+              param: "{param}"
+          129/130/138/155/133/203:
+            defs:
+              step_by: 12
+            request:
+              param: "{param}"

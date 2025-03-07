@@ -40,12 +40,16 @@ class Schema:
             )
         return ret
 
-    def combined_params(self) -> Iterator:
-        params = self.schema.get("filter:param", {})
-        for paramId, config in params.items():
-            req_params = config.get("request", {}).get("param", [])
-            if isinstance(req_params, list) and len(req_params) > 1:
-                yield int(paramId), list(map(int, req_params))
+    @classmethod
+    def validate_request(cls, request: dict) -> dict:
+        out = copy.deepcopy(request)
+        if isinstance(out["param"], int):
+            out["param"] = str(out["param"])
+        elif np.ndim(out["param"]) > 0:
+            out["param"] = [str(param) for param in out["param"]]
+        if isinstance(out["type"], list) and len(out["type"]) > 1:
+            raise ValueError("Multiple types in request are not allowed")
+        return out
 
     def _config_from_output(
         cls, sub_schema: dict, output_request: dict, config: Optional[dict] = None
@@ -62,29 +66,54 @@ class Schema:
                 config["request"] = update_request(config.get("request", {}), value)
             else:
                 deep_update(config, {key: value})
+
         return config
 
     def config_from_output(self, output_request: dict) -> dict:
         output_request = self.validate_request(output_request)
-        overrides = self.overrides_from_output(output_request)
-        config = deep_update(
-            self._config_from_output(self.schema, output_request), overrides
-        )
-        defs = config.pop("defs")
-        config.pop("from_inputs", None)
+        config = self._config_from_output(self.schema, output_request)
         reqs = (
             config["request"]
             if isinstance(config["request"], list)
             else [config["request"]]
         )
-        for req in reqs:
-            if grid := req.pop("interp_grid", None):
-                req["interpolate"] = {"grid": grid, **defs["interp_keys"]}
         out = yaml.load(
-            yaml.dump(config).format_map({**defs, **output_request}),
+            yaml.dump(config).format_map({**output_request}),
             Loader=yaml.SafeLoader,
         )
         return out
+
+    def combined_params(self) -> Iterator:
+        params = self.schema.get("filter:param", {})
+        for paramId, config in params.items():
+            req_params = config.get("request", {}).get("param", [])
+            if isinstance(req_params, list) and len(req_params) > 1:
+                yield int(paramId), list(map(int, req_params))
+
+    def valid_configs(
+        cls,
+        configs: List[dict],
+        input_requests: list[dict],
+        **match,
+    ) -> Generator:
+        for config in configs:
+            filled_config = yaml.load(
+                yaml.dump(config).format_map(
+                    {**config["defs"], **input_requests[0], **config["out"]}
+                ),
+                Loader=yaml.SafeLoader,
+            )
+
+            is_match = True
+            for key, value in match.items():
+                if filled_config.get(key, value) != value:
+                    is_match = False
+                    break
+            if not is_match:
+                continue
+
+            if filled_config["request"] == input_requests:
+                yield config
 
     def _config_from_input(
         cls,
@@ -133,42 +162,6 @@ class Schema:
 
         return [cfg for cfg in cls.valid_configs(configs, input_requests, **match)]
 
-    def valid_configs(
-        cls,
-        configs: List[dict],
-        input_requests: list[dict],
-        **match,
-    ) -> Generator:
-        for config in configs:
-            filled_config = yaml.load(
-                yaml.dump(config).format_map(
-                    {**config["defs"], **input_requests[0], **config["out"]}
-                ),
-                Loader=yaml.SafeLoader,
-            )
-
-            is_match = True
-            for key, value in match.items():
-                if filled_config.get(key, value) != value:
-                    is_match = False
-                    break
-            if not is_match:
-                continue
-
-            if filled_config["request"] == input_requests:
-                yield config
-
-    @classmethod
-    def validate_request(cls, request: dict) -> dict:
-        out = copy.deepcopy(request)
-        if isinstance(out["param"], int):
-            out["param"] = str(out["param"])
-        elif np.ndim(out["param"]) > 0:
-            out["param"] = [str(param) for param in out["param"]]
-        if isinstance(out["type"], list) and len(out["type"]) > 1:
-            raise ValueError("Multiple types in request are not allowed")
-        return out
-
     def config_from_input(self, input_requests: list[dict], **match):
         reqs = [self.validate_request(x) for x in input_requests]
         reqs.sort(key=lambda x: x["type"])
@@ -199,34 +192,6 @@ class Schema:
                         **defs["interp_keys"],
                     }
             yield filled_config
-
-    def overrides_from_output(self, output_request: dict) -> dict:
-        overrides = {}
-        if steps := output_request.pop("step", None):
-            overrides["accumulations"] = {"step": {"coords": []}}
-            if isinstance(steps, (int, str)):
-                steps = [steps]
-            for step in steps:
-                try:
-                    step = int(step)
-                    overrides["accumulations"]["step"]["coords"].append([step])
-                except ValueError:
-                    steprange = step.split("-")
-                    overrides["accumulations"]["step"]["coords"].append(
-                        {"from": steprange[0], "to": steprange[1], "by": "{STEP_BY}"}
-                    )
-        elif fcmonths := output_request.pop("fcmonth", None):
-            overrides["accumulations"] = {"step": {"coords": []}}
-            if isinstance(fcmonths, (int, str)):
-                fcmonths = [fcmonths]
-            for fcmonth in fcmonths:
-                start, end = fcmonth_to_steprange(
-                    datetime.strptime(str(output_request["date"]), "%Y%m%d"), fcmonth
-                ).split("-")
-                overrides["accumulations"]["step"]["coords"].append(
-                    {"from": start, "to": end, "by": "{STEP_BY}"}
-                )
-        return overrides
 
     def overrides_from_input(self, reqs: list[dict]) -> dict:
         overrides = {}

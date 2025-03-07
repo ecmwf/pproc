@@ -8,20 +8,7 @@ from pproc.common.window_manager import WindowManager
     "config, expected, exp_coords",
     [
         pytest.param(
-            {
-                "windows": [
-                    {
-                        "periods": [
-                            {"range": [120, 120]},
-                            {"range": [123, 123]},
-                            {"range": [126, 126]},
-                            {"range": [129, 129]},
-                            {"range": [132, 132]},
-                            {"range": [360, 360]},
-                        ]
-                    }
-                ]
-            },
+            {"windows": [{"coords": [[x] for x in [120, 123, 126, 129, 132, 360]]}]},
             {f"{s}_0": Aggregation for s in [120, 123, 126, 129, 132, 360]},
             {120, 123, 126, 129, 132, 360},
             id="simple",
@@ -29,14 +16,7 @@ from pproc.common.window_manager import WindowManager
         pytest.param(
             {
                 "windows": [
-                    {
-                        "periods": [
-                            {"range": [0, 0, 3]},
-                            {"range": [0, 3, 3]},
-                            {"range": [3, 6, 3]},
-                            {"range": [300, 306, 6]},
-                        ]
-                    }
+                    {"coords": [[0], [0, 3], [3, 6], {"from": 300, "to": 306, "by": 6}]}
                 ]
             },
             {
@@ -52,43 +32,23 @@ from pproc.common.window_manager import WindowManager
             {
                 "windows": [
                     {
-                        "window_operation": "precomputed",
-                        "periods": [
-                            {"range": [0, 168]},
-                            {"range": [120, 288]},
-                            {"range": [528, 696]},
-                            {"range": [936, 1104]},
-                        ],
-                    }
-                ]
-            },
-            {
-                f"{a}-{b}_0": Aggregation
-                for a, b in [(0, 168), (120, 288), (528, 696), (936, 1104)]
-            },
-            {"0-168", "120-288", "528-696", "936-1104"},
-            id="precomputed",
-        ),
-        pytest.param(
-            {
-                "windows": [
-                    {
-                        "window_operation": "diff",
-                        "periods": [
-                            {"range": [90, 96]},
-                            {"range": [93, 99]},
-                            {"range": [96, 102]},
-                            {"range": [270, 276]},
+                        "operation": "difference",
+                        "coords": [
+                            [a, b]
+                            for a, b in [(90, 96), (93, 99), (96, 102), (270, 276)]
                         ],
                     },
                     {
-                        "window_operation": "diff",
-                        "periods": [
-                            {"range": [120, 144, 24]},
-                            {"range": [240, 264, 24]},
-                            {"range": [264, 288, 24]},
-                            {"range": [240, 360, 120]},
-                            {"range": [0, 360, 360]},
+                        "operation": "difference",
+                        "coords": [
+                            [a, b]
+                            for a, b in [
+                                (120, 144),
+                                (240, 264),
+                                (264, 288),
+                                (240, 360),
+                                (0, 360),
+                            ]
                         ],
                     },
                 ]
@@ -110,33 +70,8 @@ from pproc.common.window_manager import WindowManager
             {
                 "windows": [
                     {
-                        "window_operation": "diff",
-                        "periods": [
-                            {"range": [144, 150]},
-                            {"range": [150, 156]},
-                        ],
-                    }
-                ],
-                "steps": [{"start_step": 144, "end_step": 240, "interval": 6}],
-            },
-            {f"{a}-{b}_0": Difference for a, b in [(144, 150), (150, 156)]},
-            {144, 150, 156},
-            id="diff-steps",
-        ),
-        pytest.param(
-            {
-                "windows": [
-                    {
-                        "window_operation": "none",
-                        "periods": [
-                            {"range": [75, 75]},
-                            {"range": [78, 78]},
-                            {"range": [81, 81]},
-                            {"range": [84, 84]},
-                            {"range": [87, 87]},
-                            {"range": [90, 90]},
-                            {"range": [288, 288]},
-                        ],
+                        "operation": "none",
+                        "coords": [[x] for x in [75, 78, 81, 84, 87, 90, 288]],
                     }
                 ]
             },
@@ -148,15 +83,18 @@ from pproc.common.window_manager import WindowManager
             {
                 "windows": [
                     {
-                        "window_operation": "none",
-                        "include_start_step": False,
-                        "periods": [
-                            {"range": [12, 18, 6]},
-                            {"range": [330, 336, 6]},
-                            {"range": [336, 342, 6]},
-                            {"range": [342, 348, 6]},
-                            {"range": [348, 354, 6]},
-                            {"range": [354, 360, 6]},
+                        "operation": "none",
+                        "include_start": False,
+                        "coords": [
+                            {"from": a, "to": b, "by": 6}
+                            for a, b in [
+                                (12, 18),
+                                (330, 336),
+                                (336, 342),
+                                (342, 348),
+                                (348, 354),
+                                (354, 360),
+                            ]
                         ],
                     }
                 ]
@@ -179,13 +117,12 @@ from pproc.common.window_manager import WindowManager
             {
                 "windows": [
                     {
-                        "window_operation": "mean",
-                        "periods": [
-                            {"range": [12, 36, 6]},
-                            {"range": [60, 132, 6]},
-                            {"range": [0, 240, 6]},
-                            {"range": [0, 360, 24]},
-                        ],
+                        "operation": "mean",
+                        "coords": [
+                            {"from": a, "to": b, "by": 6}
+                            for a, b in [(12, 36), (60, 132), (0, 240)]
+                        ]
+                        + [{"from": 0, "to": 360, "by": 24}],
                     }
                 ]
             },
@@ -197,17 +134,20 @@ from pproc.common.window_manager import WindowManager
             {
                 "windows": [
                     {
-                        "window_operation": "maximum",
-                        "periods": [
-                            {"range": [0, 24, 6]},
-                            {"range": [24, 48, 6]},
-                            {"range": [48, 72, 6]},
-                            {"range": [72, 96, 6]},
-                            {"range": [96, 120, 6]},
-                            {"range": [120, 144, 6]},
-                            {"range": [144, 168, 6]},
-                            {"range": [120, 360, 24]},
-                        ],
+                        "operation": "maximum",
+                        "coords": [
+                            {"from": a, "to": b, "by": 6}
+                            for a, b in [
+                                (0, 24),
+                                (24, 48),
+                                (48, 72),
+                                (72, 96),
+                                (96, 120),
+                                (120, 144),
+                                (144, 168),
+                            ]
+                        ]
+                        + [{"from": 120, "to": 360, "by": 24}],
                     }
                 ]
             },
@@ -231,17 +171,20 @@ from pproc.common.window_manager import WindowManager
             {
                 "windows": [
                     {
-                        "window_operation": "minimum",
-                        "periods": [
-                            {"range": [0, 24, 6]},
-                            {"range": [24, 48, 6]},
-                            {"range": [48, 72, 6]},
-                            {"range": [72, 96, 6]},
-                            {"range": [96, 120, 6]},
-                            {"range": [120, 144, 6]},
-                            {"range": [144, 168, 6]},
-                            {"range": [120, 360, 24]},
-                        ],
+                        "operation": "minimum",
+                        "coords": [
+                            {"from": a, "to": b, "by": 6}
+                            for a, b in [
+                                (0, 24),
+                                (24, 48),
+                                (48, 72),
+                                (72, 96),
+                                (96, 120),
+                                (120, 144),
+                                (144, 168),
+                            ]
+                        ]
+                        + [{"from": 120, "to": 360, "by": 24}],
                     }
                 ]
             },
@@ -265,9 +208,9 @@ from pproc.common.window_manager import WindowManager
             {
                 "windows": [
                     {
-                        "window_operation": "mean",
-                        "include_start_step": True,
-                        "periods": {
+                        "operation": "mean",
+                        "include_start": True,
+                        "coords": {
                             "type": "monthly",
                             "date": "20241001",
                             "from": 0,
@@ -296,38 +239,8 @@ from pproc.common.window_manager import WindowManager
             {
                 "windows": [
                     {
-                        "window_operation": "mean",
-                        "include_start_step": True,
-                        "periods": {
-                            "type": "monthly",
-                            "date": "20241001",
-                            "to": 5160,
-                        },
-                    }
-                ],
-                "steps": [{"start_step": 6, "end_step": 5160, "interval": 6}],
-            },
-            {
-                f"{x}-{y}_0": Mean
-                for x, y in [
-                    (0, 744),
-                    (744, 1464),
-                    (1464, 2208),
-                    (2208, 2952),
-                    (2952, 3624),
-                    (3624, 4368),
-                    (4368, 5088),
-                ]
-            },
-            {x for x in range(6, 5089, 6)},
-            id="monthly-with-steps",
-        ),
-        pytest.param(
-            {
-                "windows": [
-                    {
-                        "window_operation": "mean",
-                        "periods": {
+                        "operation": "mean",
+                        "coords": {
                             "type": "ranges",
                             "to": 360,
                             "width": 120,
@@ -347,36 +260,6 @@ from pproc.common.window_manager import WindowManager
             },
             {x for x in range(6, 361, 6)},
             id="stepranges",
-        ),
-        pytest.param(
-            {
-                "windows": [
-                    {
-                        "window_operation": "mean",
-                        "periods": {
-                            "type": "ranges",
-                            "to": 360,
-                            "width": 120,
-                            "interval": 120,
-                        },
-                    }
-                ],
-                "steps": [
-                    {"start_step": 3, "end_step": 90, "interval": 3},
-                    {"start_step": 96, "end_step": 120, "interval": 6},
-                    {"start_step": 132, "end_step": 360, "interval": 12},
-                ],
-            },
-            {
-                f"{x}-{y}_0": Mean
-                for x, y in [
-                    (0, 120),
-                    (120, 240),
-                    (240, 360),
-                ]
-            },
-            set().union(range(3, 91, 3), range(96, 121, 6), range(132, 361, 12)),
-            id="stepranges-with-steps",
         ),
     ],
 )
@@ -400,11 +283,11 @@ def test_create_multidim():
             "type": "legacywindow",
             "windows": [
                 {
-                    "window_operation": "mean",
-                    "periods": [
-                        {"range": [0, 24, 6]},
-                        {"range": [12, 36, 6]},
-                        {"range": [24, 48, 6]},
+                    "operation": "mean",
+                    "coords": [
+                        {"from": 0, "to": 24, "by": 6},
+                        {"from": 12, "to": 36, "by": 6},
+                        {"from": 24, "to": 48, "by": 6},
                     ],
                 }
             ],

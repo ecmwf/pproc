@@ -77,6 +77,17 @@ class SourceCollection(ConfigModel):
         ),
     ]
 
+    @model_validator(mode="before")
+    @classmethod
+    def set_defaults(cls, data: Any) -> Any:
+        if not isinstance(data, dict) or "default" not in data:
+            return data
+        def_source = data["default"]
+        for sub in cls.names:
+            subsec = data.setdefault(sub, {})
+            data[sub] = utils.deep_update(subsec, def_source)
+        return data
+
 
 def target_discriminator(target: Any):
     if utils._get(target, "overrides", None):
@@ -118,10 +129,10 @@ class OutputsCollection(ConfigModel):
     @model_validator(mode="before")
     @classmethod
     def set_overrides(cls, data: Any) -> Any:
-        defaults = data.get("default", {})
-        overrides = data.get("overrides", None)
+        defaults = utils._get(data, "default", {})
+        overrides = utils._get(data, "overrides", None)
         for sub in cls.names:
-            subsec = data.get(sub, {})
+            subsec = utils._get(data, sub, {})
             # Insert default metadata for each output type
             def_metadata = cls.metadata_defaults.get(sub, {})
             metadata = {
@@ -132,8 +143,8 @@ class OutputsCollection(ConfigModel):
             # Set target from default, if specified
             target = utils._get(subsec, "target", utils._get(defaults, "target", {}))
             if overrides:
-                target["overrides"] = overrides
-            data[sub] = {"target": target, "metadata": metadata}
+                utils._set(target, "overrides", overrides)
+            utils._set(data, sub, {"target": target, "metadata": metadata})
         return data
 
 
