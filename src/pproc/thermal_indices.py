@@ -62,10 +62,10 @@ def process_step(args, config, window_id, fields, recovery):
         ws = indices.calc_field("10si", indices.calc_ws, fields)
         config.write(step, ws)
 
-    # Cosine of Solar Zenith Angle - shortName uvcossza - ECMWF product
+    # Cosine of Solar Zenith Angle - shortName cossza - ECMWF product
     # TODO: 214001 only exists for GRIB1 -- but here we use it for GRIB2 (waiting for WMO)
-    if config.is_target_param(step, {"uvcossza", 214001}):
-        cossza = indices.calc_field("uvcossza", indices.calc_cossza_int, fields)
+    if config.is_target_param(step, {"cossza", 214001}):
+        cossza = indices.calc_field("cossza", indices.calc_cossza_int, fields)
         config.write(step, cossza)
 
     # direct solar radiation - shortName dsrp - ECMWF product

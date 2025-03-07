@@ -145,7 +145,7 @@ class ComputeIndices:
             return fields.sel(param="dsrp")
 
         fdir = field_values(fields, "fdir")  # W/m2
-        cossza = self.calc_field("uvcossza", self.calc_cossza_int, fields)[0].values
+        cossza = self.calc_field("cossza", self.calc_cossza_int, fields)[0].values
 
         dsrp = thermofeel.approximate_dsrp(fdir, cossza)
 
@@ -277,7 +277,7 @@ class ComputeIndices:
     @metered("mrt", out=logger.debug)
     def calc_mrt(self, fields):
 
-        cossza = self.calc_field("uvcossza", self.calc_cossza_int, fields)[0].values
+        cossza = self.calc_field("cossza", self.calc_cossza_int, fields)[0].values
         dsrp = self.calc_field("dsrp", self.calc_dsrp, fields)[0].values
 
         delta = step_interval(fields)
