@@ -209,8 +209,8 @@ def test_merge(other: dict, merged: dict):
                                 "type": "legacywindow",
                                 "windows": [
                                     {
-                                        "window_operation": "mean",
-                                        "periods": [{"range": [0, 24, 6]}],
+                                        "operation": "mean",
+                                        "coords": [[x for x in range(0, 25, 6)]],
                                     }
                                 ],
                             }
@@ -342,8 +342,8 @@ def test_merge(other: dict, merged: dict):
                                 "type": "legacywindow",
                                 "windows": [
                                     {
-                                        "window_operation": "mean",
-                                        "periods": [{"range": [0, 24, 6]}],
+                                        "operation": "mean",
+                                        "coords": [[x for x in range(0, 25, 6)]],
                                     }
                                 ],
                             }
