@@ -16,6 +16,7 @@ import sys
 import functools
 
 import earthkit.data
+from earthkit.data.readers.grib.metadata import GribFieldMetadata
 import numpy as np
 import thermofeel as thermofeel
 from meters import metered
@@ -33,46 +34,42 @@ from pproc.thermo.indices import ComputeIndices
 logger = logging.getLogger(__name__)
 
 
-def load_input(source: str, config: ThermoConfig, step: int):
-    src_config = getattr(config.sources, source)
-    reqs = src_config.request
-    src = src_config.type
-
-    if isinstance(reqs, dict):
-        reqs = [reqs]
+def load_input(config, param: ThermoParamConfig, source: str, step: int):
+    sources = param.in_sources(config.sources, source, step=step)
 
     ret = earthkit.data.from_source("empty")
-    for req in reqs:
-        if len(req) == 0:
-            continue
-        req = req.copy()
-        req.update(config.sources.overrides)
-        req["step"] = step
-        if req["type"] == "pf":
-            if isinstance(config.members, int):
-                req.setdefault("number", range(1, config.members + 1))
+    for src in sources:
+        for req in src.request:
+            if len(req) == 0:
+                continue
+            req = req.copy()
+            req.update(config.sources.overrides)
+            req["step"] = step
+            if req["type"] == "pf":
+                if isinstance(config.members, int):
+                    req.setdefault("number", range(1, config.members + 1))
+                else:
+                    req.setdefault(
+                        "number", range(config.members.start, config.members.end + 1)
+                    )
+
+            logger.debug(f"Retrieve step {step}: source {src}")
+            ds = None
+            if src.type == "fdb":
+                ds = earthkit.data.from_source("fdb", req, stream=True, read_all=True)
+            elif src.type == "fileset":
+                loc = src.path.format_map(req)
+                req["paramId"] = req.pop("param")
+                ds = earthkit.data.from_source("file", loc).sel(req)
+            elif src.type == "mars":
+                ds = earthkit.data.from_source("mars", req)
             else:
-                req.setdefault(
-                    "number", range(config.members.start, config.members.end + 1)
-                )
+                raise ValueError(f"Unknown source {src}")
 
-        logger.debug(f"Retrieve step {step}: source {src_config}")
-        ds = None
-        if src == "fdb":
-            ds = earthkit.data.from_source("fdb", req, stream=True, read_all=True)
-        elif src == "fileset":
-            loc = src_config.path.format_map(req)
-            req["paramId"] = req.pop("param")
-            ds = earthkit.data.from_source("file", loc).sel(req)
-        elif src == "mars":
-            ds = earthkit.data.from_source("mars", req)
-        else:
-            raise ValueError(f"Unknown source {source}")
+            if len(ds) == 0:
+                raise ValueError(f"No data found from source {src} for step {step}")
 
-        if len(ds) == 0:
-            raise ValueError(f"No data found from source {source} for step {step}")
-
-        ret += earthkit.data.FieldList.from_array(ds.values, ds.metadata())
+            ret += earthkit.data.FieldList.from_array(ds.values, ds.metadata())
     return ret
 
 
@@ -86,14 +83,25 @@ def process_step(
     param: ThermoParamConfig,
     step: int,
     window_id: str,
-    fields: earthkit.data.FieldList,
     accum: Accumulator,
+    accum_metadata: list[GribFieldMetadata],
     recovery: Recovery,
 ):
+    fields = load_input(config, param, "inst", step)
+    if len(accum["step"].coords) > 1:
+        logger.debug(f"Write out accum fields to target {config.outputs.accum}")
+        # Set step range for de-accumulated fields
+        step_range = "-".join(map(str, accum["step"].coords))
+        accum_fields = earthkit.data.FieldList.from_array(
+            accum.values,
+            [x.override(stepType="diff", stepRange=step_range) for x in accum_metadata],
+        )
+        helpers.write(config.outputs.accum, accum_fields)
+        fields += accum_fields
 
+    assert len(fields) != 0, f"No fields retrieved for param {param}."
     helpers.check_field_sizes(fields)
     basetime, validtime = helpers.get_datetime(fields)
-    step = helpers.get_step(fields)
     time = basetime.hour
 
     logger.info(
@@ -103,23 +111,6 @@ def process_step(
     logger.debug(f"Inputs \n {fields.ls(namespace='mars')}")
     indices = ComputeIndices(config.outputs.indices.metadata)
     params = fields.indices()["param"]
-
-    if (not isinstance(config.outputs.intermediate.target, NullTarget)) and len(
-        accum["step"].coords
-    ) > 1:
-        inter_target = config.outputs.intermediate
-        # Windspeed - shortName ws
-        ws = indices.calc_field("10si", indices.calc_ws, fields)
-        helpers.write(inter_target, ws)
-
-        # Cosine of Solar Zenith Angle - shortName uvcossza - ECMWF product
-        cossza = indices.calc_field("uvcossza", indices.calc_cossza_int, fields)
-        helpers.write(inter_target, cossza)
-
-        # direct solar radiation - shortName dsrp - ECMWF product
-        if "dsrp" not in params:
-            dsrp = indices.calc_field("dsrp", indices.calc_dsrp, fields)
-            helpers.write(inter_target, dsrp)
 
     indices_target = config.outputs.indices
     # Mean Radiant Temperature - shortName mrt - ECMWF product
@@ -183,8 +174,11 @@ def process_step(
         wbgt = indices.calc_field("wbgt", indices.calc_wbgt, fields)
         helpers.write(indices_target, wbgt)
 
-    # effective temperature 261017
-    # standard effective temperature 261019
+    # Write out intermediate fields
+    for field in ["10si", "uvcossza", "dsrp"]:
+        sel = indices.results.sel(param=field)
+        if len(sel) != 0:
+            helpers.write(config.outputs.intermediate, sel)
 
     for name in config.outputs.names:
         getattr(config.outputs, name).target.flush()
@@ -224,34 +218,18 @@ def main():
                 process_step, cfg, param, recovery=recovery
             )
             for step in window_manager.dims["step"]:
-                accum_data = load_input("accum", cfg, step)
+                accum_data = load_input(cfg, param, "accum", step)
                 completed_windows = window_manager.update_windows(
                     {"step": step},
                     np.empty((1,)) if len(accum_data) == 0 else accum_data.values,
                 )
                 for window_id, accum in completed_windows:
-                    fields = load_input("inst", cfg, step)
-                    if len(accum["step"].coords) > 1:
-                        logger.debug(
-                            f"Write out accum fields to target {cfg.outputs.accum}"
-                        )
-                        # Set step range for de-accumulated fields
-                        step_range = "-".join(map(str, accum["step"].coords))
-                        accum_fields = earthkit.data.FieldList.from_array(
-                            accum.values,
-                            [
-                                x.override(stepType="diff", stepRange=step_range)
-                                for x in accum_data.metadata()
-                            ],
-                        )
-                        helpers.write(cfg.outputs.accum, accum_fields)
-                        fields += accum_fields
                     executor.submit(
                         thermo_partial,
                         step,
                         window_id,
-                        fields,
                         accum,
+                        accum_data.metadata(),
                     )
 
             executor.wait()

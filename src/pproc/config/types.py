@@ -358,8 +358,9 @@ class ThermoConfig(BaseConfig):
 
     @model_validator(mode="after")
     def validate_sources(self) -> Self:
-        if self.sources.accum.type == "null":
-            for param in self.parameters:
+        for param in self.parameters:
+            sources = param.in_sources(self.sources, "accum")
+            if any([src.type == "null" for src in sources]):
                 for out_req in param.accumulations["step"].out_mars("step"):
                     steps = out_req["step"]
                     if isinstance(steps, (str, int)):

@@ -94,23 +94,34 @@ class BaseConfig(ConfigModel):
     def check_totalfields(self) -> Self:
         fc_name = self.sources.names[0]
         if self.total_fields == 0 and len(self.parameters) > 0:
-            source = self.parameters[0].in_sources(self.sources, fc_name)
-            if len(source) == 0:
-                return self
-            reqs = source[0].request
-            if isinstance(reqs, dict):
-                reqs = [reqs]
-            for req in reqs:
-                if number := req.get("number", None):
-                    self.total_fields += 1 if isinstance(number, int) else len(number)
-                elif req.get("type", None) in ["pf", "fcmean"]:
-                    self.total_fields += (
-                        self.members
-                        if isinstance(self.members, int)
-                        else self.members.end - self.members.start + 1
+            for param in self.parameters:
+                total_fields = 0
+                source = param.in_sources(self.sources, fc_name)
+                reqs = source[0].request
+                if isinstance(reqs, dict):
+                    reqs = [reqs]
+                for req in reqs:
+                    if len(req) == 0:
+                        continue
+                    if number := req.get("number", None):
+                        total_fields += 1 if isinstance(number, int) else len(number)
+                    elif req.get("type", None) in ["pf", "fcmean"]:
+                        total_fields += (
+                            self.members
+                            if isinstance(self.members, int)
+                            else self.members.end - self.members.start + 1
+                        )
+                    else:
+                        total_fields += 1
+                if self.total_fields == 0:
+                    self.total_fields = total_fields
+                elif self.total_fields != total_fields:
+                    raise ValueError(
+                        f"All parameters must request the same number of total fields. Expected {self.total_fields}, got {total_fields}."
                     )
-                else:
-                    self.total_fields += 1
+            assert self.total_fields != 0, ValueError(
+                "Could not derived total_fields from requests."
+            )
         return self
 
     @field_validator("parameters", mode="before")

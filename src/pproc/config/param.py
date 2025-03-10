@@ -41,13 +41,22 @@ class ParamConfig(BaseModel):
         else:
             reqs = sum([list(expand(req, "param")) for req in reqs], [])
 
+        df = pd.DataFrame(reqs)
+        if "param" in df:
+            return [
+                Source(
+                    type=config.get("type", base_config.type),
+                    path=config.get("path", base_config.path),
+                    request=items.to_dict("records"),
+                )
+                for _, items in df.groupby("param")
+            ]
         return [
             Source(
                 type=config.get("type", base_config.type),
                 path=config.get("path", base_config.path),
-                request=items.to_dict("records"),
+                request=reqs,
             )
-            for _, items in pd.DataFrame(reqs).groupby("param")
         ]
 
     def out_keys(self, sources: SourceCollection) -> Iterator:

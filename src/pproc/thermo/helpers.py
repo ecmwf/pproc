@@ -115,18 +115,13 @@ def validate_utci(utci, misses, lats, lons):
 
 
 def get_datetime(fields: earthkit.data.FieldList):
-    dt = fields.sel(param="2t").datetime()
-    base_time = dt["base_time"][0]
-    valid_time = dt["valid_time"][0]
+    dt = fields[0].datetime()
+    base_time = dt["base_time"]
+    valid_time = dt["valid_time"]
     assert all(
         x == valid_time for x in fields.datetime()["valid_time"]
     ), f"Obtained different valid times {[x for x in fields.datetime()['valid_time']]}"  # verify valid time all same
     return base_time, valid_time
-
-
-def get_step(fields: earthkit.data.FieldList):
-    temp = fields.sel(param="2t")
-    return temp[0].metadata().get("step")
 
 
 def latlon(fields: earthkit.data.FieldList):
