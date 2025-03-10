@@ -19,6 +19,7 @@ from typing import Dict, Any
 import eccodes
 from earthkit.meteo import extreme
 from meters import ResourceMeter
+import numpy as np
 from pproc import common
 from pproc.common.grib_helpers import construct_message
 from pproc.common import parallel
@@ -277,7 +278,14 @@ def efi_sot(cfg, param, recovery, template_filename, window_id, accum):
             cfg.out_sot.flush()
 
         if param.compute_cpf:
-            cpf = 100 * extreme.cpf(clim, ens, sort_clim=False, sort_ens=True, epsilon=param.cpf_eps, symmetric=param.cpf_symmetric)
+            cpf = 100 * extreme.cpf(
+                clim.astype(np.float32),
+                ens.astype(np.float32),
+                sort_clim=False,
+                sort_ens=True,
+                epsilon=param.cpf_eps,
+                symmetric=param.cpf_symmetric,
+            )
             template_cpf = cpf_template(template_extreme)
             common.write_grib(cfg.out_cpf, template_cpf, cpf)
             cfg.out_cpf.flush()
@@ -289,7 +297,9 @@ def main(args=None):
     sys.stdout.reconfigure(line_buffering=True)
     signal.signal(signal.SIGTERM, sigterm_handler)
 
-    parser = common.default_parser("Compute extreme indices from forecast and climatology")
+    parser = common.default_parser(
+        "Compute extreme indices from forecast and climatology"
+    )
     parser.add_argument("--in-ens", required=True, help="Source for forecast")
     parser.add_argument("--in-clim", required=True, help="Source for climatology")
     parser.add_argument("--out-efi", required=True, help="Target for EFI")
