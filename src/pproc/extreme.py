@@ -41,8 +41,8 @@ class ExtremeParamConfig(ParamConfig):
         clim_options = options.pop("clim")
         super().__init__(name, options, overrides)
         self.clim_param = ParamConfig(f"clim_{name}", clim_options)
-        self.eps = float(options["eps"])
-        self.sot = list(map(int, options["sot"]))
+        self.eps = float(options["eps"]) if "eps" in options else None
+        self.sot = list(map(int, options["sot"])) if "sot" in options else []
         self.cpf_eps = float(options["cpf_eps"]) if "cpf_eps" in options else None
         self.cpf_symmetric = options.get("cpf_symmetric", False)
         self.compute_efi = options.get("compute_efi", True)
