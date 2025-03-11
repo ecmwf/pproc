@@ -242,7 +242,7 @@ def cpf_template(template):
     return template_cpf
 
 
-def efi_sot(cfg, param, recovery, template_filename, window_id, accum):
+def compute_indices(cfg, param, recovery, template_filename, window_id, accum):
     with ResourceMeter(f"Window {window_id}, computing indices"):
         message_template = (
             template_filename
@@ -342,7 +342,7 @@ def main(args=None):
                 print(f"Recovery: param {param.name} looping from step {new_start}")
                 last_checkpoint = None  # All remaining params have not been run
 
-            efi_partial = functools.partial(efi_sot, cfg, param, recovery)
+            indices_partial = functools.partial(compute_indices, cfg, param, recovery)
             for keys, retrieved_data in parallel_data_retrieval(
                 cfg.n_par_read,
                 window_manager.dims,
@@ -358,7 +358,7 @@ def main(args=None):
 
                     completed_windows = window_manager.update_windows(keys, data)
                     for window_id, accum in completed_windows:
-                        executor.submit(efi_partial, template, window_id, accum)
+                        executor.submit(indices_partial, template, window_id, accum)
 
             executor.wait()
 
