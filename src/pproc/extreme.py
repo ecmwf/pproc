@@ -19,6 +19,7 @@ from typing import Dict, Any
 import eccodes
 from earthkit.meteo import extreme
 from meters import ResourceMeter
+import numpy as np
 from pproc import common
 from pproc.common.grib_helpers import construct_message
 from pproc.common import parallel
@@ -40,8 +41,13 @@ class ExtremeParamConfig(ParamConfig):
         clim_options = options.pop("clim")
         super().__init__(name, options, overrides)
         self.clim_param = ParamConfig(f"clim_{name}", clim_options)
-        self.eps = float(options["eps"])
-        self.sot = list(map(int, options["sot"]))
+        self.eps = float(options["eps"]) if "eps" in options else -1.0
+        self.sot = list(map(int, options["sot"])) if "sot" in options else []
+        self.cpf_eps = float(options["cpf_eps"]) if "cpf_eps" in options else None
+        self.cpf_symmetric = options.get("cpf_symmetric", False)
+        self.compute_efi = options.get("compute_efi", True)
+        self.compute_sot = options.get("compute_sot", True)
+        self.compute_cpf = options.get("compute_cpf", False)
 
 
 class ConfigExtreme(common.Config):
@@ -69,7 +75,7 @@ class ConfigExtreme(common.Config):
         ]
         self.clim_loc = args.in_clim
 
-        for attr in ["out_efi", "out_sot"]:
+        for attr in ["out_efi", "out_sot", "out_cpf"]:
             location = getattr(args, attr)
             target = common.io.target_from_location(
                 location, overrides=self.override_output
@@ -228,8 +234,16 @@ def sot_template(template, sot):
     return template_sot
 
 
-def efi_sot(cfg, param, recovery, template_filename, window_id, accum):
-    with ResourceMeter(f"Window {window_id}, computing EFI/SOT"):
+def cpf_template(template):
+    template_cpf = template.copy()
+    template_cpf["number"] = 0
+    template_cpf["bitsPerValue"] = 24
+    # TODO: add proper GRIB labelling once available
+    return template_cpf
+
+
+def compute_indices(cfg, param, recovery, template_filename, window_id, accum):
+    with ResourceMeter(f"Window {window_id}, computing indices"):
         message_template = (
             template_filename
             if isinstance(template_filename, eccodes.highlevel.message.GRIBMessage)
@@ -244,23 +258,38 @@ def efi_sot(cfg, param, recovery, template_filename, window_id, accum):
         ens = accum.values
         assert ens is not None
 
-        if message_template.get("type") in ["cf", "fc"]:
-            efi_control = extreme.efi(clim, ens[:1, :], param.eps)
-            template_efi = efi_template_control(template_extreme)
-            common.write_grib(cfg.out_efi, template_efi, efi_control)
+        if param.compute_efi:
+            if message_template.get("type") in ["cf", "fc"]:
+                efi_control = extreme.efi(clim, ens[:1, :], param.eps)
+                template_efi = efi_template_control(template_extreme)
+                common.write_grib(cfg.out_efi, template_efi, efi_control)
 
-        efi = extreme.efi(clim, ens, param.eps)
-        template_efi = efi_template(template_extreme)
-        common.write_grib(cfg.out_efi, template_efi, efi)
+            efi = extreme.efi(clim, ens, param.eps)
+            template_efi = efi_template(template_extreme)
+            common.write_grib(cfg.out_efi, template_efi, efi)
+            cfg.out_efi.flush()
 
-        sot = {}
-        for perc in param.sot:
-            sot[perc] = extreme.sot(clim, ens, perc, param.eps)
-            template_sot = sot_template(template_extreme, perc)
-            common.write_grib(cfg.out_sot, template_sot, sot[perc])
+        if param.compute_sot:
+            sot = {}
+            for perc in param.sot:
+                sot[perc] = extreme.sot(clim, ens, perc, param.eps)
+                template_sot = sot_template(template_extreme, perc)
+                common.write_grib(cfg.out_sot, template_sot, sot[perc])
+            cfg.out_sot.flush()
 
-        cfg.out_efi.flush()
-        cfg.out_sot.flush()
+        if param.compute_cpf:
+            cpf = 100 * extreme.cpf(
+                clim.astype(np.float32),
+                ens.astype(np.float32),
+                sort_clim=False,
+                sort_ens=True,
+                epsilon=param.cpf_eps,
+                symmetric=param.cpf_symmetric,
+            )
+            template_cpf = cpf_template(template_extreme)
+            common.write_grib(cfg.out_cpf, template_cpf, cpf)
+            cfg.out_cpf.flush()
+
         recovery.add_checkpoint(param.name, window_id)
 
 
@@ -268,11 +297,14 @@ def main(args=None):
     sys.stdout.reconfigure(line_buffering=True)
     signal.signal(signal.SIGTERM, sigterm_handler)
 
-    parser = common.default_parser("Compute EFI and SOT from forecast and climatology")
+    parser = common.default_parser(
+        "Compute extreme indices from forecast and climatology"
+    )
     parser.add_argument("--in-ens", required=True, help="Source for forecast")
     parser.add_argument("--in-clim", required=True, help="Source for climatology")
-    parser.add_argument("--out-efi", required=True, help="Target for EFI")
-    parser.add_argument("--out-sot", required=True, help="Target for SOT")
+    parser.add_argument("--out-efi", default="null:", help="Target for EFI")
+    parser.add_argument("--out-sot", default="null:", help="Target for SOT")
+    parser.add_argument("--out-cpf", default="null:", help="Target for CPF")
     args = parser.parse_args(args)
     cfg = ConfigExtreme(args)
     recovery = common.Recovery(cfg.root_dir, args.config, cfg.fc_date, args.recover)
@@ -310,7 +342,7 @@ def main(args=None):
                 print(f"Recovery: param {param.name} looping from step {new_start}")
                 last_checkpoint = None  # All remaining params have not been run
 
-            efi_partial = functools.partial(efi_sot, cfg, param, recovery)
+            indices_partial = functools.partial(compute_indices, cfg, param, recovery)
             for keys, retrieved_data in parallel_data_retrieval(
                 cfg.n_par_read,
                 window_manager.dims,
@@ -326,7 +358,7 @@ def main(args=None):
 
                     completed_windows = window_manager.update_windows(keys, data)
                     for window_id, accum in completed_windows:
-                        executor.submit(efi_partial, template, window_id, accum)
+                        executor.submit(indices_partial, template, window_id, accum)
 
             executor.wait()
 
