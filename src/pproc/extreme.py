@@ -14,15 +14,13 @@ import sys
 from datetime import datetime
 import functools
 import signal
-from typing import Dict, Any
+from typing import Dict, Any, Union
 
 import eccodes
-from earthkit.meteo import extreme
 from meters import ResourceMeter
-import numpy as np
 from pproc import common
-from pproc.common.grib_helpers import construct_message
 from pproc.common import parallel
+from pproc.common.accumulation import Accumulator
 from pproc.common.parallel import (
     SynchronousExecutor,
     QueueingExecutor,
@@ -30,7 +28,12 @@ from pproc.common.parallel import (
     sigterm_handler,
 )
 from pproc.common.param_requester import ParamConfig, ParamRequester
+from pproc.extremes.grib import extreme_template
+from pproc.extremes.indices import SUPPORTED_INDICES, create_indices
 from pproc.signi.clim import retrieve_clim
+
+
+DEFAULT_INDICES = ["efi", "sot"]
 
 
 class ExtremeParamConfig(ParamConfig):
@@ -41,13 +44,7 @@ class ExtremeParamConfig(ParamConfig):
         clim_options = options.pop("clim")
         super().__init__(name, options, overrides)
         self.clim_param = ParamConfig(f"clim_{name}", clim_options)
-        self.eps = float(options["eps"]) if "eps" in options else -1.0
-        self.sot = list(map(int, options["sot"])) if "sot" in options else []
-        self.cpf_eps = float(options["cpf_eps"]) if "cpf_eps" in options else None
-        self.cpf_symmetric = options.get("cpf_symmetric", False)
-        self.compute_efi = options.get("compute_efi", True)
-        self.compute_sot = options.get("compute_sot", True)
-        self.compute_cpf = options.get("compute_cpf", False)
+        self.indices = create_indices(options, DEFAULT_INDICES)
 
 
 class ConfigExtreme(common.Config):
@@ -75,7 +72,9 @@ class ConfigExtreme(common.Config):
         ]
         self.clim_loc = args.in_clim
 
-        for attr in ["out_efi", "out_sot", "out_cpf"]:
+        self.targets = {}
+        for index in SUPPORTED_INDICES:
+            attr = f"out_{index}"
             location = getattr(args, attr)
             target = common.io.target_from_location(
                 location, overrides=self.override_output
@@ -84,10 +83,15 @@ class ConfigExtreme(common.Config):
                 target.enable_parallel(parallel)
             if args.recover:
                 target.enable_recovery()
-            self.__setattr__(attr, target)
+            self.targets[index] = target
 
 
-def read_clim(config: ConfigExtreme, param: ExtremeParamConfig, accum, n_clim=101):
+def read_clim(
+    config: ConfigExtreme,
+    param: ExtremeParamConfig,
+    accum: Accumulator,
+    n_clim: int = 101,
+):
     grib_keys = accum.grib_keys()
     clim_step = grib_keys.get("stepRange", grib_keys.get("step", None))
     in_keys = param.clim_param._in_keys
@@ -107,146 +111,18 @@ def read_clim(config: ConfigExtreme, param: ExtremeParamConfig, accum, n_clim=10
     return clim_accum.values, clim_template
 
 
-def extreme_template(accum, template_fc, template_clim):
-
-    template_ext = construct_message(template_fc, accum.grib_keys())
-    grib_keys = {}
-
-    edition = template_ext["edition"]
-    clim_edition = template_clim["edition"]
-    if edition == 1 and clim_edition == 1:
-        # EFI specific stuff
-        if int(template_ext["timeRangeIndicator"]) == 3:
-            if template_ext["numberIncludedInAverage"] == 0:
-                grib_keys["numberIncludedInAverage"] = len(accum)
-            grib_keys["numberMissingFromAveragesOrAccumulations"] = 0
-
-        # set clim keys
-        clim_keys = [
-            "versionNumberOfExperimentalSuite",
-            "implementationDateOfModelCycle",
-            "numberOfReforecastYearsInModelClimate",
-            "numberOfDaysInClimateSamplingWindow",
-            "sampleSizeOfModelClimate",
-            "versionOfModelClimate",
-        ]
-        for key in clim_keys:
-            grib_keys[key] = template_clim[key]
-
-        # set fc keys
-        fc_keys = [
-            "date",
-            "subCentre",
-            "totalNumber",
-        ]
-        for key in fc_keys:
-            grib_keys[key] = template_fc[key]
-    elif edition == 2 and clim_edition == 2:
-        clim_keys = [
-            "typeOfReferenceDataset",
-            "yearOfStartOfReferencePeriod",
-            "dayOfStartOfReferencePeriod",
-            "monthOfStartOfReferencePeriod",
-            "hourOfStartOfReferencePeriod",
-            "minuteOfStartOfReferencePeriod",
-            "secondOfStartOfReferencePeriod",
-            "sampleSizeOfReferencePeriod",
-            "numberOfReferencePeriodTimeRanges",
-            "typeOfStatisticalProcessingForTimeRangeForReferencePeriod",
-            "indicatorOfUnitForTimeRangeForReferencePeriod",
-            "lengthOfTimeRangeForReferencePeriod",
-        ]
-        grib_keys.update(
-            {
-                "productDefinitionTemplateNumber": 105,
-                **{key: template_clim[key] for key in clim_keys},
-            }
-        )
-    else:
-        raise Exception(
-            f"Unsupported GRIB edition {edition} and clim edition {clim_edition}"
-        )
-
-    template_ext.set(grib_keys)
-    return template_ext
-
-
-def efi_template(template):
-    template_efi = template.copy()
-    template_efi["marsType"] = 27
-
-    edition = template_efi["edition"]
-    if edition == 1:
-        template_efi["efiOrder"] = 0
-        template_efi["number"] = 0
-    elif edition == 2:
-        grib_set = {"typeOfRelationToReferenceDataset": 20, "typeOfProcessedData": 5}
-        template_efi.set(grib_set)
-    else:
-        raise Exception(f"Unsupported GRIB edition {edition}")
-    return template_efi
-
-
-def efi_template_control(template):
-    template_efi = template.copy()
-    template_efi["marsType"] = 28
-
-    edition = template_efi["edition"]
-    if edition == 1:
-        template_efi["efiOrder"] = 0
-        template_efi["totalNumber"] = 1
-        template_efi["number"] = 0
-    elif edition == 2:
-        grib_set = {"typeOfRelationToReferenceDataset": 20, "typeOfProcessedData": 3}
-        template_efi.set(grib_set)
-    else:
-        raise Exception(f"Unsupported GRIB edition {edition}")
-    return template_efi
-
-
-def sot_template(template, sot):
-    template_sot = template.copy()
-    template_sot["marsType"] = 38
-
-    if sot == 90:
-        efi_order = 99
-    elif sot == 10:
-        efi_order = 1
-    else:
-        raise Exception(
-            f"SOT value '{sot}' not supported in template! Only accepting 10 and 90"
-        )
-    edition = template_sot["edition"]
-    if edition == 1:
-        template_sot["number"] = sot
-        template_sot["efiOrder"] = efi_order
-    elif edition == 2:
-        grib_set = {
-            "typeOfRelationToReferenceDataset": 21,
-            "typeOfProcessedData": 5,
-            "numberOfAdditionalParametersForReferencePeriod": 2,
-            "scaleFactorOfAdditionalParameterForReferencePeriod": [0, 0],
-            "scaledValueOfAdditionalParameterForReferencePeriod": [sot, efi_order],
-        }
-        template_sot.set(grib_set)
-    else:
-        raise Exception(f"Unsupported GRIB edition {edition}")
-    return template_sot
-
-
-def cpf_template(template):
-    template_cpf = template.copy()
-    template_cpf["number"] = 0
-    template_cpf["bitsPerValue"] = 24
-    # TODO: add proper GRIB labelling once available
-    return template_cpf
-
-
-def compute_indices(cfg, param, recovery, template_filename, window_id, accum):
+def compute_indices(
+    cfg: ConfigExtreme,
+    param: ExtremeParamConfig,
+    recovery: common.Recovery,
+    template_filename: Union[str, eccodes.GRIBMessage],
+    window_id: str,
+    accum: Accumulator,
+):
     with ResourceMeter(f"Window {window_id}, computing indices"):
         message_template = (
             template_filename
-            if isinstance(template_filename, eccodes.highlevel.message.GRIBMessage)
+            if isinstance(template_filename, eccodes.GRIBMessage)
             else common.io.read_template(template_filename)
         )
 
@@ -258,37 +134,10 @@ def compute_indices(cfg, param, recovery, template_filename, window_id, accum):
         ens = accum.values
         assert ens is not None
 
-        if param.compute_efi:
-            if message_template.get("type") in ["cf", "fc"]:
-                efi_control = extreme.efi(clim, ens[:1, :], param.eps)
-                template_efi = efi_template_control(template_extreme)
-                common.write_grib(cfg.out_efi, template_efi, efi_control)
-
-            efi = extreme.efi(clim, ens, param.eps)
-            template_efi = efi_template(template_extreme)
-            common.write_grib(cfg.out_efi, template_efi, efi)
-            cfg.out_efi.flush()
-
-        if param.compute_sot:
-            sot = {}
-            for perc in param.sot:
-                sot[perc] = extreme.sot(clim, ens, perc, param.eps)
-                template_sot = sot_template(template_extreme, perc)
-                common.write_grib(cfg.out_sot, template_sot, sot[perc])
-            cfg.out_sot.flush()
-
-        if param.compute_cpf:
-            cpf = 100 * extreme.cpf(
-                clim.astype(np.float32),
-                ens.astype(np.float32),
-                sort_clim=False,
-                sort_ens=True,
-                epsilon=param.cpf_eps,
-                symmetric=param.cpf_symmetric,
-            )
-            template_cpf = cpf_template(template_extreme)
-            common.write_grib(cfg.out_cpf, template_cpf, cpf)
-            cfg.out_cpf.flush()
+        for name, index in param.indices.items():
+            target = cfg.targets[name]
+            index.compute(clim, ens, target, message_template, template_extreme)
+            target.flush()
 
         recovery.add_checkpoint(param.name, window_id)
 
@@ -302,9 +151,10 @@ def main(args=None):
     )
     parser.add_argument("--in-ens", required=True, help="Source for forecast")
     parser.add_argument("--in-clim", required=True, help="Source for climatology")
-    parser.add_argument("--out-efi", default="null:", help="Target for EFI")
-    parser.add_argument("--out-sot", default="null:", help="Target for SOT")
-    parser.add_argument("--out-cpf", default="null:", help="Target for CPF")
+    for index in SUPPORTED_INDICES:
+        parser.add_argument(
+            f"--out-{index}", default="null:", help=f"Target for {index.upper()}"
+        )
     args = parser.parse_args(args)
     cfg = ConfigExtreme(args)
     recovery = common.Recovery(cfg.root_dir, args.config, cfg.fc_date, args.recover)
