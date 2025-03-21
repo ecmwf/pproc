@@ -7,7 +7,7 @@ import yaml
 import json
 
 
-from pproc.config.types import ConfigFactory
+from pproc.config.factory import ConfigFactory
 from pproc.schema.schema import Schema
 from pproc.common import mars
 
@@ -21,7 +21,7 @@ def from_outputs(args):
     with open(args.outputs, "r") as f:
         output_requests = yaml.safe_load(f)
 
-    schema = Schema(args.schema)
+    schema = Schema.from_file(args.schema)
     config = ConfigFactory.from_outputs(schema, output_requests, **overrides)
     config_dict = config.model_dump(exclude_none=True, by_alias=True)
     with open(args.config, "w") as f:
@@ -37,7 +37,7 @@ def from_inputs(args):
     with open(args.inputs, "r") as f:
         input_requests = yaml.safe_load(f)
 
-    schema = Schema(args.schema)
+    schema = Schema.from_file(args.schema)
     config = ConfigFactory.from_inputs(
         schema, args.entrypoint, input_requests, **overrides
     )

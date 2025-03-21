@@ -190,7 +190,7 @@ class BaseConfig(ConfigModel):
             if len(steps) > 2:
                 diff = np.diff(steps)
                 if len(set(diff)) == 1:
-                    steps = {"from": steps[0], "to": steps[-1], "by": diff[0]}
+                    steps = {"from": steps[0], "to": steps[-1], "by": int(diff[0])}
             step_accum["coords"] = [steps]
 
             if step_accum.get("type") == "legacywindow":

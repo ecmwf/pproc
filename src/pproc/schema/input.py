@@ -238,11 +238,12 @@ def _intersect(
     lista: list[dict], listb: list[dict], how: str = "inner"
 ) -> pd.DataFrame:
     dfa = pd.DataFrame(lista)
+    dfa.drop(columns="number", errors="ignore", inplace=True)
+    dfa.drop_duplicates(inplace=True)
     dfb = pd.DataFrame(listb)
     merged = dfa.merge(dfb, how=how, on=dfa.columns.tolist())
 
-    num_expected = len(dfa.drop(columns="number", errors="ignore").drop_duplicates())
-
+    num_expected = len(dfa)
     restricted = merged.drop(
         columns=["number"] + [x for x in dfb.columns if x not in dfa.columns],
         errors="ignore",

@@ -1,7 +1,9 @@
 from typing import Iterator, Optional
+from typing_extensions import Self
 import copy
 import numpy as np
 import pandas as pd
+import yaml
 
 from pproc.schema.config import ConfigSchema
 from pproc.schema.input import InputSchema
@@ -17,13 +19,32 @@ class Schema:
         self.step_schema = StepSchema(schema.get("windows", {}))
 
     @classmethod
+    def from_file(cls, schema_path: str) -> Self:
+        with open(schema_path, "r") as f:
+            schema = yaml.safe_load(f)
+        return cls(schema)
+
+    @classmethod
     def validate_request(cls, request: dict) -> dict:
         out = copy.deepcopy(request)
-        if isinstance(out["param"], int):
-            out["param"] = str(out["param"])
-        elif np.ndim(out["param"]) > 0:
-            out["param"] = [str(param) for param in out["param"]]
-
+        # Map types
+        for key, value_type in [
+            ("param", str),
+            ("levelist", int),
+            ("step", int),
+            ("fcmonth", int),
+            ("number", int),
+        ]:
+            if key in out:
+                value = out[key]
+                try:
+                    out[key] = (
+                        value_type(value)
+                        if np.ndim(value) == 0
+                        else list(map(value_type, value))
+                    )
+                except ValueError:
+                    pass
         return out
 
     def config_from_output(

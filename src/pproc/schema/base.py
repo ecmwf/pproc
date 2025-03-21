@@ -139,7 +139,7 @@ class Schema:
             for key, value in match.items():
                 if not cls.custom_match.get(key, DEFAULT_MATCH)(
                     cfg["recon_req"],
-                    copy.deepcopy(cfg.get(key, value)),
+                    cfg.get(key, value),
                     copy.deepcopy(value),
                 ):
                     is_match = False
