@@ -103,7 +103,9 @@ class StepSchema(Schema):
 
             config = self.traverse(request_or_name, {})
             steps = steps or self._create_steps(config.get("in_steps", []))
-            step_configs = config.get("out_steps")
+            step_configs = config.get("out_steps", None)
+            if step_configs is None:
+                raise ValueError(f"No output steps defined {request_or_name}")
 
         if isinstance(step_configs, dict):
             step_configs = [step_configs]

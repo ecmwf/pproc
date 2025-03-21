@@ -188,12 +188,53 @@ def test_outputs(request, out_type, num_outputs):
     assert len(generated) == num_outputs
 
 
-def test_redundant_inputs():
-    expanded_inputs = sum([list(expand(x)) for x in INPUTS["t850"]], [])
+@pytest.mark.parametrize(
+    "inputs, template, num_outputs",
+    [
+        [INPUTS["t850"], {"type": "em", "step": 120}, 1],
+        [
+            [
+                {
+                    "stream": "oper",
+                    "param": [
+                        "165",
+                        "166",
+                        "167",
+                        "168",
+                        "169",
+                        "175",
+                        "176",
+                        "177",
+                        "228021",
+                        "47",
+                        "228",
+                    ],
+                    "step": [2, 3],
+                    "type": "fc",
+                }
+            ],
+            {"type": "fc"},
+            18,
+        ],
+        [
+            [
+                {
+                    "stream": "enfo",
+                    "param": ["228246", "228247"],
+                    "type": "cf",
+                }
+            ],
+            {"type": "cf"},
+            0,
+        ],
+    ],
+    ids=["redundant-steps", "redundant-params", "not-from-inputs"],
+)
+def test_redundant_inputs(inputs, template, num_outputs):
+    expanded_inputs = sum([list(expand(x)) for x in inputs], [])
     input_schema = InputSchema(schema("inputs"))
+    step_schema = StepSchema(schema("windows"))
     generated = list(
-        input_schema.outputs(
-            expanded_inputs, None, output_template={"type": "em", "step": 120}
-        )
+        input_schema.outputs(expanded_inputs, step_schema, output_template=template)
     )
-    assert len(generated) == 1
+    assert len(generated) == num_outputs

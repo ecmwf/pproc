@@ -46,8 +46,21 @@ def test_in_steps():
             ["120-240", "240-360", "120-168", "168-240"],
             None,
         ],
+        [
+            {"stream": "oper", "type": "fc", "param": "207"},
+            list(range(1, 91)),
+            list(range(1, 91)),
+        ],
     ],
-    ids=["ensms_default", "ensms_insteps", "deaccumulate", "weekly", "monthly", "prob"],
+    ids=[
+        "ensms_default",
+        "ensms_insteps",
+        "deaccumulate",
+        "weekly",
+        "monthly",
+        "prob",
+        "fc",
+    ],
 )
 def test_out_steps(out, expected, in_steps):
     test_schema = StepSchema(schema("windows"))
