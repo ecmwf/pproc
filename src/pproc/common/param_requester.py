@@ -6,7 +6,6 @@ import numpy as np
 from pproc.common.dataset import open_multi_dataset
 from pproc.common.io import missing_to_nan
 from pproc.common.steps import AnyStep
-from pproc.config.base import Members
 from pproc.config.io import Source, SourceCollection
 from pproc.config.param import ParamConfig
 
@@ -83,7 +82,6 @@ class ParamRequester:
         self,
         param: ParamConfig,
         sources: SourceCollection,
-        members: int | Members,
         total: int,
         src_name: Optional[str] = None,
         index_func: Optional[IndexFunc] = None,
@@ -94,18 +92,8 @@ class ParamRequester:
         if self.src_name is None:
             assert len(sources.names) == 1, "Multiple sources, must specify src_name"
             self.src_name = sources.names[0]
-        self.members = members
         self.total = total
         self.index_func = index_func
-
-    def _set_number(self, keys):
-        number = None
-        if isinstance(self.members, Members):
-            number = range(self.members.start, self.members.end + 1)
-        if keys.get("type") == "pf":
-            keys.setdefault("number", number or range(1, self.members + 1))
-        elif keys.get("type") == "fcmean":
-            keys.setdefault("number", number or range(self.members + 1))
 
     def retrieve_data(
         self, step: AnyStep, **kwargs
@@ -124,7 +112,6 @@ class ParamRequester:
                 param_source,
                 self.total,
                 dtype=self.param.dtype,
-                update=self._set_number,
                 index_func=self.index_func,
             )
             metadata.append(param_source.base_request())

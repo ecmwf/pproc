@@ -41,7 +41,7 @@ def main():
             print(f"Recovery: param {param.name} starting from step {new_start}")
 
             requester = ParamRequester(
-                param, cfg.sources, cfg.members, cfg.total_fields, "fc"
+                param, cfg.sources, cfg.total_fields, "fc"
             )
             clim = Climatology(
                 param.clim,

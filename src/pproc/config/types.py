@@ -5,7 +5,6 @@ from pydantic import model_validator, Field, Tag, Discriminator
 import numpy as np
 import datetime
 import pandas as pd
-import logging
 
 from conflator import CLIArg
 
@@ -13,13 +12,8 @@ from conflator import CLIArg
 from pproc.config.base import BaseConfig, Parallelisation
 from pproc.config import io
 from pproc.config.param import ParamConfig
-from pproc.config.schema import Schema
-from pproc.config.utils import expand, squeeze, _set, _get, update_request
+from pproc.config.utils import expand, _set, _get, update_request
 from pproc.common.stepseq import steprange_to_fcmonth, fcmonth_to_steprange
-
-logging.getLogger("pproc").setLevel(os.environ.get("PPROC_LOG", "INFO").upper())
-logging.basicConfig(format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-logger = logging.getLogger(__name__)
 
 
 class EnsmsConfig(BaseConfig):
@@ -57,20 +51,18 @@ class QuantilesConfig(BaseConfig):
         pert_number = index if self.even_spacing else int(self.quantiles[index] * 100)
         return pert_number, self.total_number
 
-    def out_mars(self, targets: Optional[list[str]] = None) -> Iterator:
+    def _format_out(self, param: ParamConfig, req) -> dict:
+        req = super()._format_out(param, req)
         num_quantiles = (
             self.quantiles
             if isinstance(self.quantiles, int)
             else (len(self.quantiles) - 1)
         )
-        for req in super().out_mars(targets):
-            yield {
-                **req,
-                "quantile": [
-                    f"{qindices[0]}:{qindices[1]}"
-                    for qindices in map(self.quantile_indices, range(num_quantiles + 1))
-                ],
-            }
+        req["quantile"] = [
+            f"{qindices[0]}:{qindices[1]}"
+            for qindices in map(self.quantile_indices, range(num_quantiles + 1))
+        ]
+        return req
 
 
 class AccumParamConfig(ParamConfig):
@@ -83,47 +75,44 @@ class AccumConfig(BaseConfig):
     outputs: io.AccumOutputModel = io.AccumOutputModel()
     parameters: list[AccumParamConfig]
 
+    def _format_out(self, param: AccumParamConfig, req: dict) -> dict:
+        req = req.copy()
+        if req["type"] not in ["fcmean", "fcmax", "fcstdev", "fcmin"]:
+            return req
+
+        src_name = self.sources.names[0]
+        source = param.in_sources(self.sources, src_name)
+        src_reqs = source[0].request
+        if isinstance(src_reqs, dict):
+            src_reqs = [src_reqs]
+
+        number = None
+        num_members = super().compute_totalfields(src_name)
+        for src_req in src_reqs:
+            if len(src_req) == 0:
+                continue
+            number = src_req.get("number", number)
+
+        if len(number) == num_members - 1:
+            number = [0] + number
+        req["number"] = number
+        return req
+
 
 class MonthlyStatsConfig(BaseConfig):
     parallelisation: Parallelisation = Parallelisation()
     outputs: io.MonthlyStatsOutputModel = io.MonthlyStatsOutputModel()
     parameters: list[AccumParamConfig]
 
-    def out_mars(self, targets: Optional[list[str]] = None) -> Iterator:
-        for req in super().out_mars(targets):
-            step_ranges = req.pop("step")
-            date = datetime.datetime.strptime(str(req["date"]), "%Y%m%d")
-            fcmonths = [
-                steprange_to_fcmonth(date, step_range) for step_range in step_ranges
-            ]
-            yield {**req, "fcmonth": fcmonths}
-
-    @classmethod
-    def _populate_accumulations(cls, req: dict, schema_config: dict):
-        defs = schema_config["defs"]
-        cfg_stepby = defs.get("step_by", None)
-        super()._populate_accumulations(req, schema_config)
-        if fcmonths := req.pop("fcmonth", None):
-            assert cfg_stepby
-            step_accum = schema_config["accumulations"].setdefault("step", {})
-            step_accum["coords"] = []
-            if isinstance(fcmonths, (int, str)):
-                fcmonths = [fcmonths]
-            for fcmonth in fcmonths:
-                start, end = map(
-                    int,
-                    fcmonth_to_steprange(
-                        datetime.datetime.strptime(str(req["date"]), "%Y%m%d"), fcmonth
-                    ).split("-"),
-                )
-                step_accum["coords"].append(
-                    {"from": start, "to": end, "by": cfg_stepby}
-                )
-            if step_accum.get("type") == "legacywindow":
-                schema_config["accumulations"]["step"] = {
-                    "type": step_accum.pop("type"),
-                    "windows": [step_accum],
-                }
+    def _format_out(self, param: ParamConfig, req: dict) -> dict:
+        req = req.copy()
+        step_ranges = req.pop("step")
+        date = datetime.datetime.strptime(str(req["date"]), "%Y%m%d")
+        fcmonths = [
+            steprange_to_fcmonth(date, step_range) for step_range in step_ranges
+        ]
+        req["fcmonth"] = fcmonths
+        return req
 
 
 class HistParamConfig(ParamConfig):
@@ -132,12 +121,10 @@ class HistParamConfig(ParamConfig):
     normalise: bool = True
     scale_out: Optional[float] = None
 
-    def out_mars(self, targets: Optional[list[str]] = None) -> Iterator:
-        for req in super().out_mars(targets):
-            yield {
-                **req,
-                "quantile": [f"{x}:{len(self.bins)}" for x in range(1, len(self.bins))],
-            }
+    def _format_out(self, param: ParamConfig, req: dict) -> dict:
+        req = super()._format_out(param, req)
+        req["quantile"] = [f"{x}:{len(self.bins)}" for x in range(1, len(self.bins))]
+        return req
 
 
 class HistogramConfig(BaseConfig):
@@ -182,8 +169,7 @@ class SigniParamConfig(ClimParamConfig):
 
 
 class SigniConfig(BaseConfig):
-    clim_num_members: int = 11
-    clim_total_fields: int = 0
+    clim_total_fields: Annotated[int, Field(validate_default=True)] = 0
     parallelisation: Parallelisation = Parallelisation()
     sources: io.SignificanceSourceModel
     outputs: io.SignificanceOutputModel = io.SignificanceOutputModel()
@@ -198,7 +184,7 @@ class SigniConfig(BaseConfig):
     def check_totalfields(self) -> Self:
         super().check_totalfields()
         if self.clim_total_fields == 0:
-            self.clim_total_fields = self.clim_num_members
+            self.clim_total_fields = self.total_fields("clim")
         return self
 
 
@@ -286,6 +272,12 @@ class ExtremeConfig(BaseConfig):
     outputs: io.ExtremeOutputModel = io.ExtremeOutputModel()
     parameters: list[ExtremeParamConfig]
 
+    def _format_out(self, param: ParamConfig, req: dict) -> dict:
+        req = super()._format_out(param, req)
+        if req["type"] == "sot":
+            req["number"] = param.sot
+        return req
+
 
 class WindParamConfig(ParamConfig):
     vod2uv: bool = False
@@ -343,6 +335,12 @@ class WindConfig(BaseConfig):
     outputs: io.WindOutputModel = io.WindOutputModel()
     parameters: list[WindParamConfig]
 
+    def _format_out(self, param: WindParamConfig, req: dict) -> dict:
+        req = req.copy()
+        if req["type"] in ["em", "es"]:
+            req.pop("number", None)
+        return req
+
 
 class ThermoParamConfig(ParamConfig):
     out_params: list[str]
@@ -370,93 +368,3 @@ class ThermoConfig(BaseConfig):
                         np.asarray(nsteps) == 1
                     ), f"Accumulation source required for step ranges."
         return self
-
-
-class ConfigFactory:
-    types = {
-        "pproc-accumulate": AccumConfig,
-        "pproc-ensms": EnsmsConfig,
-        "pproc-monthly-stats": MonthlyStatsConfig,
-    }
-
-    @classmethod
-    def from_dict(cls, entrypoint: str, **config) -> BaseConfig:
-        if entrypoint not in cls.types:
-            raise ValueError(
-                f"Config generation current not supported for {entrypoint}"
-            )
-        return cls.types[entrypoint](**config)
-
-    @classmethod
-    def _from_schema_config(
-        cls, entrypoint: str, schema_config: dict, **overrides
-    ) -> BaseConfig:
-        if entrypoint not in cls.types:
-            raise ValueError(
-                f"Config generation current not supported for {entrypoint}"
-            )
-        return cls.types[entrypoint].from_schema_config(schema_config, **overrides)
-
-    @classmethod
-    def from_outputs(
-        cls, schema: Schema, output_requests: List[dict], **overrides
-    ) -> BaseConfig:
-        entrypoint = None
-        config = None
-        expanded = sum([list(expand(x)) for x in output_requests], [])
-        reqs = squeeze(expanded, ["levelist", "step", "fcmonth", "number", "quantiles"])
-        for req in reqs:
-            schema_config = schema.config_from_output(req)
-
-            if entrypoint is None:
-                entrypoint = schema_config.pop("entrypoint")
-                config = cls._from_schema_config(entrypoint, schema_config, **overrides)
-            else:
-                if entrypoint != schema_config.pop("entrypoint"):
-                    raise ValueError("All requests must have the same entrypoint")
-                config = config.merge(
-                    cls._from_schema_config(entrypoint, schema_config, **overrides)
-                )
-        assert (
-            config is not None
-        ), f"No config generated for requests: {output_requests}"
-        return config
-
-    @classmethod
-    def from_inputs(
-        cls, schema: Schema, entrypoint: str, input_requests: List[dict], **overrides
-    ) -> BaseConfig:
-        config = None
-        expanded_requests = sum([list(expand(x)) for x in input_requests], [])
-        df = pd.DataFrame(expanded_requests)
-        for _, param_combination in schema.combined_params():
-            selection = df.loc[df["param"] == param_combination[0]]
-            for paramid, row in selection.iterrows():
-                req = row.dropna().to_dict()
-                condition = np.logical_and.reduce(
-                    [df[k] == v for k, v in req.items() if k != "param"]
-                )
-                meets_condition = df.loc[
-                    condition & df["param"].isin(param_combination)
-                ]
-                if len(meets_condition) == len(param_combination):
-                    logger.debug(
-                        f"Add param {paramid}, computed from {param_combination}"
-                    )
-                    df.loc[len(df)] = {**req, "param": tuple(param_combination)}
-
-        for _, pgroup in df.groupby("param", sort=False):
-            # Squeeze certain back together into a single request
-            squeeze_dims = ["step", "number", "levelist"]
-            reqs = list(squeeze(pgroup.to_dict("records"), squeeze_dims))
-            for schema_config in schema.config_from_input(reqs, entrypoint=entrypoint):
-                if config is None:
-                    config = cls._from_schema_config(
-                        entrypoint, schema_config, **overrides
-                    )
-                else:
-                    config = config.merge(
-                        cls._from_schema_config(entrypoint, schema_config, **overrides)
-                    )
-        assert config is not None, f"No config generated for requests: {input_requests}"
-        return config

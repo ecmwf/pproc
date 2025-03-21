@@ -20,15 +20,14 @@ from pproc.prob.window_manager import ThresholdWindowManager, AnomalyWindowManag
                         "thresholds": [
                             {"comparison": "<=", "value": 273.15},
                         ],
-                        "periods": [
-                            {"range": [120, 240]},
-                            {"range": [120, 168]},
-                            {"range": [168, 240]},
-                            {"range": [240, 360]},
+                        "coords": [
+                            {"from": 120, "to": 240, "by": 6},
+                            {"from": 120, "to": 168, "by": 6},
+                            {"from": 168, "to": 240, "by": 6},
+                            {"from": 240, "to": 360, "by": 6},
                         ],
                     }
                 ],
-                "steps": [{"start_step": 126, "end_step": 360, "interval": 6}],
             },
             {
                 f"{a}-{b}_0": (
@@ -49,14 +48,13 @@ from pproc.prob.window_manager import ThresholdWindowManager, AnomalyWindowManag
                             {"comparison": ">=", "value": 20},
                             {"comparison": ">=", "value": 25},
                         ],
-                        "periods": [
-                            {"range": [0, 24]},
-                            {"range": [12, 36]},
-                            {"range": [336, 360]},
+                        "coords": [
+                            {"from": 0, "to": 24, "by": 6},
+                            {"from": 12, "to": 36, "by": 6},
+                            {"from": 336, "to": 360, "by": 6},
                         ],
                     }
                 ],
-                "steps": [{"start_step": 6, "end_step": 360, "interval": 6}],
             },
             {
                 f"{a}-{b}_0": (
@@ -76,47 +74,34 @@ from pproc.prob.window_manager import ThresholdWindowManager, AnomalyWindowManag
             {
                 "windows": [
                     {
-                        "window_operation": "diff",
+                        "operation": "difference",
                         "thresholds": [
                             {"comparison": ">=", "value": 0.001},
                             {"comparison": ">=", "value": 0.005},
                             {"comparison": ">=", "value": 0.01},
                             {"comparison": ">=", "value": 0.02},
                         ],
-                        "periods": [
-                            {"range": [0, 24]},
-                            {"range": [12, 36]},
-                            {"range": [336, 360]},
-                        ],
+                        "coords": [[0, 24], [12, 36], [336, 360]],
                     },
                     {
-                        "window_operation": "diff",
+                        "operation": "difference",
                         "thresholds": [
                             {"comparison": ">=", "value": 0.025},
                             {"comparison": ">=", "value": 0.05},
                             {"comparison": ">=", "value": 0.1},
                         ],
-                        "periods": [
-                            {"range": [0, 24]},
-                            {"range": [12, 36]},
-                            {"range": [336, 360]},
-                        ],
+                        "coords": [[0, 24], [12, 36], [336, 360]],
                     },
                     {
-                        "window_operation": "diffdailyrate",
+                        "operation": "diffdailyrate",
                         "thresholds": [
                             {"comparison": "<", "value": 0.001},
                             {"comparison": ">=", "value": 0.003},
                             {"comparison": ">=", "value": 0.005},
                         ],
-                        "periods": [
-                            {"range": [120, 240]},
-                            {"range": [168, 240]},
-                            {"range": [228, 360]},
-                        ],
+                        "coords": [[120, 240], [168, 240], [228, 360]],
                     },
                 ],
-                "steps": [{"start_step": 6, "end_step": 360, "interval": 6}],
             },
             {
                 **{
@@ -141,27 +126,26 @@ from pproc.prob.window_manager import ThresholdWindowManager, AnomalyWindowManag
                     for a, b in [(120, 240), (168, 240), (228, 360)]
                 },
             },
-            {12, 24, 36, 120, 168, 228, 240, 336, 360},
+            {0, 12, 24, 36, 120, 168, 228, 240, 336, 360},
             id="diffs-range",
         ),
         pytest.param(
             {
                 "windows": [
                     {
-                        "window_operation": "mean",
-                        "include_start_step": True,
+                        "operation": "mean",
+                        "include_start": True,
                         "thresholds": [
                             {"comparison": "<", "value": -2},
                             {"comparison": ">=", "value": 2},
                         ],
-                        "periods": [
-                            {"range": [120, 168]},
-                            {"range": [168, 240]},
-                            {"range": [240, 360]},
+                        "coords": [
+                            {"from": 120, "to": 168, "by": 12},
+                            {"from": 168, "to": 240, "by": 12},
+                            {"from": 240, "to": 360, "by": 12},
                         ],
                     }
                 ],
-                "steps": [{"start_step": 0, "end_step": 360, "interval": 12}],
             },
             {
                 f"{a}-{b}_0": (
@@ -207,22 +191,18 @@ def test_create_threshold(config, expected, exp_coords):
                             {"comparison": ">", "value": 4},
                             {"comparison": ">", "value": 8},
                         ],
-                        "periods": [
-                            {"range": [0, 0]},
-                            {"range": [12, 12]},
-                            {"range": [360, 360]},
-                        ],
+                        "coords": [[0], [12], [360]],
                     },
                     {
-                        "window_operation": "mean",
-                        "include_start_step": True,
+                        "operation": "mean",
+                        "include_start": True,
                         "thresholds": [
                             {"comparison": "<", "value": -4},
                             {"comparison": ">=", "value": 2},
                         ],
-                        "periods": [
-                            {"range": [120, 240]},
-                            {"range": [336, 360]},
+                        "coords": [
+                            {"from": 120, "to": 240, "by": 12},
+                            {"from": 336, "to": 360, "by": 12},
                         ],
                     },
                 ],
@@ -232,14 +212,9 @@ def test_create_threshold(config, expected, exp_coords):
                             {"comparison": ">", "value": 1},
                             {"comparison": "<", "value": -1.5},
                         ],
-                        "periods": [
-                            {"range": [0, 0]},
-                            {"range": [12, 12]},
-                            {"range": [300, 300]},
-                        ],
+                        "coords": [[0], [12], [300]],
                     }
                 ],
-                "steps": [{"start_step": 0, "end_step": 360, "interval": 12}],
             },
             {
                 **{

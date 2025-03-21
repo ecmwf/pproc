@@ -3,7 +3,8 @@ import pytest
 import shutil
 import tempfile
 import requests
-from typing import List
+from typing import List, Optional
+import yaml
 
 import eccodes
 import pyfdb
@@ -11,6 +12,7 @@ import pyfdb
 TEST_DIR = os.path.dirname(os.path.realpath(__file__))
 DATA_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "data")
 NEXUS = "https://get.ecmwf.int/test-data/pproc/test-data"
+SCHEMA = os.path.join(TEST_DIR, "schema", "schema.yaml")
 
 
 def download_test_data(
@@ -101,3 +103,9 @@ spaces:
 
     yield temp_fdb
     shutil.rmtree(tmpdir)
+
+
+def schema(section: Optional[str] = None) -> dict:
+    with open(SCHEMA, "r") as f:
+        schema = yaml.safe_load(f)
+    return schema if section is None else schema[section]

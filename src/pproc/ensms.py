@@ -104,7 +104,6 @@ def main():
             requester = ParamRequester(
                 param,
                 cfg.sources,
-                cfg.members,
                 cfg.total_fields,
             )
             iteration = functools.partial(ensms_iteration, cfg, param, recover)

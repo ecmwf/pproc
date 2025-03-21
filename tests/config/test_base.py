@@ -12,7 +12,6 @@ from pproc.config.utils import deep_update
 @pytest.fixture(scope="function")
 def config(tmpdir) -> str:
     required = {
-        "members": 5,
         "sources": {"fc": {"type": "fdb", "request": {}}},
         "parameters": [],
     }
@@ -22,7 +21,6 @@ def config(tmpdir) -> str:
 
 
 base_config = {
-    "members": 5,
     "sources": {"fc": {"type": "fdb", "request": {}}},
     "parameters": {
         "param": {
@@ -30,7 +28,7 @@ base_config = {
             "accumulations": {
                 "step": {
                     "type": "legacywindow",
-                    "windows": [{"window_operation": "mean"}],
+                    "windows": [{"operation": "mean"}],
                 }
             },
         }
@@ -89,7 +87,6 @@ def test_recovery(config, overrides, checkpointing, from_checkpoint):
     [
         [
             {
-                "members": 5,
                 "sources": {"fc": {"type": "fdb", "request": {}}},
                 "parameters": {
                     "tp": {
@@ -97,14 +94,13 @@ def test_recovery(config, overrides, checkpointing, from_checkpoint):
                         "accumulations": {
                             "step": {
                                 "type": "legacywindow",
-                                "windows": [{"window_operation": "diff"}],
+                                "windows": [{"operation": "diff"}],
                             }
                         },
                     }
                 },
             },
             {
-                "members": 5,
                 "sources": {"fc": {"type": "fdb", "request": {}}},
                 "parameters": {
                     "param": {
@@ -112,7 +108,7 @@ def test_recovery(config, overrides, checkpointing, from_checkpoint):
                         "accumulations": {
                             "step": {
                                 "type": "legacywindow",
-                                "windows": [{"window_operation": "mean"}],
+                                "windows": [{"operation": "mean"}],
                             }
                         },
                     },
@@ -121,7 +117,7 @@ def test_recovery(config, overrides, checkpointing, from_checkpoint):
                         "accumulations": {
                             "step": {
                                 "type": "legacywindow",
-                                "windows": [{"window_operation": "diff"}],
+                                "windows": [{"operation": "diff"}],
                             }
                         },
                     },
@@ -130,7 +126,6 @@ def test_recovery(config, overrides, checkpointing, from_checkpoint):
         ],
         [
             {
-                "members": 5,
                 "sources": {"fc": {"type": "fdb", "request": {}}},
                 "parameters": {
                     "param": {
@@ -138,14 +133,13 @@ def test_recovery(config, overrides, checkpointing, from_checkpoint):
                         "accumulations": {
                             "step": {
                                 "type": "legacywindow",
-                                "windows": [{"window_operation": "standard_deviation"}],
+                                "windows": [{"operation": "standard_deviation"}],
                             }
                         },
                     }
                 },
             },
             {
-                "members": 5,
                 "sources": {"fc": {"type": "fdb", "request": {}}},
                 "parameters": {
                     "param": {
@@ -154,8 +148,8 @@ def test_recovery(config, overrides, checkpointing, from_checkpoint):
                             "step": {
                                 "type": "legacywindow",
                                 "windows": [
-                                    {"window_operation": "mean"},
-                                    {"window_operation": "standard_deviation"},
+                                    {"operation": "mean"},
+                                    {"operation": "standard_deviation"},
                                 ],
                             }
                         },
@@ -163,7 +157,7 @@ def test_recovery(config, overrides, checkpointing, from_checkpoint):
                 },
             },
         ],
-        [{**base_config, "members": 10}, None],
+        [{**base_config, "total_fields": 10}, None],
         [base_config, base_config],
     ],
     ids=["compat_diff_params", "compat_diff_windows", "diff_base", "duplicate"],
@@ -195,6 +189,7 @@ def test_merge(other: dict, merged: dict):
                                 "class": "od",
                                 "stream": "enfo",
                                 "type": "pf",
+                                "number": [1, 2, 3, 4, 5],
                             },
                         ],
                     }
@@ -333,6 +328,7 @@ def test_merge(other: dict, merged: dict):
                                         "class": "od",
                                         "stream": "enfo",
                                         "type": "pf",
+                                        "number": [1, 2, 3, 4, 5],
                                     },
                                 ]
                             }

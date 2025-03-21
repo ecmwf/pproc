@@ -1,5 +1,6 @@
-from pydantic import BaseModel, Field, BeforeValidator, ConfigDict
+from pydantic import BaseModel, Field, BeforeValidator, ConfigDict, Tag, Discriminator
 from typing import Literal, Union, Annotated, Tuple, Iterator, Optional, List, Any
+from typing_extensions import Self
 import datetime
 
 from earthkit.time.calendar import parse_date
@@ -8,7 +9,7 @@ from earthkit.time.sequence import Sequence
 from pproc.common.stepseq import stepseq_ranges, stepseq_monthly
 from pproc.common.accumulation import coords_extent
 from pproc.common.window import legacy_window_factory
-from pproc.config.utils import extract_mars
+from pproc.config.utils import extract_mars, _get
 
 
 class StepRanges(BaseModel):
@@ -67,7 +68,7 @@ class LegacyWindowConfig(BaseModel):
                 coords.update(coord)
             elif isinstance(coord, dict):
                 coords.update(
-                    range(coords.get("from", 0), coords["to"] + 1), coords.get("by", 1)
+                    range(coord.get("from", 0), coord["to"] + 1, coord.get("by", 1))
                 )
         coords = list(coords)
         coords.sort()
@@ -205,6 +206,19 @@ class DefaultAccumulation(BaseAccumulation):
                 base[dim].append(f"{coord['from']}-{coord['to']}")
         return [base]
 
+    def merge(self, other: Self) -> Self:
+        if not isinstance(other, DefaultAccumulation):
+            raise ValueError("Merge only possible with other DefaultAccumulation")
+
+        current_config = self.model_dump(by_alias=True, exclude={"coords"})
+        other_config = other.model_dump(by_alias=True, exclude={"coords"})
+        if current_config != other_config:
+            raise ValueError(
+                "Merging of two DefaultAccumulations requires them to be the same, except for coords"
+            )
+        new_coords = self.coords + [x for x in other.coords if x not in self.coords]
+        return type(self)(**current_config, coords=new_coords)
+
 
 class StepSeqAccumulation(BaseAccumulation):
     model_config = ConfigDict(extra="allow")
@@ -236,6 +250,9 @@ class StepSeqAccumulation(BaseAccumulation):
                 **extract_mars(self.grib_keys),
             }
         ]
+
+    def merge(self, other: Self) -> Self:
+        raise NotImplementedError("Merging of StepSeqAccumulation not implemented")
 
 
 class DateSeqAccumulation(BaseAccumulation):
@@ -269,6 +286,9 @@ class DateSeqAccumulation(BaseAccumulation):
             dates.append(f"{date_range[0]}-{date_range[-1]}")
         return [base]
 
+    def merge(self, other: Self) -> Self:
+        raise NotImplementedError("Merging of DateSeqAccumulation not implemented")
+
 
 class LegacyStepAccumulation(BaseModel):
     type_: Literal["legacywindow"] = Field("legacywindow", alias="type")
@@ -293,12 +313,47 @@ class LegacyStepAccumulation(BaseModel):
     def out_mars(self, dim: str) -> list[dict]:
         return [window.out_mars(dim) for window in self.windows]
 
+    def merge(self, other: Self) -> Self:
+        if not isinstance(other, LegacyStepAccumulation):
+            raise ValueError("Merge only possible with other LegacyStepAccumulation")
+        current = self.model_copy(deep=True)
 
-AccumulationConfig = Union[
-    LegacyStepAccumulation,
-    DefaultAccumulation,
-    StepSeqAccumulation,
-    DateSeqAccumulation,
+        for wtype in ["windows", "std_anomaly_windows"]:
+            current_windows = getattr(current, wtype, None)
+            other_windows = getattr(other, wtype, None)
+            if current_windows is None:
+                if other_windows is not None:
+                    setattr(current, wtype, other_windows)
+                continue
+
+            for w2 in other_windows:
+                matched = False
+                for w1 in current_windows:
+                    w1_config = w1.model_dump(by_alias=True, exclude={"coords"})
+                    w2_config = w2.model_dump(by_alias=True, exclude={"coords"})
+                    if w1_config == w2_config:
+                        w1.coords = w1.coords + [
+                            x for x in w2.coords if x not in w1.coords
+                        ]
+                        matched = True
+                        break
+                if not matched:
+                    current_windows.append(w2)
+        return current.model_validate(current)
+
+
+def accumulation_discriminator(config: dict) -> str:
+    return _get(config, "type", "default")
+
+
+AccumulationConfig = Annotated[
+    Union[
+        Annotated[DefaultAccumulation, Tag("default")],
+        Annotated[LegacyStepAccumulation, Tag("legacywindow")],
+        Annotated[StepSeqAccumulation, Tag("stepseq")],
+        Annotated[DateSeqAccumulation, Tag("dateseq")],
+    ],
+    Discriminator(accumulation_discriminator),
 ]
 
 

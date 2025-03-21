@@ -1,4 +1,3 @@
-members: 5
 parallelisation:
   n_par_compute: 1
   n_par_read: 2
@@ -22,7 +21,7 @@ parameters:
       step:
         type: legacywindow
         windows:
-        - grib_set:
+        - grib_keys:
             edition: 1
             gribTablesVersionNo: 132
             indicatorOfParameter: 167
@@ -30,12 +29,11 @@ parameters:
             mars.expver: '0001'
             timeRangeIndicator: 3
             stepType: avg
-          periods:
-          - range:
-            - 12
-            - 36
-            - 6
-          window_operation: mean
+          coords:
+          - from: 12
+            to: 36
+            by: 6
+          operation: mean
 sources:
   fc:
     request:
@@ -55,6 +53,7 @@ sources:
         date: 20240507
         time: 12
         type: pf 
+        number: [1, 2, 3, 4, 5]
     type: fdb   
   clim:
     request:

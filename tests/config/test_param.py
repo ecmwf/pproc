@@ -7,7 +7,7 @@ base_config = {
     "accumulations": {
         "step": {
             "type": "legacywindow",
-            "windows": [{"window_operation": "mean"}],
+            "windows": [{"operation": "mean"}],
         }
     },
 }
@@ -23,8 +23,8 @@ base_config = {
                     "step": {
                         "type": "legacywindow",
                         "windows": [
-                            {"window_operation": "standard_deviation"},
-                            {"window_operation": "mean", "include_start_step": True},
+                            {"operation": "standard_deviation"},
+                            {"operation": "mean", "include_start_step": True},
                         ],
                     }
                 },
@@ -35,9 +35,9 @@ base_config = {
                     "step": {
                         "type": "legacywindow",
                         "windows": [
-                            {"window_operation": "mean"},
-                            {"window_operation": "standard_deviation"},
-                            {"window_operation": "mean", "include_start_step": True},
+                            {"operation": "mean"},
+                            {"operation": "standard_deviation"},
+                            {"operation": "mean", "include_start_step": True},
                         ],
                     }
                 },
@@ -50,7 +50,7 @@ base_config = {
                 "accumulations": {
                     "step": {
                         "type": "legacywindow",
-                        "windows": [{"window_operation": "standard_deviation"}],
+                        "windows": [{"operation": "standard_deviation"}],
                     },
                     "date": {},
                 },
@@ -68,7 +68,7 @@ base_config = {
             None,
         ],
     ],
-    ids=["compatible", "diff_name", "diff_accum", "diff_window", "duplicate"],
+    ids=["compatible", "diff_name", "diff_accum", "duplicate", "diff_window"],
 )
 def test_merge(config2, merged):
     param1 = ParamConfig(**base_config)

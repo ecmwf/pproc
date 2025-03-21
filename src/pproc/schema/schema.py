@@ -1,0 +1,76 @@
+from typing import Iterator, Optional
+import copy
+import numpy as np
+import pandas as pd
+
+from pproc.schema.config import ConfigSchema
+from pproc.schema.input import InputSchema
+from pproc.schema.step import StepSchema
+
+from pproc.config.utils import expand
+
+
+class Schema:
+    def __init__(self, schema: dict):
+        self.config_schema = ConfigSchema(schema.get("config", {}))
+        self.param_schema = InputSchema(schema.get("inputs", {}))
+        self.step_schema = StepSchema(schema.get("windows", {}))
+
+    @classmethod
+    def validate_request(cls, request: dict) -> dict:
+        out = copy.deepcopy(request)
+        if isinstance(out["param"], int):
+            out["param"] = str(out["param"])
+        elif np.ndim(out["param"]) > 0:
+            out["param"] = [str(param) for param in out["param"]]
+
+        return out
+
+    def config_from_output(
+        self, output_request: dict, inputs: Optional[list[dict]] = None
+    ) -> dict:
+        valid_out = self.validate_request(output_request)
+        config = self.config_schema.config(valid_out)
+        inputs = inputs or list(self.param_schema.inputs(valid_out, self.step_schema))
+
+        # Set metadata
+        base_request = inputs[0]
+        metadata = config.setdefault("metadata", {})
+        if base_request["param"] != valid_out["param"]:
+            metadata["paramId"] = int(valid_out["param"])
+            if (
+                not isinstance(base_request["param"], str)
+                and len(base_request["param"]) > 1
+            ):
+                config["name"] = valid_out["param"]
+        if base_request["stream"] != valid_out["stream"]:
+            metadata["stream"] = valid_out["stream"]
+        return {**config, "inputs": inputs}
+
+    def config_from_input(
+        self,
+        input_requests: list[dict],
+        output_template: Optional[dict] = None,
+        entrypoint: Optional[str] = None,
+    ) -> Iterator[dict]:
+        input_requests = sum(
+            [list(expand(self.validate_request(req))) for req in input_requests], []
+        )
+        reconstructed = self.config_schema.reconstruct(
+            output_template=None
+            if output_template is None
+            else self.validate_request(output_template),
+            **({} if entrypoint is None else {"entrypoint": entrypoint}),
+        )
+        matching_types = pd.DataFrame([x for x, _ in reconstructed])
+        output_keys = [] if output_template is None else list(output_template.keys())
+        drop = [
+            x for x in self.config_schema.filters.difference(["type"] + output_keys)
+        ]
+        matching_types.drop(columns=drop, inplace=True, errors="ignore")
+        matching_types.drop_duplicates(inplace=True)
+        for template in matching_types.to_dict(orient="records"):
+            for output, inputs in self.param_schema.outputs(
+                input_requests, self.step_schema, output_template=template
+            ):
+                yield self.config_from_output(output, inputs)

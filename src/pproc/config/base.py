@@ -15,11 +15,6 @@ from pproc.config.param import ParamConfig
 from pproc.config.utils import deep_update, extract_mars, _get, _set
 
 
-class Members(ConfigModel):
-    start: int
-    end: int
-
-
 class Parallelisation(ConfigModel):
     n_par_read: int = 1
     n_par_compute: int = 1
@@ -61,7 +56,6 @@ class Recovery(ConfigModel):
 
 class BaseConfig(ConfigModel):
     log: LoggingConfig = LoggingConfig()
-    members: int | Members
     total_fields: Annotated[int, Field(validate_default=True)] = 0
     parallelisation: int | Parallelisation = 1
     recovery: Recovery = Recovery()
@@ -90,38 +84,35 @@ class BaseConfig(ConfigModel):
         self._init = True
         return self
 
+    def compute_totalfields(self, src_name: str) -> int:
+        out = 0
+        for param in self.parameters:
+            total_fields = 0
+            source = param.in_sources(self.sources, src_name)
+            reqs = source[0].request
+            if isinstance(reqs, dict):
+                reqs = [reqs]
+            for req in reqs:
+                if len(req) == 0:
+                    continue
+                if number := req.get("number", None):
+                    total_fields += len(number)
+                else:
+                    total_fields += 1
+            if out == 0:
+                out = total_fields
+            elif out != total_fields:
+                raise ValueError(
+                    f"All parameters must request the same number of total fields. Expected {out}, got {total_fields}."
+                )
+        assert out != 0, ValueError("Could not derived total_fields from requests.")
+        return out
+
     @model_validator(mode="after")
-    def check_totalfields(self) -> Self:
-        fc_name = self.sources.names[0]
+    def validate_totalfields(self) -> Self:
         if self.total_fields == 0 and len(self.parameters) > 0:
-            for param in self.parameters:
-                total_fields = 0
-                source = param.in_sources(self.sources, fc_name)
-                reqs = source[0].request
-                if isinstance(reqs, dict):
-                    reqs = [reqs]
-                for req in reqs:
-                    if len(req) == 0:
-                        continue
-                    if number := req.get("number", None):
-                        total_fields += 1 if isinstance(number, int) else len(number)
-                    elif req.get("type", None) in ["pf", "fcmean"]:
-                        total_fields += (
-                            self.members
-                            if isinstance(self.members, int)
-                            else self.members.end - self.members.start + 1
-                        )
-                    else:
-                        total_fields += 1
-                if self.total_fields == 0:
-                    self.total_fields = total_fields
-                elif self.total_fields != total_fields:
-                    raise ValueError(
-                        f"All parameters must request the same number of total fields. Expected {self.total_fields}, got {total_fields}."
-                    )
-            assert self.total_fields != 0, ValueError(
-                "Could not derived total_fields from requests."
-            )
+            total_fields = self.compute_totalfields(self.sources.names[0])
+            self.total_fields = total_fields
         return self
 
     @field_validator("parameters", mode="before")
@@ -172,11 +163,9 @@ class BaseConfig(ConfigModel):
         return type(self)(**current, parameters=merged_params)
 
     @classmethod
-    def from_schema_config(cls, schema_config: dict, **overrides) -> Self:
+    def from_schema(cls, schema_config: dict, **overrides) -> Self:
         schema_config = copy.deepcopy(schema_config)
         config = {
-            "members": schema_config.pop("members"),
-            "total_fields": schema_config.pop("total_fields", 0),
             "sources": {"default": {"type": "fdb"}},
             "outputs": {"default": {"target": {"type": "fdb"}}},
             "parameters": cls._construct_params(schema_config),
@@ -185,35 +174,24 @@ class BaseConfig(ConfigModel):
         return cls(**config)
 
     @classmethod
-    def _populate_accumulations(cls, req: dict, schema_config: dict):
-        defs = schema_config["defs"]
-        cfg_steps = sum(
-            [list(range(x["from"], x["to"] + 1, x["by"])) for x in defs["steps"]], []
-        )
-        cfg_stepby = defs.get("step_by", None)
+    def _populate_accumulations(cls, schema_config: dict):
+        req = schema_config["inputs"][0]
         accums = schema_config.setdefault("accumulations", {})
         if levelist := req.get("levelist", None):
             levelist = [levelist] if np.ndim(levelist) == 0 else levelist
             accums.setdefault("levelist", {"coords": [[level] for level in levelist]})
 
-        if steps := req.pop("step", None):
+        steps = req.get("step", None)
+        if steps is not None:
             step_accum = accums.setdefault("step", {})
-            step_accum["coords"] = []
             if isinstance(steps, (int, str)):
                 steps = [steps]
-            for step in steps:
-                try:
-                    step = int(step)
-                    step_accum["coords"].append([step])
-                except ValueError:
-                    start, end = map(int, step.split("-"))
-                    step_accum["coords"].append(
-                        {"from": start, "to": end, "by": cfg_stepby}
-                        if cfg_stepby
-                        else cfg_steps[
-                            cfg_steps.index(start) : cfg_steps.index(end) + 1
-                        ]
-                    )
+
+            if len(steps) > 2:
+                diff = np.diff(steps)
+                if len(set(diff)) == 1:
+                    steps = {"from": steps[0], "to": steps[-1], "by": diff[0]}
+            step_accum["coords"] = [steps]
 
             if step_accum.get("type") == "legacywindow":
                 accums["step"] = {
@@ -223,22 +201,22 @@ class BaseConfig(ConfigModel):
 
     @classmethod
     def _construct_params(cls, schema_config: dict) -> dict:
-        reqs = schema_config.pop("request")
-        if not isinstance(reqs, list):
-            reqs = [reqs]
-        for req in reqs:
+        inputs = schema_config["inputs"]
+        for req in inputs:
             if grid := req.pop("interp_grid", None):
                 req["interpolate"] = {
                     "grid": grid,
                     **schema_config["defs"].get("interp_keys", {}),
                 }
 
-        cls._populate_accumulations(reqs[0], schema_config)
+        cls._populate_accumulations(schema_config)
         for dim in schema_config["accumulations"].keys():
-            [req.pop(dim, None) for req in reqs]
+            [req.pop(dim, None) for req in inputs]
         return {
-            schema_config.get("name", str(reqs[0]["param"])): {
-                "sources": {"fc": {"request": reqs if len(reqs) > 1 else reqs[0]}},
+            schema_config.get("name", str(inputs[0]["param"])): {
+                "sources": {
+                    "fc": {"request": inputs if len(inputs) > 1 else inputs[0]}
+                },
                 "metadata": schema_config.pop("metadata", {}),
                 **schema_config,
             }
@@ -274,25 +252,14 @@ class BaseConfig(ConfigModel):
                         }
                     )
                     req.pop("interpolate", None)
-                    req = self._set_number(req)
                     if str(req) not in seen:
                         seen.add(str(req))
                         yield req
 
-    def _set_number(self, req: dict) -> dict:
-        if req.get("type", None) not in ["pf", "fcmean", "fcmax", "fcstdev", "fcmin"]:
-            return req
-        if "number" in req:
-            return req
-        if isinstance(self.members, int):
-            if req["type"] == "pf":
-                start, end = 1, self.members
-            else:
-                start, end = 0, self.members - 1
-        else:
-            start = self.members.start
-            end = self.members.end
-        return {**req, "number": list(range(start, end + 1))}
+    def _format_out(self, param: ParamConfig, req: dict) -> dict:
+        out = req.copy()
+        out.pop("number", None)
+        return out
 
     def out_mars(self, targets: Optional[list[str]] = None) -> Iterator:
         outputs = []
@@ -305,7 +272,7 @@ class BaseConfig(ConfigModel):
                 continue
             outputs.append(output)
 
-        seen = set()
+        seen = []
         for param, output in itertools.product(self.parameters, outputs):
             for req in param.out_keys(self.sources):
                 req["target"] = (
@@ -315,8 +282,8 @@ class BaseConfig(ConfigModel):
                 )
                 req.update(extract_mars(output.metadata))
                 req.update(extract_mars(self.outputs.overrides))
-                req = self._set_number(req)
+                req = self._format_out(param, req)
                 req.pop("interpolate", None)
-                if str(req) not in seen:
-                    seen.add(str(req))
+                if req not in seen:
+                    seen.append(req)
                     yield req

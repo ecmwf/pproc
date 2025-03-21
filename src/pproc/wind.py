@@ -57,7 +57,6 @@ def wind_iteration(
         param,
         config.sources,
         src_name="fc",
-        members=config.members,
         total=config.total_fields * param.total_fields,
     )
     template, ens = requester.retrieve_data(**dims)

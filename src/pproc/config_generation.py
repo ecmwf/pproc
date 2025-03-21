@@ -8,7 +8,7 @@ import json
 
 
 from pproc.config.types import ConfigFactory
-from pproc.config.schema import Schema
+from pproc.schema.schema import Schema
 from pproc.common import mars
 
 

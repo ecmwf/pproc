@@ -1,4 +1,3 @@
-members: 5
 total_fields: 6
 parallelisation:
   n_par_compute: 1
@@ -15,7 +14,7 @@ parameters:
       step:
         type: legacywindow
         windows:
-          - periods:
+          - coords:
               type: ranges
               from: 12
               to: 36
@@ -39,6 +38,7 @@ sources:
         stream: enfo
         time: 12
         type: pf
+        number: [1, 2, 3, 4, 5]
     type: "fdb"    
 outputs:
   default:

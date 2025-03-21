@@ -1,11 +1,12 @@
 import os
 import pytest
 
-from pproc.config.schema import Schema
+from pproc.schema.schema import Schema
 from pproc.config import types
 from pproc.config.utils import deep_update, extract_mars, expand
+from pproc.config.factory import ConfigFactory
 
-TEST_DIR = os.path.dirname(os.path.abspath(__file__))
+from conftest import schema
 
 
 def transform_request(request: dict) -> dict:
@@ -15,6 +16,7 @@ def transform_request(request: dict) -> dict:
 
 
 def check_request_equality(reqs1, reqs2):
+    assert len(reqs1) == len(reqs2)
     for i, req in enumerate(reqs1):
         assert transform_request(req) == transform_request(reqs2[i])
 
@@ -33,7 +35,6 @@ DEFAULT_REQUEST = {
 
 def default_config(param: str):
     return {
-        "members": 50,
         "total_fields": 51,
         "sources": {"fc": {"type": "fdb"}},
         "outputs": {
@@ -65,6 +66,7 @@ def default_config(param: str):
                                 "date": "20241001",
                                 "time": "0",
                                 "type": "pf",
+                                "number": list(range(1, 51)),
                             },
                         ],
                     }
@@ -141,7 +143,6 @@ TEST_CASES = {
                 "mean": {"metadata": {"type": "em"}, "target": {"type": "fdb"}},
                 "std": {"metadata": {"type": "es"}, "target": {"type": "null"}},
             },
-            "members": 50,
             "total_fields": 51,
             "parameters": {
                 "130": {
@@ -162,7 +163,6 @@ TEST_CASES = {
             "outputs": {
                 "stats": {"target": {"type": "fdb"}},
             },
-            "members": {"start": 0, "end": 50},
             "total_fields": 51,
             "parameters": {
                 "228": {
@@ -182,6 +182,7 @@ TEST_CASES = {
                                 "param": "228",
                                 "stream": "mmsf",
                                 "type": "fc",
+                                "number": list(range(0, 51)),
                             }
                         }
                     },
@@ -308,6 +309,7 @@ TEST_CASES = {
                 "levelist": [250, 500],
                 "step": ["0-168", "24-192"],
                 "type": ["fcmean", "fcstdev", "fcmin", "fcmax"],
+                "number": list(range(0, 51)),
             },
             "130",
         ],
@@ -328,6 +330,7 @@ TEST_CASES = {
                 "stream": "msmm",
                 "type": ["fcmean", "fcstdev", "fcmax"],
                 "fcmonth": [1, 2, 3],
+                "number": list(range(0, 51)),
             },
             "228",
         ],
@@ -337,17 +340,18 @@ TEST_CASES = {
                 "levelist": [250, 500],
                 "step": ["0-168", "24-192"],
                 "type": ["fcmean", "fcstdev", "fcmin", "fcmax"],
+                "number": list(range(0, 51)),
             },
             "130",
         ],
     ],
     ids=TEST_CASES.keys(),
 )
-def test_factory_from_outputs(request, output_request, input_param):
-    schema = Schema(os.path.join(TEST_DIR, "schema.yaml"))
+def test_from_outputs(request, output_request, input_param):
+    test_schema = Schema(schema())
 
     overrides, cfg_type, updates = TEST_CASES[request.node.callspec.id]
-    config = types.ConfigFactory.from_outputs(schema, [output_request], **overrides)
+    config = ConfigFactory.from_outputs(test_schema, [output_request], **overrides)
     assert type(config) == cfg_type
     check = default_config(input_param)
     deep_update(check, updates)
@@ -360,11 +364,10 @@ def test_factory_from_outputs(request, output_request, input_param):
         else output_request["type"]
     )
     check_request_equality(
-        config.out_mars(),
+        list(config.out_mars()),
         [
             {
                 **output_request,
-                **config._set_number({"type": tp}),
                 "target": "fdb",
                 **extract_mars(config.outputs.default.metadata),
                 "type": tp,
@@ -375,7 +378,7 @@ def test_factory_from_outputs(request, output_request, input_param):
 
 
 @pytest.mark.parametrize(
-    "entrypoint, input_request, periods",
+    "entrypoint, input_request, step_accum, stepby",
     [
         [
             "pproc-accumulate",
@@ -391,16 +394,47 @@ def test_factory_from_outputs(request, output_request, input_param):
                     "levelist": [250, 500],
                     "step": list(range(0, 193, 6)),
                     "type": "pf",
+                    "number": list(range(1, 51)),
                 },
             ],
             {
-                "type": "ranges",
-                "from": "0",
-                "to": "192",
-                "by": "6",
-                "interval": 24,
-                "width": 168,
+                "type": "legacywindow",
+                "windows": [
+                    {
+                        "operation": "mean",
+                        "grib_keys": {"type": "fcmean"},
+                        "coords": [
+                            {"from": 0, "to": 168, "by": 12},
+                            {"from": 24, "to": 192, "by": 12},
+                        ],
+                    },
+                    {
+                        "operation": "standard_deviation",
+                        "grib_keys": {"type": "fcstdev"},
+                        "coords": [
+                            {"from": 0, "to": 168, "by": 12},
+                            {"from": 24, "to": 192, "by": 12},
+                        ],
+                    },
+                    {
+                        "operation": "minimum",
+                        "grib_keys": {"type": "fcmin"},
+                        "coords": [
+                            {"from": 0, "to": 168, "by": 12},
+                            {"from": 24, "to": 192, "by": 12},
+                        ],
+                    },
+                    {
+                        "operation": "maximum",
+                        "grib_keys": {"type": "fcmax"},
+                        "coords": [
+                            {"from": 0, "to": 168, "by": 12},
+                            {"from": 24, "to": 192, "by": 12},
+                        ],
+                    },
+                ],
             },
+            12,
         ],
         [
             "pproc-ensms",
@@ -416,14 +450,13 @@ def test_factory_from_outputs(request, output_request, input_param):
                     "levelist": [250, 500],
                     "step": list(range(0, 193, 6)),
                     "type": "pf",
+                    "number": list(range(1, 51)),
                 },
             ],
             {
-                "type": "ranges",
-                "from": "0",
-                "to": "192",
-                "interval": "6",
+                "coords": [[x] for x in range(0, 193, 6)],
             },
+            6,
         ],
         [
             "pproc-monthly-stats",
@@ -435,83 +468,103 @@ def test_factory_from_outputs(request, output_request, input_param):
                     "stream": "mmsf",
                     "type": "fc",
                     "step": list(range(0, 2209, 24)),
+                    "number": list(range(0, 51)),
                 }
             ],
             {
-                "type": "monthly",
-                "date": "20241001",
-                "from": "0",
-                "to": "2208",
-                "by": "24",
+                "type": "legacywindow",
+                "windows": [
+                    {
+                        "operation": "mean",
+                        "grib_keys": {"type": "fcmean"},
+                        "deaccumulate": True,
+                        "include_start": True,
+                        "coords": [
+                            {"from": 0, "to": 744, "by": 24},
+                            {"from": 744, "to": 1464, "by": 24},
+                            {"from": 1464, "to": 2208, "by": 24},
+                        ],
+                    },
+                    {
+                        "operation": "standard_deviation",
+                        "grib_keys": {"type": "fcstdev"},
+                        "deaccumulate": True,
+                        "include_start": True,
+                        "coords": [
+                            {"from": 0, "to": 744, "by": 24},
+                            {"from": 744, "to": 1464, "by": 24},
+                            {"from": 1464, "to": 2208, "by": 24},
+                        ],
+                    },
+                    {
+                        "operation": "maximum",
+                        "grib_keys": {"type": "fcmax"},
+                        "deaccumulate": True,
+                        "include_start": True,
+                        "coords": [
+                            {"from": 0, "to": 744, "by": 24},
+                            {"from": 744, "to": 1464, "by": 24},
+                            {"from": 1464, "to": 2208, "by": 24},
+                        ],
+                    },
+                ],
             },
-        ],
-        [
-            "pproc-accumulate",
-            [
-                {
-                    **DEFAULT_REQUEST,
-                    "levelist": [250, 500],
-                    "step": list(range(0, 193, 6)),
-                    "type": "cf",
-                },
-                {
-                    **DEFAULT_REQUEST,
-                    "levelist": [250, 500],
-                    "step": list(range(0, 193, 6)),
-                    "type": "pf",
-                },
-            ],
-            {
-                "type": "ranges",
-                "from": "0",
-                "to": "192",
-                "by": "6",
-                "interval": 24,
-                "width": 168,
-            },
+            24,
         ],
     ],
-    ids=TEST_CASES.keys(),
+    ids=["accumulate", "ensms", "monthly-stats"],
 )
-def test_factory_from_inputs(request, entrypoint, input_request, periods):
-    schema = Schema(os.path.join(TEST_DIR, "schema.yaml"))
+def test_from_inputs(request, entrypoint, input_request, step_accum, stepby):
+    test_schema = Schema(schema())
 
     overrides, cfg_type, updates = TEST_CASES[request.node.callspec.id]
-    config = types.ConfigFactory.from_inputs(
-        schema, entrypoint, input_request, **overrides
+    config = ConfigFactory.from_inputs(
+        test_schema, entrypoint, input_request, **overrides
     )
     assert type(config) == cfg_type
-    check = default_config(input_request[0]["param"])
-    windows = updates["parameters"][input_request[0]["param"]]["accumulations"]["step"][
-        "windows"
-    ]
-    for window in windows:
-        window["periods"] = periods
+    param = input_request[0]["param"]
+    check = default_config(param)
+    updates["parameters"][param]["accumulations"]["step"] = step_accum
     deep_update(check, updates)
     assert config.model_dump(exclude_defaults=True, by_alias=True) == cfg_type(
         **check
     ).model_dump(exclude_defaults=True, by_alias=True)
     check_request_equality(
-        config.in_mars(),
-        [{"source": "fdb", **config._set_number(req)} for req in input_request],
+        list(config.in_mars()),
+        [
+            {
+                "source": "fdb",
+                **req,
+                "step": list(range(req["step"][0], req["step"][-1] + 1, stepby)),
+            }
+            for req in input_request
+        ],
     )
 
 
 def test_wind():
-    schema = Schema(os.path.join(TEST_DIR, "schema.yaml"))
+    test_schema = Schema(schema())
 
     input_request = [
         {
             **DEFAULT_REQUEST,
             "levelist": [250, 500],
             "step": list(range(0, 193, 6)),
-            "type": ["cf", "pf"],
+            "type": "cf",
             "param": [165, 166],
         },
+        {
+            **DEFAULT_REQUEST,
+            "levelist": [250, 500],
+            "step": list(range(0, 193, 6)),
+            "type": "pf",
+            "param": [165, 166],
+            "number": list(range(1, 51)),
+        },
     ]
-    config = types.ConfigFactory.from_inputs(schema, "pproc-ensms", input_request)
+    config = ConfigFactory.from_inputs(test_schema, "pproc-ensms", input_request)
     check_request_equality(
-        config.out_mars(),
+        list(config.out_mars()),
         sum(
             [
                 [
@@ -519,13 +572,13 @@ def test_wind():
                         "target": "fdb",
                         **DEFAULT_REQUEST,
                         "levelist": [250, 500],
-                        "step": list(map(str, range(0, 193, 6))),
+                        "step": list(range(0, 193, 6)),
                         "type": tp,
                         "param": param,
                     }
                     for tp in ["em", "es"]
                 ]
-                for param in [165, 166, 207]
+                for param in [207, 165, 166]
             ],
             [],
         ),

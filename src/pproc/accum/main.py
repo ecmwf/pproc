@@ -36,7 +36,6 @@ def main(cfg: Config, postproc_iteration: Any):
             requester = ParamRequester(
                 param,
                 cfg.sources,
-                cfg.members,
                 cfg.total_fields,
             )
             postproc_partial = functools.partial(

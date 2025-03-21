@@ -118,7 +118,6 @@ def signi_iteration(
             param.clim,
             config.sources,
             "clim",
-            config.clim_num_members,
             config.clim_total_fields,
             step=steprange,
         )
@@ -190,7 +189,6 @@ def main():
             requester = ParamRequester(
                 param,
                 cfg.sources,
-                cfg.members,
                 cfg.total_fields,
                 "fc",
             )

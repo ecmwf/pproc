@@ -161,9 +161,7 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
         "clustereps",
     ],
 )
-def test_products(
-    tmpdir, monkeypatch, fdb, product, main, custom_args, req, length
-):
+def test_products(tmpdir, monkeypatch, fdb, product, main, custom_args, req, length):
     monkeypatch.chdir(tmpdir)  # To avoid polluting cwd with grib templates
     shutil.copyfile(f"{TEST_DIR}/templates/{product}.yaml", f"{tmpdir}/{product}.yaml")
     with open(f"{tmpdir}/{product}.yaml", "r") as file:

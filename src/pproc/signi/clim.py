@@ -15,7 +15,6 @@ def retrieve_clim(
     param: ParamConfig,
     sources: SourceCollection,
     src: str,
-    members: int = 1,
     total: int = 1,
     index_func: Optional[IndexFunc] = None,
     **additional_dims,
@@ -26,7 +25,7 @@ def retrieve_clim(
         accums[dim] = {"operation": "aggregation", "coords": [[value]]}
     window_manager = WindowManager(accums, param.metadata)
 
-    requester = ParamRequester(param, sources, members, total, src, index_func)
+    requester = ParamRequester(param, sources, total, src, index_func)
     res_accum: Optional[Accumulator] = None
     res_template: Optional[eccodes.GRIBMessage] = None
     for keys, data in parallel_data_retrieval(1, window_manager.dims, [requester]):

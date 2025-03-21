@@ -21,7 +21,6 @@ class Climatology(ParamRequester):
         super().__init__(
             param,
             sources,
-            members=1,
             total=2,
             src_name=src_name,
             index_func=self._index_func,

@@ -5,7 +5,9 @@ from earthkit.time.calendar import MonthInYear
 from earthkit.time.sequence import MonthlySequence
 
 
-def steprange_to_fcmonth(fcdate: datetime.datetime, steprange: str) -> int:
+def steprange_to_fcmonth(fcdate: datetime.datetime | str, steprange: str) -> int:
+    if isinstance(fcdate, str):
+        fcdate = datetime.datetime.strptime(str(fcdate), "%Y%m%d")
     start, end = map(int, steprange.split("-"))
     seq = MonthlySequence(1)
     first_month = seq.next(fcdate, False)
@@ -21,7 +23,9 @@ def steprange_to_fcmonth(fcdate: datetime.datetime, steprange: str) -> int:
     )
 
 
-def fcmonth_to_steprange(fcdate: datetime.datetime, fcmonth: int) -> str:
+def fcmonth_to_steprange(fcdate: datetime.datetime | str, fcmonth: int) -> str:
+    if isinstance(fcdate, str):
+        fcdate = datetime.datetime.strptime(str(fcdate), "%Y%m%d")
     seq = MonthlySequence(1)
     month = seq.next(fcdate, False)
     for _ in range(1, fcmonth):

@@ -45,7 +45,6 @@ def read_clim(
         param,
         config.sources,
         "clim",
-        1,
         n_clim,
         index_func=lambda x: int(x.get("quantile").split(":")[0]),
         step=step,
@@ -257,7 +256,7 @@ def main():
             print(f"Recovery: param {param.name} starting from step {new_start}")
 
             requester = ParamRequester(
-                param, cfg.sources, cfg.members, cfg.total_fields, "fc"
+                param, cfg.sources, cfg.total_fields, "fc"
             )
             efi_partial = functools.partial(efi_sot, cfg, param, recovery)
             for keys, data in parallel_data_retrieval(

@@ -26,7 +26,6 @@ from pproc.common.accumulation import Accumulator
 from pproc.common.window_manager import WindowManager
 from pproc.common.parallel import create_executor
 from pproc.config.types import ThermoConfig, ThermoParamConfig
-from pproc.config.targets import NullTarget
 from pproc.common.recovery import create_recovery, Recovery
 from pproc.thermo import helpers
 from pproc.thermo.indices import ComputeIndices
@@ -45,13 +44,6 @@ def load_input(config, param: ThermoParamConfig, source: str, step: int):
             req = req.copy()
             req.update(config.sources.overrides)
             req["step"] = step
-            if req["type"] == "pf":
-                if isinstance(config.members, int):
-                    req.setdefault("number", range(1, config.members + 1))
-                else:
-                    req.setdefault(
-                        "number", range(config.members.start, config.members.end + 1)
-                    )
 
             logger.debug(f"Retrieve step {step}: source {src}")
             ds = None
@@ -218,10 +210,10 @@ def main():
                 process_step, cfg, param, recovery=recovery
             )
             for step in window_manager.dims["step"]:
-                accum_data = load_input(cfg, param, "accum", step)
+                accum_fields = load_input(cfg, param, "accum", step)
                 completed_windows = window_manager.update_windows(
                     {"step": step},
-                    np.empty((1,)) if len(accum_data) == 0 else accum_data.values,
+                    np.empty((1,)) if len(accum_fields) == 0 else accum_fields.values,
                 )
                 for window_id, accum in completed_windows:
                     executor.submit(
@@ -229,7 +221,7 @@ def main():
                         step,
                         window_id,
                         accum,
-                        accum_data.metadata(),
+                        accum_fields.metadata(),
                     )
 
             executor.wait()

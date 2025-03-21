@@ -115,10 +115,9 @@ class HistParamRequester(ParamRequester):
         self,
         param: HistParamConfig,
         sources: SourceCollection,
-        members: int,
         total: int,
     ):
-        super().__init__(param, sources, members, total)
+        super().__init__(param, sources, total)
 
     def retrieve_data(
         self, step: AnyStep, **kwargs
@@ -130,7 +129,6 @@ class HistParamRequester(ParamRequester):
         iterators = tuple(
             iter_ensemble(
                 source,
-                update=self._set_number,
                 dtype=self.param.dtype,
             )
             for source in sources
@@ -208,7 +206,7 @@ def main():
             print(f"Recovery: param {param.name} starting from step {new_start}")
 
             requester = HistParamRequester(
-                param, cfg.sources, cfg.members, cfg.total_fields
+                param, cfg.sources, cfg.total_fields
             )
             write_partial = functools.partial(
                 write_iteration, param, cfg.outputs.histogram.target, recovery

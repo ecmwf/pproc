@@ -1,9 +1,9 @@
 import pytest
 import os
 
-from pproc.config.schema import Schema
+from pproc.schema.schema import Schema
 
-TEST_DIR = os.path.dirname(os.path.abspath(__file__))
+from conftest import schema
 
 
 @pytest.mark.parametrize(
@@ -12,81 +12,49 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
         [
             {
                 "class": "od",
-                "stream": "enfo",
+                "stream": "msmm",
                 "expver": "0001",
-                "levtype": "pl",
-                "levelist": [250, 500],
+                "levtype": "sfc",
                 "domain": "g",
                 "param": 167,
                 "date": "20241001",
                 "time": "0",
-                "step": "12-744",
+                "fcmonth": 1,
                 "type": "fcmean",
             },
             {
-                "entrypoint": "pproc-accumulate",
-                "defs": {
-                    "interp_keys": {
-                        "intgrid": "none",
-                        "legendre-loader": "shmem",
-                        "matrix-loader": "file-io",
-                    },
-                    "step_by": 6,
-                    "steps": [
-                        {
-                            "by": 1,
-                            "from": 0,
-                            "to": 90,
-                        },
-                        {
-                            "by": 3,
-                            "from": 90,
-                            "to": 144,
-                        },
-                        {
-                            "by": 6,
-                            "from": 144,
-                            "to": 360,
-                        },
-                    ],
+                "entrypoint": "pproc-monthly-stats",
+                "interp_keys": {
+                    "intgrid": "none",
+                    "legendre-loader": "shmem",
+                    "matrix-loader": "file-io",
                 },
                 "dtype": "float64",
-                "request": [
+                "inputs": [
                     {
                         "class": "od",
-                        "stream": "enfo",
+                        "stream": "mmsf",
                         "expver": "0001",
-                        "levtype": "pl",
-                        "levelist": [250, 500],
+                        "levtype": "sfc",
                         "domain": "g",
                         "param": "167",
                         "date": "20241001",
                         "time": "0",
-                        "type": "cf",
-                        "step": "12-744",
-                    },
-                    {
-                        "class": "od",
-                        "stream": "enfo",
-                        "expver": "0001",
-                        "levtype": "pl",
-                        "levelist": [250, 500],
-                        "domain": "g",
-                        "param": "167",
-                        "date": "20241001",
-                        "time": "0",
-                        "type": "pf",
-                        "step": "12-744",
+                        "type": "fc",
+                        "step": list(range(0, 745, 6)),
+                        "number": list(range(0, 51)),
                     },
                 ],
-                "members": 50,
-                "total_fields": 51,
                 "accumulations": {
                     "step": {
                         "type": "legacywindow",
                         "operation": "mean",
                         "grib_keys": {"type": "fcmean"},
                     }
+                },
+                "metadata": {
+                    "bitsPerValue": 16,
+                    "stream": "msmm",
                 },
             },
         ],
@@ -100,25 +68,15 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
                 "param": 172228,
                 "date": "20241001",
                 "time": "00",
-                "step": "12-744",
+                "step": "0-168",
                 "type": "fcmean",
             },
             {
                 "entrypoint": "pproc-accumulate",
-                "defs": {
-                    "interp_keys": {
-                        "intgrid": "none",
-                        "legendre-loader": "shmem",
-                        "matrix-loader": "file-io",
-                    },
-                    "step_by": 24,
-                    "steps": [
-                        {
-                            "by": 6,
-                            "from": 0,
-                            "to": 1104,
-                        },
-                    ],
+                "interp_keys": {
+                    "intgrid": "none",
+                    "legendre-loader": "shmem",
+                    "matrix-loader": "file-io",
                 },
                 "dtype": "float64",
                 "accumulations": {
@@ -130,8 +88,6 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
                         "grib_keys": {"type": "fcmean"},
                     }
                 },
-                "members": 100,
-                "total_fields": 101,
                 "vmin": 0.0,
                 "preprocessing": [
                     {
@@ -139,7 +95,7 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
                         "value": 0.00001157407,
                     }
                 ],
-                "request": [
+                "inputs": [
                     {
                         "class": "od",
                         "stream": "eefo",
@@ -150,7 +106,7 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
                         "date": "20241001",
                         "time": "00",
                         "type": "cf",
-                        "step": "12-744",
+                        "step": list(range(0, 169, 24)),
                     },
                     {
                         "class": "od",
@@ -162,7 +118,8 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
                         "date": "20241001",
                         "time": "00",
                         "type": "pf",
-                        "step": "12-744",
+                        "step": list(range(0, 169, 24)),
+                        "number": list(range(1, 101)),
                     },
                 ],
                 "metadata": {
@@ -181,40 +138,19 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
                 "param": "130",
                 "date": "20241001",
                 "time": "00",
-                "step": [0, 6, 12],
+                "step": 12,
                 "type": "em",
                 "interp_grid": "O640",
             },
             {
                 "entrypoint": "pproc-ensms",
-                "defs": {
-                    "interp_keys": {
-                        "intgrid": "none",
-                        "legendre-loader": "shmem",
-                        "matrix-loader": "file-io",
-                    },
-                    "steps": [
-                        {
-                            "by": 1,
-                            "from": 0,
-                            "to": 90,
-                        },
-                        {
-                            "by": 3,
-                            "from": 90,
-                            "to": 144,
-                        },
-                        {
-                            "by": 6,
-                            "from": 144,
-                            "to": 360,
-                        },
-                    ],
+                "interp_keys": {
+                    "intgrid": "none",
+                    "legendre-loader": "shmem",
+                    "matrix-loader": "file-io",
                 },
                 "dtype": "float64",
-                "members": 50,
-                "total_fields": 51,
-                "request": [
+                "inputs": [
                     {
                         "class": "od",
                         "stream": "enfo",
@@ -226,7 +162,7 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
                         "time": "00",
                         "type": "cf",
                         "levelist": [250, 850],
-                        "step": [0, 6, 12],
+                        "step": 12,
                         "interp_grid": "O640",
                     },
                     {
@@ -240,7 +176,8 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
                         "time": "00",
                         "type": "pf",
                         "levelist": [250, 850],
-                        "step": [0, 6, 12],
+                        "step": 12,
+                        "number": list(range(1, 51)),
                         "interp_grid": "O640",
                     },
                 ],
@@ -254,8 +191,13 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
     ids=["2t", "tp", "T"],
 )
 def test_schema_from_output(req, config):
-    schema = Schema(os.path.join(TEST_DIR, "schema.yaml"))
-    assert config == schema.config_from_output(req)
+    test_schema = Schema(schema())
+    assert config == test_schema.config_from_output(req)
+
+    generated = test_schema.config_from_input(
+        config["inputs"], {k: req[k] for k in ["stream", "type", "param"]}
+    )
+    assert len(list(generated)) == 1
 
 
 @pytest.mark.parametrize(
@@ -270,11 +212,12 @@ def test_schema_from_output(req, config):
                     "expver": "0001",
                     "levtype": "sfc",
                     "domain": "g",
-                    "param": 167,
+                    "param": "167",
                     "date": "20241001",
                     "time": "0",
-                    "step": [0, 6, 12, 18, 24],
+                    "step": list(range(0, 169, 6)),
                     "type": "pf",
+                    "number": list(range(1, 11)),
                 },
                 {
                     "class": "od",
@@ -282,17 +225,17 @@ def test_schema_from_output(req, config):
                     "expver": "0001",
                     "levtype": "sfc",
                     "domain": "g",
-                    "param": 167,
+                    "param": "167",
                     "date": "20241001",
                     "time": "0",
-                    "step": [0, 6, 12, 18, 24],
+                    "step": list(range(0, 169, 6)),
                     "type": "cf",
                 },
             ],
             4,
             {
                 "entrypoint": "pproc-accumulate",
-                "request": [
+                "inputs": [
                     {
                         "class": "od",
                         "stream": "enfo",
@@ -303,6 +246,7 @@ def test_schema_from_output(req, config):
                         "date": "20241001",
                         "time": "0",
                         "type": "cf",
+                        "step": list(range(0, 169, 6)),
                     },
                     {
                         "class": "od",
@@ -314,25 +258,24 @@ def test_schema_from_output(req, config):
                         "date": "20241001",
                         "time": "0",
                         "type": "pf",
+                        "step": list(range(0, 169, 6)),
+                        "number": list(range(1, 11)),
                     },
                 ],
-                "members": 50,
-                "total_fields": 51,
                 "accumulations": {
                     "step": {
                         "type": "legacywindow",
                         "operation": "mean",
                         "grib_keys": {"type": "fcmean"},
-                        "coords": {
-                            "type": "ranges",
-                            "from": "0",
-                            "to": "24",
-                            "by": "6",
-                            "interval": 24,
-                            "width": 168,
-                        },
                     }
                 },
+                "interp_keys": {
+                    "intgrid": "none",
+                    "legendre-loader": "shmem",
+                    "matrix-loader": "file-io",
+                },
+                "dtype": "float64",
+                "metadata": {},
             },
         ],
         [
@@ -347,12 +290,12 @@ def test_schema_from_output(req, config):
                     "param": 228,
                     "date": "20241001",
                     "time": "00",
-                    "step": list(range(24, 6997, 6)),
+                    "step": list(range(0, 5161, 6)),
                     "number": list(range(1, 21)),
                     "type": "fc",
                 }
             ],
-            3,
+            21,
             {
                 "entrypoint": "pproc-monthly-stats",
                 "accumulations": {
@@ -362,25 +305,17 @@ def test_schema_from_output(req, config):
                         "deaccumulate": True,
                         "include_start": True,
                         "grib_keys": {"type": "fcmean"},
-                        "coords": {
-                            "type": "monthly",
-                            "from": "24",
-                            "to": "6996",
-                            "by": "6",
-                            "date": "20241001",
-                        },
                     }
                 },
-                "members": {"start": 1, "end": 20},
-                "total_fields": 0,
                 "vmin": 0.0,
+                "dtype": "float64",
                 "preprocessing": [
                     {
                         "operation": "scale",
                         "value": 0.00001157407,
                     }
                 ],
-                "request": [
+                "inputs": [
                     {
                         "class": "od",
                         "stream": "mmsf",
@@ -391,9 +326,17 @@ def test_schema_from_output(req, config):
                         "date": "20241001",
                         "time": "00",
                         "type": "fc",
+                        "step": list(range(0, 745, 24)),
+                        "number": list(range(1, 21)),
                     }
                 ],
+                "interp_keys": {
+                    "intgrid": "none",
+                    "legendre-loader": "shmem",
+                    "matrix-loader": "file-io",
+                },
                 "metadata": {
+                    "bitsPerValue": 16,
                     "paramId": 172228,
                     "stream": "msmm",
                 },
@@ -414,7 +357,7 @@ def test_schema_from_output(req, config):
                     "time": "0",
                     "step": [0, 6, 12, 18, 24],
                     "type": "pf",
-                    "interp_grid": "O640",
+                    "number": list(range(1, 51)),
                 },
                 {
                     "class": "od",
@@ -428,13 +371,12 @@ def test_schema_from_output(req, config):
                     "time": "0",
                     "step": [0, 6, 12, 18, 24],
                     "type": "cf",
-                    "interp_grid": "O640",
                 },
             ],
-            2,
+            10,
             {
                 "entrypoint": "pproc-ensms",
-                "request": [
+                "inputs": [
                     {
                         "class": "od",
                         "stream": "enfo",
@@ -446,12 +388,7 @@ def test_schema_from_output(req, config):
                         "date": "20241001",
                         "time": "0",
                         "type": "cf",
-                        "interpolate": {
-                            "grid": "O640",
-                            "intgrid": "none",
-                            "legendre-loader": "shmem",
-                            "matrix-loader": "file-io",
-                        },
+                        "step": 0,
                     },
                     {
                         "class": "od",
@@ -464,27 +401,16 @@ def test_schema_from_output(req, config):
                         "date": "20241001",
                         "time": "0",
                         "type": "pf",
-                        "interpolate": {
-                            "grid": "O640",
-                            "intgrid": "none",
-                            "legendre-loader": "shmem",
-                            "matrix-loader": "file-io",
-                        },
+                        "step": 0,
+                        "number": list(range(1, 51)),
                     },
                 ],
-                "members": 50,
-                "total_fields": 51,
-                "accumulations": {
-                    "step": {
-                        "type": "legacywindow",
-                        "coords": {
-                            "type": "ranges",
-                            "from": "0",
-                            "to": "24",
-                            "interval": "6",
-                        },
-                    }
+                "interp_keys": {
+                    "intgrid": "none",
+                    "legendre-loader": "shmem",
+                    "matrix-loader": "file-io",
                 },
+                "dtype": "float64",
                 "metadata": {
                     "bitsPerValue": 16,
                     "perturbationNumber": 0,
@@ -495,7 +421,7 @@ def test_schema_from_output(req, config):
     ids=["2t", "tp", "T"],
 )
 def test_schema_from_input(entrypoint, req, num_expected, expected):
-    schema = Schema(os.path.join(TEST_DIR, "schema.yaml"))
-    configs = list(schema.config_from_input(req, entrypoint=entrypoint))
+    test_schema = Schema(schema())
+    configs = list(test_schema.config_from_input(req, entrypoint=entrypoint))
     assert len(configs) == num_expected
     assert configs[0] == expected

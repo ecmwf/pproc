@@ -1,6 +1,8 @@
 from typing import Any, Dict, Iterator
 from typing_extensions import Self
 import itertools
+import os
+import logging
 
 import numpy as np
 import pandas as pd
@@ -12,12 +14,16 @@ from pproc.config.utils import extract_mars
 from pproc.config.io import Source, SourceCollection
 from pproc.config.utils import update_request, expand
 
+logging.getLogger("pproc").setLevel(os.environ.get("PPROC_LOG", "INFO").upper())
+logging.basicConfig(format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+logger = logging.getLogger(__name__)
+
 
 class ParamConfig(BaseModel):
     name: str
     sources: dict = {}
     preprocessing: PreprocessingConfig = Field(default_factory=PreprocessingConfig)
-    accumulations: dict[str, AccumulationConfig]
+    accumulations: dict[str, AccumulationConfig] = Field(default_factory=dict)
     dtype_: str = Field(alias="dtype", default="float32")
     metadata: Dict[str, Any] = {}
 
@@ -31,7 +37,7 @@ class ParamConfig(BaseModel):
         base_config: Source = getattr(sources, name)
         config = self.sources.get(name, {})
         reqs = update_request(
-            base_config.request,
+            base_config.request.copy(),
             config.get("request", {}),
             **kwargs,
             **sources.overrides,
@@ -47,7 +53,7 @@ class ParamConfig(BaseModel):
                 Source(
                     type=config.get("type", base_config.type),
                     path=config.get("path", base_config.path),
-                    request=items.to_dict("records"),
+                    request=[row.dropna().to_dict() for _, row in items.iterrows()],
                 )
                 for _, items in df.groupby("param")
             ]
@@ -79,27 +85,36 @@ class ParamConfig(BaseModel):
         """
         Merge two parameter configurations different on different legacy window step accumulations
         """
-        current = self.model_dump(by_alias=True)
-        current_windows = (
-            current.get("accumulations", {}).get("step", {}).pop("windows", None)
-        )
-        other = other.model_dump(by_alias=True)
-        other_windows = (
-            other.get("accumulations", {}).get("step", {}).pop("windows", None)
-        )
+        current = self.model_dump(by_alias=True, exclude=("accumulations",))
 
-        if current_windows is None or other_windows is None:
+        if current != other.model_dump(by_alias=True, exclude=("accumulations",)):
+            logger.debug(
+                "Current: \n %s, other \n %s",
+                current,
+                other.model_dump(by_alias=True, exclude=("accumulations",)),
+            )
             raise ValueError(
-                "Merging of two parameter configs step accumulations to be of type legacywindow"
+                "Merging of two parameter configs requires them to be the same, except for accumulations"
             )
 
-        if current != other:
+        if self.accumulations.keys() != other.accumulations.keys():
             raise ValueError(
-                "Merging of two parameter configs requires them to be the same except for window configurations"
+                "Merging of two parameter configs requires them to have the same accumulations dimensions"
             )
-
-        # Merge different types of window configurations
-        current["accumulations"]["step"]["windows"] = current_windows + [
-            x for x in other_windows if x not in current_windows
-        ]
+        current["accumulations"] = {}
+        for dim in other.accumulations.keys():
+            if dim == "step":
+                current["accumulations"][dim] = (
+                    self.accumulations[dim]
+                    .merge(other.accumulations[dim])
+                    .model_dump(by_alias=True)
+                )
+            else:
+                if self.accumulations[dim] != other.accumulations[dim]:
+                    raise ValueError(
+                        "Can only merge different accumulations over dim=step"
+                    )
+                current["accumulations"][dim] = self.accumulations[dim].model_dump(
+                    by_alias=True
+                )
         return type(self)(**current)

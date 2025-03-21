@@ -1,4 +1,3 @@
-members: 5
 parallelisation:
   n_par_compute: 1
   n_par_read: 2
@@ -12,18 +11,8 @@ parameters:
     accumulations:
       step:
         type: legacywindow
-        steps:
-        - end_step: 36
-          interval: 12
-          start_step: 12
         windows:
-        - periods:
-          - range:
-            - 12
-            - 12
-          - range:
-            - 12
-            - 36
+        - coords: [[12], [12, 24, 36]]
           thresholds:
           - comparison: <=
             localDecimalScaleFactor: 2
@@ -40,6 +29,7 @@ sources:
       type: pf
       date: 20240507
       time: 12
+      number: [1, 2, 3, 4, 5]
     type: fdb
 outputs:
   default:

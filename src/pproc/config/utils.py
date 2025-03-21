@@ -60,12 +60,21 @@ def deep_update(original: dict, update: dict) -> dict:
 
 def update_request(base: dict | list[dict], update: dict | list[dict], **kwargs):
     if isinstance(base, dict):
-        if isinstance(update, dict):
-            return {**base, **update, **kwargs}
-        return [{**base, **ureq, **kwargs} for ureq in update]
+        base = [base]
     if isinstance(update, dict):
-        return [{**breq, **update, **kwargs} for breq in base]
-    return [{**breq, **ureq, **kwargs} for breq, ureq in zip(base, update)]
+        update = [update]
+
+    if len(update) == 0:
+        return copy.deepcopy(base)
+    if len(base) != len(update):
+        broadcast_len = max(len(base), len(update))
+        if len(base) == 0:
+            return [copy.deepcopy(up) for up in update]
+        if len(base) == 1:
+            base = [copy.deepcopy(base[0]) for _ in range(broadcast_len)]
+        if len(update) == 1:
+            update = update * broadcast_len
+    return [deep_update(breq, {**ureq, **kwargs}) for breq, ureq in zip(base, update)]
 
 
 def expand(

@@ -130,7 +130,6 @@ def main():
             requester = ParamRequester(
                 param,
                 cfg.sources,
-                cfg.members,
                 cfg.total_fields,
             )
             quantiles_partial = functools.partial(
