@@ -38,10 +38,7 @@ def postprocess(
         if vmin is not None or vmax is not None:
             np.clip(field, vmin, vmax, out=field)
 
-        grib_keys = {
-            **out_keys,
-            "perturbationNumber": i,
-        }
+        grib_keys = out_keys.copy()
         if out_paramid is not None:
             grib_keys["paramId"] = out_paramid
         message = construct_message(metadata[i], grib_keys)
