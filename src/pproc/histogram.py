@@ -17,7 +17,6 @@ from pproc.common.io import (
     Target,
     missing_to_nan,
     nan_to_missing,
-    read_template,
     target_from_location,
 )
 from pproc.common import parallel
@@ -30,6 +29,7 @@ from pproc.common.param_requester import ParamConfig, ParamRequester
 from pproc.common.recovery import Recovery
 from pproc.common.steps import AnyStep
 from pproc.common.window_manager import WindowManager
+from pproc.common.ek_wrappers import GribMetadata
 
 
 def write_histogram(
@@ -147,7 +147,7 @@ class HistParamRequester(ParamRequester):
 
     def retrieve_data(
         self, fdb, step: AnyStep, **kwargs
-    ) -> Tuple[eccodes.GRIBMessage, np.ndarray]:
+    ) -> Tuple[List[GribMetadata], np.ndarray]:
         assert isinstance(self.param, HistParamConfig)
         iterators = tuple(
             iter_ensemble(
@@ -176,7 +176,7 @@ class HistParamRequester(ParamRequester):
                 ind[ind >= nbins] = 0
             for i in range(nbins):
                 hist[i, ind == i] += 1
-        return template, hist
+        return [GribMetadata(template)], hist
 
 
 class HistogramConfig(Config):
@@ -209,12 +209,10 @@ def write_iteration(
     param: HistParamConfig,
     target: Target,
     recovery: Optional[Recovery],
-    template: Union[str, eccodes.GRIBMessage],
+    template: GribMetadata,
     window_id: str,
     accum: Accumulator,
 ):
-    if not isinstance(template, eccodes.GRIBMessage):
-        template = read_template(template)
     with ResourceMeter(f"{param.name}, window {window_id!s}: Write histogram"):
         hist = accum.values
         assert hist is not None
@@ -285,15 +283,14 @@ def main(args: List[str] = sys.argv[1:]):
                 config.n_par_read,
                 window_manager.dims,
                 [requester],
-                config.n_par_compute > 1,
             ):
                 ids = ", ".join(f"{k}={v}" for k, v in keys.items())
-                template, ens = data[0]
+                metadata, ens = data[0]
                 with ResourceMeter(f"{param.name}, {ids}: Compute accumulation"):
                     completed_windows = window_manager.update_windows(keys, ens)
                     del ens
                 for window_id, accum in completed_windows:
-                    executor.submit(write_partial, template, window_id, accum)
+                    executor.submit(write_partial, metadata[0], window_id, accum)
 
             executor.wait()
 

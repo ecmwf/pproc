@@ -4,7 +4,6 @@ import sys
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
-import eccodes
 import numpy as np
 from meters import ResourceMeter
 
@@ -12,7 +11,7 @@ from pproc.common import parallel
 from pproc.common.accumulation import Accumulator
 from pproc.common.config import Config, default_parser
 from pproc.common.grib_helpers import construct_message
-from pproc.common.io import Target, nan_to_missing, read_template, target_from_location
+from pproc.common.io import Target, nan_to_missing, target_from_location
 from pproc.common.parallel import (
     QueueingExecutor,
     SynchronousExecutor,
@@ -21,6 +20,7 @@ from pproc.common.parallel import (
 from pproc.common.param_requester import ParamConfig, ParamRequester
 from pproc.common.recovery import Recovery
 from pproc.common.window_manager import WindowManager
+from pproc.common.ek_wrappers import GribMetadata
 from pproc.signi.clim import retrieve_clim
 
 
@@ -73,14 +73,12 @@ def anomaly_iteration(
     param: AnomParamConfig,
     target: Target,
     recovery: Optional[Recovery],
-    template: Union[str, eccodes.GRIBMessage],
+    template: GribMetadata,
     window_id: str,
     accum: Accumulator,
 ):
 
     with ResourceMeter(f"{param.name}, window {window_id}: Retrieve climatology"):
-        if not isinstance(template, eccodes.GRIBMessage):
-            template = read_template(template)
 
         if "stepRange" in accum.grib_keys():
             steprange = accum.grib_keys()["stepRange"]
@@ -193,15 +191,14 @@ def main(args: List[str] = sys.argv[1:]):
                 config.n_par_read,
                 window_manager.dims,
                 [requester],
-                config.n_par_compute > 1,
             ):
                 ids = ", ".join(f"{k}={v}" for k, v in keys.items())
-                template, ens = data[0]
+                metadata, ens = data[0]
                 with ResourceMeter(f"{param.name}, {ids}: Compute accumulation"):
                     completed_windows = window_manager.update_windows(keys, ens)
                     del ens
                 for window_id, accum in completed_windows:
-                    executor.submit(anom_partial, template, window_id, accum)
+                    executor.submit(anom_partial, metadata[0], window_id, accum)
             executor.wait()
 
     if recovery is not None:

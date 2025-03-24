@@ -8,7 +8,7 @@ import eccodes
 from earthkit.meteo.wind import direction
 
 from pproc.common.dataset import open_multi_dataset
-from pproc.common.io import missing_to_nan
+from pproc.common.io import missing_to_nan, GribMetadata
 from pproc.common.steps import AnyStep
 from pproc.common.window import parse_window_config
 
@@ -23,7 +23,7 @@ def read_ensemble(
     dtype=np.float32,
     index_func: Optional[IndexFunc] = None,
     **kwargs,
-) -> Tuple[eccodes.GRIBMessage, np.ndarray]:
+) -> Tuple[List[eccodes.GRIBMessage], np.ndarray]:
     """Read GRIB data as a single array, in arbitrary order
 
     Parameters
@@ -43,14 +43,14 @@ def read_ensemble(
 
     Returns
     -------
-    eccodes.GRIBMessage
-        GRIB template (first message read)
+    list of eccodes.GRIBMessage
+        GRIB templates 
     numpy array (total, npoints)
         Read data
     """
 
     readers = open_multi_dataset(sources, loc, **kwargs)
-    template = None
+    templates = [None for x in range(total)]
     data = None
     n_read = 0
     for reader in readers:
@@ -62,13 +62,12 @@ def read_ensemble(
                 data = np.empty((total, message.get("numberOfDataPoints")), dtype=dtype)
             for message in reader:
                 i = n_read if index_func is None else index_func(message)
-                if i == 0 and template is None:
-                    template = message
+                templates[i] = GribMetadata(message, headers_only=True)
                 data[i, :] = missing_to_nan(message)
                 n_read += 1
     if n_read != total:
         raise EOFError(f"Expected {total} fields in {loc!r}, got {n_read}")
-    return template, data
+    return templates, data
 
 
 def parse_paramids(pid):
@@ -119,6 +118,12 @@ class ParamConfig:
         self._accumulations = options.get("accumulations", None)
         self._in_overrides = overrides
         self.dtype = np.dtype(options.get("dtype", "float32")).type
+
+        self.vod2uv = self._in_keys.get("interpolate", {}).get("vod2uv", False)
+        self.total = 1
+        if self.vod2uv:
+            self.in_paramids = [self.in_paramids]
+            self.total = 2
 
     def in_keys(self, base: Optional[Dict[str, Any]] = None, **kwargs):
         keys = base.copy() if base is not None else {}
@@ -178,7 +183,7 @@ class ParamRequester:
         self.sources = sources
         self.loc = loc
         self.members = members
-        self.total = total if total is not None else members
+        self.total = (total if total is not None else members) * param.total
         self.index_func = index_func
 
     def _set_number(self, keys):
@@ -236,10 +241,10 @@ class ParamRequester:
 
     def retrieve_data(
         self, fdb, step: AnyStep, **kwargs
-    ) -> Tuple[eccodes.GRIBMessage, np.ndarray]:
+    ) -> Tuple[List[GribMetadata], np.ndarray]:
         data_list = []
         for in_keys in self.param.in_keys(step=str(step), **kwargs):
-            template, data = read_ensemble(
+            metadata, data = read_ensemble(
                 self.sources,
                 self.loc,
                 self.total,
@@ -250,7 +255,7 @@ class ParamRequester:
             )
             data_list.append(data)
         return (
-            template,
+            metadata,
             self.filter_data(self.combine_data(data_list), step, **kwargs)
             * self.param.scale,
         )

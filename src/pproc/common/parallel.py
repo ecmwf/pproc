@@ -2,7 +2,6 @@ import concurrent.futures as fut
 from typing import List, Union
 import psutil
 import os
-import eccodes
 import sys
 import multiprocessing
 from meters import ResourceMeter
@@ -103,7 +102,7 @@ def parallel_processing(process, plan, n_par, initializer=None, initargs=()):
 
 
 def fdb_retrieve(
-    data_requesters: List[ParamRequester], grib_to_file: bool = False, **kwargs
+    data_requesters: List[ParamRequester], **kwargs
 ):
     """
     Retrieve data function for multiple data requests
@@ -112,35 +111,22 @@ def fdb_retrieve(
 
     :param data_requesters: list of objects with retrieve_data method
     accepting arguments (fdb, **kwargs)
-    :param grib_to_file: boolean specifying whether to write grib messages to file and return filename
     :param kwargs: keys to retrieve data for (must include step)
-    :return: list of retrieved (template, data) tuples
+    :return: list of retrieve (metadata, data) tuples
     """
     ids = ", ".join(f"{k}={v}" for k, v in kwargs.items())
     with ResourceMeter(f"Retrieve {ids}"):
-        collated_data = []
+        all_fields = []
         fdb = io.fdb()
         for requester in data_requesters:
-            template, data = requester.retrieve_data(fdb, **kwargs)
-            if grib_to_file and isinstance(
-                template, eccodes.highlevel.message.GRIBMessage
-            ):
-                labels = "_".join(f"{k}{v}" for k, v in kwargs.items()).replace(
-                    "/", "_"
-                )
-                filename = f"template_{requester.name}_{labels}.grib"
-                io.write_template(filename, template)
-                collated_data.append([filename, data])
-            else:
-                collated_data.append([template, data])
-        return collated_data
+            all_fields.append(requester.retrieve_data(fdb, **kwargs))
+        return all_fields
 
 
 def parallel_data_retrieval(
     num_processes: int,
     dims: dict,
     data_requesters: List[ParamRequester],
-    grib_to_file: bool = False,
     initializer=None,
     initargs=(),
 ):
@@ -169,16 +155,11 @@ def parallel_data_retrieval(
         delay = 0 if num_processes == 1 else num_processes
         submit = lambda keys: (
             keys,
-            executor.submit(fdb_retrieve, data_requesters, True, **keys),
+            executor.submit(fdb_retrieve, data_requesters, **keys),
         )
         requests = dict_product(dims)
         for keys, future in delayed_map(delay, submit, requests):
-            data_results = future.result()
-            if num_processes != 1 and not grib_to_file:
-                for result_index, result in enumerate(data_results):
-                    if isinstance(result[0], str):
-                        data_results[result_index][0] = io.read_template(result[0])
-            yield keys, data_results
+            yield keys, future.result()
 
 
 def sigterm_handler(signum, handler):

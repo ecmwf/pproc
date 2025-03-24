@@ -106,15 +106,14 @@ def main(args=None):
                 cfg.n_par_read,
                 window_manager.dims,
                 [requester, clim],
-                cfg.n_par_compute > 1,
                 initializer=signal.signal,
                 initargs=(signal.SIGTERM, signal.SIG_DFL),
             ):
                 step = keys["step"]
                 with ResourceMeter(f"Process step {step}"):
-                    message_template, data = retrieved_data[0]
+                    metadata, data = retrieved_data[0]
                     assert data.ndim == 2
-                    clim_grib_header, clim_data = retrieved_data[1]
+                    clim_metadata, clim_data = retrieved_data[1]
 
                     completed_windows = window_manager.update_windows(
                         keys,
@@ -125,11 +124,11 @@ def main(args=None):
                     for window_id, accum in completed_windows:
                         executor.submit(
                             prob_partial,
-                            message_template,
+                            metadata[0],
                             window_id,
                             accum,
                             window_manager.thresholds(window_id),
-                            clim_grib_header,
+                            clim_metadata[0],
                         )
 
             executor.wait()

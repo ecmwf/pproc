@@ -1,6 +1,5 @@
-import eccodes
 from meters import ResourceMeter
-from typing import Dict
+from typing import Dict, Optional
 
 from pproc import common
 from pproc.common.grib_helpers import construct_message
@@ -8,7 +7,7 @@ from pproc.prob.math import ensemble_probability
 
 
 def threshold_grib_headers(
-    edition: int, threshold: Dict, climatology_headers: Dict = {}
+    edition: int, threshold: Dict, clim_metadata: Optional[Dict] = None
 ) -> Dict:
     """
     Creates dictionary of threshold related grib headers
@@ -48,8 +47,9 @@ def threshold_grib_headers(
             "probabilityType": probability_type,
             f"scaleFactorOf{missing}Limit": "MISSING",
             f"scaledValueOf{missing}Limit": "MISSING",
-            **climatology_headers,
         }
+        if clim_metadata:
+            grib_keys.update({k: v for k, v in clim_metadata.items()})
     else:
         raise ValueError(
             f"Unsupported threshold comparison {comparison} for grib edition {edition}"
@@ -64,18 +64,13 @@ def prob_iteration(
     param,
     recovery,
     out_prob,
-    template_filename,
+    template,
     window_id,
     accum,
     thresholds,
-    climatology_headers={},
+    clim_metadata=None,
 ):
     with ResourceMeter(f"Window {window_id}, computing threshold probs"):
-        message_template = (
-            template_filename
-            if isinstance(template_filename, eccodes.highlevel.message.GRIBMessage)
-            else common.io.read_template(template_filename)
-        )
 
         ens = accum.values
         assert ens is not None
@@ -90,13 +85,13 @@ def prob_iteration(
             grib_set = accum.grib_keys()
             grib_set.update(
                 threshold_grib_headers(
-                    grib_set.get("edition", 1), threshold, climatology_headers
+                    grib_set.get("edition", 1), threshold, clim_metadata
                 )
             )
             common.write_grib(
                 out_prob,
                 construct_message(
-                    message_template,
+                    template,
                     grib_set,
                 ),
                 window_probability,

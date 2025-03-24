@@ -66,15 +66,14 @@ def main(args, config: Config, postproc_iteration: Any):
                 config.n_par_read,
                 window_manager.dims,
                 [requester],
-                config.n_par_compute > 1,
             ):
                 ids = ", ".join(f"{k}={v}" for k, v in keys.items())
-                template, ens = data[0]
+                metadata, ens = data[0]
                 with ResourceMeter(f"{param.name}, {ids}: Compute accumulation"):
                     completed_windows = window_manager.update_windows(keys, ens)
                     del ens
                 for window_id, accum in completed_windows:
-                    executor.submit(postproc_partial, template, window_id, accum)
+                    executor.submit(postproc_partial, metadata, window_id, accum)
             executor.wait()
 
     if recovery is not None:

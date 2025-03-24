@@ -42,16 +42,6 @@ def wind_template(template: eccodes.GRIBMessage, step: int, **out_keys):
     return new_template
 
 
-class WindParamConfig(ParamConfig):
-    def __init__(self, name, options, overrides=None):
-        super().__init__(name, options, overrides)
-        self.vod2uv = self._in_keys.get("interpolate", {}).get("vod2uv", False)
-        self.total_fields = 1
-        if self.vod2uv:
-            self.in_paramids = [self.in_paramids]
-            self.total_fields = 2
-
-
 class WindConfig(common.Config):
     def __init__(self, args):
         super().__init__(args)
@@ -71,7 +61,7 @@ class WindConfig(common.Config):
         self.out_keys_es = {"type": "es", **self.options.get("out_keys_es", {})}
 
         self.parameters = [
-            WindParamConfig(pname, popt, overrides=self.override_input)
+            ParamConfig(pname, popt, overrides=self.override_input)
             for pname, popt in self.options["parameters"].items()
         ]
         self.steps = self.options.get("steps", [])
@@ -92,7 +82,7 @@ class WindConfig(common.Config):
 def wind_iteration_gen(
     config: WindConfig,
     loc: str,
-    param: WindParamConfig,
+    param: ParamConfig,
     dims: dict,
     members: int,
     total_fields: int,
@@ -110,10 +100,10 @@ def wind_iteration_gen(
         config.sources,
         loc,
         members,
-        total_fields * param.total_fields,
+        total_fields,
     )
-    template, ens = requester.retrieve_data(None, **dims)
-    assert ens.shape[0] == total_fields, f"Expected {total_fields}, got {ens.shape[0]}"
+    metadata, ens = requester.retrieve_data(None, **dims)
+    template = metadata[0]
     with ResourceMeter(f"Param {param.name}, {dims}"):
         if not isinstance(out_ws, common.io.NullTarget):
             for number in range(ens.shape[0]):

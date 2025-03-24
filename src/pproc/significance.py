@@ -13,7 +13,7 @@ from meters import ResourceMeter
 from pproc.common.accumulation import Accumulator
 from pproc.common.config import Config, default_parser
 from pproc.common.grib_helpers import construct_message
-from pproc.common.io import Target, nan_to_missing, read_template, target_from_location
+from pproc.common.io import Target, nan_to_missing, target_from_location
 from pproc.common import parallel
 from pproc.common.parallel import (
     QueueingExecutor,
@@ -181,7 +181,7 @@ def signi_iteration(
     param: SigniParamConfig,
     target: Target,
     recovery: Optional[Recovery],
-    template: Union[str, eccodes.GRIBMessage],
+    template: eccodes.GRIBMessage,
     window_id: str,
     accum: Accumulator,
 ):
@@ -212,8 +212,6 @@ def signi_iteration(
             ), f"Wrong ensemble mean shape {clim_em.shape}, expected {exp_shape}"
             clim -= clim_em
 
-    if not isinstance(template, eccodes.GRIBMessage):
-        template = read_template(template)
     with ResourceMeter(f"{param.name}, window {window_id}: Compute significance"):
         fc = accum.values
         assert fc is not None
@@ -290,15 +288,14 @@ def main(args: List[str] = sys.argv[1:]):
                 config.n_par_read,
                 window_manager.dims,
                 [requester],
-                config.n_par_compute > 1,
             ):
                 ids = ", ".join(f"{k}={v}" for k, v in keys.items())
-                template, ens = data[0]
+                metadata, ens = data[0]
                 with ResourceMeter(f"{param.name}, {ids}: Compute accumulation"):
                     completed_windows = window_manager.update_windows(keys, ens)
                     del ens
                 for window_id, accum in completed_windows:
-                    executor.submit(signi_partial, template, window_id, accum)
+                    executor.submit(signi_partial, metadata[0], window_id, accum)
             executor.wait()
 
     if recovery is not None:
