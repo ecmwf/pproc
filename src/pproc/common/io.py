@@ -545,31 +545,12 @@ class GribMetadata(eccodes.Message):
     def __init__(self, message: eccodes.Message, headers_only: bool = False):
         handle = eccodes.codes_clone(message._handle, headers_only=headers_only)
         super().__init__(handle)
-        self._bitsPerValue = message.get("bitsPerValue")
+        self.set_array("values", np.zeros(message.data.size))
 
     def __getstate__(self) -> dict:
-        ret = {
-            "_handle": self.get_buffer(),
-            "_bitsPerValue": self._bitsPerValue,
-        }
+        ret = {"_handle": self.get_buffer()}
         return ret
 
     def __setstate__(self, state: dict):
         state["_handle"] = eccodes.MemoryReader(state["_handle"])._next_handle()
         self.__dict__.update(state)
-
-    def copy(self):
-        out = self.__class__(self)
-        out._bitsPerValue = self._bitsPerValue
-        return out
-
-    def set(self, *args, check_values: bool = True):
-        if isinstance(args[0], str) and args[0] == "bitsPerValue":
-            self._bitsPerValue = args[1]
-        elif isinstance(args[0], dict) and "bitsPerValue" in args[0]:
-            self._bitsPerValue = args[0]["bitsPerValue"]
-        super().set(*args, check_values=check_values)
-
-    def set_array(self, name, value):
-        super().set_array(name, value)
-        self.set("bitsPerValue", self._bitsPerValue)
