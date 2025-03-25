@@ -18,6 +18,7 @@ from pproc.common.io import (
     missing_to_nan,
     nan_to_missing,
     target_from_location,
+    GribMetadata,
 )
 from pproc.common import parallel
 from pproc.common.parallel import (
@@ -29,7 +30,6 @@ from pproc.common.param_requester import ParamConfig, ParamRequester
 from pproc.common.recovery import Recovery
 from pproc.common.steps import AnyStep
 from pproc.common.window_manager import WindowManager
-from pproc.common.ek_wrappers import GribMetadata
 
 
 def write_histogram(
