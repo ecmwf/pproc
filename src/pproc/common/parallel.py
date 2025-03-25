@@ -112,7 +112,7 @@ def fdb_retrieve(
     :param data_requesters: list of objects with retrieve_data method
     accepting arguments (fdb, **kwargs)
     :param kwargs: keys to retrieve data for (must include step)
-    :return: list of retrieve (metadata, data) tuples
+    :return: list of retrieved (metadata, data) tuples
     """
     ids = ", ".join(f"{k}={v}" for k, v in kwargs.items())
     with ResourceMeter(f"Retrieve {ids}"):
@@ -139,7 +139,6 @@ def parallel_data_retrieval(
     :param num_processes: number of processes to use for data retrieval
     :param dims: dimensions to iterate over (must include step)
     :param data_requesters: list of Parameter instances
-    :param grib_to_file: boolean specifying whether to write grib template to file
     :param initializer: function to call on the creation of each worker
     :param initargs: arguments to initializer
     :return: iterator over dims, retrieved data

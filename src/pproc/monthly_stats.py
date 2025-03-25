@@ -46,10 +46,9 @@ def postproc_iteration(
     window_id: str,
     accum: Accumulator,
 ):
-    template = metadata[0]
     intervals = np.diff(accum["step"].coords)
     assert np.all(intervals == intervals[0]), "Step intervals must be equal"
-    date = datetime.strptime(template.get("dataDate:str"), "%Y%m%d")
+    date = datetime.strptime(metadata[0].get("dataDate:str"), "%Y%m%d")
     accum_keys = accum.grib_keys()
     steprange = accum_keys.pop("stepRange")
     out_keys = {
@@ -66,7 +65,7 @@ def postproc_iteration(
         assert ens is not None
         postprocess(
             ens,
-            template,
+            metadata,
             target,
             vmin=param.vmin,
             vmax=param.vmax,

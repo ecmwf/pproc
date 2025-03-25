@@ -2,8 +2,9 @@ import argparse
 import functools
 import sys
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
+import eccodes
 import numpy as np
 from meters import ResourceMeter
 
@@ -20,7 +21,6 @@ from pproc.common.parallel import (
 from pproc.common.param_requester import ParamConfig, ParamRequester
 from pproc.common.recovery import Recovery
 from pproc.common.window_manager import WindowManager
-from pproc.common.ek_wrappers import GribMetadata
 from pproc.signi.clim import retrieve_clim
 
 
@@ -73,7 +73,7 @@ def anomaly_iteration(
     param: AnomParamConfig,
     target: Target,
     recovery: Optional[Recovery],
-    template: GribMetadata,
+    template: eccodes.GRIBMessage,
     window_id: str,
     accum: Accumulator,
 ):

@@ -6,8 +6,11 @@ from meters import ResourceMeter
 from pproc.common import parallel
 from pproc.common.config import Config
 from pproc.common.io import target_from_location
-from pproc.common.parallel import (QueueingExecutor, SynchronousExecutor,
-                                   parallel_data_retrieval)
+from pproc.common.parallel import (
+    QueueingExecutor,
+    SynchronousExecutor,
+    parallel_data_retrieval,
+)
 from pproc.common.param_requester import ParamRequester
 from pproc.common.recovery import Recovery
 from pproc.common.window_manager import WindowManager
