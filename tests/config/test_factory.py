@@ -239,6 +239,9 @@ TEST_CASES = {
         {
             "parallelisation": {"n_par_compute": 2},
             "outputs": {"default": {"metadata": {"expver": "9999"}}},
+            "parameters": {
+                "default": {"sources": {"fc": {"request": {"expver": "9998"}}}}
+            },
         },
         types.AccumConfig,
         {
@@ -252,6 +255,19 @@ TEST_CASES = {
             "parallelisation": {"n_par_compute": 2},
             "parameters": {
                 "130": {
+                    "sources": {
+                        "fc": {
+                            "request": [
+                                {**DEFAULT_REQUEST, "expver": "9998", "type": "cf"},
+                                {
+                                    **DEFAULT_REQUEST,
+                                    "expver": "9998",
+                                    "type": "pf",
+                                    "number": list(range(1, 51)),
+                                },
+                            ]
+                        }
+                    },
                     "dtype": "float64",
                     "accumulations": {
                         "levelist": {"coords": [[250], [500]]},

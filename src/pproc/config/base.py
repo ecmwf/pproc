@@ -12,7 +12,7 @@ from typing_extensions import Self
 from pproc.config import io
 from pproc.config.log import LoggingConfig
 from pproc.config.param import ParamConfig
-from pproc.config.utils import deep_update, extract_mars, _get, _set
+from pproc.config.utils import deep_update, extract_mars, update_request, _get, _set
 
 
 class Parallelisation(ConfigModel):
@@ -165,18 +165,47 @@ class BaseConfig(ConfigModel):
     @classmethod
     def from_schema(cls, schema_config: dict, **overrides) -> Self:
         schema_config = copy.deepcopy(schema_config)
+        overrides = copy.deepcopy(overrides)
         config = {
             "sources": {"default": {"type": "fdb"}},
             "outputs": {"default": {"target": {"type": "fdb"}}},
-            "parameters": cls._construct_params(schema_config),
         }
+
+        # Construct parameter config
+        inputs = copy.deepcopy(schema_config.pop("inputs"))
+        accums = cls._populate_accumulations(
+            inputs, schema_config.pop("accumulations", {})
+        )
+        interp_keys = schema_config.pop("interp_keys", {})
+        param_name = schema_config.pop("name", str(inputs[0]["param"]))
+
+        all_param_overrides = overrides.pop("parameters", {})
+        param_overrides = all_param_overrides.get(
+            param_name, all_param_overrides.get("default", {})
+        )
+        for req in inputs:
+            if grid := req.pop("interp_grid", None):
+                req["interpolate"] = {
+                    "grid": grid,
+                    **interp_keys,
+                }
+            [req.pop(dim, None) for dim in accums.keys()]
+        param_config = {
+            "sources": cls._populate_sources(
+                inputs, **param_overrides.pop("sources", {})
+            ),
+            "accumulations": accums,
+            **schema_config,
+        }
+        deep_update(param_config, param_overrides)
+        config["parameters"] = {param_name: param_config}
         deep_update(config, overrides)
         return cls(**config)
 
     @classmethod
-    def _populate_accumulations(cls, schema_config: dict):
-        req = schema_config["inputs"][0]
-        accums = schema_config.setdefault("accumulations", {})
+    def _populate_accumulations(cls, inputs: list[dict], base_accum: dict) -> dict:
+        req = inputs[0]
+        accums = base_accum
         if levelist := req.get("levelist", None):
             levelist = [levelist] if np.ndim(levelist) == 0 else levelist
             accums.setdefault("levelist", {"coords": [[level] for level in levelist]})
@@ -198,27 +227,20 @@ class BaseConfig(ConfigModel):
                     "type": step_accum.pop("type"),
                     "windows": [step_accum],
                 }
+        return accums
 
     @classmethod
-    def _construct_params(cls, schema_config: dict) -> dict:
-        inputs = schema_config["inputs"]
-        for req in inputs:
-            if grid := req.pop("interp_grid", None):
-                req["interpolate"] = {
-                    "grid": grid,
-                    **schema_config["defs"].get("interp_keys", {}),
-                }
-
-        cls._populate_accumulations(schema_config)
-        for dim in schema_config["accumulations"].keys():
-            [req.pop(dim, None) for req in inputs]
+    def _populate_sources(cls, inputs: list[dict], **overrides) -> dict:
+        src_name = "fc"
+        src_overrides = overrides.get(src_name, {})
+        request_overrides = src_overrides.pop("request", {})
+        updated_inputs = update_request(inputs, request_overrides)
         return {
-            schema_config.get("name", str(inputs[0]["param"])): {
-                "sources": {
-                    "fc": {"request": inputs if len(inputs) > 1 else inputs[0]}
-                },
-                "metadata": schema_config.pop("metadata", {}),
-                **schema_config,
+            src_name: {
+                "request": updated_inputs
+                if len(updated_inputs) > 1
+                else updated_inputs[0],
+                **src_overrides,
             }
         }
 
