@@ -209,7 +209,7 @@ def write_iteration(
     param: HistParamConfig,
     target: Target,
     recovery: Optional[Recovery],
-    template: GribMetadata,
+    template: eccodes.GRIBMessage,
     window_id: str,
     accum: Accumulator,
 ):
