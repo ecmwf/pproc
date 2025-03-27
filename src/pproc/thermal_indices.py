@@ -265,7 +265,7 @@ def load_input(source: str, config: ThermoConfig, step: int):
         req.update(config.override_input)
         req["step"] = [step]
         if req["type"] == "pf":
-            req["number"] = config.members
+            req.setdefault("number", config.members)
         src = req.pop("source")
         if ":" in src:
             src, loc = src.split(":")
