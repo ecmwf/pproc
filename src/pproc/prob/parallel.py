@@ -19,7 +19,7 @@ def threshold_grib_headers(
     Creates dictionary of threshold related grib headers
     """
     threshold_dict = {"paramId": threshold["out_paramid"]}
-    scale_factor = threshold.get("localDecimalScaleFactor", 0)
+    scale_factor = threshold.get("local_scale_factor", 0)
     threshold_value = round(threshold["value"] * 10**scale_factor, 0)
     comparison = threshold["comparison"].strip("=")
     if edition == 1 and comparison == "<":
@@ -61,7 +61,7 @@ def threshold_grib_headers(
         )
 
     threshold_dict.update(grib_keys)
-    threshold_dict.update(threshold.get("grib_set", {}))
+    threshold_dict.update(threshold.get("metadata", {}))
     return threshold_dict
 
 

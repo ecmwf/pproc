@@ -21,7 +21,7 @@ parameters:
       step:
         type: legacywindow
         windows:
-        - grib_keys:
+        - metadata:
             edition: 1
             gribTablesVersionNo: 132
             indicatorOfParameter: 167

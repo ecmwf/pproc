@@ -248,7 +248,7 @@ class ProbConfig(BaseConfig):
 
 class ExtremeParamConfig(ClimParamConfig):
     eps: float
-    sot: list[int]
+    sot: list[int] = []
 
     @model_validator(mode="before")
     @classmethod

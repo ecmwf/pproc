@@ -22,11 +22,11 @@ class Accumulation(metaclass=ABCMeta):
         self,
         coords: Coords,
         sequential: bool = False,
-        grib_keys: Optional[dict] = None,
+        metadata: Optional[dict] = None,
     ):
         self.coords = coords
         self.sequential = sequential
-        self._grib_keys = {} if grib_keys is None else grib_keys.copy()
+        self._grib_keys = {} if metadata is None else metadata.copy()
         self.reset(initial=True)
 
     def __len__(self) -> int:
@@ -74,7 +74,7 @@ class Accumulation(metaclass=ABCMeta):
         coords: Coords,
         config: dict,
         sequential: bool = False,
-        grib_keys: Optional[dict] = None,
+        metadata: Optional[dict] = None,
     ) -> "Accumulation":
         raise NotImplementedError
 
@@ -85,9 +85,9 @@ class SimpleAccumulation(Accumulation):
         operation: str,
         coords: Coords,
         sequential: bool = False,
-        grib_keys: Optional[dict] = None,
+        metadata: Optional[dict] = None,
     ):
-        super().__init__(coords, sequential, grib_keys)
+        super().__init__(coords, sequential, metadata)
         self.operation = getattr(np, operation)
 
     def combine(self, coord: Coord, values: np.ndarray) -> bool:
@@ -102,11 +102,11 @@ class SimpleAccumulation(Accumulation):
         coords: Coords,
         config: dict,
         sequential: bool = False,
-        grib_keys: Optional[dict] = None,
+        metadata: Optional[dict] = None,
     ) -> Accumulation:
         if operation == "sum":
             operation = "add"
-        return cls(operation, coords, sequential=sequential, grib_keys=grib_keys)
+        return cls(operation, coords, sequential=sequential, metadata=metadata)
 
 
 class Integral(SimpleAccumulation):
@@ -114,10 +114,10 @@ class Integral(SimpleAccumulation):
         self,
         init: int,
         coords: NumericCoords,
-        grib_keys: Optional[dict] = None,
+        metadata: Optional[dict] = None,
     ):
         self.init = init
-        super().__init__("add", coords, sequential=True, grib_keys=grib_keys)
+        super().__init__("add", coords, sequential=True, metadata=metadata)
 
     def reset(self, initial: bool = False) -> None:
         super().reset(initial)
@@ -137,7 +137,7 @@ class Integral(SimpleAccumulation):
         coords: NumericCoords,
         config: dict,
         sequential: bool = True,
-        grib_keys: Optional[dict] = None,
+        metadata: Optional[dict] = None,
     ) -> Accumulation:
         if isinstance(coords, range):
             init = coords.start
@@ -145,7 +145,7 @@ class Integral(SimpleAccumulation):
         else:
             coords = coords.copy()
             init = coords.pop(0)
-        return cls(init, coords, grib_keys=grib_keys)
+        return cls(init, coords, metadata=metadata)
 
 
 class Difference(Accumulation):
@@ -153,10 +153,10 @@ class Difference(Accumulation):
         self,
         coords: Coords,
         sequential: bool = False,
-        grib_keys: Optional[dict] = None,
+        metadata: Optional[dict] = None,
     ):
         assert len(coords) in {1, 2}
-        super().__init__(coords, sequential, grib_keys)
+        super().__init__(coords, sequential, metadata)
 
     def combine(self, coord: Coord, values: np.ndarray) -> bool:
         assert self.values is not None
@@ -171,9 +171,9 @@ class Difference(Accumulation):
         coords: Coords,
         config: dict,
         sequential: bool = False,
-        grib_keys: Optional[dict] = None,
+        metadata: Optional[dict] = None,
     ) -> Accumulation:
-        return cls(coords, sequential=sequential, grib_keys=grib_keys)
+        return cls(coords, sequential=sequential, metadata=metadata)
 
 
 class DifferenceRate(Difference):
@@ -182,9 +182,9 @@ class DifferenceRate(Difference):
         coords: NumericCoords,
         factor: float = 1.0,
         sequential: bool = False,
-        grib_keys: Optional[dict] = None,
+        metadata: Optional[dict] = None,
     ):
-        super().__init__(coords, sequential, grib_keys)
+        super().__init__(coords, sequential, metadata)
         length = self.coords[-1] - (self.coords[0] if len(self.coords) == 2 else 0)
         self.factor = factor * length
 
@@ -200,13 +200,13 @@ class DifferenceRate(Difference):
         coords: NumericCoords,
         config: dict,
         sequential: bool = False,
-        grib_keys: Optional[dict] = None,
+        metadata: Optional[dict] = None,
     ) -> Accumulation:
         return cls(
             coords,
             factor=config.get("factor", 1.0),
             sequential=sequential,
-            grib_keys=grib_keys,
+            metadata=metadata,
         )
 
 
@@ -215,9 +215,9 @@ class Mean(SimpleAccumulation):
         self,
         coords: Coords,
         sequential: bool = False,
-        grib_keys: Optional[dict] = None,
+        metadata: Optional[dict] = None,
     ):
-        super().__init__("add", coords, sequential, grib_keys)
+        super().__init__("add", coords, sequential, metadata)
 
     def reset(self, initial: bool = False) -> None:
         super().reset(initial)
@@ -241,9 +241,9 @@ class Mean(SimpleAccumulation):
         coords: Coords,
         config: dict,
         sequential: bool = False,
-        grib_keys: Optional[dict] = None,
+        metadata: Optional[dict] = None,
     ) -> Accumulation:
-        return cls(coords, sequential=sequential, grib_keys=grib_keys)
+        return cls(coords, sequential=sequential, metadata=metadata)
 
 
 class WeightedMean(Integral):
@@ -251,9 +251,9 @@ class WeightedMean(Integral):
         self,
         init: int,
         coords: NumericCoords,
-        grib_keys: Optional[dict] = None,
+        metadata: Optional[dict] = None,
     ):
-        super().__init__(init, coords, grib_keys)
+        super().__init__(init, coords, metadata)
         self.length = coords[-1] - init
 
     def get_values(self) -> Optional[np.ndarray]:
@@ -272,9 +272,9 @@ class Histogram(SimpleAccumulation):
         scale_out: Optional[float] = None,
         dtype: DTypeLike = np.float32,
         sequential: bool = False,
-        grib_keys: Optional[dict] = None,
+        metadata: Optional[dict] = None,
     ):
-        super().__init__("add", coords, sequential, grib_keys)
+        super().__init__("add", coords, sequential, metadata)
         self.bins = np.asarray(bins)
         self.mod = mod
         self.normalise = normalise
@@ -315,7 +315,7 @@ class Histogram(SimpleAccumulation):
         coords: Coords,
         config: dict,
         sequential: bool = False,
-        grib_keys: Optional[dict] = None,
+        metadata: Optional[dict] = None,
     ) -> Accumulation:
         return cls(
             coords,
@@ -324,7 +324,7 @@ class Histogram(SimpleAccumulation):
             normalise=config.get("normalise", True),
             scale_out=config.get("scale_out"),
             sequential=sequential,
-            grib_keys=grib_keys,
+            metadata=metadata,
         )
 
 
@@ -333,9 +333,9 @@ class Aggregation(Accumulation):
         self,
         coords: Coords,
         sequential: bool = False,
-        grib_keys: Optional[dict] = None,
+        metadata: Optional[dict] = None,
     ):
-        super().__init__(coords, sequential, grib_keys)
+        super().__init__(coords, sequential, metadata)
         self.lookup = {k: i for i, k in enumerate(coords)}
 
     def feed(self, coord: Coord, values: np.ndarray) -> bool:
@@ -366,9 +366,9 @@ class Aggregation(Accumulation):
         coords: Coords,
         config: dict,
         sequential: bool = False,
-        grib_keys: Optional[dict] = None,
+        metadata: Optional[dict] = None,
     ) -> Accumulation:
-        return cls(coords, sequential=sequential, grib_keys=grib_keys)
+        return cls(coords, sequential=sequential, metadata=metadata)
 
 
 class StandardDeviation(Mean):
@@ -376,9 +376,9 @@ class StandardDeviation(Mean):
         self,
         coords: Coords,
         sequential: bool = False,
-        grib_keys: Optional[dict] = None,
+        metadata: Optional[dict] = None,
     ):
-        super().__init__(coords, sequential, grib_keys)
+        super().__init__(coords, sequential, metadata)
         self.sumsq = None
 
     def reset(self, initial: bool = False) -> None:
@@ -437,7 +437,7 @@ class DeaccumulationWrapper(Accumulation):
         coords: Coords,
         config: dict,
         sequential: bool = False,
-        grib_keys: Optional[dict] = None,
+        metadata: Optional[dict] = None,
     ) -> "Accumulation":
         raise NotImplementedError
 
@@ -473,7 +473,7 @@ def create_accumulation(config: dict) -> Accumulation:
     op = config.get("operation", "aggregation")
     coords = convert_coords(config["coords"])
     sequential = config.get("sequential", False)
-    grib_keys = config.get("grib_keys", {})
+    metadata = config.get("metadata", {})
     known = {
         "sum": SimpleAccumulation,
         "minimum": SimpleAccumulation,
@@ -490,7 +490,7 @@ def create_accumulation(config: dict) -> Accumulation:
     cls = known.get(op)
     if cls is None:
         raise ValueError(f"Unknown accumulation {op!r}")
-    acc = cls.create(op, coords, config, sequential=sequential, grib_keys=grib_keys)
+    acc = cls.create(op, coords, config, sequential=sequential, metadata=metadata)
     if config.get("deaccumulate", False):
         return DeaccumulationWrapper(acc)
     return acc

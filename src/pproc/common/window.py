@@ -135,7 +135,7 @@ def translate_window_config(
         "operation": operation,
         "coords": coords,
         "sequential": True,
-        "grib_keys": grib_header,
+        "metadata": grib_header,
         "deaccumulate": deaccumulate,
         **extra,
     }
@@ -185,7 +185,7 @@ def _iter_legacy_windows(
             for coord in coords:
                 include_start = bool(window_config.get("include_start", False))
                 acc_grib_keys = grib_keys.copy()
-                acc_grib_keys.update(window_config.get("grib_keys", {}))
+                acc_grib_keys.update(window_config.get("metadata", {}))
                 window_name, acc_config = translate_window_config(
                     coord,
                     operation,

@@ -142,7 +142,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                     "operation": "aggregation",
                     "coords": [s],
                     "sequential": True,
-                    "grib_keys": {
+                    "metadata": {
                         "mars.expver": "0001",
                         "timeRangeIndicator": (0 if s < 256 else 10),
                         "step": str(s),
@@ -161,14 +161,14 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                     "operation": "aggregation",
                     "coords": [0],
                     "sequential": True,
-                    "grib_keys": {"timeRangeIndicator": 2, "step": "0"},
+                    "metadata": {"timeRangeIndicator": 2, "step": "0"},
                     "deaccumulate": False,
                 },
                 "0-3_0": {
                     "operation": "aggregation",
                     "coords": [3],
                     "sequential": True,
-                    "grib_keys": {
+                    "metadata": {
                         "timeRangeIndicator": 2,
                         "stepRange": "0-3",
                         "stepType": "max",
@@ -179,7 +179,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                     "operation": "aggregation",
                     "coords": [6],
                     "sequential": True,
-                    "grib_keys": {
+                    "metadata": {
                         "timeRangeIndicator": 2,
                         "stepRange": "3-6",
                         "stepType": "max",
@@ -190,7 +190,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                     "operation": "aggregation",
                     "coords": [306],
                     "sequential": True,
-                    "grib_keys": {
+                    "metadata": {
                         "unitOfTimeRange": 11,
                         "timeRangeIndicator": 2,
                         "stepRange": "300-306",
@@ -210,7 +210,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                             [a, b]
                             for a, b in [(90, 96), (93, 99), (96, 102), (270, 276)]
                         ],
-                        "grib_keys": {"stepType": "diff", "bitsPerValue": 16},
+                        "metadata": {"stepType": "diff", "bitsPerValue": 16},
                     },
                     {
                         "operation": "difference",
@@ -224,7 +224,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                                 (0, 360),
                             ]
                         ],
-                        "grib_keys": {
+                        "metadata": {
                             "timeRangeIndicator": 5,
                             "gribTablesVersionNo": 132,
                         },
@@ -238,7 +238,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                         "operation": "difference",
                         "coords": [a, b],
                         "sequential": True,
-                        "grib_keys": {
+                        "metadata": {
                             "stepType": "diff",
                             "bitsPerValue": 16,
                             "stepRange": f"{a}-{b}",
@@ -253,7 +253,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                         "operation": "difference",
                         "coords": [a, b],
                         "sequential": True,
-                        "grib_keys": {
+                        "metadata": {
                             "stepType": "max",
                             "timeRangeIndicator": 5,
                             "gribTablesVersionNo": 132,
@@ -279,7 +279,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                     {
                         "operation": "none",
                         "coords": [[75], [78], [81], [84], [87], [90], [288]],
-                        "grib_keys": {"bitsPerValue": 16},
+                        "metadata": {"bitsPerValue": 16},
                     }
                 ]
             },
@@ -289,7 +289,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                     "operation": "aggregation",
                     "coords": [s],
                     "sequential": True,
-                    "grib_keys": {
+                    "metadata": {
                         "bitsPerValue": 16,
                         "expver": "0001",
                         "step": str(s),
@@ -315,7 +315,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                             list(range(348, 355, 6)),
                             list(range(354, 361, 6)),
                         ],
-                        "grib_keys": {"bitsPerValue": 16},
+                        "metadata": {"bitsPerValue": 16},
                     }
                 ]
             },
@@ -325,7 +325,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                     "operation": "aggregation",
                     "coords": [b],
                     "sequential": True,
-                    "grib_keys": {
+                    "metadata": {
                         "stepType": "max",
                         "bitsPerValue": 16,
                         "expver": "0001",
@@ -356,7 +356,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                             list(range(0, 241, 6)),
                             list(range(0, 361, 24)),
                         ],
-                        "grib_keys": {"timeRangeIndicator": 3},
+                        "metadata": {"timeRangeIndicator": 3},
                     }
                 ]
             },
@@ -366,7 +366,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                     "operation": "mean",
                     "coords": list(range(a + s, b + 1, s)),
                     "sequential": True,
-                    "grib_keys": {
+                    "metadata": {
                         "timeRangeIndicator": 3,
                         "stepType": "max",
                         "stepRange": f"{a}-{b}",
@@ -398,7 +398,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                             {"from": 144, "to": 168, "by": 6},
                             {"from": 120, "to": 360, "by": 24},
                         ],
-                        "grib_keys": {"timeRangeIndicator": 2},
+                        "metadata": {"timeRangeIndicator": 2},
                     }
                 ]
             },
@@ -408,7 +408,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                     "operation": "maximum",
                     "coords": list(range(a + s, b + 1, s)),
                     "sequential": True,
-                    "grib_keys": {
+                    "metadata": {
                         "timeRangeIndicator": 2,
                         "stepType": "max",
                         "stepRange": f"{a}-{b}",
@@ -444,7 +444,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                             {"from": 144, "to": 168, "by": 6},
                             {"from": 120, "to": 360, "by": 24},
                         ],
-                        "grib_keys": {"timeRangeIndicator": 2},
+                        "metadata": {"timeRangeIndicator": 2},
                     }
                 ]
             },
@@ -454,7 +454,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                     "operation": "minimum",
                     "coords": list(range(a + s, b + 1, s)),
                     "sequential": True,
-                    "grib_keys": {
+                    "metadata": {
                         "timeRangeIndicator": 2,
                         "stepType": "max",
                         "stepRange": f"{a}-{b}",
@@ -501,7 +501,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                     "coords": list(range(a + s, b + 1, s)),
                     "sequential": True,
                     "thresholds": [{"comparison": "<=", "value": 273.15}],
-                    "grib_keys": {
+                    "metadata": {
                         "type": "ep",
                         "localDefinitionNumber": 5,
                         "stepType": "max",
@@ -550,7 +550,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                         {"comparison": ">=", "value": 20.0},
                         {"comparison": ">=", "value": 25.0},
                     ],
-                    "grib_keys": {
+                    "metadata": {
                         "type": "ep",
                         "localDefinitionNumber": 5,
                         "stepType": "max",
@@ -586,7 +586,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                                 (336, 360),
                             ]
                         ],
-                        "grib_keys": {"stepType": "accum"},
+                        "metadata": {"stepType": "accum"},
                     },
                     {
                         "operation": "difference",
@@ -603,7 +603,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                                 (336, 360),
                             ]
                         ],
-                        "grib_keys": {"stepType": "accum"},
+                        "metadata": {"stepType": "accum"},
                     },
                     {
                         "operation": "diffdailyrate",
@@ -620,7 +620,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                                 (228, 360),
                             ]
                         ],
-                        "grib_keys": {"stepType": "diff"},
+                        "metadata": {"stepType": "diff"},
                     },
                 ],
             },
@@ -634,7 +634,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                         "thresholds": [
                             {"comparison": ">=", "value": thr} for thr in thrs
                         ],
-                        "grib_keys": {
+                        "metadata": {
                             "type": "ep",
                             "localDefinitionNumber": 5,
                             "stepType": "accum",
@@ -663,7 +663,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                             for cmp, vals in [("<", [0.001]), (">=", [0.003, 0.005])]
                             for val in vals
                         ],
-                        "grib_keys": {
+                        "metadata": {
                             "type": "ep",
                             "localDefinitionNumber": 5,
                             "stepType": "diff",
@@ -696,7 +696,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                             {"from": 168, "to": 240, "by": 12},
                             {"from": 240, "to": 360, "by": 12},
                         ],
-                        "grib_keys": {"bitsPerValue": 24},
+                        "metadata": {"bitsPerValue": 24},
                     }
                 ],
             },
@@ -710,7 +710,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                         {"comparison": "<", "value": -2},
                         {"comparison": ">=", "value": 2},
                     ],
-                    "grib_keys": {
+                    "metadata": {
                         "type": "ep",
                         "localDefinitionNumber": 5,
                         "bitsPerValue": 24,
@@ -739,7 +739,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                             {"comparison": ">", "value": 8},
                         ],
                         "coords": [[0], [12], [360]],
-                        "grib_keys": {"bitsPerValue": 24},
+                        "metadata": {"bitsPerValue": 24},
                     },
                     {
                         "operation": "mean",
@@ -752,7 +752,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                             {"from": 120, "to": 240, "by": 12},
                             {"from": 336, "to": 360, "by": 12},
                         ],
-                        "grib_keys": {"bitsPerValue": 24},
+                        "metadata": {"bitsPerValue": 24},
                     },
                 ],
                 "std_anomaly_windows": [
@@ -762,7 +762,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                             {"comparison": "<", "value": -1.5},
                         ],
                         "coords": [[0], [12], [300]],
-                        "grib_keys": {
+                        "metadata": {
                             "localDefinitionNumber": 30,
                             "bitsPerValue": 24,
                         },
@@ -779,7 +779,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                         "thresholds": [
                             {"comparison": cmp, "value": val} for val in vals
                         ],
-                        "grib_keys": {
+                        "metadata": {
                             "type": "ep",
                             "localDefinitionNumber": 5,
                             "bitsPerValue": 24,
@@ -803,7 +803,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                             {"comparison": "<", "value": -4},
                             {"comparison": ">=", "value": 2},
                         ],
-                        "grib_keys": {
+                        "metadata": {
                             "type": "ep",
                             "localDefinitionNumber": 5,
                             "bitsPerValue": 24,
@@ -824,7 +824,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                         "coords": [s],
                         "sequential": True,
                         "thresholds": [{"comparison": cmp, "value": val}],
-                        "grib_keys": {
+                        "metadata": {
                             "type": "ep",
                             "localDefinitionNumber": 30,
                             "bitsPerValue": 24,
@@ -858,7 +858,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                     "operation": "mean",
                     "coords": [s],
                     "sequential": True,
-                    "grib_keys": {
+                    "metadata": {
                         "timeRangeIndicator": 0,
                         "step": str(s),
                     },

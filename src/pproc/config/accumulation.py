@@ -56,7 +56,7 @@ class LegacyWindowConfig(BaseModel):
     operation: Optional[str] = None
     include_start: bool = False
     deaccumulate: bool = False
-    grib_keys: dict = {}
+    metadata: dict = {}
     coords: Annotated[
         list[Union[List[int | str], dict]], BeforeValidator(_to_coords)
     ] = []
@@ -75,7 +75,7 @@ class LegacyWindowConfig(BaseModel):
         return coords
 
     def out_mars(self, dim: str) -> dict:
-        base = extract_mars(self.grib_keys)
+        base = extract_mars(self.metadata)
         if self.operation is not None and dim != "step":
             return base
 
@@ -154,7 +154,7 @@ def _to_date_range(coords: Any) -> Any:
 
 class BaseAccumulation(BaseModel):
     operation: Optional[str] = None
-    grib_keys: dict = {}
+    metadata: dict = {}
     sequential: bool = False
 
 
@@ -173,9 +173,9 @@ class DefaultAccumulation(BaseAccumulation):
                 f"{min_coord}" if min_coord == max_coord else f"{min_coord}-{max_coord}"
             )
             acc_grib_keys = metadata.copy()
-            acc_grib_keys.update(acc_config.get("grib_keys", {}))
+            acc_grib_keys.update(acc_config.get("metadata", {}))
             if acc_grib_keys:
-                acc_config["grib_keys"] = acc_grib_keys
+                acc_config["metadata"] = acc_grib_keys
             yield name, acc_config
 
     def unique_coords(self):
@@ -192,7 +192,7 @@ class DefaultAccumulation(BaseAccumulation):
         return coords
 
     def out_mars(self, dim: str) -> list[dict]:
-        base = extract_mars(self.grib_keys)
+        base = extract_mars(self.metadata)
         if self.operation is not None and dim != "step":
             return [base]
 
@@ -247,7 +247,7 @@ class StepSeqAccumulation(BaseAccumulation):
                     x if len(x) == 1 else f"{x[0]}-{x[-1]}"
                     for x in self.sequence.coords()
                 ],
-                **extract_mars(self.grib_keys),
+                **extract_mars(self.metadata),
             }
         ]
 
@@ -276,7 +276,7 @@ class DateSeqAccumulation(BaseAccumulation):
         return coords
 
     def out_mars(self, dim: str):
-        base = extract_mars(self.grib_keys)
+        base = extract_mars(self.metadata)
         if self.operation is not None:
             return [base]
         seq = _dateseq_factory(self.sequence)

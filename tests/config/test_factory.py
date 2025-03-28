@@ -94,7 +94,7 @@ TEST_CASES = {
                             "windows": [
                                 {
                                     "operation": "mean",
-                                    "grib_keys": {"type": "fcmean"},
+                                    "metadata": {"type": "fcmean"},
                                     "coords": [
                                         {"from": 0, "to": 168, "by": 12},
                                         {"from": 24, "to": 192, "by": 12},
@@ -102,7 +102,7 @@ TEST_CASES = {
                                 },
                                 {
                                     "operation": "standard_deviation",
-                                    "grib_keys": {"type": "fcstdev"},
+                                    "metadata": {"type": "fcstdev"},
                                     "coords": [
                                         {"from": 0, "to": 168, "by": 12},
                                         {"from": 24, "to": 192, "by": 12},
@@ -110,7 +110,7 @@ TEST_CASES = {
                                 },
                                 {
                                     "operation": "minimum",
-                                    "grib_keys": {"type": "fcmin"},
+                                    "metadata": {"type": "fcmin"},
                                     "coords": [
                                         {"from": 0, "to": 168, "by": 12},
                                         {"from": 24, "to": 192, "by": 12},
@@ -118,7 +118,7 @@ TEST_CASES = {
                                 },
                                 {
                                     "operation": "maximum",
-                                    "grib_keys": {"type": "fcmax"},
+                                    "metadata": {"type": "fcmax"},
                                     "coords": [
                                         {"from": 0, "to": 168, "by": 12},
                                         {"from": 24, "to": 192, "by": 12},
@@ -197,7 +197,7 @@ TEST_CASES = {
                             "windows": [
                                 {
                                     "operation": "mean",
-                                    "grib_keys": {"type": "fcmean"},
+                                    "metadata": {"type": "fcmean"},
                                     "include_start": True,
                                     "deaccumulate": True,
                                     "coords": [
@@ -208,7 +208,7 @@ TEST_CASES = {
                                 },
                                 {
                                     "operation": "standard_deviation",
-                                    "grib_keys": {"type": "fcstdev"},
+                                    "metadata": {"type": "fcstdev"},
                                     "include_start": True,
                                     "deaccumulate": True,
                                     "coords": [
@@ -219,7 +219,7 @@ TEST_CASES = {
                                 },
                                 {
                                     "operation": "maximum",
-                                    "grib_keys": {"type": "fcmax"},
+                                    "metadata": {"type": "fcmax"},
                                     "include_start": True,
                                     "deaccumulate": True,
                                     "coords": [
@@ -276,7 +276,7 @@ TEST_CASES = {
                             "windows": [
                                 {
                                     "operation": "mean",
-                                    "grib_keys": {"type": "fcmean"},
+                                    "metadata": {"type": "fcmean"},
                                     "coords": [
                                         {"from": 0, "to": 168, "by": 12},
                                         {"from": 24, "to": 192, "by": 12},
@@ -284,7 +284,7 @@ TEST_CASES = {
                                 },
                                 {
                                     "operation": "standard_deviation",
-                                    "grib_keys": {"type": "fcstdev"},
+                                    "metadata": {"type": "fcstdev"},
                                     "coords": [
                                         {"from": 0, "to": 168, "by": 12},
                                         {"from": 24, "to": 192, "by": 12},
@@ -292,7 +292,7 @@ TEST_CASES = {
                                 },
                                 {
                                     "operation": "minimum",
-                                    "grib_keys": {"type": "fcmin"},
+                                    "metadata": {"type": "fcmin"},
                                     "coords": [
                                         {"from": 0, "to": 168, "by": 12},
                                         {"from": 24, "to": 192, "by": 12},
@@ -300,7 +300,7 @@ TEST_CASES = {
                                 },
                                 {
                                     "operation": "maximum",
-                                    "grib_keys": {"type": "fcmax"},
+                                    "metadata": {"type": "fcmax"},
                                     "coords": [
                                         {"from": 0, "to": 168, "by": 12},
                                         {"from": 24, "to": 192, "by": 12},
@@ -418,7 +418,7 @@ def test_from_outputs(request, output_request, input_param):
                 "windows": [
                     {
                         "operation": "mean",
-                        "grib_keys": {"type": "fcmean"},
+                        "metadata": {"type": "fcmean"},
                         "coords": [
                             {"from": 0, "to": 168, "by": 12},
                             {"from": 24, "to": 192, "by": 12},
@@ -426,7 +426,7 @@ def test_from_outputs(request, output_request, input_param):
                     },
                     {
                         "operation": "standard_deviation",
-                        "grib_keys": {"type": "fcstdev"},
+                        "metadata": {"type": "fcstdev"},
                         "coords": [
                             {"from": 0, "to": 168, "by": 12},
                             {"from": 24, "to": 192, "by": 12},
@@ -434,7 +434,7 @@ def test_from_outputs(request, output_request, input_param):
                     },
                     {
                         "operation": "minimum",
-                        "grib_keys": {"type": "fcmin"},
+                        "metadata": {"type": "fcmin"},
                         "coords": [
                             {"from": 0, "to": 168, "by": 12},
                             {"from": 24, "to": 192, "by": 12},
@@ -442,7 +442,7 @@ def test_from_outputs(request, output_request, input_param):
                     },
                     {
                         "operation": "maximum",
-                        "grib_keys": {"type": "fcmax"},
+                        "metadata": {"type": "fcmax"},
                         "coords": [
                             {"from": 0, "to": 168, "by": 12},
                             {"from": 24, "to": 192, "by": 12},
@@ -492,7 +492,7 @@ def test_from_outputs(request, output_request, input_param):
                 "windows": [
                     {
                         "operation": "mean",
-                        "grib_keys": {"type": "fcmean"},
+                        "metadata": {"type": "fcmean"},
                         "deaccumulate": True,
                         "include_start": True,
                         "coords": [
@@ -503,7 +503,7 @@ def test_from_outputs(request, output_request, input_param):
                     },
                     {
                         "operation": "standard_deviation",
-                        "grib_keys": {"type": "fcstdev"},
+                        "metadata": {"type": "fcstdev"},
                         "deaccumulate": True,
                         "include_start": True,
                         "coords": [
@@ -514,7 +514,7 @@ def test_from_outputs(request, output_request, input_param):
                     },
                     {
                         "operation": "maximum",
-                        "grib_keys": {"type": "fcmax"},
+                        "metadata": {"type": "fcmax"},
                         "deaccumulate": True,
                         "include_start": True,
                         "coords": [

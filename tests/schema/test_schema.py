@@ -49,7 +49,7 @@ from conftest import schema
                     "step": {
                         "type": "legacywindow",
                         "operation": "mean",
-                        "grib_keys": {"type": "fcmean"},
+                        "metadata": {"type": "fcmean"},
                     }
                 },
                 "metadata": {
@@ -85,7 +85,7 @@ from conftest import schema
                         "operation": "mean",
                         "deaccumulate": True,
                         "include_start": True,
-                        "grib_keys": {"type": "fcmean"},
+                        "metadata": {"type": "fcmean"},
                     }
                 },
                 "vmin": 0.0,
@@ -266,7 +266,7 @@ def test_schema_from_output(req, config):
                     "step": {
                         "type": "legacywindow",
                         "operation": "mean",
-                        "grib_keys": {"type": "fcmean"},
+                        "metadata": {"type": "fcmean"},
                     }
                 },
                 "interp_keys": {
@@ -304,7 +304,7 @@ def test_schema_from_output(req, config):
                         "operation": "mean",
                         "deaccumulate": True,
                         "include_start": True,
-                        "grib_keys": {"type": "fcmean"},
+                        "metadata": {"type": "fcmean"},
                     }
                 },
                 "vmin": 0.0,

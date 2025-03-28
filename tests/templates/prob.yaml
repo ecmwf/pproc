@@ -15,7 +15,7 @@ parameters:
         - coords: [[12], [12, 24, 36]]
           thresholds:
           - comparison: <=
-            localDecimalScaleFactor: 2
+            local_scale_factor: 2
             out_paramid: 131073
             value: 273.15
 sources:  

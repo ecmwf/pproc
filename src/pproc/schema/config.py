@@ -6,8 +6,12 @@ from pproc.schema.base import Schema
 class ConfigSchema(Schema):
     def config(self, output_request: dict) -> dict:
         config = self.traverse(output_request)
-        out = yaml.load(
-            yaml.dump(config).format_map(output_request),
-            Loader=yaml.SafeLoader,
-        )
-        return out
+        if output_request["type"] in ["pb", "cd"]:
+            quantiles = []
+            for quantile in output_request["quantiles"]:
+                number, total = map(int, quantile.split("/"))
+                quantiles.append(number / total)
+            config["quantiles"] = quantiles
+        if output_request["type"] == "sot":
+            config["sot"] = output_request["number"]
+        return config

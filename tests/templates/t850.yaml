@@ -33,7 +33,7 @@ parameters:
           - out_paramid: 131025
             comparison: '>'
             value: 8
-          grib_keys:
+          metadata:
             bitsPerValue: 24
         - coords: [[0, 12, 24]]
           window_operation: mean
@@ -45,7 +45,7 @@ parameters:
           - out_paramid: 131021
             comparison: '>='
             value: 2
-          grib_keys:
+          metadata:
             bitsPerValue: 24
         std_anomaly_windows:
         - coords: [[0], [12]]
@@ -57,7 +57,7 @@ parameters:
             comparison: <
             value: -1
             limit_type: lower
-          grib_keys:
+          metadata:
             localDefinitionNumber: 30
             bitsPerValue: 24
             edition: 2

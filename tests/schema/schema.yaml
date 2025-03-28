@@ -150,7 +150,7 @@ config:
           threshold:
             comparison: ">="
             value: 0.001
-            localDecimalScaleFactor: 3
+            local_scale_factor: 3
         "131061":
           accumulations:
             step:
@@ -159,7 +159,7 @@ config:
           threshold:
             comparison: ">="
             value: 0.005
-            localDecimalScaleFactor: 3
+            local_scale_factor: 3
         "131062":
           accumulations:
             step:
@@ -168,7 +168,7 @@ config:
           threshold:
             comparison: ">="
             value: 0.01
-            localDecimalScaleFactor: 3
+            local_scale_factor: 3
         "131063":
           accumulations:
             step:
@@ -177,7 +177,7 @@ config:
           threshold:
             comparison: ">="
             value: 0.02
-            localDecimalScaleFactor: 3
+            local_scale_factor: 3
         "131098":
           accumulations:
             step:
@@ -186,8 +186,8 @@ config:
           threshold:
             comparison: ">="
             value: 0.025
-            localDecimalScaleFactor: 3
-            grib_set:
+            local_scale_factor: 3
+            metadata:
               scaleFactorOfLowerLimit: 0
         "131099": 
           accumulations:
@@ -197,8 +197,8 @@ config:
           threshold:
             comparison: ">="
             value: 0.05
-            localDecimalScaleFactor: 3
-            grib_set:
+            local_scale_factor: 3
+            metadata:
               scaleFactorOfLowerLimit: 0
         "131085": 
           accumulations:
@@ -208,8 +208,8 @@ config:
           threshold:
             comparison: ">="
             value: 0.1
-            localDecimalScaleFactor: 3
-            grib_set:
+            local_scale_factor: 3
+            metadata:
               scaleFactorOfLowerLimit: 0
         "131064":
           accumulations:
@@ -219,7 +219,7 @@ config:
           threshold:
             comparison: '<'
             value: 0.0001
-            localDecimalScaleFactor: 4
+            local_scale_factor: 4
         "131065": 
           accumulations:
             step:
@@ -228,7 +228,7 @@ config:
           threshold:
             comparison: '<'
             value: 0.001
-            localDecimalScaleFactor: 4
+            local_scale_factor: 4
         "131066": 
           accumulations:
             step:
@@ -237,7 +237,7 @@ config:
           threshold:
             comparison: '>='
             value: 0.003
-            localDecimalScaleFactor: 4
+            local_scale_factor: 4
         "131067":
           accumulations:
             step:
@@ -246,7 +246,7 @@ config:
           threshold:
             comparison: '>='
             value: 0.005
-            localDecimalScaleFactor: 4
+            local_scale_factor: 4
         "131068":
           accumulations: 
             step:
@@ -352,7 +352,7 @@ config:
           threshold:
             comparison: "<="
             value: 273.15
-            localDecimalScaleFactor: 2
+            local_scale_factor: 2
         "131020":
           entrypoint: pproc-anomaly-probabilities
           accumulations: 
@@ -423,8 +423,8 @@ config:
           threshold:
             comparison: '>'
             value: 1.5
-            localDecimalScaleFactor: 1
-            grib_set:
+            local_scale_factor: 1
+            metadata:
               scaleFactorOfLowerLimit: 1
         "133095":
           entrypoint: pproc-anomaly-probabilities
@@ -453,8 +453,8 @@ config:
           threshold:
             comparison: '<'
             value: -1.5
-            localDecimalScaleFactor: 1
-            grib_set:
+            local_scale_factor: 1
+            metadata:
               scaleFactorOfLowerLimit: 1
             limit_type: lower
         "133098":
@@ -476,7 +476,7 @@ config:
             step:
               type: legacywindow
               operation: mean
-              grib_keys:
+              metadata:
                 type: fcmean
           filter:param:
             "*": {}
@@ -493,7 +493,7 @@ config:
             step:
               type: legacywindow
               operation: mean
-              grib_keys:
+              metadata:
                 type: fcmean
           metadata:
             bitsPerValue: 16
@@ -506,7 +506,7 @@ config:
             step:
               type: legacywindow
               operation: standard_deviation
-              grib_keys:
+              metadata:
                 type: fcstdev
           filter:param:
             "*": {}
@@ -523,7 +523,7 @@ config:
             step:
               type: legacywindow
               operation: standard_deviation
-              grib_keys:
+              metadata:
                 type: fcstdev
           metadata:
             bitsPerValue: 16
@@ -536,7 +536,7 @@ config:
             step:
               type: legacywindow
               operation: minimum
-              grib_keys:
+              metadata:
                 type: fcmin
           filter:param:
             "*": {}
@@ -553,7 +553,7 @@ config:
             step:
               type: legacywindow
               operation: minimum
-              grib_keys:
+              metadata:
                 type: fcmin
           metadata:
             bitsPerValue: 16          
@@ -566,7 +566,7 @@ config:
             step:
               type: legacywindow
               operation: maximum
-              grib_keys:
+              metadata:
                 type: fcmax
           filter:param:
             "*": {}
@@ -583,10 +583,12 @@ config:
             step:
               type: legacywindow
               operation: maximum
-              grib_keys:
+              metadata:
                 type: fcmax
           metadata:
             bitsPerValue: 16
+    pb:
+      entrypoint: pproc-quantiles
 windows:
   defs:
     width6:
