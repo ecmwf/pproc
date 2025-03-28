@@ -41,6 +41,7 @@ def postproc_iteration(
             vmax=param.vmax,
             out_paramid=param.out_paramid,
             out_accum_key=param.out_accum_key,
+            out_accum_values=param.out_accum_values,
             out_keys=accum.grib_keys(),
         )
         target.flush()

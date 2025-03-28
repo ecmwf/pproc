@@ -15,6 +15,7 @@ def postprocess(
     vmax: Optional[float] = None,
     out_paramid: Optional[str] = None,
     out_accum_key: Optional[str] = None,
+    out_accum_values: Optional[List[Any]] = None,
     out_keys: Optional[Dict[str, Any]] = None,
 ):
     """Post-process data and write to target
@@ -35,21 +36,30 @@ def postprocess(
         Parameter ID to set on the output
     out_accum_key: str, optional
         Accumulation key to set on the output, if number of output fields does not match inputs
+    out_accum_values: list, optional
+        Accumulation values to set on the output, if number of output fields does not match inputs
     out_keys: dict, optional
         Extra GRIB keys to set on the output
     """
     out_arrays = ens.reshape((-1, ens.shape[-1]))
-    if len(out_arrays) != len(metadata) and out_accum_key is None:
-        raise ValueError(
-            "out_accum_key must be set if number of output fields is different from input fields"
-        )
+    if len(out_arrays) != len(metadata):
+        if out_accum_key is None:
+            raise ValueError(
+                "out_accum_key must be set if number of output fields is different from input fields"
+            )
+        if out_accum_values is not None and len(out_accum_values) != len(out_arrays):
+            raise ValueError(
+                "out_accum_values must be the same length as the number of output fields"
+            )
     for i, field in enumerate(out_arrays):
         if vmin is not None or vmax is not None:
             np.clip(field, vmin, vmax, out=field)
 
         grib_keys = out_keys.copy()
         if len(out_arrays) != len(metadata):
-            grib_keys[out_accum_key] = i
+            grib_keys[out_accum_key] = (
+                i if not out_accum_values else out_accum_values[i]
+            )
             template = metadata[0]
         else:
             template = metadata[i]
