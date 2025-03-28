@@ -49,7 +49,7 @@ def threshold_grib_headers(
             f"scaledValueOf{missing}Limit": "MISSING",
         }
         if clim_metadata:
-            grib_keys.update({k: v for k, v in clim_metadata.items()})
+            grib_keys.update(clim_metadata)
     else:
         raise ValueError(
             f"Unsupported threshold comparison {comparison} for grib edition {edition}"
