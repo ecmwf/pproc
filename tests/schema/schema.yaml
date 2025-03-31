@@ -75,6 +75,7 @@ config:
       accumulations:
         step:
           operation: diff
+          include_start: true
   filter:type:
     pf/cf: 
       filter:param:
@@ -121,6 +122,7 @@ config:
             step:
               type: legacywindow
               operation: diff
+              include_start: true
         "132202":
           eps: -1e-4
           accumulations:
@@ -133,6 +135,7 @@ config:
             step:
               type: legacywindow
               operation: diff
+              include_start: true
           filter:stream:
             "*": {}
             "eefo":
@@ -147,6 +150,7 @@ config:
             step:
               type: legacywindow
               operation: diff
+              include_start: true
           threshold:
             comparison: ">="
             value: 0.001
@@ -156,6 +160,7 @@ config:
             step:
               type: legacywindow
               operation: diff
+              include_start: true
           threshold:
             comparison: ">="
             value: 0.005
@@ -165,6 +170,7 @@ config:
             step:
               type: legacywindow
               operation: diff
+              include_start: true
           threshold:
             comparison: ">="
             value: 0.01
@@ -174,6 +180,7 @@ config:
             step:
               type: legacywindow
               operation: diff
+              include_start: true
           threshold:
             comparison: ">="
             value: 0.02
@@ -183,6 +190,7 @@ config:
             step:
               type: legacywindow
               operation: diff
+              include_start: true
           threshold:
             comparison: ">="
             value: 0.025
@@ -194,6 +202,7 @@ config:
             step:
               type: legacywindow
               operation: diff
+              include_start: true
           threshold:
             comparison: ">="
             value: 0.05
@@ -205,6 +214,7 @@ config:
             step:
               type: legacywindow
               operation: diff
+              include_start: true
           threshold:
             comparison: ">="
             value: 0.1
@@ -216,6 +226,7 @@ config:
             step:
               type: legacywindow
               operation: diff
+              include_start: true
           threshold:
             comparison: '<'
             value: 0.0001
@@ -225,6 +236,7 @@ config:
             step:
               type: legacywindow
               operation: diffdailyrate
+              include_start: true
           threshold:
             comparison: '<'
             value: 0.001
@@ -234,6 +246,7 @@ config:
             step:
               type: legacywindow
               operation: diffdailyrate
+              include_start: true
           threshold:
             comparison: '>='
             value: 0.003
@@ -243,6 +256,7 @@ config:
             step:
               type: legacywindow
               operation: diffdailyrate
+              include_start: true
           threshold:
             comparison: '>='
             value: 0.005
