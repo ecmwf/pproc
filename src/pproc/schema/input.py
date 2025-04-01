@@ -106,32 +106,25 @@ class ForecastConfig(BaseModel):
         paramless = ["param" not in inp.request for inp in self.inputs]
         if any(paramless):
             assert all(paramless), "All or none of the inputs must specify param"
-            require = sum([list(expand(inp.request)) for inp in self.inputs], [])
-            intersection = _intersect(require, input_requests)
-            for _, pgroup in intersection.groupby("param", sort=False):
-                # Squeeze certain back together into a single request
-                squeeze_dims = ["step", "number", "levelist"]
-                reqs = list(squeeze(pgroup.to_dict("records"), squeeze_dims))
-                reqs.sort(key=lambda x: x["type"])
-                yield type(self)(
-                    **self.model_dump(exclude=("inputs",), by_alias=True),
-                    inputs=[
-                        {
-                            **inp.model_dump(exclude=("request",), by_alias=True),
-                            "request": reqs[i],
-                        }
-                        for i, inp in enumerate(self.inputs)
-                    ],
-                )
+            groupby = ["param", "levtype"]
+            squeeze_dims = ["step", "number", "levelist", "quantile"]
         else:
+            groupby = "levtype"
+            squeeze_dims = ["step", "number", "levelist", "param", "quantile"]
+        for _, group in pd.DataFrame(input_requests).groupby(groupby, sort=False):
             updated_reqs = []
             for inp in self.inputs:
                 require = expand(inp.request)
-                intersection = _intersect(require, input_requests)
-                squeeze_dims = ["step", "number", "levelist", "param", "quantile"]
+                intersection = _intersect(require, group.to_dict("records"))
                 reqs = list(squeeze(intersection.to_dict("records"), squeeze_dims))
-                assert len(reqs) == 1
+                if len(reqs) == 0:
+                    break
+                assert (
+                    len(reqs) == 1
+                ), f"Expected single request, got {reqs} for {inp.request}"
                 updated_reqs.append(reqs[0])
+            if len(updated_reqs) == 0:
+                continue
             yield type(self)(
                 **self.model_dump(exclude=("inputs",), by_alias=True),
                 inputs=[
@@ -263,10 +256,9 @@ def _match_forecast(
             for inp in forecast.inputs:
                 for key in list(inp.request.keys()):
                     if inp.request[key] == f"{{{key}}}":
-                        if key in out:
-                            inp.request[key] = out[key]
-                        else:
+                        if key not in out:
                             return True
+                        inp.request[key] = out[key]
                 require.extend(expand(inp.request))
             merged = _intersect(require, value)
             if len(merged) == 0:
@@ -330,21 +322,28 @@ class InputSchema(Schema):
     def reconstruct(
         self, output_template: Optional[dict] = None, **match
     ) -> Iterator[tuple[dict, InputConfig]]:
+        inherit = ["levelist", "levtype"]
+        base_request = {
+            key: output_template[key] for key in inherit if key in output_template
+        }
         for cfg in self._find_matching(
             self.schema,
             [
                 {
                     "recon_req": output_template or {},
-                    "forecast": ForecastConfig(inputs=[]),
-                    "climatology": ClimatologyConfig(inputs=[]),
+                    "forecast": ForecastConfig(inputs=[{"request": base_request}]),
+                    "climatology": ClimatologyConfig(
+                        inputs=[{"request": base_request}]
+                    ),
                 }
             ],
             **match,
         ):
             out, input_config = cfg.pop("recon_req"), InputConfig(**cfg)
             for req in input_config.inputs():
-                if req["param"] == "{param}":
-                    req.pop("param")
+                for key in list(req.keys()):
+                    if req[key] == f"{{{key}}}":
+                        req.pop(key)
             logger.info("Reconstructed output %s, with config %s", out, input_config)
             yield out, input_config
 

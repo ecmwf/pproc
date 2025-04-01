@@ -937,8 +937,8 @@ inputs:
       climatology: 
         inputs:
           request:
-            time: "00"
             stream: "efhs" 
+            time: "00"
         scheme: ecmwf-4days
     waef:
       filter:type:
@@ -972,8 +972,8 @@ inputs:
       climatology: 
         inputs:
           request:
+            stream: "wehs"
             time: "00"
-            stream: "wehs" 
         scheme: ecmwf-4days
     eefo:
       filter:type:
@@ -1019,8 +1019,8 @@ inputs:
       climatology: 
         inputs:
           request:
-            time: "00"
             stream: "eehs" 
+            time: "00"
         scheme: ecmwf-2days
     weef:
       filter:type:
@@ -1066,8 +1066,8 @@ inputs:
       climatology: 
         inputs:
           request:
-            time: "00"
             stream: "wees" 
+            time: "00"
         scheme: ecmwf-2days
     msmm: 
       filter:type:
@@ -1755,7 +1755,7 @@ inputs:
                     by: 12
         msmm/swmm:
           filter:param:
-            "34/139/151/164/165/166/167/168/168/229/230": 
+            "34/139/151/164/165/166/167/168/168/207/229/230": 
               forecast:
                 inputs:
                   derive_step: 

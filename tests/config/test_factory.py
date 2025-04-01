@@ -33,7 +33,7 @@ DEFAULT_REQUEST = {
 }
 
 
-def default_config(param: str):
+def default_config(name: str, param: str):
     return {
         "total_fields": 51,
         "sources": {"fc": {"type": "fdb"}},
@@ -41,7 +41,7 @@ def default_config(param: str):
             "default": {"target": {"type": "fdb"}},
         },
         "parameters": {
-            param: {
+            name: {
                 "sources": {
                     "fc": {
                         "request": [
@@ -85,7 +85,7 @@ TEST_CASES = {
                 "accum": {"metadata": {}, "target": {"type": "fdb"}},
             },
             "parameters": {
-                "130": {
+                "130_pl": {
                     "dtype": "float64",
                     "accumulations": {
                         "levelist": {"coords": [[250], [500]]},
@@ -145,7 +145,7 @@ TEST_CASES = {
             },
             "total_fields": 51,
             "parameters": {
-                "130": {
+                "130_pl": {
                     "dtype": "float64",
                     "metadata": {"bitsPerValue": 16, "perturbationNumber": 0},
                     "accumulations": {
@@ -165,7 +165,7 @@ TEST_CASES = {
             },
             "total_fields": 51,
             "parameters": {
-                "228": {
+                "228_sfc": {
                     "dtype": "float64",
                     "preprocessing": [
                         {
@@ -254,7 +254,7 @@ TEST_CASES = {
             },
             "parallelisation": {"n_par_compute": 2},
             "parameters": {
-                "130": {
+                "130_pl": {
                     "sources": {
                         "fc": {
                             "request": [
@@ -369,7 +369,7 @@ def test_from_outputs(request, output_request, input_param):
     overrides, cfg_type, updates = TEST_CASES[request.node.callspec.id]
     config = ConfigFactory.from_outputs(test_schema, [output_request], **overrides)
     assert type(config) == cfg_type
-    check = default_config(input_param)
+    check = default_config(f"{input_param}_{output_request['levtype']}", input_param)
     deep_update(check, updates)
     assert config.model_dump(by_alias=True) == cfg_type(**check).model_dump(
         by_alias=True
@@ -539,8 +539,9 @@ def test_from_inputs(request, entrypoint, input_request, step_accum, stepby):
     )
     assert type(config) == cfg_type
     param = input_request[0]["param"]
-    check = default_config(param)
-    updates["parameters"][param]["accumulations"]["step"] = step_accum
+    levtype = input_request[0]["levtype"]
+    check = default_config(f"{param}_{levtype}", param)
+    updates["parameters"][f"{param}_{levtype}"]["accumulations"]["step"] = step_accum
     deep_update(check, updates)
     assert config.model_dump(exclude_defaults=True, by_alias=True) == cfg_type(
         **check

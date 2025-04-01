@@ -63,7 +63,8 @@ class Schema:
                 not isinstance(base_request["param"], str)
                 and len(base_request["param"]) > 1
             ):
-                config["name"] = valid_out["param"]
+                config["name"] = f"{valid_out['param']}_{valid_out['levtype']}"
+        config.setdefault("name", f"{base_request['param']}_{valid_out['levtype']}")
         if base_request["stream"] != valid_out["stream"]:
             metadata["stream"] = valid_out["stream"]
         return {**config, "inputs": inputs}

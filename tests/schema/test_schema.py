@@ -24,6 +24,7 @@ from conftest import schema
             },
             {
                 "entrypoint": "pproc-monthly-stats",
+                "name": "167_sfc",
                 "interp_keys": {
                     "intgrid": "none",
                     "legendre-loader": "shmem",
@@ -73,6 +74,7 @@ from conftest import schema
             },
             {
                 "entrypoint": "pproc-accumulate",
+                "name": "228_sfc",
                 "interp_keys": {
                     "intgrid": "none",
                     "legendre-loader": "shmem",
@@ -144,6 +146,7 @@ from conftest import schema
             },
             {
                 "entrypoint": "pproc-ensms",
+                "name": "130_pl",
                 "interp_keys": {
                     "intgrid": "none",
                     "legendre-loader": "shmem",
@@ -235,6 +238,7 @@ def test_schema_from_output(req, config):
             4,
             {
                 "entrypoint": "pproc-accumulate",
+                "name": "167_sfc",
                 "inputs": [
                     {
                         "class": "od",
@@ -298,6 +302,7 @@ def test_schema_from_output(req, config):
             21,
             {
                 "entrypoint": "pproc-monthly-stats",
+                "name": "228_sfc",
                 "accumulations": {
                     "step": {
                         "type": "legacywindow",
@@ -376,6 +381,7 @@ def test_schema_from_output(req, config):
             10,
             {
                 "entrypoint": "pproc-ensms",
+                "name": "130_pl",
                 "inputs": [
                     {
                         "class": "od",

@@ -10,6 +10,7 @@ INPUTS = {
     "ensms": [
         {
             "stream": "enfo",
+            "levtype": "sfc",
             "type": "em",
             "param": "167",
             "step": 3,
@@ -17,6 +18,7 @@ INPUTS = {
         },
         {
             "stream": "enfo",
+            "levtype": "sfc",
             "type": "em",
             "param": "167",
             "step": 3,
@@ -27,12 +29,14 @@ INPUTS = {
     "thermofeel": [
         {
             "stream": "enfo",
+            "levtype": "sfc",
             "param": ["169", "175", "176", "177", "228021", "47"],
             "step": [2, 3],
             "type": "cf",
         },
         {
             "stream": "enfo",
+            "levtype": "sfc",
             "param": ["165", "166", "167", "168"],
             "step": 3,
             "type": "cf",
@@ -46,6 +50,8 @@ INPUTS = {
             "type": "cf",
             "date": "20250314",
             "time": 12,
+            "levtype": "pl",
+            "levelist": 250,
         },
         {
             "stream": "enfo",
@@ -55,6 +61,8 @@ INPUTS = {
             "number": list(range(1, 51)),
             "date": "20250314",
             "time": 12,
+            "levtype": "pl",
+            "levelist": 250,
         },
         {
             "stream": "efhs",
@@ -63,6 +71,8 @@ INPUTS = {
             "type": "em",
             "date": "20250313",
             "time": "00",
+            "levtype": "pl",
+            "levelist": 250,
         },
         {
             "stream": "efhs",
@@ -71,11 +81,14 @@ INPUTS = {
             "type": "es",
             "date": "20250313",
             "time": "00",
+            "levtype": "pl",
+            "levelist": 250,
         },
     ],
     "efi": [
         {
             "stream": "eefo",
+            "levtype": "sfc",
             "param": "167",
             "step": "0-168",
             "type": "fcmean",
@@ -85,6 +98,7 @@ INPUTS = {
         },
         {
             "stream": "eehs",
+            "levtype": "sfc",
             "param": "228004",
             "step": "0-168",
             "type": "cd",
@@ -96,6 +110,7 @@ INPUTS = {
     "monthly": [
         {
             "stream": "mmsf",
+            "levtype": "sfc",
             "param": ["165", "166"],
             "step": list(range(0, 745, 6)),
             "type": "fc",
@@ -106,6 +121,7 @@ INPUTS = {
     "prob": [
         {
             "stream": "enfo",
+            "levtype": "sfc",
             "param": "228",
             "step": [0, 24],
             "type": "pf",
@@ -118,8 +134,14 @@ INPUTS = {
 @pytest.mark.parametrize(
     "output",
     [
-        {"stream": "enfo", "type": "em", "param": "167", "step": 3},
-        {"stream": "enfo", "type": "cf", "param": "261001", "step": 3},
+        {"stream": "enfo", "type": "em", "param": "167", "step": 3, "levtype": "sfc"},
+        {
+            "stream": "enfo",
+            "type": "cf",
+            "param": "261001",
+            "step": 3,
+            "levtype": "sfc",
+        },
         {
             "stream": "enfo",
             "type": "ep",
@@ -127,9 +149,12 @@ INPUTS = {
             "step": "120-168",
             "date": "20250314",
             "time": 12,
+            "levtype": "pl",
+            "levelist": 250,
         },
         {
             "stream": "eefo",
+            "levtype": "sfc",
             "type": "efi",
             "param": "132167",
             "step": "0-168",
@@ -138,6 +163,7 @@ INPUTS = {
         },
         {
             "stream": "msmm",
+            "levtype": "sfc",
             "type": "fcmean",
             "param": "207",
             "fcmonth": 1,
@@ -146,6 +172,7 @@ INPUTS = {
         },
         {
             "stream": "enfo",
+            "levtype": "sfc",
             "type": "ep",
             "param": "131060",
             "step": "0-24",
@@ -211,6 +238,7 @@ def test_outputs(request, out_type, num_outputs):
                     ],
                     "step": [2, 3],
                     "type": "fc",
+                    "levtype": "sfc",
                 }
             ],
             {"type": "fc"},
@@ -222,13 +250,52 @@ def test_outputs(request, out_type, num_outputs):
                     "stream": "enfo",
                     "param": ["228246", "228247"],
                     "type": "cf",
+                    "levtype": "sfc",
                 }
             ],
             {"type": "cf"},
             0,
         ],
+        [
+            [
+                {
+                    "stream": "enfo",
+                    "param": "129",
+                    "type": "cf",
+                    "levtype": "sfc",
+                    "step": 3,
+                },
+                {
+                    "stream": "enfo",
+                    "param": "129",
+                    "type": "pf",
+                    "levtype": "sfc",
+                    "number": list(range(1, 51)),
+                    "step": 3,
+                },
+                {
+                    "stream": "enfo",
+                    "param": "129",
+                    "type": "cf",
+                    "levtype": "pl",
+                    "levelist": [50, 100],
+                    "step": 3,
+                },
+                {
+                    "stream": "enfo",
+                    "param": "129",
+                    "type": "pf",
+                    "levtype": "pl",
+                    "number": list(range(1, 51)),
+                    "levelist": [50, 100],
+                    "step": 3,
+                },
+            ],
+            {"levtype": "pl", "levelist": 50, "type": "em"},
+            1,
+        ],
     ],
-    ids=["redundant-steps", "redundant-params", "not-from-inputs"],
+    ids=["redundant-steps", "redundant-params", "not-from-inputs", "levels"],
 )
 def test_redundant_inputs(inputs, template, num_outputs):
     expanded_inputs = sum([list(expand(x)) for x in inputs], [])
