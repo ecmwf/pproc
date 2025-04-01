@@ -186,7 +186,7 @@ class DefaultAccumulation(BaseAccumulation):
                 coords.update(coord)
             elif isinstance(coord, dict):
                 coords.update(
-                    range(coords.get("from", 0), coords["to"] + 1), coords.get("by", 1)
+                    range(coord.get("from", 0), coord["to"] + 1), coord.get("by", 1)
                 )
         coords = list(coords)
         coords.sort()

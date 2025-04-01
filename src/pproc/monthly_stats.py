@@ -33,6 +33,7 @@ def mstat_keys(template, out_keys: dict, interval: int):
             "step": end,
             "averagingPeriod": interval,
         }
+    out_keys.pop("unitOfTimeRange", None)
     return lambda tp: {
         "localDefinitionNumber": 16,
         **out_keys,

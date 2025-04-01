@@ -1,10 +1,27 @@
 import numpy as np
 import pytest
+from typing import Optional, Tuple, Union, Any
 
-from pproc.common.window import (
-    create_window,
-    legacy_window_factory,
-)
+from pproc.common.accumulation import Accumulation, create_accumulation
+from pproc.common.window import legacy_window_factory, translate_window_config
+
+
+def create_window(
+    coords: Union[list[Any], dict],
+    window_operation: str,
+    include_start: bool,
+    grib_keys: Optional[dict] = None,
+    deaccumulate: bool = False,
+    return_name: bool = False,
+    **extra,
+) -> Union[Accumulation, Tuple[Accumulation, str]]:
+    name, config = translate_window_config(
+        coords, window_operation, include_start, grib_keys, deaccumulate, **extra
+    )
+    acc = create_accumulation(config)
+    if return_name:
+        return acc, name
+    return acc
 
 
 def test_instantaneous_window():
@@ -59,20 +76,20 @@ def test_multi_windows():
     [
         pytest.param("difference", True, [0, 2], 1, [[1, 2, 3], [2, 4, 6]], id="diff"),
         pytest.param(
-            "weightedsum",
+            "weighted_mean",
             False,
             [0, 1, 2],
             1,
             [[1.5, 3, 4.5], [3, 6, 9]],
-            id="weightedsum",
+            id="weighted_mean",
         ),
         pytest.param(
-            "diffdailyrate",
+            "difference_rate",
             True,
             [0, 240],
             120,
-            np.divide([[1, 2, 3], [2, 4, 6]], 10),
-            id="diffdailyrate",
+            np.divide([[1, 2, 3], [2, 4, 6]], 240),
+            id="difference_rate",
         ),
         pytest.param(
             "mean", False, list(range(7)), 3, [[1.5, 3, 4.5], [3, 6, 9]], id="mean"
@@ -606,7 +623,8 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                         "metadata": {"stepType": "accum"},
                     },
                     {
-                        "operation": "diffdailyrate",
+                        "operation": "difference_rate",
+                        "factor": 1.0 / 24.0,
                         "thresholds": [
                             {"comparison": "<", "value": 0.001},
                             {"comparison": ">=", "value": 0.003},

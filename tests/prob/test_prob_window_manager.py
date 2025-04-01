@@ -93,7 +93,8 @@ from pproc.prob.window_manager import ThresholdWindowManager, AnomalyWindowManag
                         "coords": [[0, 24], [12, 36], [336, 360]],
                     },
                     {
-                        "operation": "diffdailyrate",
+                        "operation": "difference_rate",
+                        "factor": 1.0 / 24.0,
                         "thresholds": [
                             {"comparison": "<", "value": 0.001},
                             {"comparison": ">=", "value": 0.003},
