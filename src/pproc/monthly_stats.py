@@ -13,7 +13,7 @@ from pproc.accum.main import main as accum_main
 from pproc.accum.postprocess import postprocess
 from pproc.common.accumulation import Accumulator
 from pproc.common.config import default_parser
-from pproc.common.io import Target, read_template
+from pproc.common.io import Target
 from pproc.common.recovery import Recovery
 
 
@@ -42,16 +42,13 @@ def postproc_iteration(
     param: AccumParamConfig,
     target: Target,
     recovery: Optional[Recovery],
-    template: Union[str, eccodes.GRIBMessage],
+    metadata: list[eccodes.GRIBMessage],
     window_id: str,
     accum: Accumulator,
 ):
-    if not isinstance(template, eccodes.GRIBMessage):
-        template = read_template(template)
-
     intervals = np.diff(accum["step"].coords)
     assert np.all(intervals == intervals[0]), "Step intervals must be equal"
-    date = datetime.strptime(template.get("dataDate:str"), "%Y%m%d")
+    date = datetime.strptime(metadata[0].get("dataDate:str"), "%Y%m%d")
     accum_keys = accum.grib_keys()
     steprange = accum_keys.pop("stepRange")
     out_keys = {
@@ -68,7 +65,7 @@ def postproc_iteration(
         assert ens is not None
         postprocess(
             ens,
-            template,
+            metadata,
             target,
             vmin=param.vmin,
             vmax=param.vmax,

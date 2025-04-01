@@ -32,7 +32,7 @@ def retrieve_clim(
     res_template: Optional[eccodes.GRIBMessage] = None
     for keys, data in parallel_data_retrieval(1, window_manager.dims, [requester]):
         ids = ", ".join(f"{k}={v}" for k, v in keys.items())
-        template, clim = data[0]
+        metadata, clim = data[0]
         with ResourceMeter(f"{param.name}, {ids}: Compute accumulation"):
             completed_windows = window_manager.update_windows(keys, clim)
             del clim
@@ -41,7 +41,7 @@ def retrieve_clim(
                     res_accum is None
                 ), "Multiple climatological windows are not supported"
                 res_accum = accum
-                res_template = template
+                res_template = metadata[0]
     assert (
         res_accum is not None and res_template is not None
     ), f"Missing climatology for {param.name}"

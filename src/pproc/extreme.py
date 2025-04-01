@@ -106,8 +106,6 @@ def read_clim(
         index_func=lambda x: int(x.get("quantile").split(":")[0]),
         step=step,
     )
-    if not isinstance(clim_template, eccodes.GRIBMessage):
-        clim_template = common.io.read_template(clim_template)
     return clim_accum.values, clim_template
 
 
@@ -115,17 +113,11 @@ def compute_indices(
     cfg: ConfigExtreme,
     param: ExtremeParamConfig,
     recovery: common.Recovery,
-    template_filename: Union[str, eccodes.GRIBMessage],
+    message_template: eccodes.GRIBMessage,
     window_id: str,
     accum: Accumulator,
 ):
     with ResourceMeter(f"Window {window_id}, computing indices"):
-        message_template = (
-            template_filename
-            if isinstance(template_filename, eccodes.GRIBMessage)
-            else common.io.read_template(template_filename)
-        )
-
         clim, template_clim = read_clim(cfg, param, accum)
         print(f"Climatology array: {clim.shape}")
 
@@ -197,18 +189,17 @@ def main(args=None):
                 cfg.n_par_read,
                 window_manager.dims,
                 [requester],
-                cfg.n_par_compute > 1,
                 initializer=signal.signal,
                 initargs=(signal.SIGTERM, signal.SIG_DFL),
             ):
                 step = keys["step"]
                 with ResourceMeter(f"Process step {step}"):
-                    template, data = retrieved_data[0]
+                    metadata, data = retrieved_data[0]
                     assert data.ndim == 2
 
                     completed_windows = window_manager.update_windows(keys, data)
                     for window_id, accum in completed_windows:
-                        executor.submit(indices_partial, template, window_id, accum)
+                        executor.submit(indices_partial, metadata[0], window_id, accum)
 
             executor.wait()
 

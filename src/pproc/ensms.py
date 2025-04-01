@@ -14,7 +14,6 @@ from datetime import datetime
 import signal
 from meters import ResourceMeter
 import numpy as np
-from typing import Union
 
 import eccodes
 
@@ -22,7 +21,6 @@ from pproc import common
 from pproc.common import parallel
 from pproc.common.accumulation import Accumulator
 from pproc.common.parallel import (
-    parallel_processing,
     sigterm_handler,
     SynchronousExecutor,
     QueueingExecutor,
@@ -32,7 +30,6 @@ from pproc.common.param_requester import ParamConfig, ParamRequester
 
 
 def template_ensemble(
-    param_type: ParamConfig,
     template: eccodes.GRIBMessage,
     accum: Accumulator,
     out_keys: dict,
@@ -88,10 +85,8 @@ def ensms_iteration(
     recovery: common.Recovery,
     window_id: str,
     accum: Accumulator,
-    template_ens=Union[str, eccodes.GRIBMessage],
+    template_ens: eccodes.GRIBMessage,
 ):
-    if not isinstance(template_ens, eccodes.GRIBMessage):
-        template_ens = common.io.read_template(template_ens)
 
     ens = accum.values
     assert ens is not None
@@ -100,14 +95,14 @@ def ensms_iteration(
     axes = tuple(range(ens.ndim - 1))
     with ResourceMeter(f"Window {window_id}: write mean output"):
         mean = np.mean(ens, axis=axes)
-        template_mean = template_ensemble(param, template_ens, accum, config.out_keys_em)
+        template_mean = template_ensemble(template_ens, accum, config.out_keys_em)
         template_mean.set_array("values", common.io.nan_to_missing(template_mean, mean))
         config.out_mean.write(template_mean)
         config.out_mean.flush()
 
     with ResourceMeter(f"Window {window_id}: write std output"):
         std = np.std(ens, axis=axes)
-        template_std = template_ensemble(param, template_ens, accum, config.out_keys_es)
+        template_std = template_ensemble(template_ens, accum, config.out_keys_es)
         template_std.set_array("values", common.io.nan_to_missing(template_std, std))
         config.out_std.write(template_std)
         config.out_std.flush()
@@ -174,20 +169,19 @@ def main(args=None):
                 cfg.n_par_read,
                 window_manager.dims,
                 [requester],
-                cfg.n_par_compute > 1,
                 initializer=signal.signal,
                 initargs=(signal.SIGTERM, signal.SIG_DFL),
             ):
                 step = keys["step"]
                 with ResourceMeter(f"Process step {step}"):
-                    message_template, data = retrieved_data[0]
+                    metadata, data = retrieved_data[0]
 
                     completed_windows = window_manager.update_windows(
                         keys,
                         data,
                     )
                     for window_id, accum in completed_windows:
-                        executor.submit(iteration, window_id, accum, message_template)
+                        executor.submit(iteration, window_id, accum, metadata[0])
             executor.wait()
 
     recover.clean_file()

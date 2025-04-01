@@ -1,4 +1,4 @@
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List
 import numpy as np
 
 import eccodes
@@ -41,7 +41,7 @@ class Climatology(ParamRequester):
 
     def retrieve_data(
         self, fdb, step: int, **kwargs
-    ) -> Tuple[Dict, Tuple[np.array, np.array]]:
+    ) -> Tuple[List[Dict], Tuple[np.array, np.array]]:
         """
         Retrieves data for climatology mean and standard deviation
 
@@ -51,5 +51,5 @@ class Climatology(ParamRequester):
         and
         """
         cstep = step if not self.steps else self.steps[step]
-        temp_message, ret = super().retrieve_data(fdb, step=cstep, **kwargs)
-        return self.grib_header(temp_message), ret
+        metadata, ret = super().retrieve_data(fdb, step=cstep, **kwargs)
+        return [self.grib_header(metadata[0])], ret

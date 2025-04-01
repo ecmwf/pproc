@@ -11,6 +11,8 @@ class AccumParamConfig(ParamConfig):
         super().__init__(name, options, overrides)
         self.vmin = options.get("vmin", None)
         self.vmax = options.get("vmax", None)
+        self.out_accum_key = options.get("out_accum_key", "perturbationNumber")
+        self.out_accum_values = options.get("out_accum_values", None)
 
 
 class AccumConfig(Config):

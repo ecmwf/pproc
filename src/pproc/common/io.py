@@ -541,14 +541,17 @@ def target_from_location(
     return target_factory(type_, out_file=ident, overrides=overrides)
 
 
-def write_template(filepath, template):
-    """
-    Write grib message, setting all data values to 0
-    """
-    template.set_array("values", np.zeros(template.data.shape))
-    template.write_to(open(os.path.join(filepath), "wb"))
+class GribMetadata(eccodes.Message):
+    def __init__(self, message: eccodes.Message, headers_only: bool = False):
+        handle = eccodes.codes_clone(message._handle, headers_only=headers_only)
+        super().__init__(handle)
+        self.set_array("values", np.zeros(message.data.size))
+        self.set("bitsPerValue", message.get("bitsPerValue"))
 
+    def __getstate__(self) -> dict:
+        ret = {"_handle": self.get_buffer()}
+        return ret
 
-def read_template(filepath):
-    assert isinstance(filepath, str)
-    return list(eccodes.FileReader(filepath))[0]
+    def __setstate__(self, state: dict):
+        state["_handle"] = eccodes.MemoryReader(state["_handle"])._next_handle()
+        self.__dict__.update(state)
