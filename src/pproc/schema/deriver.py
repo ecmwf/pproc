@@ -134,5 +134,5 @@ class ClimDateDeriver(BaseModel):
         date = datetime.datetime.strptime(fc_request["date"], "%Y%m%d")
         clim_seq = Sequence.from_resource(scheme)
         kwargs = self.model_dump(exclude={"option"})
-        clim_date = getattr(clim_seq, self.option)(date, **kwargs)
+        clim_date = getattr(clim_seq, self.option)(date.date(), **kwargs)
         return datetime.datetime.strftime(clim_date, "%Y%m%d")

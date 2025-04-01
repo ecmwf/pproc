@@ -9,9 +9,9 @@ class ConfigSchema(Schema):
         if output_request["type"] in ["pb", "cd"]:
             quantiles = []
             for quantile in output_request["quantile"]:
-                number, total = map(int, quantile.split("/"))
+                number, total = map(int, quantile.split(":"))
                 quantiles.append(number / total)
-            config["quantile"] = quantiles
+            config["quantiles"] = quantiles
         if output_request["type"] == "sot":
             config["sot"] = output_request["number"]
         return config

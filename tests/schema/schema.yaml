@@ -11,20 +11,25 @@ config:
         - operation: norm
       interp_keys:
         vod2uv: true
+    "131068/131069":
+      filter:type:
+        ep:
+          preprocessing:
+            - operation: norm
     "132044":
       filter:type:
         efi/efic/sot:
           preprocessing:
           - operation: mask
-            select: {param: 228036}
-            mask: [{param: 228035}, "<=", 10]
+            select: {param: "228036"}
+            mask: [{param: "228035"}, "<=", 10]
     "132059":
       filter:type:
         efi/efic/sot:
           preprocessing:
           - operation: mask
-            select: {param: 228035}
-            mask: [{param: 228035}, "<=", 10]
+            select: {param: "228035"}
+            mask: [{param: "228035"}, "<=", 10]
     "132145":
       filter:type:
         efi/efic/sot:
@@ -265,6 +270,7 @@ config:
           accumulations: 
             step:
               type: legacywindow
+              operation: maximum
           threshold:
             comparison: ">="
             value: 10
@@ -272,6 +278,7 @@ config:
           accumulations: 
             step:
               type: legacywindow
+              operation: maximum
           threshold:
             comparison: ">="
             value: 15
@@ -279,6 +286,7 @@ config:
           accumulations: 
             step:
               type: legacywindow
+              operation: maximum
           threshold:
             comparison: ">="
             value: 15
@@ -286,6 +294,7 @@ config:
           accumulations: 
             step:
               type: legacywindow
+              operation: maximum
           threshold:
             comparison: ">="
             value: 20
@@ -293,6 +302,7 @@ config:
           accumulations: 
             step:
               type: legacywindow
+              operation: maximum
           threshold:
             comparison: ">="
             value: 25
@@ -300,6 +310,7 @@ config:
           accumulations: 
             step:
               type: legacywindow
+              operation: maximum
           threshold:
             comparison: ">="
             value: 10 
@@ -307,6 +318,7 @@ config:
           accumulations: 
             step:
               type: legacywindow
+              operation: maximum
           threshold:
             comparison: ">="
             value: 2
@@ -314,6 +326,7 @@ config:
           accumulations: 
             step:
               type: legacywindow
+              operation: maximum
           threshold:
             comparison: ">="
             value: 4
@@ -321,6 +334,7 @@ config:
           accumulations: 
             step:
               type: legacywindow
+              operation: maximum
           threshold:
             comparison: ">="
             value: 6
@@ -328,6 +342,7 @@ config:
           accumulations: 
             step:
               type: legacywindow
+              operation: maximum
           threshold:
             comparison: ">="
             value: 8
@@ -335,6 +350,7 @@ config:
           accumulations: 
             step:
               type: legacywindow
+              operation: maximum
           threshold:
             comparison: ">="
             value: 2
@@ -342,6 +358,7 @@ config:
           accumulations: 
             step:
               type: legacywindow
+              operation: maximum
           threshold:
             comparison: ">="
             value: 4
@@ -349,6 +366,7 @@ config:
           accumulations: 
             step:
               type: legacywindow
+              operation: maximum
           threshold:
             comparison: ">="
             value: 6
@@ -356,6 +374,7 @@ config:
           accumulations: 
             step:
               type: legacywindow
+              operation: maximum
           threshold:
             comparison: ">="
             value: 8
@@ -363,6 +382,7 @@ config:
           accumulations: 
             step:
               type: legacywindow
+              operation: minimum
           threshold:
             comparison: "<="
             value: 273.15
@@ -392,6 +412,7 @@ config:
           accumulations: 
             step:
               type: legacywindow
+              operation: minimum
           threshold: 
             comparison: "<"
             value: -8
@@ -400,6 +421,7 @@ config:
           accumulations: 
             step:
               type: legacywindow
+              operation: minimum
           threshold: 
             comparison: "<"
             value: -4
@@ -408,6 +430,7 @@ config:
           accumulations: 
             step:
               type: legacywindow
+              operation: maximum
           threshold: 
             comparison: ">"
             value: 4
@@ -416,6 +439,7 @@ config:
           accumulations: 
             step:
               type: legacywindow
+              operation: maximum
           threshold: 
             comparison: ">"
             value: 8
@@ -424,6 +448,7 @@ config:
           accumulations: 
             step:
               type: legacywindow
+              operation: maximum
               std_anomaly: true
           threshold:
             comparison: '>'
@@ -433,6 +458,7 @@ config:
           accumulations: 
             step:
               type: legacywindow
+              operation: maximum
               std_anomaly: true
           threshold:
             comparison: '>'
@@ -445,6 +471,7 @@ config:
           accumulations: 
             step:
               type: legacywindow
+              operation: maximum
               std_anomaly: true
           threshold:
             comparison: '>'
@@ -454,6 +481,8 @@ config:
           accumulations: 
             step:
               type: legacywindow
+              operation: minimum
+              std_anomaly: true
           threshold:
             comparison: '<'
             value: -1
@@ -463,6 +492,7 @@ config:
           accumulations: 
             step:
               type: legacywindow
+              operation: minimum
               std_anomaly: true
           threshold:
             comparison: '<'
@@ -476,6 +506,7 @@ config:
           accumulations: 
             step:
               type: legacywindow
+              operation: minimum
               std_anomaly: true
           threshold:
             comparison: '<'
@@ -676,7 +707,7 @@ windows:
           to: 1104
           by: 6
   filter:type:
-    em/es:
+    em/es/pb:
       filter:stream:
         enfo:
           filter:param:
@@ -787,7 +818,7 @@ windows:
                       width: 24
                       interval: 24
                     - type: range
-                      with: 72
+                      width: 72
                       end: 240
                       interval: 24
                       end: 216
@@ -823,7 +854,7 @@ windows:
                   width: 24
                   interval: 12
                 - type: range
-                  with: 72
+                  width: 72
                   end: 240
                   interval: 12
                   end: 216
@@ -840,7 +871,7 @@ windows:
                   width: 24
                   interval: 12
                 - type: range
-                  with: 72
+                  width: 72
                   end: 240
                   interval: 12
                   end: 216
@@ -857,7 +888,7 @@ windows:
             "202/201/49/140200/59/228044/140249/228006":
               out_steps:
                 type: range
-                wdith: 24
+                width: 24
                 interval: 12     
         eehs:
           out_steps:
@@ -876,7 +907,7 @@ inputs:
                 type: fc
     enfo:
       filter:type:
-        "em/es/pb/fcmean/fcstdev/fcmin/fcmax/efi/efic/sot":
+        "em/es/pb/fcmean/fcstdev/fcmin/fcmax/efi/sot":
           forecast:
             inputs:
               - request: 
@@ -888,7 +919,7 @@ inputs:
                 members: 
                   start: 1
                   end: 50
-        "cf":
+        "cf/efic":
           forecast:
             inputs:
               request: 
@@ -911,7 +942,7 @@ inputs:
         scheme: ecmwf-4days
     waef:
       filter:type:
-        em/es/pb/fcmean/fcstdev/fcmin/fcmax/efi/efic/sot:
+        em/es/pb/fcmean/fcstdev/fcmin/fcmax/efi/sot:
           forecast:
             inputs:
               - request: 
@@ -923,7 +954,7 @@ inputs:
                 members: 
                   start: 1
                   end: 50
-        "cf":
+        "cf/efic":
           forecast:
             inputs:
               request:
@@ -973,7 +1004,7 @@ inputs:
               members: 
                 start: 1
                 end: 100
-        "efi/efic/sot/taem/taes":
+        "efi/sot/taem/taes":
           forecast:
             inputs:
               - request:
@@ -1469,6 +1500,9 @@ inputs:
         inputs:
           request: 
             param: "228"
+          derive_step:
+            type: default
+            deaccumulation: true
     "201":
       filter:type:
         fcmean/fcstdev/fcmin/fcmax:

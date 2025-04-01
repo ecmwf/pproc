@@ -293,11 +293,7 @@ class InputSchema(Schema):
         # associated with ensemble number
         if request["type"] not in ["pf", "fcmean", "fcmax", "fcstdev", "fcmin", "fc"]:
             out.pop("number", None)
-        if request["type"] == "sot":
-            out["number"] = [10, 90]
-        if request["type"] == ["pb", "cd"]:
-            out["quantile"] = [f"{x}:100" for x in range(0, 101)]
-        for key in pop + ["step", "fcmonth"]:
+        for key in pop + ["step", "fcmonth", "quantile"]:
             out.pop(key, None)
         return format_request(out)
 

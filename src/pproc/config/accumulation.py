@@ -163,6 +163,7 @@ class DefaultAccumulation(BaseAccumulation):
 
     type_: Literal["default"] = Field("default", alias="type")
     coords: list[Union[List[int | str], dict]] = []
+    deaccumulate: bool = False
 
     def make_configs(self, metadata: dict) -> Iterator[Tuple[str, dict]]:
         for coords in self.coords:
@@ -228,6 +229,7 @@ class StepSeqAccumulation(BaseAccumulation):
         Union[StepRanges, StepMonthly],
         Field(discriminator="type_"),
     ]
+    deaccumulate: bool = False
 
     def make_configs(self, metadata: dict) -> Iterator[Tuple[str, dict]]:
         return DefaultAccumulation(
