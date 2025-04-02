@@ -31,7 +31,7 @@ dependencies = [
     "scipy >= 1.8",
     "xarray",
     "pydantic",
-    "conflator >= 0.1.6",
+    "conflator >= 0.1.7",
 ]
 
 [project.optional-dependencies]
