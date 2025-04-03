@@ -45,6 +45,7 @@ class ExtremeParamConfig(ParamConfig):
         super().__init__(name, options, overrides)
         self.clim_param = ParamConfig(f"clim_{name}", clim_options)
         self.indices = create_indices(options, DEFAULT_INDICES)
+        self.allow_grib1_to_grib2 = options.get("allow_grib1_to_grib2", False)
 
 
 class ConfigExtreme(common.Config):
@@ -121,7 +122,12 @@ def compute_indices(
         clim, template_clim = read_clim(cfg, param, accum)
         print(f"Climatology array: {clim.shape}")
 
-        template_extreme = extreme_template(accum, message_template, template_clim)
+        template_extreme = extreme_template(
+            accum,
+            message_template,
+            template_clim,
+            allow_grib1_to_grib2=param.allow_grib1_to_grib2,
+        )
 
         ens = accum.values
         assert ens is not None
