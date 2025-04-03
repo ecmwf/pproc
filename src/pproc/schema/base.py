@@ -76,6 +76,7 @@ class Schema:
             if cls.is_subschema(key):
                 cls._traverse(cls.subschema(key, value, request), request, config)
             else:
+                # TODO: Remove copies?
                 cls.custom_update.get(key, DEFAULT_UPDATE)(
                     config, {key: copy.deepcopy(value)}
                 )
