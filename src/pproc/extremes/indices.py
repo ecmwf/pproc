@@ -88,7 +88,7 @@ class CPF(Index):
         in_template: GRIBMessage,
         out_template: GRIBMessage,
     ):
-        cpf = 100 * extreme.cpf(
+        cpf = extreme.cpf(
             clim.astype(np.float32),
             ens.astype(np.float32),
             sort_clim=False,
