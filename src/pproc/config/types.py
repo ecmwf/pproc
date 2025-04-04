@@ -181,8 +181,8 @@ class SigniConfig(BaseConfig):
     ] = False
 
     @model_validator(mode="after")
-    def check_totalfields(self) -> Self:
-        super().check_totalfields()
+    def validate_totalfields(self) -> Self:
+        super().validate_totalfields()
         if self.clim_total_fields == 0:
             self.clim_total_fields = self.total_fields("clim")
         return self
