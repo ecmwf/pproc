@@ -60,8 +60,12 @@ def translate_window_config(
     :raises: ValueError for unsupported window operation string
     """
     if isinstance(coords, list):
-        start = coords[0]
-        end = coords[-1]
+        if len(coords) == 1 and isinstance(coords[0], str):
+            start, end = list(map(int, coords[0].split("-")))
+            include_start = True
+        else:
+            start = coords[0]
+            end = coords[-1]
     else:
         start = coords.get("from", 0)
         end = coords["to"]
