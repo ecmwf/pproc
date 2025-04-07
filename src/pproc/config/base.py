@@ -95,8 +95,8 @@ class BaseConfig(ConfigModel):
             for req in reqs:
                 if len(req) == 0:
                     continue
-                if number := req.get("number", None):
-                    total_fields += len(number)
+                if isinstance(req.get("number", None), list):
+                    total_fields += len(req["number"])
                 else:
                     total_fields += 1
             if out == 0:

@@ -298,15 +298,15 @@ class WindParamConfig(ParamConfig):
     def in_sources(
         self, sources: io.SourceCollection, name: str, **kwargs
     ) -> list[io.Source]:
-        base_config: io.Source = getattr(sources, name)
-        config = self.sources.get(name, {})
-        reqs = update_request(
-            base_config.request,
-            config.get("request", {}),
-            **kwargs,
-            **sources.overrides,
-        )
         if self.vod2uv:
+            base_config: io.Source = getattr(sources, name)
+            config = self.sources.get(name, {})
+            reqs = update_request(
+                base_config.request,
+                config.get("request", {}),
+                **kwargs,
+                **sources.overrides,
+            )
             return [
                 io.Source(
                     type=config.get("type", base_config.type),
@@ -315,19 +315,7 @@ class WindParamConfig(ParamConfig):
                 )
             ]
 
-        if isinstance(reqs, dict):
-            reqs = expand(reqs, "param")
-        else:
-            reqs = sum([list(expand(req, "param")) for req in reqs], [])
-
-        return [
-            io.Source(
-                type=config.get("type", base_config.type),
-                path=config.get("path", base_config.path),
-                request=items.to_dict("records"),
-            )
-            for _, items in pd.DataFrame(reqs).groupby("param")
-        ]
+        return super().in_sources(sources, name, **kwargs)
 
 
 class WindConfig(BaseConfig):
