@@ -113,7 +113,7 @@ def parallel_processing(process, plan, n_par, initializer=None, initargs=()):
 
 
 def _retrieve(
-    data_requesters: List[ParamRequester], grib_to_file: bool = False, **kwargs
+    data_requesters: List[ParamRequester], **kwargs
 ):
     """
     Retrieve data function for multiple data requests
@@ -121,26 +121,14 @@ def _retrieve(
     file and their filename returned
 
     :param data_requesters: list of objects with retrieve_data method
-    :param grib_to_file: boolean specifying whether to write grib messages to file and return filename
     :param kwargs: keys to retrieve data for (must include step)
-    :return: list of retrieved (template, data) tuples
+    :return: list of retrieved (metadata, data) tuples
     """
     ids = ", ".join(f"{k}={v}" for k, v in kwargs.items())
     with ResourceMeter(f"Retrieve {ids}"):
         collated_data = []
         for requester in data_requesters:
-            template, data = requester.retrieve_data(**kwargs)
-            if grib_to_file and isinstance(
-                template, eccodes.highlevel.message.GRIBMessage
-            ):
-                labels = "_".join(f"{k}{v}" for k, v in kwargs.items()).replace(
-                    "/", "_"
-                )
-                filename = f"template_{requester.name}_{labels}.grib"
-                io.write_template(filename, template)
-                collated_data.append([filename, data])
-            else:
-                collated_data.append([template, data])
+            collated_data.append(requester.retrieve_data(**kwargs))
         return collated_data
 
 
@@ -148,7 +136,6 @@ def parallel_data_retrieval(
     num_processes: int,
     dims: dict,
     data_requesters: List[ParamRequester],
-    grib_to_file: bool = False,
     initializer=None,
     initargs=(),
 ):
@@ -161,7 +148,6 @@ def parallel_data_retrieval(
     :param num_processes: number of processes to use for data retrieval
     :param dims: dimensions to iterate over (must include step)
     :param data_requesters: list of Parameter instances
-    :param grib_to_file: boolean specifying whether to write grib template to file
     :param initializer: function to call on the creation of each worker
     :param initargs: arguments to initializer
     :return: iterator over dims, retrieved data
@@ -177,16 +163,11 @@ def parallel_data_retrieval(
         delay = 0 if num_processes == 1 else num_processes
         submit = lambda keys: (
             keys,
-            executor.submit(_retrieve, data_requesters, True, **keys),
+            executor.submit(_retrieve, data_requesters, **keys),
         )
         requests = dict_product(dims)
         for keys, future in delayed_map(delay, submit, requests):
-            data_results = future.result()
-            if num_processes != 1 and not grib_to_file:
-                for result_index, result in enumerate(data_results):
-                    if isinstance(result[0], str):
-                        data_results[result_index][0] = io.read_template(result[0])
-            yield keys, data_results
+            yield keys, future.result()
 
 
 def sigterm_handler(signum, handler):

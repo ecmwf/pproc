@@ -38,7 +38,7 @@ class Climatology(ParamRequester):
 
     def retrieve_data(
         self, step: int, **kwargs
-    ) -> Tuple[Dict, Tuple[np.array, np.array]]:
+    ) -> Tuple[list[Dict], Tuple[np.array, np.array]]:
         """
         Retrieves data for climatology mean and standard deviation
 
@@ -48,10 +48,10 @@ class Climatology(ParamRequester):
         and
         """
         cstep = step if not self.steps else self.steps[step]
-        temp_message, ret = super().retrieve_data(step=cstep, **kwargs)
+        metadata, ret = super().retrieve_data(step=cstep, **kwargs)
         clim_grib = {
-            "climateDateFrom": temp_message.get("climateDateFrom"),
-            "climateDateTo": temp_message.get("climateDateTo"),
-            "referenceDate": temp_message.get("referenceDate"),
+            "climateDateFrom": metadata[0].get("climateDateFrom"),
+            "climateDateTo": metadata[0].get("climateDateTo"),
+            "referenceDate": metadata[0].get("referenceDate"),
         }
-        return clim_grib, ret
+        return [clim_grib], ret

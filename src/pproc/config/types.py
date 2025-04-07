@@ -12,8 +12,9 @@ from conflator import CLIArg
 from pproc.config.base import BaseConfig, Parallelisation
 from pproc.config import io
 from pproc.config.param import ParamConfig
-from pproc.config.utils import expand, _set, _get, update_request
-from pproc.common.stepseq import steprange_to_fcmonth, fcmonth_to_steprange
+from pproc.config.utils import _set, _get
+from pproc.common.stepseq import steprange_to_fcmonth
+from pproc.extremes.indices import Index, SUPPORTED_INDICES, create_indices
 
 
 class EnsmsConfig(BaseConfig):
@@ -68,6 +69,8 @@ class QuantilesConfig(BaseConfig):
 class AccumParamConfig(ParamConfig):
     vmin: Optional[float] = None
     vmax: Optional[float] = None
+    out_accum_key: str = "perturbationNumber"
+    out_accum_values: Optional[list[float]] = None
 
 
 class AccumConfig(BaseConfig):
@@ -247,8 +250,21 @@ class ProbConfig(BaseConfig):
 
 
 class ExtremeParamConfig(ClimParamConfig):
-    eps: float
+    eps: float = -1.0
     sot: list[int] = []
+    cpf_eps: Optional[float] = None
+    cpf_symmetric: bool = False
+    compute_indices: list[str] = ["efi", "sot"]
+    allow_grib1_to_grib2: bool = False
+
+    @model_validator(mode="after")
+    def validate_indices(self) -> Self:
+        for index in self.compute_indices:
+            if index not in SUPPORTED_INDICES:
+                raise ValueError(
+                    f"Unsupported index {index}. Supported indices are {SUPPORTED_INDICES}"
+                )
+        return self
 
     @model_validator(mode="before")
     @classmethod
@@ -265,6 +281,10 @@ class ExtremeParamConfig(ClimParamConfig):
             _set(data, "clim", ParamConfig(**clim_options))
         return data
 
+    @property
+    def indices(self) -> dict[str, Index]:
+        return create_indices(self.compute_indices, self.model_dump())
+
 
 class ExtremeConfig(BaseConfig):
     parallelisation: Parallelisation = Parallelisation()
@@ -279,51 +299,12 @@ class ExtremeConfig(BaseConfig):
         return req
 
 
-class WindParamConfig(ParamConfig):
-    vod2uv: bool = False
-    total_fields: int = 1
-
-    @model_validator(mode="after")
-    def set_vod2uv(self) -> Self:
-        self.vod2uv = (
-            self.sources.get("fc", {})
-            .get("request", {})
-            .get("interpolate")
-            .get("vod2uv", False)
-        )
-        if self.vod2uv:
-            self.total_fields = 2
-        return self
-
-    def in_sources(
-        self, sources: io.SourceCollection, name: str, **kwargs
-    ) -> list[io.Source]:
-        if self.vod2uv:
-            base_config: io.Source = getattr(sources, name)
-            config = self.sources.get(name, {})
-            reqs = update_request(
-                base_config.request,
-                config.get("request", {}),
-                **kwargs,
-                **sources.overrides,
-            )
-            return [
-                io.Source(
-                    type=config.get("type", base_config.type),
-                    path=config.get("path", base_config.path),
-                    request=reqs,
-                )
-            ]
-
-        return super().in_sources(sources, name, **kwargs)
-
-
 class WindConfig(BaseConfig):
     parallelisation: int = 1
     outputs: io.WindOutputModel = io.WindOutputModel()
-    parameters: list[WindParamConfig]
+    parameters: list[ParamConfig]
 
-    def _format_out(self, param: WindParamConfig, req: dict) -> dict:
+    def _format_out(self, param: ParamConfig, req: dict) -> dict:
         req = req.copy()
         if req["type"] in ["em", "es"]:
             req.pop("number", None)

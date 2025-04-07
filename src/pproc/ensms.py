@@ -10,7 +10,6 @@
 # does it submit to any jurisdiction.
 import functools
 import sys
-from typing import Union
 
 import eccodes
 import numpy as np
@@ -45,10 +44,8 @@ def ensms_iteration(
     recovery: BaseRecovery,
     window_id: str,
     accum: Accumulator,
-    template_ens=Union[str, eccodes.GRIBMessage],
+    template_ens: eccodes.GRIBMessage,
 ):
-    if not isinstance(template_ens, eccodes.GRIBMessage):
-        template_ens = common.io.read_template(template_ens)
 
     ens = accum.values
     assert ens is not None
@@ -111,18 +108,17 @@ def main():
                 cfg.parallelisation.n_par_read,
                 window_manager.dims,
                 [requester],
-                cfg.parallelisation.n_par_compute > 1,
             ):
                 step = keys["step"]
                 with ResourceMeter(f"Process step {step}"):
-                    message_template, data = retrieved_data[0]
+                    metadata, data = retrieved_data[0]
 
                     completed_windows = window_manager.update_windows(
                         keys,
                         data,
                     )
                     for window_id, accum in completed_windows:
-                        executor.submit(iteration, window_id, accum, message_template)
+                        executor.submit(iteration, window_id, accum, metadata[0])
             executor.wait()
 
     recover.clean_file()

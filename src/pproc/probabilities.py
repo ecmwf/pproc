@@ -50,17 +50,16 @@ def main():
                 cfg.parallelisation.n_par_read,
                 window_manager.dims,
                 [requester],
-                cfg.parallelisation.n_par_compute > 1,
             ):
                 ids = ", ".join(f"{k}={v}" for k, v in keys.items())
-                template, ens = data[0]
+                metadata, ens = data[0]
                 with ResourceMeter(f"{param.name}, {ids}: Compute accumulation"):
                     completed_windows = window_manager.update_windows(keys, ens)
                     del ens
                 for window_id, accum in completed_windows:
                     executor.submit(
                         prob_partial,
-                        template,
+                        metadata[0],
                         window_id,
                         accum,
                         window_manager.thresholds(window_id),

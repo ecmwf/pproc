@@ -9,7 +9,8 @@ from pproc.config.types import AccumConfig, AccumParamConfig
 from pproc.accum.main import main as accum_main
 from pproc.accum.postprocess import postprocess
 from pproc.common.accumulation import Accumulator
-from pproc.common.io import read_template
+from pproc.common.config import default_parser
+from pproc.common.io import Target
 from pproc.common.recovery import Recovery
 
 
@@ -17,12 +18,10 @@ def postproc_iteration(
     param: AccumParamConfig,
     cfg: AccumConfig,
     recovery: Recovery,
-    template: Union[str, eccodes.GRIBMessage],
+    template: eccodes.GRIBMessage,
     window_id: str,
     accum: Accumulator,
 ):
-    if not isinstance(template, eccodes.GRIBMessage):
-        template = read_template(template)
     with ResourceMeter(f"{param.name}, step {window_id}: Post-process"):
         ens = accum.values
         assert ens is not None
@@ -32,6 +31,8 @@ def postproc_iteration(
             cfg.outputs.accum.target,
             vmin=param.vmin,
             vmax=param.vmax,
+            out_accum_key=param.out_accum_key,
+            out_accum_values=param.out_accum_values,
             out_keys={
                 **accum.grib_keys(),
                 **cfg.outputs.accum.metadata,

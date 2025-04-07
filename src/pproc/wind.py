@@ -23,7 +23,8 @@ from pproc.common.recovery import Recovery, create_recovery
 from pproc.common.parallel import parallel_processing
 from pproc.common.utils import dict_product
 from pproc.common.param_requester import ParamRequester
-from pproc.config.types import WindParamConfig, WindConfig
+from pproc.config.param import ParamConfig
+from pproc.config.types import WindConfig
 from pproc.config.targets import NullTarget
 
 
@@ -50,16 +51,17 @@ def wind_template(
 def wind_iteration(
     config: WindConfig,
     recovery: Recovery,
-    param: WindParamConfig,
+    param: ParamConfig,
     dims: dict,
 ):
     requester = ParamRequester(
         param,
         config.sources,
         src_name="fc",
-        total=config.total_fields * param.total_fields,
+        total=config.total_fields,
     )
-    template, ens = requester.retrieve_data(**dims)
+    metadata, ens = requester.retrieve_data(**dims)
+    template = metadata[0]
     assert (
         ens.shape[0] == config.total_fields
     ), f"Expected {config.total_fields}, got {ens.shape[0]}"

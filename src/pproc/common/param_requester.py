@@ -4,7 +4,7 @@ import eccodes
 import numpy as np
 
 from pproc.common.dataset import open_multi_dataset
-from pproc.common.io import missing_to_nan
+from pproc.common.io import missing_to_nan, GribMetadata
 from pproc.common.steps import AnyStep
 from pproc.config.io import Source, SourceCollection
 from pproc.config.param import ParamConfig
@@ -18,7 +18,7 @@ def read_ensemble(
     dtype=np.float32,
     index_func: Optional[IndexFunc] = None,
     **kwargs,
-) -> Tuple[eccodes.GRIBMessage, np.ndarray]:
+) -> Tuple[List[eccodes.GRIBMessage], np.ndarray]:
     """Read GRIB data as a single array, in arbitrary order
 
     Parameters
@@ -38,13 +38,13 @@ def read_ensemble(
 
     Returns
     -------
-    eccodes.GRIBMessage
-        GRIB template (first message read)
+    list of eccodes.GRIBMessage
+        GRIB templates 
     numpy array (total, npoints)
         Read data
     """
     readers = open_multi_dataset(source.legacy_config(), source.location(), **kwargs)
-    template = None
+    templates = [None for x in range(total)]
     data = None
     n_read = 0
     for reader in readers:
@@ -56,13 +56,12 @@ def read_ensemble(
                 data = np.empty((total, message.get("numberOfDataPoints")), dtype=dtype)
             for message in reader:
                 i = n_read if index_func is None else index_func(message)
-                if i == 0 and template is None:
-                    template = message
+                templates[i] = GribMetadata(message, headers_only=True)
                 data[i, :] = missing_to_nan(message)
                 n_read += 1
     if n_read != total:
         raise EOFError(f"Expected {total} fields in {source!r}, got {n_read}")
-    return template, data
+    return templates, data
 
 
 def parse_paramids(pid: Any) -> List[str]:
@@ -92,15 +91,15 @@ class ParamRequester:
         if self.src_name is None:
             assert len(sources.names) == 1, "Multiple sources, must specify src_name"
             self.src_name = sources.names[0]
-        self.total = total
+        self.total = total * param.total_fields
         self.index_func = index_func
 
     def retrieve_data(
         self, step: AnyStep, **kwargs
-    ) -> Tuple[eccodes.GRIBMessage, np.ndarray]:
+    ) -> Tuple[List[GribMetadata], np.ndarray]:
         metadata = []
         data_list = []
-        template = None
+        templates = None
         in_sources = self.param.in_sources(
             self.sources,
             self.src_name,
@@ -108,7 +107,7 @@ class ParamRequester:
             **kwargs,
         )
         for param_source in in_sources:
-            new_template, data = read_ensemble(
+            new_templates, data = read_ensemble(
                 param_source,
                 self.total,
                 dtype=self.param.dtype,
@@ -116,12 +115,12 @@ class ParamRequester:
             )
             metadata.append(param_source.base_request())
             data_list.append(data)
-            if template is None:
-                template = new_template
+            if templates is None:
+                templates = new_templates
 
-        assert template is not None, "No data fetched"
+        assert templates is not None, "No data fetched"
 
-        if getattr(self.param, "vod2uv", False):
+        if self.param.vod2uv:
             assert len(data_list) == 1
             data_list = np.asarray(data_list[0])
             data_list = np.reshape(
@@ -132,8 +131,8 @@ class ParamRequester:
         new_metadata, data_list = self.param.preprocessing.apply(metadata, data_list)
         assert len(data_list) == 1, "More than one output of preprocessing"
         metadata_set = {k: v for k, v in new_metadata[0].items() if v != metadata[0][k]}
-        template.set(metadata_set)
-        return (template, data_list[0])
+        [x.set(metadata_set) for x in templates]
+        return (templates, data_list[0])
 
     @property
     def name(self):

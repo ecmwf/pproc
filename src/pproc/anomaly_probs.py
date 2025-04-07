@@ -51,15 +51,14 @@ def main():
             prob_partial = functools.partial(
                 prob_iteration, param, recovery, cfg.outputs.prob.target
             )
-            for keys, data in parallel_data_retrieval(
+            for keys, retrieved_data in parallel_data_retrieval(
                 cfg.parallelisation.n_par_read,
                 window_manager.dims,
                 [requester, clim],
-                cfg.parallelisation.n_par_compute > 1,
             ):
                 ids = ", ".join(f"{k}={v}" for k, v in keys.items())
-                template, ens = data[0]
-                clim_grib_header, clim_data = data[1]
+                metadata, ens = retrieved_data[0]
+                clim_metadata, clim_data = retrieved_data[1]
                 with ResourceMeter(f"{param.name}, {ids}: Compute accumulation"):
                     completed_windows = window_manager.update_windows(
                         keys, ens, clim_data[0], clim_data[1]
@@ -68,11 +67,11 @@ def main():
                 for window_id, accum in completed_windows:
                     executor.submit(
                         prob_partial,
-                        template,
+                        metadata[0],
                         window_id,
                         accum,
                         window_manager.thresholds(window_id),
-                        clim_grib_header,
+                        clim_metadata[0],
                     )
             executor.wait()
 

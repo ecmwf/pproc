@@ -11,10 +11,7 @@ from conflator import Conflator
 
 from pproc.common.accumulation import Accumulator
 from pproc.common.grib_helpers import construct_message
-from pproc.common.io import (
-    nan_to_missing,
-    read_template,
-)
+from pproc.common.io import nan_to_missing
 from pproc.common.parallel import (
     create_executor,
     parallel_data_retrieval,
@@ -82,12 +79,10 @@ def quantiles_iteration(
     config: QuantilesConfig,
     param: ParamConfig,
     recovery: BaseRecovery,
-    template: Union[str, eccodes.GRIBMessage],
+    template: eccodes.GRIBMessage,
     window_id: str,
     accum: Accumulator,
 ):
-    if not isinstance(template, eccodes.GRIBMessage):
-        template = read_template(template)
     with ResourceMeter(f"{param.name}, step {window_id}: Quantiles"):
         ens = accum.values
         assert ens is not None
@@ -139,15 +134,14 @@ def main():
                 cfg.parallelisation.n_par_read,
                 window_manager.dims,
                 [requester],
-                cfg.parallelisation.n_par_compute > 1,
             ):
                 ids = ", ".join(f"{k}={v}" for k, v in keys.items())
-                template, ens = data[0]
+                metadata, ens = data[0]
                 with ResourceMeter(f"{param.name}, {ids}: Compute accumulation"):
                     completed_windows = window_manager.update_windows(keys, ens)
                     del ens
                 for window_id, accum in completed_windows:
-                    executor.submit(quantiles_partial, template, window_id, accum)
+                    executor.submit(quantiles_partial, metadata[0], window_id, accum)
             executor.wait()
 
     recovery.clean_file()

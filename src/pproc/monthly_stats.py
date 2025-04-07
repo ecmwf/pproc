@@ -11,7 +11,6 @@ from pproc.config.types import MonthlyStatsConfig, AccumParamConfig
 from pproc.accum.main import main as accum_main
 from pproc.accum.postprocess import postprocess
 from pproc.common.accumulation import Accumulator
-from pproc.common.io import read_template
 from pproc.common.recovery import Recovery
 from pproc.common.stepseq import steprange_to_fcmonth
 
@@ -34,7 +33,7 @@ def mstat_keys(template, out_keys: dict, interval: int):
             "averagingPeriod": interval,
         }
     out_keys.pop("unitOfTimeRange", None)
-    return lambda tp: {
+    return {
         "localDefinitionNumber": 16,
         **out_keys,
         "stepType": "instant",
@@ -42,8 +41,6 @@ def mstat_keys(template, out_keys: dict, interval: int):
         "indicatorOfUnitForTimeIncrement": 1,
         "timeIncrement": interval,
         "step": end,
-        "typeOfGeneratingProcess": template.get("typeOfGeneratingProcess"),
-        "typeOfProcessedData": tp,
     }
 
 
@@ -51,13 +48,10 @@ def postproc_iteration(
     param: AccumParamConfig,
     cfg: MonthlyStatsConfig,
     recovery: Optional[Recovery],
-    template: Union[str, eccodes.GRIBMessage],
+    metadata: list[eccodes.GRIBMessage],
     window_id: str,
     accum: Accumulator,
 ):
-    if not isinstance(template, eccodes.GRIBMessage):
-        template = read_template(template)
-
     intervals = np.diff(accum["step"].coords)
     assert np.all(intervals == intervals[0]), "Step intervals must be equal"
     out_keys = {
@@ -69,11 +63,11 @@ def postproc_iteration(
         assert ens is not None
         postprocess(
             ens,
-            template,
+            metadata,
             cfg.outputs.stats.target,
             vmin=param.vmin,
             vmax=param.vmax,
-            out_keys=mstat_keys(template, out_keys, intervals[0]),
+            out_keys=mstat_keys(metadata[0], out_keys, intervals[0]),
         )
         cfg.outputs.stats.target.flush()
     recovery.add_checkpoint(param=param.name, window=window_id)

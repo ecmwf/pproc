@@ -1,6 +1,5 @@
 import functools
 import sys
-from typing import Union
 
 import eccodes
 import numpy as np
@@ -9,7 +8,7 @@ from conflator import Conflator
 
 from pproc.common.accumulation import Accumulator
 from pproc.common.grib_helpers import construct_message
-from pproc.common.io import nan_to_missing, read_template
+from pproc.common.io import nan_to_missing
 from pproc.common.parallel import (
     create_executor,
     parallel_data_retrieval,
@@ -25,14 +24,12 @@ def anomaly_iteration(
     config: AnomalyConfig,
     param: ClimParamConfig,
     recovery: Recovery,
-    template: Union[str, eccodes.GRIBMessage],
+    template: eccodes.GRIBMessage,
     window_id: str,
     accum: Accumulator,
 ):
 
     with ResourceMeter(f"{param.name}, window {window_id}: Retrieve climatology"):
-        if not isinstance(template, eccodes.GRIBMessage):
-            template = read_template(template)
 
         if "stepRange" in accum.grib_keys():
             steprange = accum.grib_keys()["stepRange"]
@@ -121,15 +118,14 @@ def main():
                 cfg.parallelisation.n_par_read,
                 window_manager.dims,
                 [requester],
-                cfg.parallelisation.n_par_compute > 1,
             ):
                 ids = ", ".join(f"{k}={v}" for k, v in keys.items())
-                template, ens = data[0]
+                metadata, ens = data[0]
                 with ResourceMeter(f"{param.name}, {ids}: Compute accumulation"):
                     completed_windows = window_manager.update_windows(keys, ens)
                     del ens
                 for window_id, accum in completed_windows:
-                    executor.submit(anom_partial, template, window_id, accum)
+                    executor.submit(anom_partial, metadata[0], window_id, accum)
             executor.wait()
 
     recovery.clean_file()

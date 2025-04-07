@@ -20,6 +20,7 @@ from pproc.config.targets import (
     NullTarget,
     OverrideTargetWrapper,
 )
+from pproc.extremes.indices import SUPPORTED_INDICES
 
 
 class Source(ConfigModel):
@@ -206,7 +207,7 @@ AnomalyOutputModel = create_output_model(
     "Anomaly", {"ens": {"type": "fcmean"}, "ensm": {"type": "taem"}}
 )
 ProbOutputModel = create_output_model("Prob", ["prob"])
-ExtremeOutputModel = create_output_model("Extreme", ["efi", "sot"])
+ExtremeOutputModel = create_output_model("Extreme", SUPPORTED_INDICES)
 WindOutputModel = create_output_model(
     "Wind",
     {"mean": {"type": "em"}, "std": {"type": "es"}, "ws": {}},

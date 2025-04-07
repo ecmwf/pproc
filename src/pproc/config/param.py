@@ -6,7 +6,7 @@ import logging
 
 import numpy as np
 import pandas as pd
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from pproc.config.preprocessing import PreprocessingConfig
 from pproc.config.accumulation import AccumulationConfig
@@ -26,6 +26,20 @@ class ParamConfig(BaseModel):
     accumulations: dict[str, AccumulationConfig] = Field(default_factory=dict)
     dtype_: str = Field(alias="dtype", default="float32")
     metadata: Dict[str, Any] = {}
+    total_fields: int = 1
+    vod2uv: bool = False
+
+    @model_validator(mode="after")
+    def set_vod2uv(self) -> Self:
+        for src_config in self.sources.values():
+            req = src_config.get("request", {})
+            if isinstance(req, list):
+                req = req[0]
+            self.vod2uv = req.get("interpolate", {}).get("vod2uv", False)
+            break
+        if self.vod2uv:
+            self.total_fields = 2
+        return self
 
     @property
     def dtype(self) -> type[Any]:
@@ -42,6 +56,16 @@ class ParamConfig(BaseModel):
             **kwargs,
             **sources.overrides,
         )
+
+        if self.vod2uv:
+            return [
+                Source(
+                    type=config.get("type", base_config.type),
+                    path=config.get("path", base_config.path),
+                    request=reqs,
+                )
+            ]
+
         if isinstance(reqs, dict):
             reqs = expand(reqs, "param")
         else:
