@@ -1,5 +1,4 @@
 import sys
-from typing import List, Optional, Union
 
 import eccodes
 from conflator import Conflator
@@ -9,8 +8,6 @@ from pproc.config.types import AccumConfig, AccumParamConfig
 from pproc.accum.main import main as accum_main
 from pproc.accum.postprocess import postprocess
 from pproc.common.accumulation import Accumulator
-from pproc.common.config import default_parser
-from pproc.common.io import Target
 from pproc.common.recovery import Recovery
 
 
