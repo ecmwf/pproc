@@ -41,6 +41,8 @@ def mstat_keys(template, out_keys: dict, interval: int):
         "indicatorOfUnitForTimeIncrement": 1,
         "timeIncrement": interval,
         "step": end,
+        "typeOfGeneratingProcess": template.get("typeOfGeneratingProcess"), 
+        "typeOfProcessedData": template.get("type"),
     }
 
 
