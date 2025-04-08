@@ -104,7 +104,7 @@ def translate_window_config(
     if operation is None:
         raise ValueError(
             f"Unsupported window operation {window_operation}. Supported types: "
-            + "difference, minimum, maximum, sun, weighted_mean, difference_rate, mean, "
+            + "difference, minimum, maximum, sum, weighted_mean, difference_rate, mean, "
             + "aggregation"
         )
 
