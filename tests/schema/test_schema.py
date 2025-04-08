@@ -194,7 +194,7 @@ from conftest import schema
     ids=["2t", "tp", "T"],
 )
 def test_schema_from_output(req, config):
-    test_schema = Schema(schema())
+    test_schema = Schema(**schema())
     assert config == test_schema.config_from_output(req)
 
     generated = test_schema.config_from_input(
@@ -427,7 +427,7 @@ def test_schema_from_output(req, config):
     ids=["2t", "tp", "T"],
 )
 def test_schema_from_input(entrypoint, req, num_expected, expected):
-    test_schema = Schema(schema())
+    test_schema = Schema(**schema())
     configs = list(test_schema.config_from_input(req, entrypoint=entrypoint))
     assert len(configs) == num_expected
     assert configs[0] == expected

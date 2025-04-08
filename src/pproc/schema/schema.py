@@ -13,16 +13,16 @@ from pproc.config.utils import expand
 
 
 class Schema:
-    def __init__(self, schema: dict):
-        self.config_schema = ConfigSchema(schema.get("config", {}))
-        self.param_schema = InputSchema(schema.get("inputs", {}))
-        self.step_schema = StepSchema(schema.get("windows", {}))
+    def __init__(self, config: dict, inputs: dict, windows: dict):
+        self.config_schema = ConfigSchema(config)
+        self.param_schema = InputSchema(inputs)
+        self.step_schema = StepSchema(windows)
 
     @classmethod
     def from_file(cls, schema_path: str) -> Self:
         with open(schema_path, "r") as f:
             schema = yaml.safe_load(f)
-        return cls(schema)
+        return cls(**schema)
 
     @classmethod
     def validate_request(cls, request: dict) -> dict:
