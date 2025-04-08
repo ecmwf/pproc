@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Annotated, Any, List, Literal, Optional, Tuple, Union
+from typing_extensions import Self
 
 import numexpr
 import numpy as np
@@ -58,6 +59,26 @@ class Combination(Preprocessing):
 
         new_metadata = self._update_metadata(metadata[0])
         return [new_metadata], [res]
+
+
+class Reshape(Preprocessing):
+    operation: Literal["reshape"] = "reshape"
+    shape: Union[int, tuple[int, int]]
+    order: Literal["F", "C"] = "F"
+
+    def apply(
+        self, metadata: List[dict], data: List[np.ndarray]
+    ) -> Tuple[List[dict], List[np.ndarray]]:
+        data = np.asarray(data)
+        if isinstance(self.shape, int):
+            shape = [self.shape, int(data.shape[0] * data.shape[1] / self.shape)]
+        else:
+            shape = self.shape
+        return [self._update_metadata(md) for md in metadata], np.reshape(
+            data,
+            (*shape, *data.shape[2:]),
+            order=self.order,
+        )
 
 
 def find_matching(select: dict, candidates: List[dict]) -> int:
@@ -130,7 +151,7 @@ class PreprocessingConfig(BaseModel):
     #     value: 3600
     actions: List[
         Annotated[
-            Union[Scaling, Combination, Masking],
+            Union[Scaling, Combination, Masking, Reshape],
             Field(discriminator="operation"),
         ]
     ] = Field(default_factory=list)

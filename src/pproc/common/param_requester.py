@@ -120,14 +120,6 @@ class ParamRequester:
 
         assert templates is not None, "No data fetched"
 
-        if self.param.vod2uv:
-            assert len(data_list) == 1
-            data_list = np.asarray(data_list[0])
-            data_list = np.reshape(
-                data_list,
-                (2, int(data_list.shape[0] / 2), *data_list.shape[1:]),
-                order="F",
-            )
         new_metadata, data_list = self.param.preprocessing.apply(metadata, data_list)
         assert len(data_list) == 1, "More than one output of preprocessing"
         metadata_set = {k: v for k, v in new_metadata[0].items() if v != metadata[0][k]}

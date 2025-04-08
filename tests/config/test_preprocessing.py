@@ -12,6 +12,7 @@ from pproc.config.preprocessing import (
     Preprocessing,
     PreprocessingConfig,
     Scaling,
+    Reshape,
 )
 
 
@@ -194,6 +195,27 @@ def test_masking_apply(
 
 
 @pytest.mark.parametrize(
+    "shape, inp, exp",
+    [
+        [2, [np.random.rand(6, 10, 10)], (2, 3, 10, 10)],
+        [[2, 3], [np.random.rand(6, 10, 10)], (2, 3, 10, 10)],
+        [1, [np.random.rand(8, 10, 10), np.random.rand(8, 10, 10)], (1, 16, 10, 10)],
+        [[1, 2, 3], [np.random.rand(6, 10, 10)], None],
+    ],
+)
+def test_reshape_apply(
+    shape: int | tuple[int, int], inp: np.ndarray, exp: Optional[tuple[int]]
+):
+    ctx = pytest.raises(ValidationError) if exp is None else nullcontext()
+    with ctx:
+        reshape = Reshape(shape=shape)
+        metadata = [{"param": x} for x in range(len(inp))]
+        new_metadata, new_data = reshape.apply(metadata, inp)
+        assert new_metadata == metadata
+        assert new_data.shape == exp
+
+
+@pytest.mark.parametrize(
     "proc, exp",
     [
         pytest.param(
@@ -249,6 +271,14 @@ def test_preprocessing_output(proc: Preprocessing, exp: List[dict]):
             ],
             [Masking, Scaling, Masking],
             id="mask-scale-mask",
+        ),
+        pytest.param(
+            [
+                {"operation": "reshape", "shape": 2},
+                {"operation": "norm"},
+            ],
+            [Reshape, Combination],
+            id="shape-norm",
         ),
     ],
 )

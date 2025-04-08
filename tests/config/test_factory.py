@@ -364,7 +364,7 @@ TEST_CASES = {
     ids=TEST_CASES.keys(),
 )
 def test_from_outputs(request, output_request, input_param):
-    test_schema = Schema(schema())
+    test_schema = Schema(**schema())
 
     overrides, cfg_type, updates = TEST_CASES[request.node.callspec.id]
     config = ConfigFactory.from_outputs(test_schema, [output_request], **overrides)
@@ -531,7 +531,7 @@ def test_from_outputs(request, output_request, input_param):
     ids=["accumulate", "ensms", "monthly-stats"],
 )
 def test_from_inputs(request, entrypoint, input_request, step_accum, stepby):
-    test_schema = Schema(schema())
+    test_schema = Schema(**schema())
 
     overrides, cfg_type, updates = TEST_CASES[request.node.callspec.id]
     config = ConfigFactory.from_inputs(
@@ -560,7 +560,7 @@ def test_from_inputs(request, entrypoint, input_request, step_accum, stepby):
 
 
 def test_wind():
-    test_schema = Schema(schema())
+    test_schema = Schema(**schema())
 
     input_request = [
         {

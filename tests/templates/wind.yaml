@@ -33,6 +33,8 @@ parameters:
             matrix-loader: file-io
             vod2uv: true
     preprocessing:
+      - operation: reshape
+        shape: 2
       - operation: norm
     accumulations:
       levelist:
