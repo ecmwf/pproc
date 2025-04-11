@@ -37,11 +37,10 @@ class ThresholdWindowManager(WindowManager):
         """
         return self.window_thresholds.pop(identifier)
 
-    def delete_windows(self, window_ids: List[str]) -> Coord:
-        new_start = super().delete_windows(window_ids)
+    def delete_windows(self, window_ids: List[str]):
+        super().delete_windows(window_ids)
         for window_id in window_ids:
             del self.window_thresholds[window_id]
-        return new_start
 
 
 class AnomalyWindowManager(ThresholdWindowManager):

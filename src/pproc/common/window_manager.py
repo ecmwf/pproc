@@ -42,16 +42,11 @@ class WindowManager:
         """
         yield from self.mgr.feed(keys, data)
 
-    def delete_windows(self, window_ids: List[str]) -> Coord:
+    def delete_windows(self, window_ids: List[str]):
         """
         Remove windows in the list of provided window identifiers and updates steps
         to only those contained in remaining list of windows
 
         :param window_ids: list of identifiers of windows to delete
-        :return: new first step
         """
         self.mgr.delete(window_ids)
-        steps = self.mgr.coords["step"]
-        if len(steps) == 0:
-            return None
-        return min(steps, key=parse_step)

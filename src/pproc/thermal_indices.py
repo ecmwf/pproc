@@ -199,12 +199,7 @@ def main():
             checkpointed_windows = [
                 x["window"] for x in recovery.computed(param=param.name)
             ]
-            new_start = window_manager.delete_windows(checkpointed_windows)
-            if new_start is None:
-                logger.info(f"Recovery: skipping completed param {param.name}")
-                continue
-
-            logger.debug(f"Recovery: param {param.name} starting from step {new_start}")
+            window_manager.delete_windows(checkpointed_windows)
 
             thermo_partial = functools.partial(
                 process_step, cfg, param, recovery=recovery

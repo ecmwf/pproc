@@ -91,12 +91,7 @@ def main():
             checkpointed_windows = [
                 x["window"] for x in recover.computed(param=param.name)
             ]
-            new_start = window_manager.delete_windows(checkpointed_windows)
-            if new_start is None:
-                print(f"Recovery: skipping completed param {param.name}")
-                continue
-
-            print(f"Recovery: param {param.name} starting from step {new_start}")
+            window_manager.delete_windows(checkpointed_windows)
 
             requester = ParamRequester(
                 param,
