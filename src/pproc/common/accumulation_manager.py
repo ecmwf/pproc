@@ -5,7 +5,7 @@ import numpy as np
 from pproc.common.accumulation import Accumulator, Coord
 from pproc.common.utils import dict_product
 from pproc.common.steps import parse_step
-from pproc.config.accumulation import accumulation_factory
+from pproc.config.accumulation import accumulation_factory, AccumulationConfig
 
 
 class AccumulationManager:
@@ -62,7 +62,7 @@ class AccumulationManager:
                     coords.remove(coord)
 
     @classmethod
-    def create(cls, config: Dict[str, dict], grib_keys: Optional[dict] = None):
+    def create(cls, config: Dict[str, dict | AccumulationConfig], grib_keys: Optional[dict] = None):
         grib_keys = {} if grib_keys is None else grib_keys
         accum_configs = {}
         for key, acc_config in config.items():
