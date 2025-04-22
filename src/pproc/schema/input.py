@@ -16,8 +16,6 @@ from pproc.schema.deriver import (
 from pproc.schema.step import StepSchema
 from pproc.config.utils import update_request, expand, squeeze, deep_update
 
-logging.getLogger("pproc").setLevel(os.environ.get("PPROC_LOG", "INFO").upper())
-logging.basicConfig(format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 

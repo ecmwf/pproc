@@ -7,8 +7,6 @@ import logging
 
 from pproc.config.utils import deep_update
 
-logging.getLogger("pproc").setLevel(os.environ.get("PPROC_LOG", "INFO").upper())
-logging.basicConfig(format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 UpdateFunc = Callable[[dict, dict], dict]

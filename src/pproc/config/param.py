@@ -14,8 +14,6 @@ from pproc.config.utils import extract_mars
 from pproc.config.io import Source, SourceCollection
 from pproc.config.utils import update_request, expand
 
-logging.getLogger("pproc").setLevel(os.environ.get("PPROC_LOG", "INFO").upper())
-logging.basicConfig(format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 

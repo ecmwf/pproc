@@ -2,6 +2,7 @@ import argparse
 import sys
 import os
 from typing import List
+import logging
 
 import yaml
 import json
@@ -10,6 +11,11 @@ import json
 from pproc.config.factory import ConfigFactory
 from pproc.schema.schema import Schema
 from pproc.common import mars
+
+logging.basicConfig(
+    format="%(asctime)s; %(name)s; %(levelname)s - %(message)s",
+    level=os.environ.get("PPROC_LOG", "INFO").upper(),
+)
 
 
 def from_outputs(args):
