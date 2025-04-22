@@ -318,7 +318,7 @@ class InputSchema(BaseSchema):
         yield from config.inputs()
 
     def reconstruct(
-        self, output_template: Optional[dict] = None, **match
+        self, output_template: Optional[dict] = None, **matching
     ) -> Iterator[tuple[dict, InputConfig]]:
         inherit = ["levelist", "levtype"]
         base_request = {
@@ -335,7 +335,7 @@ class InputSchema(BaseSchema):
                     ),
                 }
             ],
-            **match,
+            **matching,
         ):
             out, input_config = cfg.pop("recon_req"), InputConfig(**cfg)
             for req in input_config.inputs():

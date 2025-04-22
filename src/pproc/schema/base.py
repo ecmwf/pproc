@@ -1,4 +1,3 @@
-import os
 import yaml
 import copy
 from typing import Callable, Any, Optional, Iterator
@@ -92,7 +91,7 @@ class BaseSchema:
         cls,
         schema: dict,
         configs: list[dict],
-        **match,
+        **matching,
     ) -> Iterator[dict]:
         for key, value in schema.items():
             if cls.is_subschema(key):
@@ -117,12 +116,12 @@ class BaseSchema:
                             cls._find_matching(
                                 schema[key][filter_value],
                                 [new_fout],
-                                **match,
+                                **matching,
                             )
                         )
                 if "*" in schema[key].keys() and not value_matched:
                     new_configs.extend(
-                        cls._find_matching(schema[key]["*"], configs, **match)
+                        cls._find_matching(schema[key]["*"], configs, **matching)
                     )
                 configs = new_configs
             else:
@@ -135,7 +134,7 @@ class BaseSchema:
 
         for cfg in configs:
             is_match = True
-            for key, value in match.items():
+            for key, value in matching.items():
                 if not cls.custom_match.get(key, DEFAULT_MATCH)(
                     cfg["recon_req"],
                     cfg.get(key, value),
@@ -148,9 +147,9 @@ class BaseSchema:
                 yield cfg
 
     def reconstruct(
-        self, output_template: Optional[dict] = None, **match
+        self, output_template: Optional[dict] = None, **matching
     ) -> Iterator[tuple[dict, dict]]:
         for cfg in self._find_matching(
-            self.schema, [{"recon_req": output_template or {}}], **match
+            self.schema, [{"recon_req": output_template or {}}], **matching
         ):
             yield cfg.pop("recon_req"), cfg

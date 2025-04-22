@@ -2,7 +2,7 @@ import abc
 import hashlib
 import logging
 import os
-from typing import List, Optional
+from typing import List
 
 import yaml
 from filelock import FileLock
@@ -18,7 +18,7 @@ class BaseRecovery(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def computed(self, **match) -> List[dict]:
+    def computed(self, **matching) -> List[dict]:
         pass
 
     @classmethod
@@ -46,7 +46,7 @@ class NullRecovery(BaseRecovery):
     def existing_checkpoint(self, **checkpoint_identifiers) -> bool:
         return False
 
-    def computed(self, **match) -> List[dict]:
+    def computed(self, **matching) -> List[dict]:
         return {}
 
     def add_checkpoint(self, **checkpoint_identifiers):
@@ -86,11 +86,11 @@ class Recovery(BaseRecovery):
             self.clean_file()
         self.lock = FileLock(self.filename + ".lock", thread_local=False)
 
-    def computed(self, **match) -> List[dict]:
+    def computed(self, **matching) -> List[dict]:
         ret = []
         for x in self.checkpoints:
             x_id = self.checkpoint_identifiers(x)
-            if len(match) == 0 or (all(x_id[k] == str(v) for k, v in match.items())):
+            if len(matching) == 0 or (all(x_id[k] == str(v) for k, v in matching.items())):
                 ret.append(x_id)
         return ret
 
