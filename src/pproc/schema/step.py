@@ -3,7 +3,7 @@ from typing import Literal, Optional, Annotated, Union
 import numpy as np
 import bisect
 
-from pproc.schema.base import Schema
+from pproc.schema.base import BaseSchema
 from pproc.common.stepseq import stepseq_monthly, steprange_to_fcmonth
 
 
@@ -73,7 +73,7 @@ StepType = RootModel[
 ]
 
 
-class StepSchema(Schema):
+class StepSchema(BaseSchema):
     @classmethod
     def _create_steps(cls, step_config: list[dict]) -> list[int]:
         steps = set(

@@ -6,7 +6,7 @@ import pandas as pd
 import logging
 import os
 
-from pproc.schema.base import Schema
+from pproc.schema.base import BaseSchema
 from pproc.schema.deriver import (
     ForecastStepDeriver,
     DefaultStepDeriver,
@@ -215,15 +215,15 @@ def _steptype(request: dict, key: str) -> str:
 
 
 def _update_config(config: dict, update: dict[str, dict]) -> dict:
-    fc_type = list(update.keys())[0]
-    fc_update = list(update.values())[0].copy()
-    fc_config = config[fc_type].model_dump(exclude_none=True, by_alias=True)
-    current_inputs = fc_config.pop("inputs")
-    update_inputs = fc_update.pop("inputs", [])
-    inputs = update_request(current_inputs, update_inputs)
-    config[fc_type] = type(config[fc_type])(
-        **deep_update(fc_config, fc_update), inputs=inputs
-    )
+    for fc_type, fc_update in update.items():
+        fc_update = fc_update.copy()
+        fc_config = config[fc_type].model_dump(exclude_none=True, by_alias=True)
+        current_inputs = fc_config.pop("inputs")
+        update_inputs = fc_update.pop("inputs", [])
+        inputs = update_request(current_inputs, update_inputs)
+        config[fc_type] = type(config[fc_type])(
+            **deep_update(fc_config, fc_update), inputs=inputs
+        )
     return config
 
 
@@ -268,7 +268,7 @@ def _match_forecast(
     return True
 
 
-class InputSchema(Schema):
+class InputSchema(BaseSchema):
     custom_update = {
         "forecast": _update_config,
         "climatology": _update_config,

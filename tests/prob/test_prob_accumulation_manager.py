@@ -6,7 +6,10 @@ from pproc.common.accumulation import (
     Mean,
     SimpleAccumulation,
 )
-from pproc.prob.accumulation_manager import ThresholdAccumulationManager, AnomalyAccumulationManager
+from pproc.prob.accumulation_manager import (
+    ThresholdAccumulationManager,
+    AnomalyAccumulationManager,
+)
 
 
 @pytest.mark.parametrize(

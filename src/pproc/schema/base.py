@@ -20,7 +20,7 @@ DEFAULT_FILTER: FilterFunc = dict.__getitem__
 DEFAULT_MATCH: MatchFunc = lambda _, value, expected: value == expected
 
 
-class Schema:
+class BaseSchema:
     custom_update: dict[str, UpdateFunc] = {}
     custom_filter: dict[str, FilterFunc] = {}
     custom_match: dict[str, MatchFunc] = {}
