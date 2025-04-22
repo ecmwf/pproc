@@ -50,7 +50,7 @@ class FcmonthStepDeriver(BaseModel):
     type_: Literal["monthly"] = Field("monthly", alias="type")
     by: Optional[int] = None
 
-    def derive(self, output_request: dict, fc_steps: list[int]) -> list[str]:
+    def derive(self, output_request: dict, fc_steps: list[int]) -> list[int]:
         fcmonth = int(output_request["fcmonth"])
         start, end = map(
             int,
