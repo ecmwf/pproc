@@ -45,7 +45,7 @@ class ConfigFactory:
     ) -> BaseConfig:
         entrypoint = None
         config = None
-        expanded = sum([list(expand(x)) for x in output_requests], [])
+        expanded = list(expand(output_requests))
         reqs = squeeze(expanded, ["levelist", "number", "quantile"])
         for req in reqs:
             schema_config = schema.config_from_output(req)
@@ -73,7 +73,7 @@ class ConfigFactory:
         **overrides,
     ) -> BaseConfig:
         config = None
-        expanded = sum([list(expand(x)) for x in input_requests], [])
+        expanded = list(expand(input_requests))
         for schema_config in schema.config_from_input(expanded, entrypoint=entrypoint):
             if config is None:
                 config = cls._from_schema(entrypoint, schema_config, **overrides)

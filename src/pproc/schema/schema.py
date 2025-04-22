@@ -75,8 +75,8 @@ class Schema:
         output_template: Optional[dict] = None,
         entrypoint: Optional[str] = None,
     ) -> Iterator[dict]:
-        input_requests = sum(
-            [list(expand(self.validate_request(req))) for req in input_requests], []
+        input_requests = list(
+            expand([self.validate_request(req) for req in input_requests])
         )
         reconstructed = self.config_schema.reconstruct(
             output_template=None

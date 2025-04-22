@@ -64,11 +64,7 @@ class ParamConfig(BaseModel):
                 )
             ]
 
-        if isinstance(reqs, dict):
-            reqs = expand(reqs, "param")
-        else:
-            reqs = sum([list(expand(req, "param")) for req in reqs], [])
-
+        reqs = list(expand(reqs, "param"))
         df = pd.DataFrame(reqs)
         if "param" in df:
             return [

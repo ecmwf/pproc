@@ -78,26 +78,34 @@ def update_request(base: dict | list[dict], update: dict | list[dict], **kwargs)
 
 
 def expand(
-    request: dict, dim: Optional[str | list[str]] = None, exclude: list[str] = []
+    requests: dict | list[dict],
+    dim: Optional[str | list[str]] = None,
+    exclude: list[str] = [],
 ) -> Iterator[dict]:
-    request = copy.deepcopy(request)
-    # Expand all if no dimension is specified
-    if dim is None:
-        dim = [x for x in request.keys() if x not in exclude]
-    if isinstance(dim, str):
-        dim = [dim]
+    if isinstance(requests, dict):
+        requests = [requests]
 
-    expansion = {}
-    for d in dim:
-        coords = request.pop(d, [])
-        if coords is None:
-            continue
-        if np.ndim(coords) == 0:
-            coords = [coords]
-        expansion[d] = coords
+    for request in requests:
+        request = copy.deepcopy(request)
+        # Expand all if no dimension is specified
+        if dim is None:
+            dims = [x for x in request.keys() if x not in exclude]
+        elif isinstance(dim, str):
+            dims = [dim]
+        else:
+            dims = dim
 
-    for vals in dict_product(expansion):
-        yield {**request, **vals}
+        expansion = {}
+        for d in dims:
+            coords = request.pop(d, [])
+            if coords is None:
+                continue
+            if np.ndim(coords) == 0:
+                coords = [coords]
+            expansion[d] = coords
+
+        for vals in dict_product(expansion):
+            yield {**request, **vals}
 
 
 def squeeze(reqs: list[dict], dims: list[str]) -> Iterator[dict]:
