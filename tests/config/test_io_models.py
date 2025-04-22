@@ -14,21 +14,34 @@ from pproc.config import io
         [
             {"fc": {"request": {"class": "ai", "type": ["cf", "pf"]}}},
             ["--set", "fc=temp.grib"],
-            {"fc": {"type": "fileset", "path": "temp.grib"}},
+            {"fc": {"type": "file", "path": "temp.grib"}},
         ],
         [
             {"fc": {"request": {"class": "ai", "type": ["cf", "pf"]}}},
             ["--set", "fc=temp.grib", "--override-input", "class=od"],
             {
-                "fc": {"type": "fileset", "path": "temp.grib"},
+                "fc": {"type": "file", "path": "temp.grib"},
                 "overrides": {"class": "od"},
             },
         ],
+        [
+            {
+                "fc": {"request": {"class": "ai", "type": ["cf", "pf"]}},
+                "default": {"type": "fdb"},
+            },
+            [],
+            {"fc": {"type": "fdb", "request": {"class": "ai", "type": ["cf", "pf"]}}},
+        ],
+        [
+            {
+                "fc": {"request": {"class": "ai", "type": ["cf", "pf"]}},
+                "default": {"type": "fdb"},
+            },
+            ["--in-fc", "fileset:temp.grib"],
+            {"fc": {"type": "fileset", "path": "temp.grib"}},
+        ],
     ],
-    ids=[
-        "with-input-file",
-        "with-cli-overrides",
-    ],
+    ids=["with-set", "with-overrides", "with-default", "with-source-override"],
 )
 def test_sources(tmpdir, config, cli, expected):
     with open(f"{tmpdir}/config.yaml", "w") as file:
@@ -95,15 +108,35 @@ def test_sources(tmpdir, config, cli, expected):
             },
             io.OverrideTargetWrapper,
         ],
+        [
+            {
+                "default": {"target": {"type": "fdb"}, "metadata": {"class": "od"}},
+            },
+            ["--out-test", "fileset:temp.grib"],
+            {
+                "default": {"target": {"type": "fdb"}, "metadata": {"class": "od"}},
+                "test": {
+                    "target": {"type": "fileset", "path": "temp.grib"},
+                    "metadata": {"class": "od"},
+                },
+                "overrides": {},
+            },
+            io.FileSetTarget,
+        ],
     ],
-    ids=["config-defaults-only", "config-overrides", "with-cli"],
+    ids=[
+        "config-defaults-only",
+        "config-overrides",
+        "with-set",
+        "with-target-override",
+    ],
 )
 def test_targets(tmpdir, config, cli, expected, target_type):
     with open(f"{tmpdir}/config.yaml", "w") as file:
         file.write(yaml.dump(config))
     targets_model = io.create_output_model("test", ["test"])
     with patch("sys.argv", ["", "-f", f"{tmpdir}/config.yaml"] + cli):
-        cfg = Conflator(app_name="sources", model=targets_model).load()
+        cfg = Conflator(app_name="targets", model=targets_model).load()
         assert cfg.model_dump(by_alias=True) == expected
         assert type(cfg.test.target) == target_type
 

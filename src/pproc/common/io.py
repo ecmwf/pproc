@@ -1,10 +1,8 @@
 from dataclasses import dataclass
 from io import BytesIO
 import os
-import re
-from typing import Optional, Tuple, Union, List, Dict, Any
+from typing import Optional, Union, List, Dict, Any
 
-from filelock import FileLock
 import numpy as np
 import xarray as xr
 import yaml
@@ -20,6 +18,8 @@ from pproc.config.targets import (
     NullTarget,
     OverrideTargetWrapper,
 )
+from pproc.config.io import split_location
+
 
 @dataclass
 class GRIBFields:
@@ -316,8 +316,6 @@ def write(target, template, attributes, data_array):
     #                kwargs={'fdb': fdb, 'template': template})
 
 
-
-
 def target_factory(target_option, out_file=None, fdb=None, overrides=None):
     if target_option == "fdb":
         target = FDBTarget(_fdb=fdb)
@@ -374,18 +372,6 @@ def fdb(create: bool = True) -> pyfdb.FDB:
         instance = pyfdb.FDB()
         fdb._instance = instance
     return instance
-
-
-_LOCATION_RE = re.compile("^([a-z](?:[a-z0-9+-.])*):(.*)$", re.I)
-
-
-def split_location(
-    loc: str, default: Optional[str] = None
-) -> Tuple[Optional[str], str]:
-    m = _LOCATION_RE.fullmatch(loc)
-    if m is None:
-        return (default, loc)
-    return m.groups()
 
 
 def target_from_location(
