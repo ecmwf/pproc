@@ -1,9 +1,4 @@
-from dataclasses import dataclass
-from typing import Dict, Iterator, Optional, Set, Tuple, Union, Any
-
-from pproc.common.accumulation import Accumulation, Coord, create_accumulation
-from pproc.common.steps import Step, step_to_coord
-from pproc.common.stepseq import stepseq_monthly, stepseq_ranges
+from typing import Dict, Iterator, Optional, Tuple, Union, Any
 
 
 def window_operation_from_config(window_config: dict) -> Dict[str, list]:
@@ -36,7 +31,7 @@ def window_operation_from_config(window_config: dict) -> Dict[str, list]:
                 raise RuntimeError(f"Unknown threshold comparison {comparison}")
             window_operations.setdefault(operation, []).append(threshold)
     else:
-        window_operations["none"] = []
+        window_operations["aggregation"] = []
 
     return window_operations
 
@@ -77,36 +72,19 @@ def translate_window_config(
 
     operation = None
     extra = {}
-    if window_operation == "none":
+    operation = window_operation
+    if operation in [
+        "sum",
+        "minimum",
+        "maximum",
+        "mean",
+        "aggregation",
+        "standard_deviation",
+    ]:
         if not include_init:
             coords = coords[1:]
-        if len(coords) > 1:
-            raise ValueError(
-                "Window operation can not be none for windows containing more than a single step"
-            )
-        operation = "aggregation"
-    elif window_operation == "difference":
-        operation = "difference"
-    elif window_operation in ["sum", "minimum", "maximum", "mean", "aggregation"]:
-        if not include_init:
-            coords = coords[1:]
-        operation = window_operation
-    elif window_operation == "weighted_mean":
-        operation = "weighted_mean"
-    elif window_operation == "difference_rate":
+    elif operation == "difference_rate":
         extra["factor"] = window_options.get("factor", 1.0)
-        operation = "difference_rate"
-    elif window_operation == "standard_deviation":
-        if not include_init:
-            coords = coords[1:]
-        operation = "standard_deviation"
-
-    if operation is None:
-        raise ValueError(
-            f"Unsupported window operation {window_operation}. Supported types: "
-            + "difference, minimum, maximum, sum, weighted_mean, difference_rate, mean, "
-            + "aggregation"
-        )
 
     grib_header = {} if grib_keys is None else grib_keys.copy()
 

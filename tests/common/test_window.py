@@ -25,7 +25,7 @@ def create_window(
 
 
 def test_instantaneous_window():
-    accum = create_window([1], "none", True)
+    accum = create_window([1], "aggregation", True)
     step_values = np.array([[1, 1, 1], [2, 2, 2]])
     accum.feed(0, step_values)
     assert accum.get_values() is None
@@ -111,14 +111,14 @@ def test_windows(operation, include_init, steps, step_increment, values):
     "steps, operation, extra_keys, grib_key_values",
     [
         pytest.param(
-            [1], "none", None, {"step": "1", "timeRangeIndicator": 0}, id="inst"
+            [1], "aggregation", None, {"step": "1", "timeRangeIndicator": 0}, id="inst"
         ),
         pytest.param(
-            [0], "none", None, {"step": "0", "timeRangeIndicator": 1}, id="inst-0"
+            [0], "aggregation", None, {"step": "0", "timeRangeIndicator": 1}, id="inst-0"
         ),
         pytest.param(
             [260],
-            "none",
+            "aggregation",
             None,
             {"step": "260", "timeRangeIndicator": 10},
             id="inst-260",
@@ -294,7 +294,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
             {
                 "windows": [
                     {
-                        "operation": "none",
+                        "operation": "aggregation",
                         "coords": [[75], [78], [81], [84], [87], [90], [288]],
                         "metadata": {"bitsPerValue": 16},
                     }
@@ -322,7 +322,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
             {
                 "windows": [
                     {
-                        "operation": "none",
+                        "operation": "aggregation",
                         "include_start": False,
                         "coords": [
                             list(range(12, 19, 6)),

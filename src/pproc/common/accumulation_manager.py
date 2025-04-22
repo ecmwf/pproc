@@ -62,7 +62,11 @@ class AccumulationManager:
                     coords.remove(coord)
 
     @classmethod
-    def create(cls, config: Dict[str, dict | AccumulationConfig], grib_keys: Optional[dict] = None):
+    def create(
+        cls,
+        config: Dict[str, dict | AccumulationConfig],
+        grib_keys: Optional[dict] = None,
+    ):
         grib_keys = {} if grib_keys is None else grib_keys
         accum_configs = {}
         for key, acc_config in config.items():

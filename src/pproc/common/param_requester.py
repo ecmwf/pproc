@@ -39,7 +39,7 @@ def read_ensemble(
     Returns
     -------
     list of eccodes.GRIBMessage
-        GRIB templates 
+        GRIB templates
     numpy array (total, npoints)
         Read data
     """
