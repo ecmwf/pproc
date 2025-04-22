@@ -5,7 +5,7 @@ from meters import ResourceMeter
 
 from pproc.common.param_requester import ParamConfig, ParamRequester, IndexFunc
 from pproc.common.accumulation import Accumulator
-from pproc.common.window_manager import WindowManager
+from pproc.common.accumulation_manager import AccumulationManager
 from pproc.common.parallel import parallel_data_retrieval
 from pproc.config.param import ParamConfig
 from pproc.config.io import SourceCollection
@@ -23,16 +23,16 @@ def retrieve_clim(
     accums = param.accumulations.copy()
     for dim, value in additional_dims.items():
         accums[dim] = {"operation": "aggregation", "coords": [[value]]}
-    window_manager = WindowManager(accums, param.metadata)
+    accum_manager = AccumulationManager.create(accums, param.metadata)
 
     requester = ParamRequester(param, sources, total, src, index_func)
     res_accum: Optional[Accumulator] = None
     res_template: Optional[eccodes.GRIBMessage] = None
-    for keys, data in parallel_data_retrieval(1, window_manager.dims, [requester]):
+    for keys, data in parallel_data_retrieval(1, accum_manager.dims, [requester]):
         ids = ", ".join(f"{k}={v}" for k, v in keys.items())
         metadata, clim = data[0]
         with ResourceMeter(f"{param.name}, {ids}: Compute accumulation"):
-            completed_windows = window_manager.update_windows(keys, clim)
+            completed_windows = accum_manager.feed(keys, clim)
             del clim
             for _, accum in completed_windows:
                 assert (

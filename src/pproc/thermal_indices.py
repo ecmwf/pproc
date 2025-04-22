@@ -23,7 +23,7 @@ from meters import metered
 from conflator import Conflator
 
 from pproc.common.accumulation import Accumulator
-from pproc.common.window_manager import WindowManager
+from pproc.common.accumulation_manager import AccumulationManager
 from pproc.common.parallel import create_executor
 from pproc.config.types import ThermoConfig, ThermoParamConfig
 from pproc.common.recovery import create_recovery, Recovery
@@ -193,20 +193,20 @@ def main():
 
     with create_executor(cfg.parallelisation) as executor:
         for param in cfg.parameters:
-            window_manager = WindowManager(
+            accum_manager = AccumulationManager.create(
                 param.accumulations, {**cfg.outputs.default.metadata, **param.metadata}
             )
             checkpointed_windows = [
                 x["window"] for x in recovery.computed(param=param.name)
             ]
-            window_manager.delete_windows(checkpointed_windows)
+            accum_manager.delete(checkpointed_windows)
 
             thermo_partial = functools.partial(
                 process_step, cfg, param, recovery=recovery
             )
-            for step in window_manager.dims["step"]:
+            for step in accum_manager.dims["step"]:
                 accum_fields = load_input(cfg, param, "accum", step)
-                completed_windows = window_manager.update_windows(
+                completed_windows = accum_manager.feed(
                     {"step": step},
                     np.empty((1,)) if len(accum_fields) == 0 else accum_fields.values,
                 )

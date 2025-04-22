@@ -10,7 +10,7 @@ from pproc.common.recovery import create_recovery
 from pproc.common.param_requester import ParamRequester
 from pproc.config.types import ProbConfig
 from pproc.prob.parallel import prob_iteration
-from pproc.prob.window_manager import ThresholdWindowManager
+from pproc.prob.accumulation_manager import ThresholdAccumulationManager
 
 
 def main():
@@ -23,7 +23,7 @@ def main():
     with create_executor(cfg.parallelisation) as executor:
         for param in cfg.parameters:
             print(f"Processing {param.name}")
-            window_manager = ThresholdWindowManager(
+            accum_manager = ThresholdAccumulationManager.create(
                 param.accumulations,
                 {
                     **cfg.outputs.default.metadata,
@@ -33,23 +33,21 @@ def main():
             checkpointed_windows = [
                 x["window"] for x in recovery.computed(param=param.name)
             ]
-            window_manager.delete_windows(checkpointed_windows)
+            accum_manager.delete(checkpointed_windows)
 
-            requester = ParamRequester(
-                param, cfg.sources, cfg.total_fields, "fc"
-            )
+            requester = ParamRequester(param, cfg.sources, cfg.total_fields, "fc")
             prob_partial = functools.partial(
                 prob_iteration, param, recovery, cfg.outputs.prob.target
             )
             for keys, data in parallel_data_retrieval(
                 cfg.parallelisation.n_par_read,
-                window_manager.dims,
+                accum_manager.dims,
                 [requester],
             ):
                 ids = ", ".join(f"{k}={v}" for k, v in keys.items())
                 metadata, ens = data[0]
                 with ResourceMeter(f"{param.name}, {ids}: Compute accumulation"):
-                    completed_windows = window_manager.update_windows(keys, ens)
+                    completed_windows = accum_manager.feed(keys, ens)
                     del ens
                 for window_id, accum in completed_windows:
                     executor.submit(
@@ -57,7 +55,7 @@ def main():
                         metadata[0],
                         window_id,
                         accum,
-                        window_manager.thresholds(window_id),
+                        accum_manager.thresholds(window_id),
                     )
             executor.wait()
 

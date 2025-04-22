@@ -18,7 +18,7 @@ from meters import ResourceMeter
 from conflator import Conflator
 
 from pproc import common
-from pproc.common.window_manager import WindowManager
+from pproc.common.accumulation_manager import AccumulationManager
 from pproc.common.recovery import Recovery, create_recovery
 from pproc.common.parallel import parallel_processing
 from pproc.common.utils import dict_product
@@ -116,8 +116,8 @@ def main():
 
     plan = []
     for param in cfg.parameters:
-        window_manager = WindowManager(param.accumulations)
-        for dims in dict_product(window_manager.dims):
+        accum_manager = AccumulationManager.create(param.accumulations)
+        for dims in dict_product(accum_manager.dims):
             if recover.existing_checkpoint(param=param.name, **dims):
                 print(f"Recovery: skipping dims: {param.name} {dims}")
                 continue

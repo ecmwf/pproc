@@ -4,6 +4,7 @@ import numpy as np
 
 from pproc.common.accumulation import Accumulator, Coord
 from pproc.common.utils import dict_product
+from pproc.common.steps import parse_step
 from pproc.config.accumulation import accumulation_factory
 
 
@@ -37,6 +38,10 @@ class AccumulationManager:
                 sc[key] = sorted(coords, key=sortkey)
         return sc
 
+    @property
+    def dims(self) -> Dict[str, List[Coord]]:
+        return self.sorted_coords({"step": parse_step})
+
     def feed(
         self, keys: Dict[str, Coord], values: np.ndarray
     ) -> Iterator[Tuple[str, Accumulator]]:
@@ -45,7 +50,7 @@ class AccumulationManager:
             if processed and accum.is_complete():
                 yield name, self.accumulations.pop(name)
 
-    def delete(self, accumulations: List[str]) -> None:
+    def delete(self, accumulations: List[str]):
         for name in accumulations:
             del self.accumulations[name]
 

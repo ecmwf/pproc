@@ -7,7 +7,7 @@ from pproc.common.config import Config
 from pproc.common.parallel import create_executor, parallel_data_retrieval
 from pproc.common.param_requester import ParamRequester
 from pproc.common.recovery import create_recovery
-from pproc.common.window_manager import WindowManager
+from pproc.common.accumulation_manager import AccumulationManager
 
 
 def main(cfg: Config, postproc_iteration: Any):
@@ -15,7 +15,7 @@ def main(cfg: Config, postproc_iteration: Any):
 
     with create_executor(cfg.parallelisation) as executor:
         for param in cfg.parameters:
-            window_manager = WindowManager(
+            accum_manager = AccumulationManager.create(
                 param.accumulations,
                 {
                     **cfg.outputs.default.metadata,
@@ -26,7 +26,7 @@ def main(cfg: Config, postproc_iteration: Any):
             checkpointed_windows = [
                 x["window"] for x in recover.computed(param=param.name)
             ]
-            window_manager.delete_windows(checkpointed_windows)
+            accum_manager.delete(checkpointed_windows)
 
             requester = ParamRequester(
                 param,
@@ -38,13 +38,13 @@ def main(cfg: Config, postproc_iteration: Any):
             )
             for keys, data in parallel_data_retrieval(
                 cfg.parallelisation.n_par_read,
-                window_manager.dims,
+                accum_manager.dims,
                 [requester],
             ):
                 ids = ", ".join(f"{k}={v}" for k, v in keys.items())
                 metadata, ens = data[0]
                 with ResourceMeter(f"{param.name}, {ids}: Compute accumulation"):
-                    completed_windows = window_manager.update_windows(keys, ens)
+                    completed_windows = accum_manager.feed(keys, ens)
                     del ens
                 for window_id, accum in completed_windows:
                     executor.submit(postproc_partial, metadata, window_id, accum)

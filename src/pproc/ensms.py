@@ -18,10 +18,10 @@ from meters import ResourceMeter
 
 from pproc import common
 from pproc.common.accumulation import Accumulator
+from pproc.common.accumulation_manager import AccumulationManager
 from pproc.common.parallel import create_executor, parallel_data_retrieval
 from pproc.common.param_requester import ParamConfig, ParamRequester
 from pproc.common.recovery import create_recovery, BaseRecovery
-from pproc.common.window_manager import WindowManager
 from pproc.config.types import EnsmsConfig
 
 
@@ -80,7 +80,7 @@ def main():
 
     with create_executor(cfg.parallelisation) as executor:
         for param in cfg.parameters:
-            window_manager = WindowManager(
+            accum_manager = AccumulationManager.create(
                 param.accumulations,
                 {
                     **cfg.outputs.default.metadata,
@@ -91,7 +91,7 @@ def main():
             checkpointed_windows = [
                 x["window"] for x in recover.computed(param=param.name)
             ]
-            window_manager.delete_windows(checkpointed_windows)
+            accum_manager.delete(checkpointed_windows)
 
             requester = ParamRequester(
                 param,
@@ -101,14 +101,14 @@ def main():
             iteration = functools.partial(ensms_iteration, cfg, param, recover)
             for keys, retrieved_data in parallel_data_retrieval(
                 cfg.parallelisation.n_par_read,
-                window_manager.dims,
+                accum_manager.dims,
                 [requester],
             ):
                 step = keys["step"]
                 with ResourceMeter(f"Process step {step}"):
                     metadata, data = retrieved_data[0]
 
-                    completed_windows = window_manager.update_windows(
+                    completed_windows = accum_manager.feed(
                         keys,
                         data,
                     )
