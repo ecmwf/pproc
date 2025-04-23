@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 import sys
 import functools
+import signal
 
 from meters import ResourceMeter
 from conflator import Conflator
 
-from pproc.common.parallel import create_executor, parallel_data_retrieval
+from pproc.common.parallel import (
+    create_executor,
+    parallel_data_retrieval,
+    sigterm_handler,
+)
 from pproc.common.recovery import create_recovery
 from pproc.common.param_requester import ParamRequester
 from pproc.config.types import ProbConfig
@@ -15,6 +20,7 @@ from pproc.prob.accumulation_manager import ThresholdAccumulationManager
 
 def main():
     sys.stdout.reconfigure(line_buffering=True)
+    signal.signal(signal.SIGTERM, sigterm_handler)
 
     cfg = Conflator(app_name="pproc-probabilities", model=ProbConfig).load()
     cfg.print()

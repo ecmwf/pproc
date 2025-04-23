@@ -1,6 +1,7 @@
 import functools
 import sys
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterator, Optional, Tuple
+import signal
 
 import numpy as np
 
@@ -20,6 +21,7 @@ from pproc.common.io import (
 from pproc.common.parallel import (
     create_executor,
     parallel_data_retrieval,
+    sigterm_handler,
 )
 from pproc.common.param_requester import ParamRequester
 from pproc.common.recovery import create_recovery, BaseRecovery
@@ -27,7 +29,6 @@ from pproc.common.steps import AnyStep
 from pproc.config.types import HistogramConfig, HistParamConfig
 from pproc.config.targets import Target
 from pproc.config.io import SourceCollection, Source
-from pproc.config.utils import expand
 
 
 def write_histogram(
@@ -178,6 +179,7 @@ def write_iteration(
 
 def main():
     sys.stdout.reconfigure(line_buffering=True)
+    signal.signal(signal.SIGTERM, sigterm_handler)
 
     cfg = Conflator(app_name="pproc-histogram", model=HistogramConfig).load()
     cfg.print()

@@ -1,14 +1,12 @@
 import concurrent.futures as fut
-import multiprocessing
 import os
 import sys
-from typing import List, Union
+from typing import List
+import signal
 
-import eccodes
 import psutil
 from meters import ResourceMeter
 
-from pproc.common import io
 from pproc.common.param_requester import ParamRequester
 from pproc.common.utils import delayed_map, dict_product
 from pproc.config.base import Parallelisation
@@ -78,11 +76,22 @@ def create_executor(options: Parallelisation) -> fut.Executor:
     return (
         SynchronousExecutor()
         if options.n_par_compute == 1
-        else QueueingExecutor(options.n_par_compute, options.queue_size)
+        else QueueingExecutor(
+            options.n_par_compute,
+            options.queue_size,
+            initializer=signal.signal,
+            initargs=(signal.SIGTERM, signal.SIG_DFL),
+        )
     )
 
 
-def parallel_processing(process, plan, n_par, initializer=None, initargs=()):
+def parallel_processing(
+    process,
+    plan,
+    n_par,
+    initializer=signal.signal,
+    initargs=(signal.SIGTERM, signal.SIG_DFL),
+):
     """Run a processing function in parallel
 
     Parameters
@@ -112,9 +121,7 @@ def parallel_processing(process, plan, n_par, initializer=None, initargs=()):
             future.result()
 
 
-def _retrieve(
-    data_requesters: List[ParamRequester], **kwargs
-):
+def _retrieve(data_requesters: List[ParamRequester], **kwargs):
     """
     Retrieve data function for multiple data requests
     with retrieve_data method. If requested, grib template messages are written to
@@ -136,8 +143,8 @@ def parallel_data_retrieval(
     num_processes: int,
     dims: dict,
     data_requesters: List[ParamRequester],
-    initializer=None,
-    initargs=(),
+    initializer=signal.signal,
+    initargs=(signal.SIGTERM, signal.SIG_DFL),
 ):
     """
     Multiprocess retrieve data function from multiple data requests

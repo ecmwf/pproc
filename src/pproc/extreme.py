@@ -13,6 +13,7 @@
 import sys
 import functools
 import numpy as np
+import signal
 
 import eccodes
 from meters import ResourceMeter
@@ -21,7 +22,11 @@ from conflator import Conflator
 from pproc.common.accumulation import Accumulator
 from pproc.common.accumulation_manager import AccumulationManager
 from pproc.common.recovery import create_recovery, Recovery
-from pproc.common.parallel import create_executor, parallel_data_retrieval
+from pproc.common.parallel import (
+    create_executor,
+    parallel_data_retrieval,
+    sigterm_handler,
+)
 from pproc.common.param_requester import ParamRequester
 from pproc.config.types import ExtremeParamConfig, ExtremeConfig
 from pproc.extremes.grib import extreme_template
@@ -82,6 +87,7 @@ def compute_indices(
 
 def main():
     sys.stdout.reconfigure(line_buffering=True)
+    signal.signal(signal.SIGTERM, sigterm_handler)
 
     cfg = Conflator(app_name="pproc-extreme", model=ExtremeConfig).load()
     cfg.print()

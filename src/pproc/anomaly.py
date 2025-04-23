@@ -1,5 +1,6 @@
 import functools
 import sys
+import signal
 
 import eccodes
 import numpy as np
@@ -13,6 +14,7 @@ from pproc.common.io import nan_to_missing
 from pproc.common.parallel import (
     create_executor,
     parallel_data_retrieval,
+    sigterm_handler,
 )
 from pproc.common.param_requester import ParamRequester
 from pproc.common.recovery import create_recovery, Recovery
@@ -85,6 +87,7 @@ def anomaly_iteration(
 
 def main():
     sys.stdout.reconfigure(line_buffering=True)
+    signal.signal(signal.SIGTERM, sigterm_handler)
 
     cfg = Conflator(app_name="pproc-anomaly", model=AnomalyConfig).load()
     cfg.print()

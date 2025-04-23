@@ -1,6 +1,7 @@
 import functools
 import sys
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional
+import signal
 
 import numpy as np
 
@@ -16,10 +17,10 @@ from pproc.common.io import nan_to_missing
 from pproc.common.parallel import (
     create_executor,
     parallel_data_retrieval,
+    sigterm_handler,
 )
 from pproc.common.param_requester import ParamConfig, ParamRequester
 from pproc.common.recovery import create_recovery, BaseRecovery
-from pproc.config.targets import Target
 from pproc.config.types import QuantilesConfig
 
 
@@ -98,6 +99,8 @@ def quantiles_iteration(
 
 def main():
     sys.stdout.reconfigure(line_buffering=True)
+    signal.signal(signal.SIGTERM, sigterm_handler)
+
     cfg = Conflator(app_name="pproc-quantiles", model=QuantilesConfig).load()
     cfg.print()
     recovery = create_recovery(cfg)

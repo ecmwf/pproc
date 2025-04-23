@@ -1,6 +1,6 @@
 import sys
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional, Union
+from typing import Optional
 import numpy as np
 
 import eccodes
@@ -16,6 +16,7 @@ from pproc.common.stepseq import steprange_to_fcmonth
 
 
 def mstat_keys(template, out_keys: dict, interval: int):
+    out_keys = out_keys.copy()
     steprange = out_keys.pop("stepRange")
     start, end = map(int, steprange.split("-"))
     if out_keys.get("edition", template.get("edition")) == 1:
@@ -41,7 +42,7 @@ def mstat_keys(template, out_keys: dict, interval: int):
         "indicatorOfUnitForTimeIncrement": 1,
         "timeIncrement": interval,
         "step": end,
-        "typeOfGeneratingProcess": template.get("typeOfGeneratingProcess"), 
+        "typeOfGeneratingProcess": template.get("typeOfGeneratingProcess"),
         "typeOfProcessedData": template.get("type"),
     }
 

@@ -20,7 +20,7 @@ from conflator import Conflator
 from pproc import common
 from pproc.common.accumulation_manager import AccumulationManager
 from pproc.common.recovery import Recovery, create_recovery
-from pproc.common.parallel import parallel_processing
+from pproc.common.parallel import parallel_processing, sigterm_handler
 from pproc.common.utils import dict_product
 from pproc.common.param_requester import ParamRequester
 from pproc.config.param import ParamConfig
@@ -110,6 +110,8 @@ def wind_iteration(
 
 def main():
     sys.stdout.reconfigure(line_buffering=True)
+    signal.signal(signal.SIGTERM, sigterm_handler)
+
     cfg = Conflator(app_name="pproc-wind", model=WindConfig).load()
     cfg.print()
     recover = create_recovery(cfg)
@@ -128,8 +130,6 @@ def main():
         iteration,
         plan,
         cfg.parallelisation,
-        initializer=signal.signal,
-        initargs=(signal.SIGTERM, signal.SIG_DFL),
     )
 
     recover.clean_file()

@@ -14,6 +14,7 @@
 import logging
 import sys
 import functools
+import signal
 
 import earthkit.data
 from earthkit.data.readers.grib.metadata import GribFieldMetadata
@@ -24,7 +25,7 @@ from conflator import Conflator
 
 from pproc.common.accumulation import Accumulator
 from pproc.common.accumulation_manager import AccumulationManager
-from pproc.common.parallel import create_executor
+from pproc.common.parallel import create_executor, sigterm_handler
 from pproc.config.types import ThermoConfig, ThermoParamConfig
 from pproc.common.recovery import create_recovery, Recovery
 from pproc.thermo import helpers
@@ -179,6 +180,8 @@ def process_step(
 
 def main():
     sys.stdout.reconfigure(line_buffering=True)
+    signal.signal(signal.SIGTERM, sigterm_handler)
+
     cfg = Conflator(app_name="pproc-thermal-indices", model=ThermoConfig).load()
     cfg.print()
     recovery = create_recovery(cfg)

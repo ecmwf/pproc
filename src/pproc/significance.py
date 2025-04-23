@@ -1,6 +1,7 @@
 import functools
 import sys
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
+import signal
 
 import numpy as np
 from scipy.stats import mannwhitneyu
@@ -16,6 +17,7 @@ from pproc.common.io import nan_to_missing
 from pproc.common.parallel import (
     create_executor,
     parallel_data_retrieval,
+    sigterm_handler,
 )
 from pproc.common.param_requester import ParamRequester
 from pproc.common.recovery import create_recovery, Recovery
@@ -159,6 +161,7 @@ def signi_iteration(
 
 def main():
     sys.stdout.reconfigure(line_buffering=True)
+    signal.signal(signal.SIGTERM, sigterm_handler)
 
     cfg = Conflator(app_name="pproc-significance", model=SigniConfig).load()
     cfg.print()

@@ -1,16 +1,23 @@
 import functools
 from typing import Any
+import signal
 
 from meters import ResourceMeter
 
 from pproc.common.config import Config
-from pproc.common.parallel import create_executor, parallel_data_retrieval
+from pproc.common.parallel import (
+    create_executor,
+    parallel_data_retrieval,
+    sigterm_handler,
+)
 from pproc.common.param_requester import ParamRequester
 from pproc.common.recovery import create_recovery
 from pproc.common.accumulation_manager import AccumulationManager
 
 
 def main(cfg: Config, postproc_iteration: Any):
+    signal.signal(signal.SIGTERM, sigterm_handler)
+
     recover = create_recovery(cfg)
 
     with create_executor(cfg.parallelisation) as executor:
