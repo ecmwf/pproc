@@ -13,7 +13,10 @@ def steprange_to_fcmonth(fcdate: datetime.datetime | str, steprange: str) -> int
     first_month = seq.next(fcdate, False)
     this_month = fcdate + datetime.timedelta(hours=int(start))
 
-    assert MonthInYear(this_month.year, this_month.month).length() * 24 == (end - start)
+    month_length = MonthInYear(this_month.year, this_month.month).length() * 24
+    assert month_length == (
+        end - start
+    ), f"Expected month length {end - start} for {fcdate} and step range {steprange}. Got {month_length}."
 
     return (
         (this_month.year - first_month.year) * 12
