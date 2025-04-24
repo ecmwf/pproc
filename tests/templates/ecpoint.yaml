@@ -1,79 +1,85 @@
-out_keys:
-  paramId: 228
-num_members: 5
+total_fields: 2
 parameters:
-  u:
-    in: 131 # 138, 155
-    in_keys:
-      levtype: pl
-      levelist: 700
-      interpolate:
-        grid: O640
-        interpolation: grid-box-average
-    accumulations:
-      step:
-        operation: weighted_mean
-        weights: [0.5, 1, 0.5]
-        coords: [[0, 6, 12], [12, 18, 24]]
-  v:
-    in: 132
-    in_keys:
-      levtype: pl
-      levelist: 700
-      interpolate:
-        grid: O640
-        interpolation: grid-box-average
-    accumulations:
-      step:
-        operation: weighted_mean
-        weights: [0.5, 1, 0.5]
-        coords: [[0, 6, 12], [12, 18, 24]]
-  tp: 
-    in: 228
-    in_keys:
-      interpolate:
-        grid: O640
-        interpolation: grid-box-average
-    scale: 1000
+  ecpoint_12:
+    sources: 
+      fc: 
+        request:
+          param: 228
+          interpolate:
+            grid: O640
+            interpolation: grid-box-average
+    preprocessing:
+      - operation: scale
+        value: 1000
     accumulations:
       step:
         operation: difference
         coords: [[0, 12], [12, 24]]
-  cp: 
-    in: 143
-    in_keys:
-      interpolate:
-        grid: O640
-        interpolation: grid-box-average
-    scale: 1000
-    accumulations:
-      step:
-        operation: difference
-        coords: [[0, 12], [12, 24]]
-  cdir:
-    in: 228022
-    in_keys:
-      interpolate:
-        grid: O640
-        interpolation: grid-box-average
-    scale: 0.00001157407
-    accumulations:
-      step:
-        operation: difference
-        coords: [[0, 12], [12, 24]]
-  cape:
-    in: 228035
-    in_keys:
-      interpolate:
-        grid: O640
-        interpolation: grid-box-average
-    accumulations:
-      step:
-        operation: maximum
-        coords: [[6, 12], [18, 24]]
+    dependencies:
+      - name: u
+        sources: 
+          fc: 
+            request:
+              param: 131
+              levtype: pl
+              levelist: 700
+              grid: O1280
+            type: mars
+        accumulations:
+          step:
+            operation: weighted_mean
+            weights: [0.5, 1, 0.5]
+            coords: [[0, 6, 12], [12, 18, 24]]
+      - name: v
+        sources: 
+          fc: 
+            request:
+              param: 132
+              levtype: pl
+              levelist: 700
+              grid: O1280
+            type: mars
+        accumulations:
+          step:
+            operation: weighted_mean
+            weights: [0.5, 1, 0.5]
+            coords: [[0, 6, 12], [12, 18, 24]]
+      - name: cp 
+        sources: 
+          fc: 
+            request:
+              param: 143
+        preprocessing:
+          - operation: scale
+            value: 1000
+        accumulations:
+          step:
+            operation: difference
+            coords: [[0, 12], [12, 24]]
+      - name: cdir
+        sources: 
+          fc: 
+            request:
+              param: 228022
+        preprocessing:
+          - operation: scale
+            value: 0.00001157407
+        accumulations:
+          step:
+            operation: difference
+            coords: [[0, 12], [12, 24]]
+      - name: cape
+        sources: 
+          fc: 
+            request:
+              param: 228035
+        accumulations:
+          step:
+            operation: maximum
+            coords: [[6, 12], [18, 24]]
 sources:
-  fdb:
-    ens:
+  fc:
+    request:
       - class: od
         date: 20250423
         domain: g
@@ -82,6 +88,9 @@ sources:
         stream: enfo
         time: 00
         type: cf
+        interpolate:
+          grid: O640
+          interpolation: grid-box-average
       - class: od
         date: 20250423
         domain: g
@@ -90,5 +99,15 @@ sources:
         stream: enfo
         time: 00
         type: pf
-
+        number: [1]
+        interpolate:
+          grid: O640
+          interpolation: grid-box-average
+    type: fdb
+outputs:
+  default: 
+    metadata:
+      paramId: 228
+    target:
+      type: "null"
     

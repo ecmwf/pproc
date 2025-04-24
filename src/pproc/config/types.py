@@ -346,3 +346,18 @@ class ThermoConfig(BaseConfig):
                         np.asarray(nsteps) == 1
                     ), f"Accumulation source required for step ranges."
         return self
+
+
+class ECPointParamConfig(ParamConfig):
+    dependencies: list[ParamConfig]
+
+
+class ECPointConfig(QuantilesConfig):
+    outputs: io.ECPointOutputModel = io.ECPointOutputModel()
+    parameters: list[ECPointParamConfig]
+    bp_location: Annotated[
+        str, CLIArg("--bp-loc"), Field(description="Location of BP CSV file")
+    ]
+    fer_location: Annotated[
+        str, CLIArg("--fer-loc"), Field(description="Location of FER CSV file")
+    ]
