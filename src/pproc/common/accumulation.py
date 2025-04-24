@@ -246,20 +246,47 @@ class Mean(SimpleAccumulation):
         return cls(coords, sequential=sequential, grib_keys=grib_keys)
 
 
-class WeightedMean(Integral):
+class WeightedMean(SimpleAccumulation):
     def __init__(
         self,
-        init: int,
         coords: NumericCoords,
+        weights: list[float],
+        sequential: bool = False,
         grib_keys: Optional[dict] = None,
     ):
-        super().__init__(init, coords, grib_keys)
-        self.length = coords[-1] - init
+        super().__init__("add", coords, sequential, grib_keys)
+        assert len(coords) == len(
+            weights
+        ), "Length coords must match length for weights for WeightedMean accumulation"
+        self.weights = weights
+        self.lookup = {k: i for i, k in enumerate(coords)}
 
-    def get_values(self) -> Optional[np.ndarray]:
-        if self.values is None:
-            return None
-        return self.values / self.length
+    def feed(self, coord: Coord, values: np.ndarray) -> bool:
+        if coord not in self.todo:
+            return False
+        i = self.lookup[coord]
+        return super().feed(coord, values * self.weights[i])
+
+    @classmethod
+    def create(
+        cls,
+        operation: str,
+        coords: Coords,
+        config: dict,
+        sequential: bool = False,
+        grib_keys: Optional[dict] = None,
+    ) -> Accumulation:
+        weights = config.get("weights", None)
+        if weights is None:
+            diff = np.diff(coords)
+            if isinstance(coords, range):
+                coords = range(coords.start + coords.step, coords.stop, coords.step)
+                init = coords.start
+            else:
+                coords = coords.copy()
+                init = coords.pop(0)
+            weights = list(diff / (coords[-1] - init))
+        return cls(coords, weights=weights, sequential=sequential, grib_keys=grib_keys)
 
 
 class Histogram(SimpleAccumulation):
