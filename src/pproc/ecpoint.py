@@ -5,101 +5,48 @@ import functools
 import numpy as np
 import datetime
 import pandas as pd
+import signal
 
 import eccodes
 from meters import ResourceMeter
 from earthkit.meteo.stats import iter_quantiles
+from conflator import Conflator
 
-from pproc.common.param_requester import ParamConfig, ParamRequester, IndexFunc
+from pproc.config.types import ECPointConfig, ECPointParamConfig
+from pproc.config.io import SourceCollection
+from pproc.common.param_requester import ParamRequester, IndexFunc
 from pproc.common.steps import AnyStep
-from pproc.common.config import default_parser, Config
-from pproc.common.recovery import Recovery
-from pproc.common import parallel
+from pproc.common.recovery import create_recovery, Recovery
 from pproc.common.parallel import (
-    SynchronousExecutor,
-    QueueingExecutor,
+    create_executor,
     parallel_data_retrieval,
+    sigterm_handler,
 )
-from pproc.common.io import target_from_location, nan_to_missing, GribMetadata
+from pproc.common.io import nan_to_missing, GribMetadata
 from pproc.common.accumulation import Accumulator
-from pproc.common.window_manager import WindowManager
+from pproc.common.accumulation_manager import AccumulationManager
 from pproc.common.grib_helpers import construct_message
-
-
-def get_parser() -> argparse.ArgumentParser:
-    description = "Compute quantiles of an ensemble"
-    parser = default_parser(description=description)
-    parser.add_argument("--in-ens", required=True, help="Input ensemble source")
-    parser.add_argument("--bp-loc", required=True, help="Location of BP CSV file")
-    parser.add_argument("--fer-loc", required=True, help="Location of FER CSV file")
-    parser.add_argument(
-        "--out-bs",
-        required=True,
-        help="Bias corrected rainfall at grid-scale output target",
-    )
-    parser.add_argument("--out-wt", required=True, help="Weather types output target")
-    parser.add_argument(
-        "--out-perc", required=True, help="Rainfall percentile output target"
-    )
-    return parser
 
 
 class FilteredParamRequester(ParamRequester):
     def __init__(
         self,
-        param: ParamConfig,
-        sources: dict,
-        loc: str,
-        members: int,
+        param: ECPointParamConfig,
+        sources: SourceCollection,
         steps: list[int],
         total: Optional[int] = None,
+        src_name: Optional[str] = None,
         index_func: Optional[IndexFunc] = None,
     ):
-        super().__init__(param, sources, loc, members, total, index_func)
+        super().__init__(param, sources, total, src_name, index_func)
         self.steps = steps
 
     def retrieve_data(
-        self, fdb, step: AnyStep, **kwargs
+        self, step: AnyStep, **kwargs
     ) -> Tuple[List[GribMetadata], np.ndarray]:
         if step not in self.steps:
             return ([], None)
-        return super().retrieve_data(fdb, step, **kwargs)
-
-
-class ECPointConfig(Config):
-    def __init__(self, args: argparse.Namespace, verbose: bool = True):
-        super().__init__(args, verbose=verbose)
-
-        self.num_members = self.options.get("num_members", 51)
-        self.total_fields = self.options.get("total_fields", self.num_members)
-        self.out_keys = self.options.get("out_keys", {})
-        self.quantiles = self.options.get("quantiles", 100)
-
-        self.params = [
-            ParamConfig(pname, popt, overrides=self.override_input)
-            for pname, popt in self.options["parameters"].items()
-        ]
-        self.sources = self.options.get("sources", {})
-
-        date = self.options.get("date")
-        self.date = None if date is None else datetime.strptime(str(date), "%Y%m%d%H")
-        self.root_dir = self.options.get("root_dir", None)
-
-        self.n_par_read = self.options.get("n_par_read", 1)
-        self.n_par_compute = self.options.get("n_par_compute", 1)
-        self.window_queue_size = self.options.get("queue_size", self.n_par_compute)
-
-        self.bp_location = args.bp_loc
-        self.fer_location = args.fer_loc
-
-        for attr in ["out_bs", "out_wt", "out_perc"]:
-            location = getattr(args, attr)
-            target = target_from_location(location, overrides=self.override_output)
-            if self.n_par_compute > 1:
-                target.enable_parallel(parallel)
-            if args.recover:
-                target.enable_recovery()
-            self.__setattr__(attr, target)
+        return super().retrieve_data(step, **kwargs)
 
 
 def ratio(var_num, var_den):
@@ -198,135 +145,148 @@ def compute_weather_types(
 
 def ecpoint_iteration(
     config: ECPointConfig,
+    param: ECPointParamConfig,
     recovery: Recovery,
     window_id: str,
     metadata: list[eccodes.GRIBMessage],
-    params: Dict[str, Accumulator],
+    input_params: Dict[str, Accumulator],
 ):
     with ResourceMeter("Compute predictant and predictors"):
-        tp = params["tp"].values
-        maxmucape = params["mxcape6"].values
-        sr = params["cdir"].values
-        cpr = ratio(params["cp"].values, tp)
-        ws700 = np.sqrt(params["u"].values ** 2 + params["v"].values ** 2)
+        tp = input_params["tp"].values
+        maxmucape = input_params["mxcape6"].values
+        sr = input_params["cdir"].values
+        cpr = ratio(input_params["cp"].values, tp)
+        ws700 = np.sqrt(input_params["u"].values ** 2 + input_params["v"].values ** 2)
 
     pt_bc_allens_allwt, grid_bc_allens_allwt, wt_allens_allwt = compute_weather_types(
         tp, cpr, ws700, maxmucape, sr, config.bp_location, config.fer_location
     )
 
     # Save the grid-scale outputs
+    out_bs = config.outputs.bs
+    out_wt = config.outputs.wt
     for index, template in enumerate(metadata):
-        message = construct_message(
-            template, {**config.out_keys, **params["tp"].grib_keys()}
+        bs_message = construct_message(
+            template, {**out_bs.metadata, **input_params["tp"].grib_keys()}
         )
-        message.set_array(
-            "values", nan_to_missing(message, grid_bc_allens_allwt[index])
+        bs_message.set_array(
+            "values", nan_to_missing(bs_message, grid_bc_allens_allwt[index])
         )
-        config.out_bs.write(message)
-        config.out_bs.flush()
+        out_bs.target.write(bs_message)
+        out_bs.target.flush()
 
-        message.set_array("values", nan_to_missing(message, wt_allens_allwt[index]))
-        config.out_wt.write(message)
-        config.out_wt.flush()
+        wt_message = construct_message(
+            template, {**out_wt.metadata, **input_params["tp"].grib_keys()}
+        )
+        wt_message.set_array(
+            "values", nan_to_missing(wt_message, wt_allens_allwt[index])
+        )
+        out_wt.target.write(wt_message)
+        out_wt.target.flush()
 
     del grid_bc_allens_allwt
     del wt_allens_allwt
 
     with ResourceMeter("Compute the percentiles"):
+        out_perc = config.outputs.perc
         for quantile in iter_quantiles(
             pt_bc_allens_allwt, config.quantiles, method="sort"
         ):
             # TODO: check keys that should be set for each percentile
             message = construct_message(
-                metadata[0], {**config.out_keys, **params["tp"].grib_keys()}
+                metadata[0], {**out_perc.metadata, **input_params["tp"].grib_keys()}
             )
             message.set_array("values", nan_to_missing(message, quantile))
-            config.out_perc.write(message)
-            config.out_perc.flush()
+            out_perc.target.write(message)
+            out_perc.target.flush()
 
-    recovery.add_checkpoint(window_id)
+    recovery.add_checkpoint(param=param.name, window=window_id)
 
 
 def main(args: List[str] = sys.argv[1:]):
     sys.stdout.reconfigure(line_buffering=True)
+    signal.signal(signal.SIGTERM, sigterm_handler)
 
-    parser = get_parser()
-    args = parser.parse_args()
-    config = ECPointConfig(args)
-    if config.root_dir is None or config.date is None:
-        print("Recovery disabled. Set root_dir and date in config to enable.")
-        recovery = None
-        last_checkpoint = None
-    else:
-        recovery = Recovery(config.root_dir, args.config, config.date, args.recover)
-        last_checkpoint = recovery.last_checkpoint()
+    cfg = Conflator(app_name="pproc-ecpoint", model=ECPointConfig).load()
+    cfg.print()
+    recover = create_recovery(cfg)
 
-    executor = (
-        SynchronousExecutor()
-        if config.n_par_compute == 1
-        else QueueingExecutor(config.n_par_compute, config.window_queue_size)
-    )
-
-    with executor:
-        managers = []
-        requesters = []
-        dims = {}
-        for param in config.params:
-            managers.append(
-                WindowManager(
-                    param.window_config([]),
-                    param.out_keys(config.out_keys),
+    with create_executor(cfg.parallelisation) as executor:
+        for param in cfg.parameters:
+            managers = [
+                AccumulationManager.create(
+                    param.accumulations,
+                    {
+                        **cfg.outputs.default.metadata,
+                        **param.metadata,
+                    },
                 )
-            )
-            for dim, vals in managers[-1].dims.items():
-                dim_vals = dims.setdefault(dim, set(vals))
-                dim_vals.update(vals)
-            requesters.append(
+            ]
+            checkpointed_windows = [
+                x["window"] for x in recover.computed(param=param.name)
+            ]
+            managers[0].delete(checkpointed_windows)
+            requesters = [
                 FilteredParamRequester(
                     param,
-                    config.sources,
-                    args.in_ens,
-                    config.num_members,
+                    cfg.sources,
                     steps=managers[-1].dims["step"],
-                    total=config.total_fields,
+                    total=cfg.total_fields,
                 )
-            )
-
-        if last_checkpoint:
-            checkpointed_windows = [
-                recovery.checkpoint_identifiers(x)[1] for x in recovery.checkpoints
             ]
-            managers[0].delete_windows(checkpointed_windows)
+            dims = {k: set(val) for k, val in managers[0].dims.items()}
+            for input_param in param.dependencies:
+                managers.append(
+                    AccumulationManager.create(
+                        input_param.accumulations,
+                        {
+                            **cfg.outputs.default.metadata,
+                            **input_param.metadata,
+                        },
+                    )
+                )
+                for dim, vals in managers[-1].dims.items():
+                    min_val = min(managers[0].dims[dim])
+                    max_val = max(managers[0].dims[dim])
+                    dims[dim].update([x for x in vals if x > min_val and x < max_val])
+                requesters.append(
+                    FilteredParamRequester(
+                        input_param,
+                        cfg.sources,
+                        steps=managers[-1].dims["step"],
+                        total=cfg.total_fields,
+                    )
+                )
+            ecpoint_partial = functools.partial(ecpoint_iteration, cfg, param, recover)
+            for keys, retrieved_data in parallel_data_retrieval(
+                cfg.parallelisation.n_par_read,
+                {k: sorted(list(val)) for k, val in dims.items()},
+                requesters,
+            ):
+                ids = ", ".join(f"{k}={v}" for k, v in keys.items())
+                completed_windows = {}
+                window_id = None
+                with ResourceMeter(f"{ids}: Compute accumulation"):
+                    for index, param_data in enumerate(retrieved_data):
+                        metadata, ens = param_data
+                        for wid, completed_window in managers[index].feed(keys, ens):
+                            if index == 0:
+                                window_id = wid
+                            completed_windows[
+                                metadata[0]["shortName"]
+                            ] = completed_window
+                        del ens
 
-        ecpoint_partial = functools.partial(ecpoint_iteration, config, recovery)
-        for keys, data in parallel_data_retrieval(
-            config.n_par_read,
-            {k: sorted(list(val)) for k, val in dims.items()},
-            requesters,
-        ):
-            ids = ", ".join(f"{k}={v}" for k, v in keys.items())
-            completed_windows = {}
-            window_id = None
-            with ResourceMeter(f"{ids}: Compute accumulation"):
-                for index, param_data in enumerate(data):
-                    metadata, ens = param_data
-                    for wid, completed_window in managers[index].update_windows(
-                        keys, ens
-                    ):
-                        if index == 0:
-                            window_id = wid
-                        completed_windows[metadata[0]["shortName"]] = completed_window
-                    del ens
+                if len(completed_windows) != 0:
+                    assert len(completed_windows) == len(
+                        requesters
+                    ), f"Expected {len(requesters)}, got {completed_windows.keys()}."
+                    executor.submit(
+                        ecpoint_partial, window_id, metadata, completed_windows
+                    )
+            executor.wait()
 
-            if len(completed_windows) != 0:
-                assert len(completed_windows) == len(
-                    requesters
-                ), f"Expected {len(requesters)}, got {completed_windows.keys()}."
-                executor.submit(ecpoint_partial, window_id, metadata, completed_windows)
-        executor.wait()
-
-    if recovery is not None:
-        recovery.clean_file()
+    recovery.clean_file()
 
 
 if __name__ == "__main__":

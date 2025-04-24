@@ -54,7 +54,7 @@ class MARSDecoder(eccodes.StreamReader):
     def __init__(self, stream, cache=None):
         super().__init__(stream)
         self.stack = ExitStack()
-        self.cache = cache if cache is not None else NullTarget
+        self.cache = cache if cache is not None else NullTarget()
 
     def __enter__(self):
         self.stack.enter_context(self.stream)
