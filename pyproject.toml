@@ -66,6 +66,7 @@ pproc-significance = "pproc.significance:main"
 pproc-anomaly = "pproc.anomaly:main"
 pproc-monthly-stats = "pproc.monthly_stats:main"
 pproc-config="pproc.config_generation:main"
+pproc-ecpoint = "pproc.ecpoint:main"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
