@@ -158,7 +158,7 @@ def _val_to_mars(val):
     return val.encode("utf-8")
 
 
-def _to_mars(verb: bytes, req: dict) -> bytes:
+def to_mars(verb: bytes, req: dict) -> bytes:
     def _gen_req():
         yield verb
         for key, val in req.items():
@@ -174,7 +174,7 @@ def mars_retrieve(req: dict, mars_cmd: Union[str, List[str]] = "mars", tmpdir=No
         req_file = stack.enter_context(NamedTemporaryFile(dir=tmpdir))
         fifo = stack.enter_context(FIFO(dir=tmpdir))
         req['target'] = '"' + fifo.path + '"'
-        req_s = _to_mars(b"retrieve", req)
+        req_s = to_mars(b"retrieve", req)
         req_file.write(req_s + b"\n")
         req_file.flush()
         cmd = shlex.split(mars_cmd) if isinstance(mars_cmd, str) else mars_cmd

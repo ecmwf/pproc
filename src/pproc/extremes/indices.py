@@ -1,12 +1,12 @@
 from abc import ABCMeta, abstractmethod
-from typing import Any, Container, Dict
+from typing import Any, Dict
 
 from earthkit.meteo import extreme
 from eccodes import GRIBMessage
 import numpy as np
 
 from pproc import common
-from pproc.common.io import Target
+from pproc.config.targets import Target
 from pproc.extremes.grib import (
     cpf_template,
     efi_template,
@@ -47,11 +47,11 @@ class EFI(Index):
         if in_template.get("type") in ["cf", "fc"]:
             efi_control = extreme.efi(clim, ens[:1, :], self.eps)
             template_efi = efi_template_control(out_template)
-            common.write_grib(target, template_efi, efi_control)
+            common.io.write_grib(target, template_efi, efi_control)
 
         efi = extreme.efi(clim, ens, self.eps)
         template_efi = efi_template(out_template)
-        common.write_grib(target, template_efi, efi)
+        common.io.write_grib(target, template_efi, efi)
 
 
 class SOT(Index):
@@ -71,7 +71,7 @@ class SOT(Index):
         for perc in self.sot:
             sot = extreme.sot(clim, ens, perc, self.eps)
             template_sot = sot_template(out_template, perc)
-            common.write_grib(target, template_sot, sot)
+            common.io.write_grib(target, template_sot, sot)
 
 
 class CPF(Index):
@@ -97,7 +97,7 @@ class CPF(Index):
             symmetric=self.symmetric,
         )
         template_cpf = cpf_template(out_template)
-        common.write_grib(target, template_cpf, cpf)
+        common.io.write_grib(target, template_cpf, cpf)
 
 
 _INDICES = {"efi": EFI, "sot": SOT, "cpf": CPF}
@@ -105,11 +105,9 @@ SUPPORTED_INDICES = ["efi", "sot", "cpf"]
 
 
 def create_indices(
-    options: Dict[str, Any], default_indices: Container[str] = ()
+    compute_indices: list[str], options: Dict[str, Any]
 ) -> Dict[str, Index]:
     indices = {}
-    for index, index_cls in _INDICES.items():
-        enabled = options.get(f"compute_{index}", index in default_indices)
-        if enabled:
-            indices[index] = index_cls(options)
+    for index in compute_indices:
+        indices[index] = _INDICES[index](options)
     return indices

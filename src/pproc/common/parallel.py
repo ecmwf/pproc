@@ -1,14 +1,15 @@
 import concurrent.futures as fut
-from typing import List, Union
-import psutil
 import os
 import sys
-import multiprocessing
+from typing import List
+import signal
+
+import psutil
 from meters import ResourceMeter
 
-from pproc.common import io
 from pproc.common.param_requester import ParamRequester
 from pproc.common.utils import delayed_map, dict_product
+from pproc.config.base import Parallelisation
 
 
 class SynchronousExecutor(fut.Executor):
@@ -71,7 +72,26 @@ class QueueingExecutor(fut.ProcessPoolExecutor):
             future.result()
 
 
-def parallel_processing(process, plan, n_par, initializer=None, initargs=()):
+def create_executor(options: Parallelisation) -> fut.Executor:
+    return (
+        SynchronousExecutor()
+        if options.n_par_compute == 1
+        else QueueingExecutor(
+            options.n_par_compute,
+            options.queue_size,
+            initializer=signal.signal,
+            initargs=(signal.SIGTERM, signal.SIG_DFL),
+        )
+    )
+
+
+def parallel_processing(
+    process,
+    plan,
+    n_par,
+    initializer=signal.signal,
+    initargs=(signal.SIGTERM, signal.SIG_DFL),
+):
     """Run a processing function in parallel
 
     Parameters
@@ -101,38 +121,34 @@ def parallel_processing(process, plan, n_par, initializer=None, initargs=()):
             future.result()
 
 
-def fdb_retrieve(
-    data_requesters: List[ParamRequester], **kwargs
-):
+def _retrieve(data_requesters: List[ParamRequester], **kwargs):
     """
     Retrieve data function for multiple data requests
     with retrieve_data method. If requested, grib template messages are written to
     file and their filename returned
 
     :param data_requesters: list of objects with retrieve_data method
-    accepting arguments (fdb, **kwargs)
     :param kwargs: keys to retrieve data for (must include step)
     :return: list of retrieved (metadata, data) tuples
     """
     ids = ", ".join(f"{k}={v}" for k, v in kwargs.items())
     with ResourceMeter(f"Retrieve {ids}"):
-        all_fields = []
-        fdb = io.fdb()
+        collated_data = []
         for requester in data_requesters:
-            all_fields.append(requester.retrieve_data(fdb, **kwargs))
-        return all_fields
+            collated_data.append(requester.retrieve_data(**kwargs))
+        return collated_data
 
 
 def parallel_data_retrieval(
     num_processes: int,
     dims: dict,
     data_requesters: List[ParamRequester],
-    initializer=None,
-    initargs=(),
+    initializer=signal.signal,
+    initargs=(signal.SIGTERM, signal.SIG_DFL),
 ):
     """
     Multiprocess retrieve data function from multiple data requests
-    with retrieve_data method. If grib_to_file is true then message templates from the fdb requests are
+    with retrieve_data method. If grib_to_file is true then message templates from the requests are
     written to file and the filename returned with the data, else the message template itself is returned.
     If extra_dims is not empty each tuple produced will have the dict of extra keys as its first element.
 
@@ -154,7 +170,7 @@ def parallel_data_retrieval(
         delay = 0 if num_processes == 1 else num_processes
         submit = lambda keys: (
             keys,
-            executor.submit(fdb_retrieve, data_requesters, **keys),
+            executor.submit(_retrieve, data_requesters, **keys),
         )
         requests = dict_product(dims)
         for keys, future in delayed_map(delay, submit, requests):
@@ -171,13 +187,3 @@ def sigterm_handler(signum, handler):
     for process in children:
         process.terminate()
     sys.exit()
-
-
-_manager = None
-
-
-def shared_list():
-    global _manager
-    if _manager is None:
-        _manager = multiprocessing.Manager()
-    return _manager.list()

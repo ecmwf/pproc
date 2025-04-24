@@ -1,33 +1,31 @@
-num_members: 6
-out_keys:
-  expver: "0001"
-  type: ep
-  localDefinitionNumber: 5
-  bitsPerValue: 8
 parameters:
   t850:
-    in: 130
-    in_keys:
-      interpolate:
-        grid: O640
-        intgrid: none
-        legendre-loader: shmem
-        matrix-loader: file-io
+    sources:
+      fc:
+        request:
+          param: 130
+          interpolate:
+            grid: O640
+            intgrid: none
+            legendre-loader: shmem
+            matrix-loader: file-io
+      clim:
+        request:
+          param: 130
+          interpolate:
+            grid: O640
+            intgrid: none
+            legendre-loader: shmem
+            matrix-loader: file-io
+          step:
+            0: 12
+            12: 24
+            24: 36
     accumulations:
       step:
         type: legacywindow
-        steps:
-        - interval: 12
-          start_step: 0
-          end_step: 24
         windows:
-        - periods:
-          - range:
-            - 0
-            - 0
-          - range:
-            - 12
-            - 12
+        - coords: [[0], [12]]
           thresholds:
           - out_paramid: 131022
             comparison: <
@@ -35,12 +33,9 @@ parameters:
           - out_paramid: 131025
             comparison: '>'
             value: 8
-          grib_set:
+          metadata:
             bitsPerValue: 24
-        - periods:
-          - range:
-            - 0
-            - 24
+        - coords: [[0, 12, 24]]
           window_operation: mean
           include_start_step: true
           thresholds:
@@ -50,16 +45,10 @@ parameters:
           - out_paramid: 131021
             comparison: '>='
             value: 2
-          grib_set:
+          metadata:
             bitsPerValue: 24
         std_anomaly_windows:
-        - periods:
-          - range:
-            - 0
-            - 0
-          - range:
-            - 12
-            - 12
+        - coords: [[0], [12]]
           thresholds:
           - out_paramid: 133093
             comparison: '>'
@@ -68,7 +57,7 @@ parameters:
             comparison: <
             value: -1
             limit_type: lower
-          grib_set:
+          metadata:
             localDefinitionNumber: 30
             bitsPerValue: 24
             edition: 2
@@ -81,21 +70,9 @@ parameters:
             packingType: grid_ccsds
             scaleFactorOfUpperLimit: MISSING
             scaledValueOfUpperLimit: MISSING
-    clim:
-      in: 130
-      in_keys:
-        interpolate:
-          grid: O640
-          intgrid: none
-          legendre-loader: shmem
-          matrix-loader: file-io
-        step:
-          0: 12
-          12: 24
-          24: 36
 sources:
-  fdb:
-    ens:
+  fc:
+    request:
       - class: od
         stream: enfo
         expver: '0001'
@@ -114,7 +91,10 @@ sources:
         domain: g
         date: 20240507
         time: 12
-    clim:
+        number: [1, 2, 3, 4, 5]
+    type: fdb
+  clim:
+    request:
       - class: od
         stream: efhs
         expver: '0001'
@@ -134,3 +114,13 @@ sources:
         date: 20240506
         domain: g
         time: 00
+    type: fdb
+outputs:
+  default:
+    metadata:
+      expver: "0001"
+      type: ep
+      localDefinitionNumber: 5
+      bitsPerValue: 8
+    target:
+      type: fdb

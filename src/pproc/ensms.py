@@ -10,23 +10,24 @@
 # does it submit to any jurisdiction.
 import functools
 import sys
-from datetime import datetime
 import signal
-from meters import ResourceMeter
-import numpy as np
 
 import eccodes
+import numpy as np
+from conflator import Conflator
+from meters import ResourceMeter
 
 from pproc import common
-from pproc.common import parallel
 from pproc.common.accumulation import Accumulator
+from pproc.common.accumulation_manager import AccumulationManager
 from pproc.common.parallel import (
-    sigterm_handler,
-    SynchronousExecutor,
-    QueueingExecutor,
+    create_executor,
     parallel_data_retrieval,
+    sigterm_handler,
 )
 from pproc.common.param_requester import ParamConfig, ParamRequester
+from pproc.common.recovery import create_recovery, BaseRecovery
+from pproc.config.types import EnsmsConfig
 
 
 def template_ensemble(
@@ -42,47 +43,10 @@ def template_ensemble(
     return template_ens
 
 
-class EnsmsConfig(common.Config):
-    def __init__(self, args):
-        super().__init__(args)
-
-        self.members = int(self.options["num_members"])
-        self.total_fields = self.options.get("total_fields", self.members)
-        self.date = datetime.strptime(str(self.options["fc_date"]), "%Y%m%d%H")
-        self.root_dir = self.options["root_dir"]
-        self.sources = self.options.get("sources", {})
-
-        self.n_par_read = self.options.get("n_par_read", 1)
-        self.n_par_compute = self.options.get("n_par_compute", 1)
-        self.window_queue_size = self.options.get("queue_size", self.n_par_compute)
-
-        self.out_keys = self.options.get("out_keys", {})
-        self.out_keys_em = {"type": "em", **self.options.get("out_keys_em", {})}
-        self.out_keys_es = {"type": "es", **self.options.get("out_keys_es", {})}
-
-        self.parameters = [
-            ParamConfig(pname, popt, overrides=self.override_input)
-            for pname, popt in self.options["params"].items()
-        ]
-        self.steps = self.options.get("steps", [])
-        self.windows = self.options.get("windows", [])
-
-        for attr in ["out_mean", "out_std"]:
-            location = getattr(args, attr)
-            target = common.io.target_from_location(
-                location, overrides=self.override_output
-            )
-            if self.n_par_compute > 1:
-                target.enable_parallel(parallel)
-            if args.recover:
-                target.enable_recovery()
-            self.__setattr__(attr, target)
-
-
 def ensms_iteration(
     config: EnsmsConfig,
     param: ParamConfig,
-    recovery: common.Recovery,
+    recovery: BaseRecovery,
     window_id: str,
     accum: Accumulator,
     template_ens: eccodes.GRIBMessage,
@@ -95,88 +59,62 @@ def ensms_iteration(
     axes = tuple(range(ens.ndim - 1))
     with ResourceMeter(f"Window {window_id}: write mean output"):
         mean = np.mean(ens, axis=axes)
-        template_mean = template_ensemble(template_ens, accum, config.out_keys_em)
+        out_mean = config.outputs.mean
+        template_mean = template_ensemble(template_ens, accum, out_mean.metadata)
         template_mean.set_array("values", common.io.nan_to_missing(template_mean, mean))
-        config.out_mean.write(template_mean)
-        config.out_mean.flush()
+        out_mean.target.write(template_mean)
 
     with ResourceMeter(f"Window {window_id}: write std output"):
         std = np.std(ens, axis=axes)
-        template_std = template_ensemble(template_ens, accum, config.out_keys_es)
+        out_std = config.outputs.std
+        template_std = template_ensemble(template_ens, accum, out_std.metadata)
         template_std.set_array("values", common.io.nan_to_missing(template_std, std))
-        config.out_std.write(template_std)
-        config.out_std.flush()
+        out_std.target.write(template_std)
 
-    recovery.add_checkpoint(param.name, window_id)
+    out_mean.target.flush()
+    out_std.target.flush()
+    recovery.add_checkpoint(param=param.name, window=window_id)
 
 
-def main(args=None):
+def main():
     sys.stdout.reconfigure(line_buffering=True)
     signal.signal(signal.SIGTERM, sigterm_handler)
 
-    parser = common.default_parser("Calculate mean/standard deviation")
-    parser.add_argument("--in-ens", required=True, help="Input ensemble")
-    parser.add_argument("--out-mean", required=True, help="Target for mean")
-    parser.add_argument(
-        "--out-std", required=True, help="Target for standard deviation"
-    )
-    args = parser.parse_args(args)
-    cfg = EnsmsConfig(args)
-    recover = common.Recovery(cfg.root_dir, args.config, cfg.date, args.recover)
-    last_checkpoint = recover.last_checkpoint()
+    cfg = Conflator(app_name="pproc-ensms", model=EnsmsConfig).load()
+    cfg.print()
+    recover = create_recovery(cfg)
 
-    executor = (
-        SynchronousExecutor()
-        if cfg.n_par_compute == 1
-        else QueueingExecutor(
-            cfg.n_par_compute,
-            cfg.window_queue_size,
-            initializer=signal.signal,
-            initargs=(signal.SIGTERM, signal.SIG_DFL),
-        )
-    )
-
-    with executor:
+    with create_executor(cfg.parallelisation) as executor:
         for param in cfg.parameters:
-            out_key_kwargs = {"paramId": param.out_paramid} if param.out_paramid else {}
-            window_manager = common.WindowManager(
-                param.window_config(cfg.windows, cfg.steps),
-                param.out_keys(cfg.out_keys, **out_key_kwargs),
+            accum_manager = AccumulationManager.create(
+                param.accumulations,
+                {
+                    **cfg.outputs.default.metadata,
+                    **param.metadata,
+                },
             )
 
-            if last_checkpoint:
-                if param.name not in last_checkpoint:
-                    print(f"Recovery: skipping completed param {param.name}")
-                    continue
-                checkpointed_windows = [
-                    recover.checkpoint_identifiers(x)[1]
-                    for x in recover.checkpoints
-                    if param.name in x
-                ]
-                new_start = window_manager.delete_windows(checkpointed_windows)
-                print(f"Recovery: param {param.name} looping from step {new_start}")
-                last_checkpoint = None  # All remaining params have not been run
+            checkpointed_windows = [
+                x["window"] for x in recover.computed(param=param.name)
+            ]
+            accum_manager.delete(checkpointed_windows)
 
             requester = ParamRequester(
                 param,
                 cfg.sources,
-                args.in_ens,
-                cfg.members,
                 cfg.total_fields,
             )
             iteration = functools.partial(ensms_iteration, cfg, param, recover)
             for keys, retrieved_data in parallel_data_retrieval(
-                cfg.n_par_read,
-                window_manager.dims,
+                cfg.parallelisation.n_par_read,
+                accum_manager.dims,
                 [requester],
-                initializer=signal.signal,
-                initargs=(signal.SIGTERM, signal.SIG_DFL),
             ):
                 step = keys["step"]
                 with ResourceMeter(f"Process step {step}"):
                     metadata, data = retrieved_data[0]
 
-                    completed_windows = window_manager.update_windows(
+                    completed_windows = accum_manager.feed(
                         keys,
                         data,
                     )
@@ -188,4 +126,4 @@ def main(args=None):
 
 
 if __name__ == "__main__":
-    main(sys.argv)
+    sys.exit(main())

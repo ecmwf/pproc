@@ -5,6 +5,7 @@ import thermofeel
 from meters import metered
 
 from pproc import common
+from pproc.config.io import Output
 
 logger = logging.getLogger(__name__)
 
@@ -114,18 +115,13 @@ def validate_utci(utci, misses, lats, lons):
 
 
 def get_datetime(fields: earthkit.data.FieldList):
-    dt = fields.sel(param="2t").datetime()
-    base_time = dt["base_time"][0]
-    valid_time = dt["valid_time"][0]
+    dt = fields[0].datetime()
+    base_time = dt["base_time"]
+    valid_time = dt["valid_time"]
     assert all(
         x == valid_time for x in fields.datetime()["valid_time"]
     ), f"Obtained different valid times {[x for x in fields.datetime()['valid_time']]}"  # verify valid time all same
     return base_time, valid_time
-
-
-def get_step(fields: earthkit.data.FieldList):
-    temp = fields.sel(param="2t")
-    return temp[0].metadata().get("step")
 
 
 def latlon(fields: earthkit.data.FieldList):
@@ -170,13 +166,15 @@ def step_interval(fields) -> int:
 
 
 def write(
-    target: common.io.Target,
+    output: Output,
     ds: "earthkit.data.FieldList | earthkit.data.core.fieldlist.Field",
 ):
     if isinstance(ds, earthkit.data.FieldList):
         for f in ds:
-            message = f.metadata()._handle
-            common.io.write_grib(target, message, f.values)
+            message = f.metadata()._handle.copy()
+            message.set(output.metadata)
+            common.io.write_grib(output.target, message, f.values)
     else:
-        message = ds.metadata()._handle
-        common.io.write_grib(target, message, ds.values)
+        message = ds.metadata()._handle.copy()
+        message.set(output.metadata)
+        common.io.write_grib(output.target, message, ds.values)

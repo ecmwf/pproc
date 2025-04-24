@@ -1,51 +1,51 @@
-fc_date: '2024050712'
-out_keys:
-  gribTablesVersionNo: 128
-  indicatorOfParameter: 10
-  mars.expver: '0001'
+parallelisation: 1
 sources:
-  fdb:
-    ens:
-    - class: od
-      domain: g
-      expver: '0001'
-      levtype: pl
-      stream: enfo
-      type: cf
-      date: 20240507
-      time: 12
-    - class: od
-      domain: g
-      expver: '0001'
-      levtype: pl
-      stream: enfo
-      type: pf
-      date: 20240507
-      time: 12
-    det:
-      class: od
-      domain: g
-      expver: '0001'
-      levtype: pl
-      stream: oper
-      type: fc
-      date: 20240507
-      time: 12
+  fc:
+    request:
+      - class: od
+        domain: g
+        expver: '0001'
+        levtype: pl
+        stream: enfo
+        type: cf
+        date: 20240507
+        time: 12
+      - class: od
+        domain: g
+        expver: '0001'
+        levtype: pl
+        stream: enfo
+        type: pf
+        date: 20240507
+        time: 12
+        number: [1, 2, 3, 4, 5]
+    type: fdb
 parameters:
   wind:
-    in: [138, 155]
-    combine_operation: norm
-    in_keys:
-      interpolate:
-        grid: O640
-        intgrid: none
-        legendre-loader: shmem
-        matrix-loader: file-io
-        vod2uv: true
+    sources:
+      fc:
+        request:
+          param: [138, 155]
+          interpolate:
+            grid: O640
+            intgrid: none
+            legendre-loader: shmem
+            matrix-loader: file-io
+            vod2uv: true
+    preprocessing:
+      - operation: reshape
+        shape: 2
+      - operation: norm
     accumulations:
       levelist:
         coords: [[250], [850]]
       step:
         coords: [[0], [3], [6]]
-num_members: 6
-n_par: 1
+outputs:
+  default:
+    metadata:
+      gribTablesVersionNo: 128
+      indicatorOfParameter: 10
+      mars.expver: '0001'
+    target:
+      type: fdb

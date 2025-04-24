@@ -1,8 +1,7 @@
-
-from contextlib import ExitStack
 import copy
-from io import BytesIO
 import pprint
+from contextlib import ExitStack
+from io import BytesIO
 from typing import Any, Callable, Iterable, Iterator, List, Optional, Union
 
 import eccodes
@@ -12,17 +11,22 @@ from pproc.common.io import FileTarget, NullTarget, fdb, fdb_retrieve, split_loc
 from pproc.common.mars import mars_retrieve
 
 
-def _open_dataset_marslike(name: str, retrieve_func: Callable[[dict, dict], eccodes.reader.ReaderBase], reqs: Union[dict, Iterable[dict]], **kwargs: Any) -> Iterator[eccodes.reader.ReaderBase]:
+def _open_dataset_marslike(
+    name: str,
+    retrieve_func: Callable[[dict, dict], eccodes.reader.ReaderBase],
+    reqs: Union[dict, Iterable[dict]],
+    **kwargs: Any,
+) -> Iterator[eccodes.reader.ReaderBase]:
     if not isinstance(reqs, list):
         reqs = [reqs]
-    update_func = kwargs.pop('update', None)
-    interp_extra = kwargs.pop('interpolate', {})
+    update_func = kwargs.pop("update", None)
+    interp_extra = kwargs.pop("interpolate", {})
     for req in reqs:
         req = copy.deepcopy(req)
         req.update(kwargs)
         if update_func is not None:
             update_func(req)
-        interp = req.pop('interpolate', None)
+        interp = req.pop("interpolate", None)
         if interp_extra:
             if interp is None:
                 interp = {}
@@ -40,7 +44,9 @@ def _fdb_retrieve_interp(request: dict, mir_options: dict) -> eccodes.reader.Rea
     return eccodes.StreamReader(fdb_reader)
 
 
-def _open_dataset_fdb(reqs: Union[dict, Iterable[dict]], **kwargs: Any) -> Iterator[eccodes.reader.ReaderBase]:
+def _open_dataset_fdb(
+    reqs: Union[dict, Iterable[dict]], path: Optional[str] = None, **kwargs: Any
+) -> Iterator[eccodes.reader.ReaderBase]:
     return _open_dataset_marslike("FDB", _fdb_retrieve_interp, reqs, **kwargs)
 
 
@@ -64,8 +70,13 @@ class MARSDecoder(eccodes.StreamReader):
         return msg
 
 
-def _mars_retrieve_interp(request: dict, mir_options: dict, mars_cmd: Union[str, List[str]] = "mars", tmpdir=None) -> eccodes.reader.ReaderBase:
-    cache_path = request.pop('cache', None)
+def _mars_retrieve_interp(
+    request: dict,
+    mir_options: dict,
+    mars_cmd: Union[str, List[str]] = "mars",
+    tmpdir=None,
+) -> eccodes.reader.ReaderBase:
+    cache_path = request.pop("cache", None)
     cache = None if cache_path is None else FileTarget(cache_path.format_map(request))
     mars_reader = mars_retrieve(request, mars_cmd=mars_cmd, tmpdir=tmpdir)
     if mir_options:
@@ -78,7 +89,9 @@ def _mars_retrieve_interp(request: dict, mir_options: dict, mars_cmd: Union[str,
     return MARSDecoder(mars_reader, cache=cache)
 
 
-def _open_dataset_mars(reqs: Union[dict, Iterable[dict]], **kwargs: Any) -> Iterator[eccodes.reader.ReaderBase]:
+def _open_dataset_mars(
+    reqs: Union[dict, Iterable[dict]], path: Optional[str] = None, **kwargs: Any
+) -> Iterator[eccodes.reader.ReaderBase]:
     return _open_dataset_marslike("MARS", _mars_retrieve_interp, reqs, **kwargs)
 
 
@@ -87,7 +100,7 @@ class FilteredReader(eccodes.reader.ReaderBase):
         super().__init__()
         self.wrapped = wrapped
         self.filters = kwargs
-        update_func = self.filters.pop('update', None)
+        update_func = self.filters.pop("update", None)
         if update_func is not None:
             update_func(self.filters)
 
@@ -118,16 +131,18 @@ class FilteredReader(eccodes.reader.ReaderBase):
         return self.wrapped.__exit__(exc_type, exc_value, traceback)
 
 
-def _open_dataset_fileset(reqs: Union[dict, Iterable[dict]], **kwargs: Any) -> Iterator[eccodes.reader.ReaderBase]:
+def _open_dataset_fileset(
+    reqs: Union[dict, Iterable[dict]], **kwargs: Any
+) -> Iterator[eccodes.reader.ReaderBase]:
     if not isinstance(reqs, list):
         reqs = [reqs]
-    update_func = kwargs.pop('update', None)
+    update_func = kwargs.pop("update", None)
     for req in reqs:
         req = copy.deepcopy(req)
         req.update(kwargs)
         if update_func is not None:
             update_func(req)
-        template = req.pop('location')
+        template = req.pop("location")
         path = template.format(**req)
         print(f"File path: {path!r}")
         print(f"Request: {req!r}")
@@ -158,13 +173,15 @@ def open_dataset(config: dict, loc: str, **kwargs) -> eccodes.reader.ReaderBase:
 
 
 _DATASET_BACKENDS = {
-    'fdb': _open_dataset_fdb,
-    'mars': _open_dataset_mars,
-    'fileset': _open_dataset_fileset,
+    "fdb": _open_dataset_fdb,
+    "mars": _open_dataset_mars,
+    "fileset": _open_dataset_fileset,
 }
 
 
-def open_multi_dataset(config: dict, loc: str, **kwargs) -> Iterable[eccodes.reader.ReaderBase]:
+def open_multi_dataset(
+    config: dict, loc: str, **kwargs
+) -> Iterable[eccodes.reader.ReaderBase]:
     """Open a multi-part GRIB dataset
 
     Parameters
@@ -181,8 +198,8 @@ def open_multi_dataset(config: dict, loc: str, **kwargs) -> Iterable[eccodes.rea
     list[eccodes.reader.ReaderBase]
         GRIB readers
     """
-    type_, ident = split_location(loc, default='file')
-    if type_ == 'file':
+    type_, ident = split_location(loc, default="file")
+    if type_ == "file":
         return [FilteredReader(eccodes.FileReader(ident), **kwargs)]
     reqs = config.get(type_, {}).get(ident, None)
     open_func = _DATASET_BACKENDS.get(type_, None)

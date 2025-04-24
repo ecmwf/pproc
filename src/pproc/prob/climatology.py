@@ -1,9 +1,10 @@
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, Optional
 import numpy as np
 
 import eccodes
 
 from pproc.common.param_requester import ParamRequester, ParamConfig
+from pproc.config.io import SourceCollection
 
 
 class Climatology(ParamRequester):
@@ -14,11 +15,18 @@ class Climatology(ParamRequester):
     def __init__(
         self,
         param: ParamConfig,
-        sources: dict,
-        loc: str,
+        sources: SourceCollection,
+        src_name: Optional[str] = None,
     ):
-        super().__init__(param, sources, loc, 1, 2, self._index_func)
-        self.steps = self.param._in_keys.pop("step", None)
+        super().__init__(
+            param,
+            sources,
+            total=2,
+            src_name=src_name,
+            index_func=self._index_func,
+        )
+        clim_request = param.sources["clim"]["request"]
+        self.steps = clim_request.get("step", None)
 
     @classmethod
     def _index_func(cls, msg: eccodes.GRIBMessage) -> int:
@@ -28,20 +36,9 @@ class Climatology(ParamRequester):
             return 1
         raise ValueError(f"Unexpected message type {msg.get('type')}")
 
-    @classmethod
-    def grib_header(cls, grib_msg):
-        """
-        Get climatology period from grib message
-        """
-        return {
-            "climateDateFrom": grib_msg.get("climateDateFrom"),
-            "climateDateTo": grib_msg.get("climateDateTo"),
-            "referenceDate": grib_msg.get("referenceDate"),
-        }
-
     def retrieve_data(
-        self, fdb, step: int, **kwargs
-    ) -> Tuple[List[Dict], Tuple[np.array, np.array]]:
+        self, step: int, **kwargs
+    ) -> Tuple[list[Dict], Tuple[np.array, np.array]]:
         """
         Retrieves data for climatology mean and standard deviation
 
@@ -51,5 +48,10 @@ class Climatology(ParamRequester):
         and
         """
         cstep = step if not self.steps else self.steps[step]
-        metadata, ret = super().retrieve_data(fdb, step=cstep, **kwargs)
-        return [self.grib_header(metadata[0])], ret
+        metadata, ret = super().retrieve_data(step=cstep, **kwargs)
+        clim_grib = {
+            "climateDateFrom": metadata[0].get("climateDateFrom"),
+            "climateDateTo": metadata[0].get("climateDateTo"),
+            "referenceDate": metadata[0].get("referenceDate"),
+        }
+        return [clim_grib], ret
