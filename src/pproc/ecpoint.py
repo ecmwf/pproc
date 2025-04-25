@@ -273,7 +273,7 @@ def main():
                                 window_id = wid
                                 metadata = param_metadata
                             completed_windows[
-                                metadata[0]["shortName"]
+                                param_metadata[0]["shortName"]
                             ] = completed_window
                         del ens
 
