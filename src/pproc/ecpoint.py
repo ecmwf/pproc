@@ -203,7 +203,7 @@ def ecpoint_iteration(
     recovery.add_checkpoint(param=param.name, window=window_id)
 
 
-def main(args: List[str] = sys.argv[1:]):
+def main():
     sys.stdout.reconfigure(line_buffering=True)
     signal.signal(signal.SIGTERM, sigterm_handler)
 
@@ -286,7 +286,7 @@ def main(args: List[str] = sys.argv[1:]):
                     )
             executor.wait()
 
-    recovery.clean_file()
+    recover.clean_file()
 
 
 if __name__ == "__main__":
