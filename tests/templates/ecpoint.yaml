@@ -5,9 +5,6 @@ parameters:
       fc: 
         request:
           param: 228
-          interpolate:
-            grid: O640
-            interpolation: grid-box-average
     preprocessing:
       - operation: scale
         value: 1000
