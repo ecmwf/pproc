@@ -266,12 +266,14 @@ def main():
                 ids = ", ".join(f"{k}={v}" for k, v in keys.items())
                 completed_windows = {}
                 window_id = None
+                metadata = None
                 with ResourceMeter(f"{ids}: Compute accumulation"):
                     for index, param_data in enumerate(retrieved_data):
-                        metadata, ens = param_data
+                        param_metadata, ens = param_data
                         for wid, completed_window in managers[index].feed(keys, ens):
                             if index == 0:
                                 window_id = wid
+                                metadata = param_metadata
                             completed_windows[
                                 metadata[0]["shortName"]
                             ] = completed_window
