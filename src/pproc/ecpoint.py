@@ -15,6 +15,7 @@ import earthkit.data
 from earthkit.data.readers.grib.metadata import StandAloneGribMetadata
 from earthkit.data.readers.grib.codes import GribCodesHandle
 
+from pproc.config.param import ParamConfig
 from pproc.config.types import ECPointConfig, ECPointParamConfig
 from pproc.config.io import SourceCollection
 from pproc.common.param_requester import ParamRequester, IndexFunc
@@ -147,6 +148,27 @@ def compute_weather_types(
     return pt_bc_allens_allwt, grid_bc_allens_allwt, wt_allens_allwt
 
 
+def to_ekmetadata(metadata: list[GribMetadata]) -> list[StandAloneGribMetadata]:
+    return [
+        StandAloneGribMetadata(
+            GribCodesHandle(eccodes.codes_clone(x._handle), None, None)
+        )
+        for x in metadata
+    ]
+
+
+def retrieve_sr24(
+    config: ECPointConfig, param: ParamConfig, step: int
+) -> earthkit.data.FieldList:
+    requester = ParamRequester(param, config.sources, config.total_fields, "fc")
+    end_step = max(step, 24)
+    _, start_data = requester.retrieve_data(end_step - 24)
+    metadata, end_data = requester.retrieve_data(end_step)
+    return earthkit.data.FieldList.from_array(
+        end_data - start_data, to_ekmetadata(metadata)
+    )
+
+
 def ecpoint_iteration(
     config: ECPointConfig,
     param: ECPointParamConfig,
@@ -155,13 +177,22 @@ def ecpoint_iteration(
     input_params: earthkit.data.FieldList,
     out_keys: dict,
 ):
-    logging.info(f"Processing {window_id}, fields: \n {input_params.ls(namespace='mars')}")
+    if len(input_params.sel(param="cdir")) == 0:
+        # Fetch solar radiation if not present, which can be the case because it always has to use 24hr windows
+        input_params += retrieve_sr24(config, param.cdir, int(window_id.split("-")[1]))
+
+    logging.info(
+        f"Processing {window_id}, fields: \n {input_params.ls(namespace='mars')}"
+    )
     with ResourceMeter("Compute predictant and predictors"):
         tp = input_params.sel(param="tp").values
         maxmucape = input_params.sel(param="mxcape6").values
         sr = input_params.sel(param="cdir").values
         cpr = ratio(input_params.sel(param="cp").values, tp)
-        ws700 = np.sqrt(input_params.sel(param="u").values ** 2 + input_params.sel(param="v").values ** 2)
+        ws700 = np.sqrt(
+            input_params.sel(param="u").values ** 2
+            + input_params.sel(param="v").values ** 2
+        )
 
     pt_bc_allens_allwt, grid_bc_allens_allwt, wt_allens_allwt = compute_weather_types(
         tp, cpr, ws700, maxmucape, sr, config.bp_location, config.fer_location
@@ -172,18 +203,14 @@ def ecpoint_iteration(
     out_wt = config.outputs.wt
     for index, field in enumerate(input_params.sel(param="tp")):
         template = field.metadata()._handle
-        bs_message = construct_message(
-            template, {**out_bs.metadata, **out_keys}
-        )
+        bs_message = construct_message(template, {**out_bs.metadata, **out_keys})
         bs_message.set_array(
             "values", nan_to_missing(bs_message, grid_bc_allens_allwt[index])
         )
         out_bs.target.write(bs_message)
         out_bs.target.flush()
 
-        wt_message = construct_message(
-            template, {**out_wt.metadata, **out_keys}
-        )
+        wt_message = construct_message(template, {**out_wt.metadata, **out_keys})
         wt_message.set_array(
             "values", nan_to_missing(wt_message, wt_allens_allwt[index])
         )
@@ -200,18 +227,13 @@ def ecpoint_iteration(
             pt_bc_allens_allwt, config.quantiles, method="sort"
         ):
             # TODO: check keys that should be set for each percentile
-            message = construct_message(
-                template, {**out_perc.metadata, **out_keys}
-            )
+            message = construct_message(template, {**out_perc.metadata, **out_keys})
             message.set_array("values", nan_to_missing(message, quantile))
             out_perc.target.write(message)
             out_perc.target.flush()
 
     recovery.add_checkpoint(param=param.name, window=window_id)
 
-
-def to_ekmetadata(metadata: list[GribMetadata]) -> list[StandAloneGribMetadata]:
-    return [StandAloneGribMetadata(GribCodesHandle(eccodes.codes_clone(x._handle), None, None)) for x in metadata]
 
 def main():
     sys.stdout.reconfigure(line_buffering=True)
@@ -290,9 +312,7 @@ def main():
                             )
                         del ens
                     if fields is not None:
-                        executor.submit(
-                            ecpoint_partial, window_id, fields, out_keys
-                        )
+                        executor.submit(ecpoint_partial, window_id, fields, out_keys)
             executor.wait()
 
     recover.clean_file()

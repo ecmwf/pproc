@@ -1,5 +1,4 @@
-import os
-from typing import Optional, List, Any, Annotated, Iterator
+from typing import Optional, List, Any, Annotated, ClassVar
 from typing_extensions import Self, Union
 from pydantic import model_validator, Field, Tag, Discriminator
 import numpy as np
@@ -340,7 +339,27 @@ class ThermoConfig(BaseConfig):
 
 
 class ECPointParamConfig(ParamConfig):
-    dependencies: list[ParamConfig]
+    u: ParamConfig
+    v: ParamConfig
+    cp: ParamConfig
+    cdir: ParamConfig
+    cape: ParamConfig
+    _deps: ClassVar[list[str]] = ["u", "v", "cp", "cdir", "cape"]
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_deps(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+
+        for param in cls._deps:
+            param_config = data[param]
+            param_config.setdefault("name", param)
+        return data
+
+    @property
+    def dependencies(self) -> list[ParamConfig]:
+        return [getattr(self, dep) for dep in self._deps]
 
 
 class ECPointConfig(QuantilesConfig):
