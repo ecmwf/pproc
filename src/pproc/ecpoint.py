@@ -1,14 +1,19 @@
 import sys
-from typing import List, Dict, Optional, Tuple
+from typing import List, Optional, Tuple
 import functools
 import numpy as np
 import pandas as pd
 import signal
+import logging
+import yaml
 
 import eccodes
 from meters import ResourceMeter
 from earthkit.meteo.stats import iter_quantiles
 from conflator import Conflator
+import earthkit.data
+from earthkit.data.readers.grib.metadata import StandAloneGribMetadata
+from earthkit.data.readers.grib.codes import GribCodesHandle
 
 from pproc.config.types import ECPointConfig, ECPointParamConfig
 from pproc.config.io import SourceCollection
@@ -21,9 +26,10 @@ from pproc.common.parallel import (
     sigterm_handler,
 )
 from pproc.common.io import nan_to_missing, GribMetadata
-from pproc.common.accumulation import Accumulator
 from pproc.common.accumulation_manager import AccumulationManager
 from pproc.common.grib_helpers import construct_message
+
+logger = logging.getLogger(__name__)
 
 
 class FilteredParamRequester(ParamRequester):
@@ -99,7 +105,7 @@ def compute_weather_types(
             wt_singleens_allwt = 0  # initializes the field that will locate all the WTs within the grid boxes.
 
             for ind_wt in range(num_wt):
-                print(" - EM n.", ind_em + 1, " and WT n.", ind_wt + 1)
+                logger.info(f"Ensemble member: {ind_em + 1}, and WT: {ind_wt + 1}")
 
                 ind_inf = 0
                 ind_sup = 1
@@ -146,15 +152,16 @@ def ecpoint_iteration(
     param: ECPointParamConfig,
     recovery: Recovery,
     window_id: str,
-    metadata: list[eccodes.GRIBMessage],
-    input_params: Dict[str, Accumulator],
+    input_params: earthkit.data.FieldList,
+    out_keys: dict,
 ):
+    logging.info(f"Processing {window_id}, fields: \n {input_params.ls(namespace='mars')}")
     with ResourceMeter("Compute predictant and predictors"):
-        tp = input_params["tp"].values
-        maxmucape = input_params["mxcape6"].values
-        sr = input_params["cdir"].values
-        cpr = ratio(input_params["cp"].values, tp)
-        ws700 = np.sqrt(input_params["u"].values ** 2 + input_params["v"].values ** 2)
+        tp = input_params.sel(param="tp").values
+        maxmucape = input_params.sel(param="mxcape6").values
+        sr = input_params.sel(param="cdir").values
+        cpr = ratio(input_params.sel(param="cp").values, tp)
+        ws700 = np.sqrt(input_params.sel(param="u").values ** 2 + input_params.sel(param="v").values ** 2)
 
     pt_bc_allens_allwt, grid_bc_allens_allwt, wt_allens_allwt = compute_weather_types(
         tp, cpr, ws700, maxmucape, sr, config.bp_location, config.fer_location
@@ -163,9 +170,10 @@ def ecpoint_iteration(
     # Save the grid-scale outputs
     out_bs = config.outputs.bs
     out_wt = config.outputs.wt
-    for index, template in enumerate(metadata):
+    for index, field in enumerate(input_params.sel(param="tp")):
+        template = field.metadata()._handle
         bs_message = construct_message(
-            template, {**out_bs.metadata, **input_params["tp"].grib_keys()}
+            template, {**out_bs.metadata, **out_keys}
         )
         bs_message.set_array(
             "values", nan_to_missing(bs_message, grid_bc_allens_allwt[index])
@@ -174,7 +182,7 @@ def ecpoint_iteration(
         out_bs.target.flush()
 
         wt_message = construct_message(
-            template, {**out_wt.metadata, **input_params["tp"].grib_keys()}
+            template, {**out_wt.metadata, **out_keys}
         )
         wt_message.set_array(
             "values", nan_to_missing(wt_message, wt_allens_allwt[index])
@@ -187,12 +195,13 @@ def ecpoint_iteration(
 
     with ResourceMeter("Compute the percentiles"):
         out_perc = config.outputs.perc
+        template = input_params.sel(param="tp")[0].metadata()._handle
         for quantile in iter_quantiles(
             pt_bc_allens_allwt, config.quantiles, method="sort"
         ):
             # TODO: check keys that should be set for each percentile
             message = construct_message(
-                metadata[0], {**out_perc.metadata, **input_params["tp"].grib_keys()}
+                template, {**out_perc.metadata, **out_keys}
             )
             message.set_array("values", nan_to_missing(message, quantile))
             out_perc.target.write(message)
@@ -201,12 +210,15 @@ def ecpoint_iteration(
     recovery.add_checkpoint(param=param.name, window=window_id)
 
 
+def to_ekmetadata(metadata: list[GribMetadata]) -> list[StandAloneGribMetadata]:
+    return [StandAloneGribMetadata(GribCodesHandle(eccodes.codes_clone(x._handle), None, None)) for x in metadata]
+
 def main():
     sys.stdout.reconfigure(line_buffering=True)
     signal.signal(signal.SIGTERM, sigterm_handler)
 
     cfg = Conflator(app_name="pproc-ecpoint", model=ECPointConfig).load()
-    cfg.print()
+    logger.info(yaml.dump(cfg.model_dump(by_alias=True)))
     recover = create_recovery(cfg)
 
     with create_executor(cfg.parallelisation) as executor:
@@ -262,28 +274,25 @@ def main():
                 requesters,
             ):
                 ids = ", ".join(f"{k}={v}" for k, v in keys.items())
-                completed_windows = {}
                 window_id = None
-                metadata = None
+                fields = None
+                out_keys = {}
                 with ResourceMeter(f"{ids}: Compute accumulation"):
                     for index, param_data in enumerate(retrieved_data):
                         param_metadata, ens = param_data
                         for wid, completed_window in managers[index].feed(keys, ens):
                             if index == 0:
                                 window_id = wid
-                                metadata = param_metadata
-                            completed_windows[
-                                param_metadata[0]["shortName"]
-                            ] = completed_window
+                                out_keys = completed_window.grib_keys()
+                                fields = earthkit.data.FieldList()
+                            fields += earthkit.data.FieldList.from_array(
+                                completed_window.values, to_ekmetadata(param_metadata)
+                            )
                         del ens
-
-                if len(completed_windows) != 0:
-                    assert len(completed_windows) == len(
-                        requesters
-                    ), f"Expected {len(requesters)}, got {completed_windows.keys()}."
-                    executor.submit(
-                        ecpoint_partial, window_id, metadata, completed_windows
-                    )
+                    if fields is not None:
+                        executor.submit(
+                            ecpoint_partial, window_id, fields, out_keys
+                        )
             executor.wait()
 
     recover.clean_file()
