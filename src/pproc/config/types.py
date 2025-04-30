@@ -348,12 +348,11 @@ class ThermoConfig(BaseConfig):
 
 
 class ECPointParamConfig(ParamConfig):
-    u: ParamConfig
-    v: ParamConfig
+    wind: ParamConfig
     cp: ParamConfig
     cdir: ParamConfig
     cape: ParamConfig
-    _deps: ClassVar[list[str]] = ["u", "v", "cp", "cdir", "cape"]
+    _deps: ClassVar[list[str]] = ["wind", "cp", "cdir", "cape"]
 
     @model_validator(mode="before")
     @classmethod
@@ -380,3 +379,4 @@ class ECPointConfig(QuantilesConfig):
     fer_location: Annotated[
         str, CLIArg("--fer-loc"), Field(description="Location of FER CSV file")
     ]
+    min_predictand: float = 0.04

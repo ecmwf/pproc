@@ -55,9 +55,9 @@ class FilteredParamRequester(ParamRequester):
 
 
 def ratio(var_num, var_den):
-    var_den_bitmap = np.where(var_den == 0, 9999, var_den)
+    var_den_bitmap = np.where(var_den == 0, -9999, var_den)
     ratio_bitmap = var_num / var_den_bitmap
-    output = np.where(ratio_bitmap == 9999, 0, ratio_bitmap)
+    output = np.where(ratio_bitmap == -9999, 0, ratio_bitmap)
     return output
 
 
@@ -69,6 +69,7 @@ def compute_weather_types(
     sr: np.ndarray,
     bp_loc: str,
     fer_loc: str,
+    min_predictand: float = 0.04,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     bp_file = pd.read_csv(bp_loc, header=0, delimiter=",")
     fer_file = pd.read_csv(fer_loc, header=0, delimiter=",")
@@ -98,7 +99,7 @@ def compute_weather_types(
                 maxmucape[ind_em],
                 sr[ind_em],
             ]
-            predictand = np.where(predictand < 0.04, 0, predictand)
+            predictand = np.where(predictand < min_predictand, 0, predictand)
 
             pt_bc_singleens_allwt = np.zeros(
                 (num_fer, predictand.shape[0])
@@ -126,6 +127,7 @@ def compute_weather_types(
                     ind_sup = ind_inf + 1
 
                 wt_singleens_allwt = wt_singleens_allwt + (codes_wt[ind_wt] * tempWT)
+                wt_singleens_allwt = np.where(predictand == 0, 9999, wt_singleens_allwt)
 
                 WT_RainVals_SingleENS_SingleWT = predictand * tempWT
                 CDF_SingleENS_SingleWT = []
@@ -195,7 +197,14 @@ def ecpoint_iteration(
         )
 
     pt_bc_allens_allwt, grid_bc_allens_allwt, wt_allens_allwt = compute_weather_types(
-        tp, cpr, ws700, maxmucape, sr, config.bp_location, config.fer_location
+        tp,
+        cpr,
+        ws700,
+        maxmucape,
+        sr,
+        config.bp_location,
+        config.fer_location,
+        config.min_predictand,
     )
 
     # Save the grid-scale outputs
