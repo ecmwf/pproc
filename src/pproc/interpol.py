@@ -35,7 +35,10 @@ def main(args=None):
 
     _grid = r"^" + f + r"/" + f + r"$|^" + g + r"$"
     _area = r"^-?" + f + r"/-?" + f + r"/-?" + f + r"/-?" + f + r"$"
+    _accuracy = r"^\d+$"
+    _edition = r"^(1|2)$"
     _interpolation = r"^(linear|nn|grid-box-average|grid-box-statistics|fail)$"
+    _packing = r"^(ccsds|complex|ieee|second-order|simple)$"
     _statistics = r"^(maximum|minimum|count)$"
     _intgrid = r"^" + g + r"$|^(none|source)$"
     _truncation = r"^[1-9][0-9]*$|^none$"
@@ -66,6 +69,24 @@ def main(args=None):
         "--interpolation",
         type=_Regex(_interpolation),
         help="interpolation method (" + _interpolation + ")",
+    )
+
+    arg.add_argument(
+        "--packing",
+        type=_Regex(_packing),
+        help="packing method (GRIB packingType, " + _packing + ")",
+    )
+
+    arg.add_argument(
+        "--accuracy",
+        type=_Regex(_accuracy),
+        help="accuracy (GRIB bitsPerValue, " + _accuracy + ")",
+    )
+
+    arg.add_argument(
+        "--edition",
+        type=_Regex(_edition),
+        help="edition (GRIB edition, " + _edition + ")",
     )
 
     arg.add_argument(
@@ -115,6 +136,9 @@ def main(args=None):
         "interpolation",
         "interpolation_statistics",
         "intgrid",
+        "packing",
+        "accuracy",
+        "edition",
         "truncation",
     ]:
         if hasattr(args, k):
