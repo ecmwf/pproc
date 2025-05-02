@@ -22,7 +22,7 @@ class _Regex(object):
         self._pattern = re.compile(pattern)
 
     def __call__(self, value):
-        if not self._pattern.match(value):
+        if not self._pattern.fullmatch(value):
             raise argparse.ArgumentTypeError(
                 "must match '{}'".format(self._pattern.pattern)
             )
@@ -33,21 +33,21 @@ def main(args=None):
     g = r"[ONF][1-9][0-9]*"
     f = r"([0-9]*[.])?[0-9]+"
 
-    _grid = r"^" + f + r"/" + f + r"$|^" + g + r"$"
-    _area = r"^-?" + f + r"/-?" + f + r"/-?" + f + r"/-?" + f + r"$"
-    _accuracy = r"^\d+$"
-    _edition = r"^(1|2)$"
-    _interpolation = r"^(linear|nn|grid-box-average|grid-box-statistics|fail)$"
-    _packing = r"^(ccsds|complex|ieee|second-order|simple)$"
-    _statistics = r"^(maximum|minimum|count)$"
-    _intgrid = r"^" + g + r"$|^(none|source)$"
-    _truncation = r"^[1-9][0-9]*$|^none$"
+    _grid = f + r"/" + f + r"|" + g
+    _area = r"-?" + f + r"/-?" + f + r"/-?" + f + r"/-?" + f
+    _accuracy = r"\d+"
+    _edition = r"1|2"
+    _interpolation = r"linear|nn|grid-box-average|grid-box-statistics|fail"
+    _packing = r"ccsds|complex|ieee|second-order|simple"
+    _statistics = r"maximum|minimum|count"
+    _intgrid = g + r"|none|source"
+    _truncation = r"[1-9][0-9]*|none"
 
     grids = path.join(mir.home(), "etc", "mir", "grids.yaml")
     if path.exists(grids):
         with open(grids) as file:
             for key in yaml.safe_load(file).keys():
-                _grid = _grid + r"|^" + key + r"$"
+                _grid = _grid + r"|" + key
 
     arg = argparse.ArgumentParser()
 
