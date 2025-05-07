@@ -26,10 +26,14 @@ class ThresholdAccumulationManager(AccumulationManager):
             thresholds = step_cfg.pop("thresholds", [])
             if not thresholds:
                 raise ValueError("Step accumulation does not contain thresholds")
-            all_thresholds[window_id] = thresholds
+            all_thresholds[f"step_{window_id}"] = thresholds
 
         mgr = super().create(config, grib_keys)
-        mgr._thresholds = all_thresholds
+        mgr._thresholds = {}
+        for accum_name in mgr.accumulations.keys():
+            dims = accum_name.split(":")
+            step_name = [x for x in dims if "step" in x][0]
+            mgr._thresholds[accum_name] = all_thresholds[step_name]
         return mgr
 
     def thresholds(self, identifier: str) -> dict:

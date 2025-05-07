@@ -585,8 +585,5 @@ class Accumulator:
             dims.append((key, create_accumulation(acc_cfg)))
         if not names:
             name = None
-        elif len(dims) == 1:
-            name = next(str(v) for v in names.values())
-        else:
-            name = ":".join(f"{k}_{v}" for k, v in names.items())
+        name = ":".join(f"{k}_{v}" for k, v in names.items())
         return cls(dims, name)

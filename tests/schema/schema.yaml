@@ -88,12 +88,16 @@ config:
           operation: difference
           include_start: true
   filter:type:
-    pf/cf: 
+    pf/cf/fc: 
       filter:param:
-        "261001/261014/261015/261016/260242/260004/260005/261018/260255/261002":
+        "261016/260242/260004/260005/261018/260255":
           entrypoint: pproc-thermal-indices
-        "10":
-          entrypoint: pproc-wind
+        "261001/261002/261014/261015":
+          entrypoint: pproc-thermal-indices
+          accumulations: 
+            step:
+              operation: difference
+              include_start: true
         "*":
           entrypoint: pproc-accumulate
     em/es:
@@ -101,11 +105,7 @@ config:
       metadata: 
         perturbationNumber: 0
         bitsPerValue: 16
-      filter:param:
-        "10":
-          entrypoint: pproc-wind
-        "*": 
-          entrypoint: pproc-ensms
+      entrypoint: pproc-ensms
     efi/sot/efic:
       entrypoint: pproc-extreme
       filter:param:
@@ -207,6 +207,13 @@ config:
             value: 0.025
             local_scale_factor: 3
             metadata:
+              stepType: 'accum'
+              stepRange: '0-0' 
+              edition: 2
+              typeOfGeneratingProcess: 5
+              indicatorOfUnitForTimeIncrement: 1
+              timeIncrement: 12
+              packingType: "grid_ccsds"
               scaleFactorOfLowerLimit: 0
         "131099": 
           accumulations:
@@ -219,6 +226,13 @@ config:
             value: 0.05
             local_scale_factor: 3
             metadata:
+              stepType: 'accum'
+              stepRange: '0-0' 
+              edition: 2
+              typeOfGeneratingProcess: 5
+              indicatorOfUnitForTimeIncrement: 1
+              timeIncrement: 12
+              packingType: "grid_ccsds"
               scaleFactorOfLowerLimit: 0
         "131085": 
           accumulations:
@@ -231,6 +245,13 @@ config:
             value: 0.1
             local_scale_factor: 3
             metadata:
+              stepType: 'accum'
+              stepRange: '0-0' 
+              edition: 2
+              typeOfGeneratingProcess: 5
+              indicatorOfUnitForTimeIncrement: 1
+              timeIncrement: 12
+              packingType: "grid_ccsds"
               scaleFactorOfLowerLimit: 0
         "131064":
           accumulations:
@@ -323,6 +344,14 @@ config:
           threshold:
             comparison: ">="
             value: 10 
+            metadata:
+              edition: 2
+              productDefinitionTemplateNumber: 9
+              typeOfGeneratingProcess: 5
+              indicatorOfUnitForTimeIncrement: 1
+              timeIncrement: 12
+              typeOfTimeIncrement: 2
+              packingType: "grid_ccsds"
         "131074":
           accumulations: 
             step:
@@ -406,6 +435,8 @@ config:
           threshold:
             comparison: "<"
             value: -2
+            metadata:
+              bitsPerValue: 24
         "131021":
           entrypoint: pproc-anomaly-probabilities
           accumulations: 
@@ -416,6 +447,8 @@ config:
           threshold:
             comparison: ">="
             value: 2
+            metadata:
+              bitsPerValue: 24
         "131022": 
           entrypoint: pproc-anomaly-probabilities
           accumulations: 
@@ -425,6 +458,8 @@ config:
           threshold: 
             comparison: "<"
             value: -8
+            metadata:
+              bitsPerValue: 24
         "131023": 
           entrypoint: pproc-anomaly-probabilities 
           accumulations: 
@@ -434,6 +469,8 @@ config:
           threshold: 
             comparison: "<"
             value: -4
+            metadata:
+              bitsPerValue: 24
         "131024":  
           entrypoint: pproc-anomaly-probabilities
           accumulations: 
@@ -443,6 +480,8 @@ config:
           threshold: 
             comparison: ">"
             value: 4
+            metadata:
+              bitsPerValue: 24
         "131025":  
           entrypoint: pproc-anomaly-probabilities
           accumulations: 
@@ -452,6 +491,8 @@ config:
           threshold: 
             comparison: ">"
             value: 8
+            metadata:
+              bitsPerValue: 24
         "133093":
           entrypoint: pproc-anomaly-probabilities
           accumulations: 
@@ -462,6 +503,16 @@ config:
           threshold:
             comparison: '>'
             value: 1
+            metadata:
+              localDefinitionNumber: 30
+              bitsPerValue: 24
+              edition: 2
+              productDefinitionTemplateNumber: 9
+              typeOfGeneratingProcess: 5
+              paramId: 0
+              timeIncrement: 12
+              typeOfStatisticalProcessing: 10
+              packingType: "grid_ccsds"
         "133094":
           entrypoint: pproc-anomaly-probabilities
           accumulations: 
@@ -474,6 +525,15 @@ config:
             value: 1.5
             local_scale_factor: 1
             metadata:
+              localDefinitionNumber: 30
+              bitsPerValue: 24
+              edition: 2
+              productDefinitionTemplateNumber: 9
+              typeOfGeneratingProcess: 5
+              paramId: 0
+              timeIncrement: 12
+              typeOfStatisticalProcessing: 10
+              packingType: "grid_ccsds"
               scaleFactorOfLowerLimit: 1
         "133095":
           entrypoint: pproc-anomaly-probabilities
@@ -485,6 +545,16 @@ config:
           threshold:
             comparison: '>'
             value: 2
+            metadata:
+              localDefinitionNumber: 30
+              bitsPerValue: 24
+              edition: 2
+              productDefinitionTemplateNumber: 9
+              typeOfGeneratingProcess: 5
+              paramId: 0
+              timeIncrement: 12
+              typeOfStatisticalProcessing: 10
+              packingType: "grid_ccsds"
         "133096":
           entrypoint: pproc-anomaly-probabilities
           accumulations: 
@@ -496,6 +566,16 @@ config:
             comparison: '<'
             value: -1
             limit_type: lower
+            metadata:
+              localDefinitionNumber: 30
+              bitsPerValue: 24
+              edition: 2
+              productDefinitionTemplateNumber: 9
+              typeOfGeneratingProcess: 5
+              paramId: 0
+              timeIncrement: 12
+              typeOfStatisticalProcessing: 10
+              packingType: "grid_ccsds"
         "133097":
           entrypoint: pproc-anomaly-probabilities
           accumulations: 
@@ -508,6 +588,14 @@ config:
             value: -1.5
             local_scale_factor: 1
             metadata:
+              localDefinitionNumber: 30
+              bitsPerValue: 24
+              edition: 2
+              productDefinitionTemplateNumber: 9
+              typeOfGeneratingProcess: 5
+              paramId: 0
+              timeIncrement: 12
+              typeOfStatisticalProcessing: 10
               scaleFactorOfLowerLimit: 1
             limit_type: lower
         "133098":
@@ -521,6 +609,16 @@ config:
             comparison: '<'
             value: -2
             limit_type: lower
+            metadata:
+              localDefinitionNumber: 30
+              bitsPerValue: 24
+              edition: 2
+              productDefinitionTemplateNumber: 9
+              typeOfGeneratingProcess: 5
+              paramId: 0
+              timeIncrement: 12
+              typeOfStatisticalProcessing: 10
+              packingType: "grid_ccsds"
     fcmean:
       dtype: float64
       filter:stream:
@@ -1213,6 +1311,9 @@ inputs:
                 inputs:
                   request:
                     param: "122"
+                  derive_step:
+                    type: default
+                    by: 6
     131074/131075/131076/131077: 
       filter:type:
         ep:

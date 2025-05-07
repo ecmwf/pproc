@@ -263,36 +263,39 @@ def assert_empty(it: Iterator) -> None:
     "config, checkpoints",
     [
         pytest.param(
-            CONFIGS["single-step"], {6: {"6": [6.0, 12.0, 24.0]}}, id="single-step"
+            CONFIGS["single-step"], {6: {"step_6": [6.0, 12.0, 24.0]}}, id="single-step"
         ),
         pytest.param(
             CONFIGS["step-range"],
-            {48: {"24-48": [36.0, 72.0, 144.0]}},
+            {48: {"step_24-48": [36.0, 72.0, 144.0]}},
             id="step-range",
         ),
         pytest.param(
             CONFIGS["multi-step"],
             {
-                6: {"6": [6.0, 12.0, 24.0]},
-                12: {"12": [12.0, 24.0, 48.0]},
-                18: {"18": [18.0, 36.0, 72.0]},
-                24: {"24": [24.0, 48.0, 96.0]},
+                6: {"step_6": [6.0, 12.0, 24.0]},
+                12: {"step_12": [12.0, 24.0, 48.0]},
+                18: {"step_18": [18.0, 36.0, 72.0]},
+                24: {"step_24": [24.0, 48.0, 96.0]},
             },
             id="multi-step",
         ),
         pytest.param(
             CONFIGS["multi-step-range"],
             {
-                24: {"6-24": [15.0, 30.0, 60.0]},
-                36: {"18-36": [27.0, 54.0, 108.0]},
-                48: {"30-48": [39.0, 78.0, 156.0]},
+                24: {"step_6-24": [15.0, 30.0, 60.0]},
+                36: {"step_18-36": [27.0, 54.0, 108.0]},
+                48: {"step_30-48": [39.0, 78.0, 156.0]},
             },
             id="multi-step-range",
         ),
         pytest.param(
             CONFIGS["multi-step-range-sameend"],
             {
-                48: {"12-48": [120.0, 240.0, 480.0], "24-48": [180.0, 360.0, 720.0]},
+                48: {
+                    "step_12-48": [120.0, 240.0, 480.0],
+                    "step_24-48": [180.0, 360.0, 720.0],
+                },
             },
             id="multi-step-range-sameend",
         ),

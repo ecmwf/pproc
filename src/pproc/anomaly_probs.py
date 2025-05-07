@@ -48,7 +48,7 @@ def main():
                 "clim",
             )
             prob_partial = functools.partial(
-                prob_iteration, param, recovery, cfg.outputs.prob.target
+                prob_iteration, param, recovery, cfg.outputs.prob
             )
             for keys, retrieved_data in parallel_data_retrieval(
                 cfg.parallelisation.n_par_read,

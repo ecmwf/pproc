@@ -19,6 +19,11 @@ class ConfigFactory:
         "pproc-accumulate": types.AccumConfig,
         "pproc-ensms": types.EnsmsConfig,
         "pproc-monthly-stats": types.MonthlyStatsConfig,
+        "pproc-quantiles": types.QuantilesConfig,
+        "pproc-probabilities": types.ProbConfig,
+        "pproc-anomaly-probabilities": types.ProbConfig,
+        "pproc-extreme": types.ExtremeConfig,
+        "pproc-thermal-indices": types.ThermoConfig,
     }
 
     @classmethod

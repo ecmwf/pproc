@@ -26,6 +26,8 @@ class Climatology(ParamRequester):
             index_func=self._index_func,
         )
         clim_request = param.sources["clim"]["request"]
+        if isinstance(clim_request, list):
+            clim_request = clim_request[0]
         self.steps = clim_request.get("step", None)
 
     @classmethod

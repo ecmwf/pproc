@@ -43,7 +43,7 @@ def main():
 
             requester = ParamRequester(param, cfg.sources, cfg.total_fields, "fc")
             prob_partial = functools.partial(
-                prob_iteration, param, recovery, cfg.outputs.prob.target
+                prob_iteration, param, recovery, cfg.outputs.prob
             )
             for keys, data in parallel_data_retrieval(
                 cfg.parallelisation.n_par_read,
