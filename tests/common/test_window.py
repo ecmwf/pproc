@@ -123,7 +123,11 @@ def test_windows(operation, include_init, steps, step_increment, values):
             [1], "aggregation", None, {"step": "1", "timeRangeIndicator": 0}, id="inst"
         ),
         pytest.param(
-            [0], "aggregation", None, {"step": "0", "timeRangeIndicator": 1}, id="inst-0"
+            [0],
+            "aggregation",
+            None,
+            {"step": "0", "timeRangeIndicator": 1},
+            id="inst-0",
         ),
         pytest.param(
             [260],

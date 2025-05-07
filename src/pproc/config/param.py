@@ -7,7 +7,7 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-from typing import Any, Dict, Iterator
+from typing import Any, Dict, Iterator, Optional
 from typing_extensions import Self
 import itertools
 import os
@@ -27,6 +27,12 @@ from pproc.config.utils import update_request, expand
 logger = logging.getLogger(__name__)
 
 
+def partial_equality(left: BaseModel, right: BaseModel, exclude: tuple[str]) -> bool:
+    left_dict = left.model_dump(by_alias=True, exclude=exclude)
+    right_dict = right.model_dump(by_alias=True, exclude=exclude)
+    return left_dict == right_dict
+
+
 class ParamConfig(BaseModel):
     name: str
     sources: dict = {}
@@ -36,6 +42,7 @@ class ParamConfig(BaseModel):
     metadata: Dict[str, Any] = {}
     total_fields: int = 1
     vod2uv: bool = False
+    _merge_exclude: tuple[str] = ("accumulations",)
 
     @model_validator(mode="after")
     def set_vod2uv(self) -> Self:
@@ -93,7 +100,38 @@ class ParamConfig(BaseModel):
             )
         ]
 
-    def out_keys(self, sources: SourceCollection) -> Iterator:
+    def in_keys(
+        self, sources: SourceCollection, filter: Optional[list[str]] = None
+    ) -> Iterator[dict]:
+        for source in sources.names:
+            for psource in self.in_sources(sources, source):
+                if sources and psource.type not in sources:
+                    continue
+
+                reqs = (
+                    psource.request
+                    if isinstance(psource.request, list)
+                    else [psource.request]
+                )
+                for req in reqs:
+                    req["source"] = (
+                        psource.path if psource.path is not None else psource.type
+                    )
+                    accum_updates = (
+                        getattr(self, name).accumulations if hasattr(self, name) else {}
+                    )
+                    accumulations = deep_update(
+                        self.accumulations.copy(), accum_updates
+                    )
+                    req.update(
+                        {
+                            key: accum.unique_coords()
+                            for key, accum in accumulations.items()
+                        }
+                    )
+                    yield req
+
+    def out_keys(self, sources: SourceCollection) -> Iterator[dict]:
         fc_name = sources.names[0]
         base_source: Source = getattr(sources, fc_name)
         param_source = self.sources.get(fc_name, {})
@@ -109,30 +147,15 @@ class ParamConfig(BaseModel):
             reqs = [{**x, **y} for x, y in itertools.product(reqs, accum.out_mars(dim))]
         yield from reqs
 
-    def merge(self, other: Self) -> Self:
-        """
-        Merge two parameter configurations different on different legacy window step accumulations
-        """
-        current = self.model_dump(by_alias=True, exclude=("accumulations",))
-
-        if current != other.model_dump(by_alias=True, exclude=("accumulations",)):
-            logger.debug(
-                "Current: \n %s, other \n %s",
-                current,
-                other.model_dump(by_alias=True, exclude=("accumulations",)),
-            )
-            raise ValueError(
-                "Merging of two parameter configs requires them to be the same, except for accumulations"
-            )
-
+    def _merge_accumulations(self, other: Self) -> dict:
         if self.accumulations.keys() != other.accumulations.keys():
             raise ValueError(
                 "Merging of two parameter configs requires them to have the same accumulations dimensions"
             )
-        current["accumulations"] = {}
+        new_accums = {}
         for dim in other.accumulations.keys():
             if dim == "step":
-                current["accumulations"][dim] = (
+                new_accums[dim] = (
                     self.accumulations[dim]
                     .merge(other.accumulations[dim])
                     .model_dump(by_alias=True)
@@ -142,7 +165,31 @@ class ParamConfig(BaseModel):
                     raise ValueError(
                         "Can only merge different accumulations over dim=step"
                     )
-                current["accumulations"][dim] = self.accumulations[dim].model_dump(
-                    by_alias=True
+                new_accums[dim] = self.accumulations[dim].model_dump(by_alias=True)
+        return new_accums
+
+    def merge(self, other: Self) -> Self:
+        """
+        Merge two parameter configurations
+        """
+        if not partial_equality(self, other, exclude=self._merge_exclude):
+            raise ValueError(
+                f"Merging of two parameter configs requires them to be the same, except for {self._merge_exclude}"
+            )
+
+        merged = self.model_dump(by_alias=True, exclude=self._merge_exclude)
+        for attr in self._merge_exclude:
+            self_attr = getattr(self, attr)
+            if merge_func := getattr(self, f"_merge_{attr}", None):
+                merged[attr] = merge_func(other)
+            elif isinstance(self_attr, list):
+                merged[attr] = self_attr + [
+                    x for x in getattr(other, attr) if x not in self_attr
+                ]
+            elif isinstance(self_attr, ParamConfig):
+                merged[attr] = self_attr.merge(getattr(other, attr))
+            else:
+                raise ValueError(
+                    f"No merge protocol defined for {attr} in {type(self)}"
                 )
-        return type(self)(**current)
+        return type(self)(**merged)

@@ -16,7 +16,7 @@ import eccodes
 
 from pproc import common
 from pproc.config.param import ParamConfig
-from pproc.config.targets import Target
+from pproc.config.io import Output
 from pproc.common.recovery import BaseRecovery
 from pproc.common.accumulation import Accumulator
 from pproc.common.grib_helpers import construct_message
@@ -34,12 +34,14 @@ def threshold_grib_headers(
     comparison = threshold["comparison"].strip("=")
     if edition == 1 and comparison == "<":
         grib_keys = {
+            "localDefinitionNumber": 5,
             "localDecimalScaleFactor": scale_factor,
             "thresholdIndicator": 2,
             "upperThreshold": threshold_value,
         }
     elif edition == 1 and comparison == ">":
         grib_keys = {
+            "localDefinitionNumber": 5,
             "localDecimalScaleFactor": scale_factor,
             "thresholdIndicator": 1,
             "lowerThreshold": threshold_value,
@@ -72,7 +74,6 @@ def threshold_grib_headers(
         )
 
     threshold_dict.update(grib_keys)
-    threshold_dict.update(threshold.get("metadata", {}))
     return threshold_dict
 
 
@@ -104,7 +105,7 @@ def ensemble_probability(data: np.array, threshold: Dict) -> np.array:
 def prob_iteration(
     param: ParamConfig,
     recovery: BaseRecovery,
-    out_prob: Target,
+    out_prob: Output,
     template: eccodes.GRIBMessage,
     window_id: str,
     accum: Accumulator,
@@ -123,14 +124,16 @@ def prob_iteration(
                 f"Writing probability for input param {param.name} and output "
                 + f"param {threshold['out_paramid']} for step(s) {window_id}"
             )
-            grib_set = accum.grib_keys()
+            grib_set = out_prob.metadata.copy()
+            grib_set.update(accum.grib_keys())
+            grib_set.update(threshold.get("metadata", {}))
             grib_set.update(
                 threshold_grib_headers(
                     grib_set.get("edition", 1), threshold, clim_metadata
                 )
             )
             common.io.write_grib(
-                out_prob,
+                out_prob.target,
                 construct_message(
                     template,
                     grib_set,
@@ -138,5 +141,5 @@ def prob_iteration(
                 window_probability,
             )
 
-        out_prob.flush()
+        out_prob.target.flush()
         recovery.add_checkpoint(param=param.name, window=window_id)

@@ -74,11 +74,14 @@ class LegacyWindowConfig(BaseModel):
         coords = set()
         for coord in self.coords:
             if isinstance(coord, list):
-                coords.update(coord)
+                update = coord
             elif isinstance(coord, dict):
-                coords.update(
+                update = list(
                     range(coord.get("from", 0), coord["to"] + 1, coord.get("by", 1))
                 )
+            if len(update) > 1 and not (self.include_start or self.deaccumulate):
+                update = update[1:]
+            coords.update(update)
         coords = list(coords)
         coords.sort()
         return coords
@@ -96,6 +99,15 @@ class LegacyWindowConfig(BaseModel):
                 )
             elif isinstance(coord, dict):
                 base[dim].append(f"{coord['from']}-{coord['to']}")
+        if hasattr(self, "thresholds"):
+            base["param"] = []
+            for thr in self.thresholds:
+                mars_keys = extract_mars(thr.get("metadata", {}))
+                mars_keys.pop("param", None)
+                assert (
+                    len(mars_keys) == 0
+                ), "Mars metadata keys can not be set in threshold metadata"
+                base["param"].append(thr["out_paramid"])
         return base
 
 
@@ -168,8 +180,6 @@ class BaseAccumulation(BaseModel):
 
 
 class DefaultAccumulation(BaseAccumulation):
-    model_config = ConfigDict(extra="allow")
-
     type_: Literal["default"] = Field("default", alias="type")
     coords: list[Union[List[int | str], dict]] = []
     deaccumulate: bool = False
@@ -231,8 +241,6 @@ class DefaultAccumulation(BaseAccumulation):
 
 
 class StepSeqAccumulation(BaseAccumulation):
-    model_config = ConfigDict(extra="allow")
-
     type_: Literal["stepseq"] = Field("stepseq", alias="type")
     sequence: Annotated[
         Union[StepRanges, StepMonthly],

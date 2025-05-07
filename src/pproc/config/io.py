@@ -268,7 +268,7 @@ ClimSourceModel = create_source_model("Clim", ["fc", "clim"])
 AnomalyOutputModel = create_output_model(
     "Anomaly", {"ens": {"type": "fcmean"}, "ensm": {"type": "taem"}}
 )
-ProbOutputModel = create_output_model("Prob", ["prob"])
+ProbOutputModel = create_output_model("Prob", {"prob": {"type": "ep"}})
 ExtremeOutputModel = create_output_model("Extreme", SUPPORTED_INDICES)
 WindOutputModel = create_output_model(
     "Wind",

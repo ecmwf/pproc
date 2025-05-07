@@ -48,9 +48,10 @@ def load_input(config, param: ThermoParamConfig, source: str, step: int):
 
     ret = earthkit.data.from_source("empty")
     for src in sources:
+        if src.type == "null":
+            continue
+
         for req in src.request:
-            if len(req) == 0:
-                continue
             req = req.copy()
             req.update(config.sources.overrides)
             req["step"] = step
