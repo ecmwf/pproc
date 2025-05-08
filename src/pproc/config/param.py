@@ -108,7 +108,9 @@ class ParamConfig(BaseModel):
                         psource.path if psource.path is not None else psource.type
                     )
                     accum_updates = (
-                        getattr(self, source).accumulations if hasattr(self, source) else {}
+                        getattr(self, source).accumulations
+                        if hasattr(self, source)
+                        else {}
                     )
                     accumulations = deep_update(
                         self.accumulations.copy(), accum_updates
