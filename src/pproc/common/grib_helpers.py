@@ -24,6 +24,8 @@ def construct_message(template_grib, window_grib_headers: Dict):
         key_values.pop(missing_key)
 
     template_edition = out_grib.get("edition")
+    if key_values.get("edition", template_edition) == 2:
+        key_values.setdefault("packingType", "grid_ccsds")
     if key_values.get("edition", template_edition) != template_edition:
         # Set grib 1 and grib 2 keys separately as value check can fail when
         # grib 1 keys are removed in the switch to grib 2, or vice versa

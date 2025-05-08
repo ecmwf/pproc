@@ -75,7 +75,7 @@ class BaseConfig(ConfigModel):
     _merge_exclude: tuple[str] = ("parameters",)
 
     def print(self):
-        print(yaml.dump(self.model_dump(by_alias=True)))
+        print(yaml.dump(self.model_dump(by_alias=True), sort_keys=False))
 
     @model_validator(mode="after")
     def _init_targets(self) -> Self:
