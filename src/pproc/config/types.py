@@ -499,8 +499,8 @@ class ExtremeParamConfig(ClimParamConfig):
             req["type"] = index
             yield req
 
-    def _merge_clim(self, other: Self) -> None:
-        return None
+    def _merge_clim(self, other: Self) -> dict:
+        return {}
 
     def _merge_cpf_eps(self, other: Self) -> Optional[float]:
         if self.cpf_eps is None:

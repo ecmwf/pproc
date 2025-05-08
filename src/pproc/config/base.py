@@ -168,7 +168,7 @@ class BaseConfig(ConfigModel):
 
         if not partial_equality(self, other, exclude=self._merge_exclude):
             raise ValueError(
-                f"Can only merge configs that are equal except for {self.merge_exclude}"
+                f"Can only merge configs that are equal except for {self._merge_exclude}"
             )
 
         merged = self.model_dump(by_alias=True, exclude=self._merge_exclude)
@@ -187,43 +187,47 @@ class BaseConfig(ConfigModel):
         return type(self)(**merged)
 
     @classmethod
+    def _populate_param(cls, config: dict, inputs, nested: bool = False, **overrides):
+        accums = cls._populate_accumulations(inputs, config.pop("accumulations", {}))
+        param_config = {
+            "accumulations": accums,
+            **config,
+        }
+        updated_sources = cls._populate_sources(
+            inputs, accums.keys(), **overrides.pop("sources", {})
+        )
+        if not nested:
+            param_config["sources"] = updated_sources
+        deep_update(param_config, overrides)
+        return param_config
+
+    @classmethod
     def from_schema(cls, schema_config: dict, **overrides) -> Self:
         schema_config = copy.deepcopy(schema_config)
         overrides = copy.deepcopy(overrides)
-        config = {
-            "sources": {},
-            "outputs": {"default": {"target": {"type": "fdb"}}},
-        }
 
         # Construct parameter config
         inputs = copy.deepcopy(schema_config.pop("inputs"))
-        accums = cls._populate_accumulations(
-            inputs, schema_config.pop("accumulations", {})
-        )
         interp_keys = schema_config.pop("interp_keys", {})
-        param_name = schema_config.pop("name", str(inputs[0]["param"]))
-
-        all_param_overrides = overrides.pop("parameters", {})
-        param_overrides = all_param_overrides.get(
-            param_name, all_param_overrides.get("default", {})
-        )
         for req in inputs:
             if grid := req.pop("interp_grid", None):
                 req["interpolate"] = {
                     "grid": grid,
                     **interp_keys,
                 }
-        param_config = {
-            "sources": cls._populate_sources(
-                inputs, accums.keys(), **param_overrides.pop("sources", {})
-            ),
-            "accumulations": accums,
-            **schema_config,
+
+        param_name = schema_config.pop("name", str(inputs[0]["param"]))
+        all_param_overrides = overrides.pop("parameters", {})
+        param_overrides = all_param_overrides.get(
+            param_name, all_param_overrides.get("default", {})
+        )
+        param_config = cls._populate_param(schema_config, inputs, **param_overrides)
+
+        config = {
+            "sources": {src: {"type": "fdb"} for src in param_config["sources"].keys()},
+            "outputs": {"default": {"target": {"type": "fdb"}}},
+            "parameters": {param_name: param_config},
         }
-        for src in param_config["sources"].keys():
-            config["sources"][src] = {"type": "fdb"}
-        deep_update(param_config, param_overrides)
-        config["parameters"] = {param_name: param_config}
         deep_update(config, overrides)
         return cls(**config)
 
