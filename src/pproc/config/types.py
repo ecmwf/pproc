@@ -652,7 +652,7 @@ class ThermoParamConfig(ParamConfig):
                 current_params = new_sources[key]["request"].pop("param")
                 other_params = other_sources[key]["request"].pop("param")
                 if not isinstance(current_params, list):
-                    params = [current_params]
+                    current_params = [current_params]
                 if not isinstance(other_params, list):
                     other_params = [other_params]
                 if new_sources[key] != other_sources[key]:
