@@ -109,7 +109,7 @@ class ClimStepDeriver(BaseModel):
             ):
                 clim_start = clim_start_steps[nearest]
             return f"{clim_start}-{clim_start + (end - start)}"
-        return fc_request["step"]
+        return f"{start}-{end}"
 
     @staticmethod
     def _instantaneous(fc_request: dict, clim_steps: list[int]) -> list[int]:
@@ -126,13 +126,15 @@ class ClimStepDeriver(BaseModel):
 
 
 class ClimDateDeriver(BaseModel):
-    model_config = ConfigDict(allow_extra=True)
+    model_config = ConfigDict(extra="allow")
 
     option: str
 
-    def derive(self, fc_request: dict, scheme: str) -> str:
+    def derive(self, fc_request: dict, scheme: str) -> str | list[str]:
         date = datetime.datetime.strptime(str(fc_request["date"]), "%Y%m%d")
         clim_seq = Sequence.from_resource(scheme)
         kwargs = self.model_dump(exclude={"option"})
         clim_date = getattr(clim_seq, self.option)(date.date(), **kwargs)
-        return datetime.datetime.strftime(clim_date, "%Y%m%d")
+        if isinstance(clim_date, datetime.date):
+            return datetime.datetime.strftime(clim_date, "%Y%m%d")
+        return [datetime.datetime.strftime(x, "%Y%m%d") for x in clim_date]

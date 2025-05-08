@@ -24,6 +24,7 @@ class ConfigFactory:
         "pproc-anomaly-probabilities": types.ProbConfig,
         "pproc-extreme": types.ExtremeConfig,
         "pproc-thermal-indices": types.ThermoConfig,
+        "pproc-anomaly": types.AnomalyConfig,
     }
 
     @classmethod

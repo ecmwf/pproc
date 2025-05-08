@@ -1,6 +1,6 @@
-from typing import Optional, Union, Iterator
+from typing import Optional, Union, Iterator, Any
 from typing_extensions import Self
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, model_validator, field_validator
 import copy
 import pandas as pd
 import logging
@@ -52,8 +52,15 @@ class ForecastInput(BaseModel):
 class ClimatologyInput(ForecastInput):
     members: Optional[dict] = None
     request: dict
-    derive_date: Optional[ClimDateDeriver] = None
+    derive_date: Optional[list[ClimDateDeriver]] = None
     derive_step: Optional[ClimStepDeriver] = None
+
+    @field_validator("derive_date", mode="before")
+    @classmethod
+    def format_derive_date(cls, data: Any) -> Any:
+        if isinstance(data, dict): 
+            return [data]
+        return data
 
     @model_validator(mode="after")
     def populate_request(self) -> Self:
@@ -71,7 +78,10 @@ class ClimatologyInput(ForecastInput):
         for k, v in self.request.items():
             self.request[k] = v if v != f"{{{k}}}" else fc_request[k]
         self.request["step"] = self.derive_step.derive(fc_request, clim_steps)
-        self.request["date"] = self.derive_date.derive(fc_request, scheme)
+        request = fc_request.copy()
+        for deriver in self.derive_date:
+            request["date"] = deriver.derive(request, scheme)
+        self.request["date"] = request["date"]
 
 
 class ForecastConfig(BaseModel):

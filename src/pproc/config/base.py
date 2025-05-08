@@ -178,7 +178,18 @@ class BaseConfig(ConfigModel):
         return type(self)(**merged)
 
     @classmethod
-    def _populate_param(cls, config: dict, inputs, nested: bool = False, **overrides):
+    def _populate_param(
+        cls,
+        config: dict,
+        inputs,
+        src_name: Optional[str] = None,
+        nested: bool = False,
+        **overrides,
+    ):
+        sort_inputs = cls._populate_sources(inputs, [], **overrides.get("sources", {}))
+        if src_name is not None:
+            reqs = sort_inputs[src_name]["request"]
+            inputs = [reqs] if isinstance(reqs, dict) else reqs
         accums = cls._populate_accumulations(inputs, config.pop("accumulations", {}))
         param_config = {
             "accumulations": accums,
@@ -225,7 +236,21 @@ class BaseConfig(ConfigModel):
     @classmethod
     def _populate_accumulations(cls, inputs: list[dict], base_accum: dict) -> dict:
         req = inputs[0]
-        accums = base_accum
+        accums = base_accum.copy()
+
+        # Populate coords in accumulations from inputs
+        for dim, acc_config in accums.items():
+            if dim == "step":
+                # Handled separately below
+                continue
+            acc_config["coords"] = (
+                [req[dim]]
+                if acc_config.get("operation", None)
+                else [[x] for x in req[dim]]
+            )
+
+        # Most entrypoints don't handle array with level dimension, so put this into accumulations to
+        # separate different levels
         if levelist := req.get("levelist", None):
             levelist = [levelist] if np.ndim(levelist) == 0 else levelist
             accums.setdefault("levelist", {"coords": [[level] for level in levelist]})

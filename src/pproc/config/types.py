@@ -274,8 +274,7 @@ class SigniConfig(BaseConfig):
             self.clim_total_fields = self.total_fields("clim")
         return self
 
-    classmethod
-
+    @classmethod
     def _populate_sources(
         cls, inputs: list[dict], accum_dims: list[str], **overrides
     ) -> dict:
@@ -292,7 +291,7 @@ class SigniConfig(BaseConfig):
 
         sources = {}
         for src_name, requests in sorted_requests.items():
-            src_overrides = overrides.get(src_name, {})
+            src_overrides = overrides.get(src_name, {}).copy()
             request_overrides = src_overrides.pop("request", {})
             updated_inputs = update_request(requests, request_overrides)
             sources[src_name] = {
@@ -303,12 +302,56 @@ class SigniConfig(BaseConfig):
             }
         return sources
 
+    @classmethod
+    def _populate_param(
+        cls,
+        config: dict,
+        inputs,
+        src_name: Optional[str] = None,
+        nested: bool = False,
+        **overrides,
+    ) -> dict:
+        nested_params = {}
+        for nparam in ["clim", "clim_em"]:
+            nested_params[nparam] = super()._populate_param(
+                config.pop(nparam, {}),
+                inputs,
+                src_name=nparam,
+                nested=True,
+                **overrides.pop(nparam, {}),
+            )
+        param_config = super()._populate_param(config, inputs, **overrides)
+        param_config.update(nested_params)
+        return param_config
+
 
 class AnomalyConfig(BaseConfig):
     parallelisation: Parallelisation = Parallelisation()
     sources: io.ClimSourceModel
     outputs: io.AnomalyOutputModel = io.AnomalyOutputModel()
     parameters: list[ClimParamConfig]
+
+    @classmethod
+    def _populate_param(
+        cls,
+        config: dict,
+        inputs,
+        src_name: Optional[str] = None,
+        nested: bool = False,
+        **overrides,
+    ) -> dict:
+        nested_params = {}
+        for nparam in ["clim"]:
+            nested_params[nparam] = super()._populate_param(
+                config.pop(nparam, {}),
+                inputs,
+                src_name=nparam,
+                nested=True,
+                **overrides.pop(nparam, {}),
+            )
+        param_config = super()._populate_param(config, inputs, **overrides)
+        param_config.update(nested_params)
+        return param_config
 
     @classmethod
     def _populate_sources(
@@ -413,14 +456,14 @@ class ProbConfig(BaseConfig):
                 src_name = "fc"
                 fc_step = inp["step"]
             [inp.pop(dim, None) for dim in accum_dims]
-            sorted_requests.setdefault(src_name, []).append(inp)
+            sorted_requests.setdefault(src_name, []).append(inp.copy())
 
         for clim_inp in sorted_requests.get("clim", []):
             clim_inp["step"] = {fc_step: clim_step}
 
         sources = {}
         for src_name, requests in sorted_requests.items():
-            src_overrides = overrides.get(src_name, {})
+            src_overrides = overrides.get(src_name, {}).copy()
             request_overrides = src_overrides.pop("request", {})
             updated_inputs = update_request(requests, request_overrides)
             sources[src_name] = {
@@ -530,14 +573,14 @@ class ExtremeConfig(BaseConfig):
                 src_name = "fc"
                 fc_step = steprange(inp["step"])
             [inp.pop(dim, None) for dim in accum_dims]
-            sorted_requests.setdefault(src_name, []).append(inp)
+            sorted_requests.setdefault(src_name, []).append(inp.copy())
 
         for clim_inp in sorted_requests.get("clim", []):
             clim_inp["step"] = {fc_step: clim_step}
 
         sources = {}
         for src_name, requests in sorted_requests.items():
-            src_overrides = overrides.get(src_name, {})
+            src_overrides = overrides.get(src_name, {}).copy()
             request_overrides = src_overrides.pop("request", {})
             updated_inputs = update_request(requests, request_overrides)
             sources[src_name] = {
@@ -720,7 +763,7 @@ class ThermoConfig(BaseConfig):
 
         sources = {}
         for src_name, requests in sorted_requests.items():
-            src_overrides = overrides.get(src_name, {})
+            src_overrides = overrides.get(src_name, {}).copy()
             request_overrides = src_overrides.pop("request", {})
             updated_inputs = update_request(requests, request_overrides)
             sources[src_name] = {
