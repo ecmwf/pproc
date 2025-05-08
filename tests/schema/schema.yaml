@@ -115,10 +115,7 @@ config:
       entrypoint: pproc-ensms
     efi/sot/efic:
       entrypoint: pproc-extreme
-      metadata:
-        edition: 1
-        localDefinitionNumber: 19
-        bitsPerValue: 12
+      dtype: float64
       filter:param:
         132044/132059:
           eps: 1e-4
@@ -126,18 +123,34 @@ config:
             step:
               type: legacywindow
               operation: maximum
+          metadata: 
+            typeOfStatisticalProcessing: 1 
+            edition: 1
+            bitsPerValue: 12
+            indicatorOfTypeOfLevel: 1
+            localDefinitionNumber: 19
         132045/132165/132167: 
           eps: -1e-4
           accumulations:
             step:
               type: legacywindow
               operation: mean
+          metadata:
+            edition: 1
+            localDefinitionNumber: 19
+            bitsPerValue: 12
+            timeRangeIndicator: 3
+            stepType: avg
         132049/132201/132216: 
           eps: -1e-4
           accumulations:
             step:
               type: legacywindow
               operation: maximum
+          metadata:
+            edition: 1
+            localDefinitionNumber: 19
+            bitsPerValue: 12
         "132144":
           eps: 1e-4
           accumulations:
@@ -145,12 +158,22 @@ config:
               type: legacywindow
               operation: difference
               include_start: true
+          metadata:
+            edition: 1
+            localDefinitionNumber: 19
+            bitsPerValue: 12
+            timeRangeIndicator: 5
+            stepType: diff
         "132202":
           eps: -1e-4
           accumulations:
             step:
               type: legacywindow
               operation: minimum
+          metadata:
+            edition: 1
+            localDefinitionNumber: 19
+            bitsPerValue: 12
         "132228":
           eps: 1e-4
           accumulations:
@@ -158,6 +181,12 @@ config:
               type: legacywindow
               operation: difference
               include_start: true
+          metadata:
+            edition: 1
+            localDefinitionNumber: 19
+            bitsPerValue: 12
+            timeRangeIndicator: 5
+            stepType: diff
           filter:stream:
             "*": {}
             "eefo":
@@ -977,7 +1006,7 @@ windows:
                     - "0-240"
                     - "0-360"
                     - "240-360"
-            132201/132202/132049/132144/132216/132059/132044:  # TODO: Should be in terms of output param
+            132201/132202/132049/132144/132216/132059/132044:
               time:
                 "12":
                   out_steps:
@@ -2013,10 +2042,10 @@ inputs:
       filter:stream:
         "eefo/weef": 
           filter:param:
-            132044/132059/132144/132045/132165/132167/132201/132202/132216/132228: {}
+            132044/132049/132059/132144/132045/132165/132167/132201/132202/132216/132228: {}
         "*":
           filter:param:
-            "132044/132059/132045/132165/132167/132201/132202/132216": 
+            "132044/132049/132059/132045/132165/132167/132201/132202/132216": 
               forecast:
                 inputs:
                   derive_step: 
