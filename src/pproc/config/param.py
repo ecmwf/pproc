@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from pproc.config.preprocessing import PreprocessingConfig
 from pproc.config.accumulation import AccumulationConfig
-from pproc.config.utils import extract_mars
+from pproc.config.utils import extract_mars, deep_update
 from pproc.config.io import Source, SourceCollection
 from pproc.config.utils import update_request, expand
 
@@ -101,11 +101,11 @@ class ParamConfig(BaseModel):
         ]
 
     def in_keys(
-        self, sources: SourceCollection, filter: Optional[list[str]] = None
+        self, sources: SourceCollection, filters: Optional[list[str]] = None
     ) -> Iterator[dict]:
         for source in sources.names:
             for psource in self.in_sources(sources, source):
-                if sources and psource.type not in sources:
+                if filters and psource.type not in filters:
                     continue
 
                 reqs = (
@@ -118,7 +118,7 @@ class ParamConfig(BaseModel):
                         psource.path if psource.path is not None else psource.type
                     )
                     accum_updates = (
-                        getattr(self, name).accumulations if hasattr(self, name) else {}
+                        getattr(self, source).accumulations if hasattr(self, source) else {}
                     )
                     accumulations = deep_update(
                         self.accumulations.copy(), accum_updates
