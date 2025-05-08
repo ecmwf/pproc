@@ -8,6 +8,8 @@ config:
     "*": {}
     "10":
       preprocessing: 
+        - operation: reshape
+          shape: 2
         - operation: norm
       interp_keys:
         vod2uv: true
