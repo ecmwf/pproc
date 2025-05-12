@@ -42,7 +42,7 @@ def postproc_iteration(
     param: AccumParamConfig,
     target: Target,
     recovery: Optional[Recovery],
-    metadata: list[eccodes.GRIBMessage],
+    metadata: List[eccodes.GRIBMessage],
     window_id: str,
     accum: Accumulator,
 ):
