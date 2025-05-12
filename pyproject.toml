@@ -15,7 +15,7 @@ authors = [
 requires-python = ">=3.8"
 dependencies = [
     "code-meters >= 0.0.3",
-    "earthkit-data == 0.9.0",
+    "earthkit-data >= 0.13.2",
     "earthkit-meteo >= 0.1.1",
     "earthkit-time >= 0.1.3",
     "eccodes >= 1.6.1",
@@ -30,6 +30,8 @@ dependencies = [
     "scikit-learn",
     "scipy >= 1.8",
     "xarray",
+    "pydantic",
+    "conflator >= 0.1.7",
 ]
 
 [project.optional-dependencies]
@@ -62,6 +64,7 @@ pproc-accumulate = "pproc.accumulate:main"
 pproc-significance = "pproc.significance:main"
 pproc-anomaly = "pproc.anomaly:main"
 pproc-monthly-stats = "pproc.monthly_stats:main"
+pproc-config="pproc.config_generation:main"
 
 [tool.pytest.ini_options]
 minversion = "6.0"

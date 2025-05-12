@@ -1,9 +1,16 @@
 from meters import ResourceMeter
 from typing import Dict, Optional
+import numpy as np
+import numexpr
+
+import eccodes
 
 from pproc import common
+from pproc.config.param import ParamConfig
+from pproc.config.targets import Target
+from pproc.common.recovery import BaseRecovery
+from pproc.common.accumulation import Accumulator
 from pproc.common.grib_helpers import construct_message
-from pproc.prob.math import ensemble_probability
 
 
 def threshold_grib_headers(
@@ -13,7 +20,7 @@ def threshold_grib_headers(
     Creates dictionary of threshold related grib headers
     """
     threshold_dict = {"paramId": threshold["out_paramid"]}
-    scale_factor = threshold.get("localDecimalScaleFactor", 0)
+    scale_factor = threshold.get("local_scale_factor", 0)
     threshold_value = round(threshold["value"] * 10**scale_factor, 0)
     comparison = threshold["comparison"].strip("=")
     if edition == 1 and comparison == "<":
@@ -56,19 +63,44 @@ def threshold_grib_headers(
         )
 
     threshold_dict.update(grib_keys)
-    threshold_dict.update(threshold.get("grib_set", {}))
+    threshold_dict.update(threshold.get("metadata", {}))
     return threshold_dict
 
 
+def ensemble_probability(data: np.array, threshold: Dict) -> np.array:
+    """Ensemble Probabilities:
+
+    Computes the probability of a given parameter crossing a given threshold,
+    by checking how many times it occurs across all ensembles.
+    e.g. the chance of temperature being less than 0C
+
+    """
+
+    # Find all locations where np.nan appears as an ensemble value
+    is_nan = np.isnan(data).any(axis=0)
+
+    # Read threshold configuration and compute probability
+    comparison = threshold["comparison"]
+    comp = numexpr.evaluate(
+        "data " + comparison + str(threshold["value"]), local_dict={"data": data}
+    )
+    probability = np.where(comp, 100, 0).mean(axis=0)
+
+    # Put in missing values
+    probability = np.where(is_nan, np.nan, probability)
+
+    return probability
+
+
 def prob_iteration(
-    param,
-    recovery,
-    out_prob,
-    template,
-    window_id,
-    accum,
-    thresholds,
-    clim_metadata=None,
+    param: ParamConfig,
+    recovery: BaseRecovery,
+    out_prob: Target,
+    template: eccodes.GRIBMessage,
+    window_id: str,
+    accum: Accumulator,
+    thresholds: list,
+    clim_metadata: Optional[dict] = None,
 ):
     with ResourceMeter(f"Window {window_id}, computing threshold probs"):
 
@@ -88,7 +120,7 @@ def prob_iteration(
                     grib_set.get("edition", 1), threshold, clim_metadata
                 )
             )
-            common.write_grib(
+            common.io.write_grib(
                 out_prob,
                 construct_message(
                     template,
@@ -98,4 +130,4 @@ def prob_iteration(
             )
 
         out_prob.flush()
-        recovery.add_checkpoint(param.name, window_id)
+        recovery.add_checkpoint(param=param.name, window=window_id)

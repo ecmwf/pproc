@@ -1,39 +1,26 @@
-out_keys:
-  bitsPerValue: 8
-  localDefinitionNumber: 5
-  mars.expver: '0001'
-  type: ep
-num_members: 6
-total_fields: 5
-n_par_compute: 1
-n_par_read: 2
+parallelisation:
+  n_par_compute: 1
+  n_par_read: 2
+  queue_size: 1
 parameters:
   2t:
-    in: 167
+    sources:
+      fc:
+        request:
+          param: 167
     accumulations:
       step:
         type: legacywindow
-        steps:
-        - end_step: 36
-          interval: 12
-          start_step: 12
         windows:
-        - periods:
-          - range:
-            - 12
-            - 12
-          - range:
-            - 12
-            - 36
+        - coords: [[12], [12, 24, 36]]
           thresholds:
           - comparison: <=
-            localDecimalScaleFactor: 2
+            local_scale_factor: 2
             out_paramid: 131073
             value: 273.15
-queue_size: 1
 sources:  
-  fdb:
-    ens:
+  fc:
+    request:
       class: od
       domain: g
       expver: '0001'
@@ -42,3 +29,14 @@ sources:
       type: pf
       date: 20240507
       time: 12
+      number: [1, 2, 3, 4, 5]
+    type: fdb
+outputs:
+  default:
+    metadata:
+      bitsPerValue: 8
+      localDefinitionNumber: 5
+      mars.expver: '0001'
+      type: ep
+    target: 
+      type: "fdb"

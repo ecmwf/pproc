@@ -245,7 +245,7 @@ def test_convert_coords():
             {"operation": "standard_deviation", "coords": {"to": 4, "by": 2}},
             StandardDeviation,
             [0, 2, 4],
-            np.ones((2, 3))*1.632993161855452,
+            np.ones((2, 3)) * 1.632993161855452,
             id="std",
         ),
         pytest.param(

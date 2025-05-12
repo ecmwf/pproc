@@ -1,13 +1,15 @@
 import pytest
 
 from pproc.common.accumulation import (
-    Aggregation,
     Difference,
     DifferenceRate,
     Mean,
     SimpleAccumulation,
 )
-from pproc.prob.window_manager import ThresholdWindowManager, AnomalyWindowManager
+from pproc.prob.accumulation_manager import (
+    ThresholdAccumulationManager,
+    AnomalyAccumulationManager,
+)
 
 
 @pytest.mark.parametrize(
@@ -15,20 +17,20 @@ from pproc.prob.window_manager import ThresholdWindowManager, AnomalyWindowManag
     [
         pytest.param(
             {
+                "type": "legacywindow",
                 "windows": [
                     {
                         "thresholds": [
                             {"comparison": "<=", "value": 273.15},
                         ],
-                        "periods": [
-                            {"range": [120, 240]},
-                            {"range": [120, 168]},
-                            {"range": [168, 240]},
-                            {"range": [240, 360]},
+                        "coords": [
+                            {"from": 120, "to": 240, "by": 6},
+                            {"from": 120, "to": 168, "by": 6},
+                            {"from": 168, "to": 240, "by": 6},
+                            {"from": 240, "to": 360, "by": 6},
                         ],
                     }
                 ],
-                "steps": [{"start_step": 126, "end_step": 360, "interval": 6}],
             },
             {
                 f"{a}-{b}_0": (
@@ -42,6 +44,7 @@ from pproc.prob.window_manager import ThresholdWindowManager, AnomalyWindowManag
         ),
         pytest.param(
             {
+                "type": "legacywindow",
                 "windows": [
                     {
                         "thresholds": [
@@ -49,14 +52,13 @@ from pproc.prob.window_manager import ThresholdWindowManager, AnomalyWindowManag
                             {"comparison": ">=", "value": 20},
                             {"comparison": ">=", "value": 25},
                         ],
-                        "periods": [
-                            {"range": [0, 24]},
-                            {"range": [12, 36]},
-                            {"range": [336, 360]},
+                        "coords": [
+                            {"from": 0, "to": 24, "by": 6},
+                            {"from": 12, "to": 36, "by": 6},
+                            {"from": 336, "to": 360, "by": 6},
                         ],
                     }
                 ],
-                "steps": [{"start_step": 6, "end_step": 360, "interval": 6}],
             },
             {
                 f"{a}-{b}_0": (
@@ -74,49 +76,38 @@ from pproc.prob.window_manager import ThresholdWindowManager, AnomalyWindowManag
         ),
         pytest.param(
             {
+                "type": "legacywindow",
                 "windows": [
                     {
-                        "window_operation": "diff",
+                        "operation": "difference",
                         "thresholds": [
                             {"comparison": ">=", "value": 0.001},
                             {"comparison": ">=", "value": 0.005},
                             {"comparison": ">=", "value": 0.01},
                             {"comparison": ">=", "value": 0.02},
                         ],
-                        "periods": [
-                            {"range": [0, 24]},
-                            {"range": [12, 36]},
-                            {"range": [336, 360]},
-                        ],
+                        "coords": [[0, 24], [12, 36], [336, 360]],
                     },
                     {
-                        "window_operation": "diff",
+                        "operation": "difference",
                         "thresholds": [
                             {"comparison": ">=", "value": 0.025},
                             {"comparison": ">=", "value": 0.05},
                             {"comparison": ">=", "value": 0.1},
                         ],
-                        "periods": [
-                            {"range": [0, 24]},
-                            {"range": [12, 36]},
-                            {"range": [336, 360]},
-                        ],
+                        "coords": [[0, 24], [12, 36], [336, 360]],
                     },
                     {
-                        "window_operation": "diffdailyrate",
+                        "operation": "difference_rate",
+                        "factor": 1.0 / 24.0,
                         "thresholds": [
                             {"comparison": "<", "value": 0.001},
                             {"comparison": ">=", "value": 0.003},
                             {"comparison": ">=", "value": 0.005},
                         ],
-                        "periods": [
-                            {"range": [120, 240]},
-                            {"range": [168, 240]},
-                            {"range": [228, 360]},
-                        ],
+                        "coords": [[120, 240], [168, 240], [228, 360]],
                     },
                 ],
-                "steps": [{"start_step": 6, "end_step": 360, "interval": 6}],
             },
             {
                 **{
@@ -141,27 +132,27 @@ from pproc.prob.window_manager import ThresholdWindowManager, AnomalyWindowManag
                     for a, b in [(120, 240), (168, 240), (228, 360)]
                 },
             },
-            {12, 24, 36, 120, 168, 228, 240, 336, 360},
+            {0, 12, 24, 36, 120, 168, 228, 240, 336, 360},
             id="diffs-range",
         ),
         pytest.param(
             {
+                "type": "legacywindow",
                 "windows": [
                     {
-                        "window_operation": "mean",
-                        "include_start_step": True,
+                        "operation": "mean",
+                        "include_start": True,
                         "thresholds": [
                             {"comparison": "<", "value": -2},
                             {"comparison": ">=", "value": 2},
                         ],
-                        "periods": [
-                            {"range": [120, 168]},
-                            {"range": [168, 240]},
-                            {"range": [240, 360]},
+                        "coords": [
+                            {"from": 120, "to": 168, "by": 12},
+                            {"from": 168, "to": 240, "by": 12},
+                            {"from": 240, "to": 360, "by": 12},
                         ],
                     }
                 ],
-                "steps": [{"start_step": 0, "end_step": 360, "interval": 12}],
             },
             {
                 f"{a}-{b}_0": (
@@ -179,17 +170,16 @@ from pproc.prob.window_manager import ThresholdWindowManager, AnomalyWindowManag
     ],
 )
 def test_create_threshold(config, expected, exp_coords):
-    win_mgr = ThresholdWindowManager({"accumulations": {"step": config}}, {})
-    acc_mgr = win_mgr.mgr
+    acc_mgr = ThresholdAccumulationManager.create({"step": config}, {})
     assert set(acc_mgr.accumulations.keys()) == set(expected.keys())
-    assert set(win_mgr.window_thresholds.keys()) == set(expected.keys())
+    assert set(acc_mgr._thresholds.keys()) == set(expected.keys())
     for name in expected:
         accum = acc_mgr.accumulations[name]
         assert accum.name == name
         assert len(accum.dims) == 1
         assert accum.dims[0].key == "step"
         assert type(accum.dims[0].accumulation) == expected[name][0]
-        assert win_mgr.window_thresholds[name] == expected[name][1]
+        assert acc_mgr._thresholds[name] == expected[name][1]
     assert set(acc_mgr.coords.keys()) == {"step"}
     assert acc_mgr.coords["step"] == exp_coords
 
@@ -199,6 +189,7 @@ def test_create_threshold(config, expected, exp_coords):
     [
         pytest.param(
             {
+                "type": "legacywindow",
                 "windows": [
                     {
                         "thresholds": [
@@ -207,22 +198,18 @@ def test_create_threshold(config, expected, exp_coords):
                             {"comparison": ">", "value": 4},
                             {"comparison": ">", "value": 8},
                         ],
-                        "periods": [
-                            {"range": [0, 0]},
-                            {"range": [12, 12]},
-                            {"range": [360, 360]},
-                        ],
+                        "coords": [[0], [12], [360]],
                     },
                     {
-                        "window_operation": "mean",
-                        "include_start_step": True,
+                        "operation": "mean",
+                        "include_start": True,
                         "thresholds": [
                             {"comparison": "<", "value": -4},
                             {"comparison": ">=", "value": 2},
                         ],
-                        "periods": [
-                            {"range": [120, 240]},
-                            {"range": [336, 360]},
+                        "coords": [
+                            {"from": 120, "to": 240, "by": 12},
+                            {"from": 336, "to": 360, "by": 12},
                         ],
                     },
                 ],
@@ -232,14 +219,9 @@ def test_create_threshold(config, expected, exp_coords):
                             {"comparison": ">", "value": 1},
                             {"comparison": "<", "value": -1.5},
                         ],
-                        "periods": [
-                            {"range": [0, 0]},
-                            {"range": [12, 12]},
-                            {"range": [300, 300]},
-                        ],
+                        "coords": [[0], [12], [300]],
                     }
                 ],
-                "steps": [{"start_step": 0, "end_step": 360, "interval": 12}],
             },
             {
                 **{
@@ -281,16 +263,15 @@ def test_create_threshold(config, expected, exp_coords):
     ],
 )
 def test_create_anomaly(config, expected, exp_coords):
-    win_mgr = AnomalyWindowManager({"accumulations": {"step": config}}, {})
-    acc_mgr = win_mgr.mgr
+    acc_mgr = AnomalyAccumulationManager.create({"step": config}, {})
     assert set(acc_mgr.accumulations.keys()) == set(expected.keys())
-    assert set(win_mgr.window_thresholds.keys()) == set(expected.keys())
+    assert set(acc_mgr._thresholds.keys()) == set(expected.keys())
     for name in expected:
         accum = acc_mgr.accumulations[name]
         assert accum.name == name
         assert len(accum.dims) == 1
         assert accum.dims[0].key == "step"
         assert type(accum.dims[0].accumulation) == expected[name][0]
-        assert win_mgr.window_thresholds[name] == expected[name][1]
+        assert acc_mgr._thresholds[name] == expected[name][1]
     assert set(acc_mgr.coords.keys()) == {"step"}
     assert acc_mgr.coords["step"] == exp_coords

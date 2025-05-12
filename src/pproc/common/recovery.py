@@ -1,33 +1,76 @@
-import os
-import datetime
+import abc
 import hashlib
 import logging
+import os
 from typing import List
+
+import yaml
 from filelock import FileLock
+
+from pproc.config.base import Recovery as BaseConfig
 
 logger = logging.getLogger(__name__)
 
-class Recovery:
-    def __init__(
-        self, root_dir: str, config_file: str, date: datetime.datetime, recover: bool
-    ):
+
+class BaseRecovery(abc.ABC):
+    @abc.abstractmethod
+    def existing_checkpoint(self, **checkpoint_identifiers) -> bool:
+        pass
+
+    @abc.abstractmethod
+    def computed(self, **matching) -> List[dict]:
+        pass
+
+    @classmethod
+    def checkpoint_key(cls, checkpoint_identifiers: dict) -> str:
+        return "/".join([f"{k}={v}" for k, v in checkpoint_identifiers.items()])
+
+    @classmethod
+    def checkpoint_identifiers(cls, key: str) -> dict:
+        ret = {}
+        for pair in key.split("/"):
+            k, v = pair.split("=")
+            ret[k] = v
+        return ret
+
+    @abc.abstractmethod
+    def add_checkpoint(self, **checkpoint_identifiers):
+        pass
+
+    @abc.abstractmethod
+    def clean_file(self):
+        pass
+
+
+class NullRecovery(BaseRecovery):
+    def existing_checkpoint(self, **checkpoint_identifiers) -> bool:
+        return False
+
+    def computed(self, **matching) -> List[dict]:
+        return {}
+
+    def add_checkpoint(self, **checkpoint_identifiers):
+        pass
+
+    def clean_file(self):
+        pass
+
+
+class Recovery(BaseRecovery):
+    def __init__(self, root_dir: str, config: dict, recover: bool):
         """
         Class for writing out checkpoints and recovering computation from checkpoint file. The date and
-        contents of the config_file are assumed to specify the run uniquely inside of root_dir.
+        contents of the config are assumed to specify the run uniquely inside of root_dir.
 
         :param root_dir: directory to write checkpoint file to
-        :param config_file: file used to set up run
+        :param config: configuration dict for the run
         :param date: date and time of run
         :param recover: boolean specifying whether to retrieve checkpoints from file. Otherwise, existing
         checkpoints in the recovery file are deleted.
         """
         os.makedirs(root_dir, exist_ok=True)
-        sha256 = hashlib.sha256()
-        with open(config_file, "rb") as f:
-            sha256.update(f.read())
-        self.filename = os.path.join(
-            root_dir, f"{date.strftime('%Y%m%d%H')}{sha256.hexdigest()}.txt"
-        )
+        sha256 = hashlib.sha256(f"{yaml.dump(config)}".encode())
+        self.filename = os.path.join(root_dir, f"{sha256.hexdigest()}.txt")
         self.checkpoints = []
         logger.info(
             f"Recovery: checkpoint file {self.filename}. Start from checkpoints: {recover}"
@@ -38,12 +81,20 @@ class Recovery:
                 with open(self.filename, "rt") as f:
                     past_checkpoints = f.readlines()
                 self.checkpoints += [x.rstrip("\n") for x in past_checkpoints]
+
         else:
             self.clean_file()
         self.lock = FileLock(self.filename + ".lock", thread_local=False)
 
+    def computed(self, **matching) -> List[dict]:
+        ret = []
+        for x in self.checkpoints:
+            x_id = self.checkpoint_identifiers(x)
+            if len(matching) == 0 or (all(x_id[k] == str(v) for k, v in matching.items())):
+                ret.append(x_id)
+        return ret
 
-    def existing_checkpoint(self, *checkpoint_identifiers) -> bool:
+    def existing_checkpoint(self, **checkpoint_identifiers) -> bool:
         """
         Returns whether a checkpoint for the checkpoint_identifiers exists
 
@@ -54,23 +105,7 @@ class Recovery:
         checkpoint = self.checkpoint_key(checkpoint_identifiers)
         return checkpoint in self.checkpoints
 
-    def last_checkpoint(self) -> str:
-        """
-        Returns last checkpoint
-        """
-        if len(self.checkpoints) == 0:
-            return None
-        return self.checkpoints[-1]
-
-    @classmethod
-    def checkpoint_key(cls, checkpoint_identifiers: List):
-        return "/".join(map(str, checkpoint_identifiers))
-
-    @classmethod
-    def checkpoint_identifiers(cls, key: str) -> List[str]:
-        return key.split("/")
-
-    def add_checkpoint(self, *checkpoint_identifiers):
+    def add_checkpoint(self, **checkpoint_identifiers):
         """
         Add checkpoint to recover file. If it is an existing checkpoint
         then return
@@ -78,7 +113,7 @@ class Recovery:
         :param checkpoint_identifiers: unique list of parameters specifying
         checkpoint
         """
-        if self.existing_checkpoint(*checkpoint_identifiers):
+        if self.existing_checkpoint(**checkpoint_identifiers):
             return
         checkpoint = self.checkpoint_key(checkpoint_identifiers)
         # Append new completed step to file
@@ -97,3 +132,14 @@ class Recovery:
             os.remove(self.filename)
         if os.path.exists(self.filename + ".lock"):
             os.remove(self.filename + ".lock")
+
+
+def create_recovery(config: BaseConfig) -> BaseRecovery:
+    if config.recovery.enable_checkpointing:
+        root_dir = config.recovery.root_dir or os.getcwd()
+        return Recovery(
+            root_dir,
+            config.model_dump(exclude_defaults=True),
+            config.recovery.from_checkpoint,
+        )
+    return NullRecovery()

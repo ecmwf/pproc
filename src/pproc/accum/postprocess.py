@@ -3,7 +3,8 @@ import numpy as np
 
 import eccodes
 
-from pproc.common.io import Target, nan_to_missing
+from pproc.config.targets import Target
+from pproc.common.io import nan_to_missing
 from pproc.common.grib_helpers import construct_message
 
 
@@ -13,7 +14,6 @@ def postprocess(
     target: Target,
     vmin: Optional[float] = None,
     vmax: Optional[float] = None,
-    out_paramid: Optional[str] = None,
     out_accum_key: Optional[str] = None,
     out_accum_values: Optional[List[Any]] = None,
     out_keys: Optional[Dict[str, Any]] = None,
@@ -32,8 +32,6 @@ def postprocess(
         Minimum output value
     vmax: float, optional
         Maximum output value
-    out_paramid: str, optional
-        Parameter ID to set on the output
     out_accum_key: str, optional
         Accumulation key to set on the output, if number of output fields does not match inputs
     out_accum_values: list, optional
@@ -55,7 +53,7 @@ def postprocess(
         if vmin is not None or vmax is not None:
             np.clip(field, vmin, vmax, out=field)
 
-        grib_keys = out_keys.copy()
+        grib_keys = {} if out_keys is None else out_keys.copy()
         if len(out_arrays) != len(metadata):
             grib_keys[out_accum_key] = (
                 i if not out_accum_values else out_accum_values[i]
@@ -63,8 +61,6 @@ def postprocess(
             template = metadata[0]
         else:
             template = metadata[i]
-        if out_paramid is not None:
-            grib_keys["paramId"] = out_paramid
         message = construct_message(template, grib_keys)
         message.set_array("values", nan_to_missing(message, field))
         target.write(message)

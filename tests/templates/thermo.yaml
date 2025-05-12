@@ -1,8 +1,5 @@
-out_keys:        
-  edition: 2                       
-  typeOfGeneratingProcess: 2
-fc_date: '2024060500'
-n_par_compute: 2
+parallelisation:
+  n_par_compute: 2
 defs: 
   base_request: &base_request                                   
       class: od
@@ -24,26 +21,26 @@ defs:
       - 166
       - 167
       - 168
-sources:     
-  accum:                     
-    <<: *base_request
-    date: 20240605
-    param: *accum_params
-    source: fdb
-  inst:
-    <<: *base_request
-    date: 20240605
-    param: *inst_params
-    source: fdb
-targets:
-  - params:
+parameters:
+  2r:
+    out_params:
       - 2r
-    target: "fdb:"
-    windows:                             
-      ranges:
-      - start_step: 0
-        end_step: 0
-  - params:
+    accumulations:
+      step:
+        coords: [[0]]
+  indices:
+    sources:   
+      accum:   
+        request:                   
+          <<: *base_request
+          date: 20240605
+          param: *accum_params
+        type: fdb
+    accumulations:
+      step:
+        operation: difference
+        coords: [[0, 1], [1, 2], [2, 3]]
+    out_params:
       - mrt
       - utci
       - heatx
@@ -55,31 +52,26 @@ targets:
       - wbpt
       - wbgt
       - 2r
-    target: "fdb:"
-    windows: 
-      operation: diff                                
-      ranges:
-      - start_step: 0
-        end_step: 2
-        interval: 1
-  - params:
-      - 10si
-      - uvcossza
-      - dsrp
-    target: "intermediate.grib"    
-    windows: 
-      operation: diff                                
-      ranges:
-      - start_step: 0
-        end_step: 2
-        interval: 1
-  - params:
-      - 175
-      - 177
-    target: "accum.grib"
-    windows: 
-      operation: diff                                
-      ranges:
-      - start_step: 0
-        end_step: 2
-        interval: 1    
+sources:     
+  inst:
+    request:
+      <<: *base_request
+      date: 20240605
+      param: *inst_params
+    type: fdb
+outputs:
+  default:
+    metadata:
+      edition: 2
+      typeOfGeneratingProcess: 2
+  accum:
+    target:
+      type: file
+      path: "accum.grib"
+  intermediate:
+    target:
+      type: file
+      path: "intermediate.grib"
+  indices:
+    target:
+      type: fdb
