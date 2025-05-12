@@ -545,8 +545,6 @@ class GribMetadata(eccodes.Message):
     def __init__(self, message: eccodes.Message, headers_only: bool = False):
         handle = eccodes.codes_clone(message._handle, headers_only=headers_only)
         super().__init__(handle)
-        self.set_array("values", np.zeros(message.data.size))
-        self.set("bitsPerValue", message.get("bitsPerValue"))
 
     def __getstate__(self) -> dict:
         ret = {"_handle": self.get_buffer()}

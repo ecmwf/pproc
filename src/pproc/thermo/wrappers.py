@@ -6,12 +6,8 @@ from earthkit.data.sources import array_list
 
 
 class GribMetadata(metadata.GribMetadata):
-    def __init__(self, handle, clear_data: bool = False):
-        if clear_data:
-            # Clear data values, keeping only metadata
-            handle = handle.clone()
-            handle.set_array("values", handle.get_array("values").shape)
-        super().__init__(handle)
+    def __init__(self, handle, headers_only: bool = False):
+        super().__init__(handle.clone(headers_only=headers_only))
 
     def __getstate__(self) -> dict:
         ret = self.__dict__.copy()
