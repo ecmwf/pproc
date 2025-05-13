@@ -8,7 +8,7 @@
 > \[!IMPORTANT\]
 > This software is **Incubating** and subject to ECMWF's guidelines on [Software Maturity](https://github.com/ecmwf/codex/raw/refs/heads/main/Project%20Maturity).
 
-PProc is a framework to run meteorological data processing workflows operaionally at ECMWF.
+PProc is a framework to run meteorological data processing workflows operationally at ECMWF.
 
 ## Stand-alone tools
 
