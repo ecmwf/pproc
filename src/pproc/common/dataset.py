@@ -86,7 +86,7 @@ def _mars_retrieve_interp(
     tmpdir=None,
 ) -> eccodes.reader.ReaderBase:
     cache_path = request.pop("cache", None)
-    cache = None if cache_path is None else FileTarget(cache_path.format_map(request))
+    cache = None if cache_path is None else FileTarget(path=cache_path.format_map(request))
     mars_reader = mars_retrieve(request, mars_cmd=mars_cmd, tmpdir=tmpdir)
     if mir_options:
         with mars_reader:
@@ -158,6 +158,31 @@ def _open_dataset_fileset(
         yield FilteredReader(eccodes.FileReader(path), **req)
 
 
+def _open_dataset_fallback(
+    reqs: Union[dict, Iterable[dict]], **kwargs: Any
+) -> Iterator[eccodes.reader.ReaderBase]:
+    print(f"Fallback: {reqs}")
+    if not isinstance(reqs, list):
+        reqs = [reqs]
+    for req in reqs:
+        req = copy.deepcopy(req)
+        config = req.pop("config", {})
+        loc = req.pop("loc")
+        print(f"Trying {loc}")
+        try:
+            for reader in open_multi_dataset(config, loc, **req, **kwargs):
+                message = reader.peek()
+                if message is None:
+                    raise EOFError
+                yield reader
+        except (EOFError, eccodes.IOProblemError, FileNotFoundError, RuntimeError):
+            import traceback
+            traceback.print_exc()
+            continue
+        return
+    raise ValueError("No suitable source found")
+
+
 def open_dataset(config: dict, loc: str, **kwargs) -> eccodes.reader.ReaderBase:
     """Open a GRIB dataset
 
@@ -185,6 +210,7 @@ _DATASET_BACKENDS = {
     "fdb": _open_dataset_fdb,
     "mars": _open_dataset_mars,
     "fileset": _open_dataset_fileset,
+    "fallback": _open_dataset_fallback,
 }
 
 

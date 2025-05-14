@@ -11,7 +11,8 @@ import calendar
 from datetime import datetime
 import pytest
 
-from pproc.clustereps.season import Season, SeasonConfig
+from pproc.clustereps.season import Season
+from pproc.config.types import SeasonConfig
 
 
 SEASONS = [(5, 9), (10, 4)]
