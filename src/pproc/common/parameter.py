@@ -67,7 +67,7 @@ class Parameter:
         self.base_request["time"] = dt.strftime("%H")
         self.overrides = overrides
         self.interpolation_keys = param_cfg.get("interpolation_keys", None)
-        self.scale_data = int(param_cfg.get("scale", 1))
+        self.scale_data = float(param_cfg.get("scale", 1.0))
 
     def retrieve_data(
         self, fdb, step: common.AnyStep, join_dim: str = "number", **kwargs
