@@ -79,7 +79,7 @@ def main(args=None):
                 last_checkpoint = None  # All remaining params have not been run
 
             prob_partial = functools.partial(
-                prob_iteration, param, recovery, common.io.NullTarget(), cfg.out_prob
+                prob_iteration, param, recovery, cfg.out_prob
             )
             for keys, retrieved_data in parallel_data_retrieval(
                 cfg.n_par_read,
@@ -98,8 +98,8 @@ def main(args=None):
                     completed_windows = window_manager.update_windows(
                         keys,
                         data,
-                        clim_data[clim.get_type_index("em")],
-                        clim_data[clim.get_type_index("es")],
+                        clim_data.sel(type="em"),
+                        clim_data.sel(type="es"),
                     )
                     for window_id, accum in completed_windows:
                         executor.submit(
@@ -108,7 +108,7 @@ def main(args=None):
                             window_id,
                             accum,
                             window_manager.thresholds(window_id),
-                            additional_headers=clim_grib_header,
+                            clim_grib_header,
                         )
 
             executor.wait()

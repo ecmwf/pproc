@@ -25,7 +25,9 @@ class ThresholdWindowManager(WindowManager):
         for window_id, acc_config in legacy_window_factory(parameter, global_config):
             thresholds = acc_config.pop("thresholds", [])
             if not thresholds:
-                raise RuntimeError("Window with no operation specified, or none could be derived")
+                raise RuntimeError(
+                    "Window with no operation specified, or none could be derived"
+                )
             self.window_thresholds[window_id] = thresholds
             yield (window_id, acc_config)
 

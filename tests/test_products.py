@@ -134,10 +134,11 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
                     261015,
                     261022,
                     261014,
+                    260242,
                 ],
-                "step": list(range(1, 4)),
+                "step": list(range(0, 4)),
             },
-            30,
+            34,
         ],
         [
             "clustereps",

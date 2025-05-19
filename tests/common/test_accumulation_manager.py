@@ -98,6 +98,22 @@ CONFIGS = {
         },
         "step": {"coords": [[24]]},
     },
+    "factory-monthly-steps": {
+        "step": {
+            "operation": "mean",
+            "type": "stepseq",
+            "sequence": {
+                "type": "monthly",
+                "date": "20241001",
+            },
+            "coords": {
+                "from": 0,
+                "to": 5160,
+                "by": 6,
+            },
+            "include_start_step": True,
+        }
+    },
 }
 
 EXPECT_ACCUMS = {
@@ -149,6 +165,20 @@ EXPECT_ACCUMS = {
         ),
         "step": (Aggregation, [[24]]),
     },
+    "factory-monthly-steps": {
+        "step": (
+            Mean,
+            [
+                list(range(0, 745, 6)),
+                list(range(744, 1465, 6)),
+                list(range(1464, 2209, 6)),
+                list(range(2208, 2953, 6)),
+                list(range(2952, 3625, 6)),
+                list(range(3624, 4369, 6)),
+                list(range(4368, 5089, 6)),
+            ],
+        )
+    },
 }
 
 EXPECT_COORDS = {
@@ -188,6 +218,7 @@ EXPECT_COORDS = {
         },
         "step": {24},
     },
+    "factory-monthly-steps": {"step": {x for x in range(0, 5089, 6)}},
 }
 
 
