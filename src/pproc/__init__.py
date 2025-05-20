@@ -8,3 +8,8 @@
 # nor does it submit to any jurisdiction.
 
 from . import clustereps
+
+try:
+    from ._version import __version__
+except ImportError:
+    __version__ = "local"
