@@ -6,6 +6,7 @@ import pandas as pd
 import signal
 import logging
 import yaml
+import numexpr
 
 import eccodes
 from meters import ResourceMeter
@@ -84,56 +85,94 @@ def compute_weather_types(
 
     num_gp = tp.shape[1]
     num_ens = tp.shape[0]
-    # inizialize field for the new post-processed ensemble (CDF) built from all raw ensemble members and all WTs
-    pt_bc_allens_allwt = np.array([]).reshape(0, num_fer, num_gp)
-    # inizialize field for the bias corrected (bc) at grid-scale fields for all raw ensemble members and all WTs
+    # inizialize field for the new post-processed ensemble (CDF)
+    # built from all raw ensemble members and all WTs
+    pt_bc_allens_allwt = np.array([]).reshape(0, num_gp)
+    # inizialize field for the bias corrected (bc) at grid-scale
+    # fields for all raw ensemble members and all WTs
     grid_bc_allens_allwt = np.array([]).reshape(0, num_gp)
     # inizialize field for the wt for all raw ensemble members and all WTs
     wt_allens_allwt = np.array([]).reshape(0, num_gp)
 
     with ResourceMeter("Compute realisations"):
         for ind_em in range(0, num_ens, ens_batch_size):
-            logger.info(f"Ensemble member: {ind_em} - {ind_em + ens_batch_size - 1}")
+            end_ind_em = min(num_ens, ind_em + ens_batch_size)
+            logger.info(f"Ensemble member: {ind_em} - {end_ind_em - 1}")
 
-            predictand = tp[ind_em: ind_em + ens_batch_size]
+            predictand = tp[ind_em:end_ind_em]
             predictand = np.where(predictand < min_predictand, 0, predictand)
-            predictors = np.asarray([
-                cpr[ind_em: ind_em + ens_batch_size],
-                tp[ind_em: ind_em + ens_batch_size],
-                ws700[ind_em: ind_em + ens_batch_size],
-                maxmucape[ind_em: ind_em + ens_batch_size],
-                sr[ind_em: ind_em + ens_batch_size],
-            ]) # (5, ens_batch_size, 1661440)
-        
-            predictors = np.reshape(predictors, (1, *predictors.shape)) # (1, 5, ens_batch_size, 1661440)
+            predictors = np.asarray(
+                [
+                    cpr[ind_em:end_ind_em],
+                    tp[ind_em:end_ind_em],
+                    ws700[ind_em:end_ind_em],
+                    maxmucape[ind_em:end_ind_em],
+                    sr[ind_em:end_ind_em],
+                ]
+            )  # (num_pred, ens_batch_size, num_gp)
+
+            predictors = predictors.reshape(
+                1, *predictors.shape
+            )  # (1, num_pred, ens_batch_size, num_gp)
             print("predictors", predictors.shape)
-            thr_inf2 = np.reshape(bp[:, 0:-1:2], (num_wt, num_pred, 1, 1)) # (404, 5, 1, 1)
-            thr_sup2 = np.reshape(bp[:, 1::2], (num_wt, num_pred, 1, 1))
+            thr_inf2 = bp[:, 0:-1:2].reshape(
+                num_wt, num_pred, 1, 1
+            )  # (num_wt, num_pred, 1, 1)
+            thr_sup2 = bp[:, 1::2].reshape(
+                num_wt, num_pred, 1, 1
+            )  # (num_wt, num_pred, 1, 1)
             print("thr_inf2/thr_sup2", thr_inf2.shape, thr_sup2.shape)
-            temp_wts = np.prod(np.where((predictors >= thr_inf2) & (predictors < thr_sup2), 1, 0), axis=1) # (404, ens_batch_size, 1661440)
+            temp_wts = numexpr.evaluate(
+                "prod(where((predictors >= thr_inf2) & (predictors < thr_sup2), 1, 0), axis=1)",
+                local_dict={
+                    "predictors": predictors,
+                    "thr_inf2": thr_inf2,
+                    "thr_sup2": thr_sup2,
+                },
+            )  # (num_wt, ens_batch_size, num_gp)
             print("temp_wts", temp_wts.shape)
 
-            wt_allwt = np.einsum("i,i...", codes_wt, temp_wts) # (ens_batch_size, 1661440)
+            wt_allwt = np.einsum(
+                "i,i...", codes_wt, temp_wts
+            )  # (ens_batch_size, num_gp)
             print("wt_allwt", wt_allwt.shape)
-            wt_rain_allwt = np.reshape(predictand, (1, *predictand.shape)) * temp_wts # (404, ens_batch_size, 1661440)
+            wt_rain_allwt = numexpr.evaluate(
+                "pred * wts",
+                local_dict={"pred": predictand[None, ...], "wts": temp_wts},
+            )  # (num_wt, ens_batch_size, num_gp)
             print("wt_rain_allwt", wt_rain_allwt.shape)
 
-            pt_bc_allwt = np.zeros((predictand.shape[0], num_fer, predictand.shape[1])) # (ens_batch_size, 100, 1661440)
+            pt_bc_allwt = np.zeros(
+                (predictand.shape[0], num_fer, num_gp)
+            )  # (ens_batch_size, num_fer, num_gp)
             for index in range(0, num_wt, wt_batch_size):
-                cdf_wtbatch = np.einsum(
-                    "...i,...jk->...jik", 
-                    fer[index: index + wt_batch_size] + 1, # (wt_batch_size, 100)
-                    wt_rain_allwt[index: index + wt_batch_size] # (wt_batch_size, ens_batch_size, 1661440)
-                ) # (wt_batch_size, ens_batch_size, 100, 1661440)
-                print("cdf_wtbatch", cdf_wtbatch.shape)
-                pt_bc_allwt += np.sum(cdf_wtbatch, axis=0) # (ens_batch_size, 100, 1661440)
+                end_index = min(index + wt_batch_size, num_wt)
+                wt_size = end_index - index
+                fer_reshaped = fer[index:end_index].reshape(wt_size, 1, num_fer, 1)
+                wt_rain_allwt_reshaped = wt_rain_allwt[index:end_index].reshape(
+                    wt_size, ens_batch_size, 1, num_gp
+                )
+                cdf_wtbatch = numexpr.evaluate(
+                    "sum((fer + 1) * wt_rain, axis=0)",
+                    local_dict={"fer": fer_reshaped, "wt_rain": wt_rain_allwt_reshaped},
+                )  # (ens_batch_size, num_fer, num_gp)
+                pt_bc_allwt = numexpr.evaluate(
+                    "pt + cdf", local_dict={"pt": pt_bc_allwt, "cdf": cdf_wtbatch}
+                )
             print("pt_bc_allwt", pt_bc_allwt.shape)
 
             grid_bc_allens_allwt = np.vstack(
                 (grid_bc_allens_allwt, np.mean(pt_bc_allwt, axis=1))
             )
-            pt_bc_allens_allwt = np.vstack((pt_bc_allens_allwt, pt_bc_allwt))
-            wt_allens_allwt = np.vstack((wt_allens_allwt, np.where(predictand == 0, 9999, wt_allwt)))
+            pt_bc_allens_allwt = np.vstack(
+                (
+                    pt_bc_allens_allwt,
+                    pt_bc_allwt.reshape(ens_batch_size * num_fer, num_gp, order="C"),
+                )
+            )
+            wt_allens_allwt = np.vstack(
+                (wt_allens_allwt, np.where(predictand == 0, 9999, wt_allwt))
+            )
 
     print("grid_bc_allens_allwt", grid_bc_allens_allwt.shape)
     print("pt_bc_allens_allwt", pt_bc_allens_allwt.shape)
