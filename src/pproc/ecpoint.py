@@ -70,12 +70,14 @@ def compute_weather_types(
     bp_loc: str,
     fer_loc: str,
     min_predictand: float = 0.04,
+    wt_batch_size: int = 40,
+    ens_batch_size: int = 2,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     bp_file = pd.read_csv(bp_loc, header=0, delimiter=",")
     fer_file = pd.read_csv(fer_loc, header=0, delimiter=",")
-    bp = bp_file.iloc[:, 1:]
-    fer = fer_file.iloc[:, 1:]
-    codes_wt = bp_file.iloc[:, 0]
+    bp = bp_file.iloc[:, 1:].to_numpy(dtype=np.float32)
+    fer = fer_file.iloc[:, 1:].to_numpy(dtype=np.float32)
+    codes_wt = bp_file.iloc[:, 0].to_numpy(dtype=np.float32)
     num_wt = bp.shape[0]
     num_pred = int(bp.shape[1] / 2)
     num_fer = fer.shape[1]
@@ -83,70 +85,59 @@ def compute_weather_types(
     num_gp = tp.shape[1]
     num_ens = tp.shape[0]
     # inizialize field for the new post-processed ensemble (CDF) built from all raw ensemble members and all WTs
-    pt_bc_allens_allwt = np.array([]).reshape(0, num_gp)
+    pt_bc_allens_allwt = np.array([]).reshape(0, num_fer, num_gp)
     # inizialize field for the bias corrected (bc) at grid-scale fields for all raw ensemble members and all WTs
     grid_bc_allens_allwt = np.array([]).reshape(0, num_gp)
     # inizialize field for the wt for all raw ensemble members and all WTs
     wt_allens_allwt = np.array([]).reshape(0, num_gp)
 
     with ResourceMeter("Compute realisations"):
-        for ind_em in range(num_ens):
-            predictand = tp[ind_em]
-            predictors = [
-                cpr[ind_em],
-                tp[ind_em],
-                ws700[ind_em],
-                maxmucape[ind_em],
-                sr[ind_em],
-            ]
+        for ind_em in range(0, num_ens, ens_batch_size):
+            logger.info(f"Ensemble member: {ind_em + 1} - {ind_em + ens_batch_size + 1}")
+
+            predictand = tp[ind_em: ind_em + ens_batch_size]
             predictand = np.where(predictand < min_predictand, 0, predictand)
+            predictors = np.asarray([
+                cpr[ind_em: ind_em + ens_batch_size],
+                tp[ind_em: ind_em + ens_batch_size],
+                ws700[ind_em: ind_em + ens_batch_size],
+                maxmucape[ind_em: ind_em + ens_batch_size],
+                sr[ind_em: ind_em + ens_batch_size],
+            ]) # (5, ens_batch_size, 1661440)
+        
+            predictors = np.reshape(predictors, (1, *predictors.shape)) # (1, 5, ens_batch_size, 1661440)
+            print("predictors", predictors.shape)
+            thr_inf2 = np.reshape(bp[:, 0:-1:2], (num_wt, num_pred, 1, 1)) # (404, 5, 1, 1)
+            thr_sup2 = np.reshape(bp[:, 1::2], (num_wt, num_pred, 1, 1))
+            print("thr_inf2/thr_sup2", thr_inf2.shape, thr_sup2.shape)
+            temp_wts = np.prod(np.where((predictors >= thr_inf2) & (predictors < thr_sup2), 1, 0), axis=1) # (404, ens_batch_size, 1661440)
+            print("temp_wts", temp_wts.shape)
 
-            pt_bc_singleens_allwt = np.zeros(
-                (num_fer, predictand.shape[0])
-            )  # inizializes the field that will contain the new post-processed ensemble (CDF) built from each raw ensemble member and all WTs
-            wt_singleens_allwt = 0  # initializes the field that will locate all the WTs within the grid boxes.
+            wt_allwt = np.einsum("i,i...", codes_wt, temp_wts) # (ens_batch_size, 1661440)
+            print("wt_allwt", wt_allwt.shape)
+            wt_rain_allwt = np.reshape(predictand, (1, *predictand.shape)) * temp_wts # (404, ens_batch_size, 1661440)
+            print("wt_rain_allwt", wt_rain_allwt.shape)
 
-            for ind_wt in range(num_wt):
-                logger.info(f"Ensemble member: {ind_em + 1}, and WT: {ind_wt + 1}")
-
-                ind_inf = 0
-                ind_sup = 1
-                tempWT = np.ones_like(predictand)
-
-                for ind_pred in range(num_pred):
-                    thr_inf = bp.iloc[ind_wt, ind_inf]
-                    thr_sup = bp.iloc[ind_wt, ind_sup]
-                    tempWT1 = np.where(
-                        (predictors[ind_pred] >= thr_inf)
-                        & (predictors[ind_pred] < thr_sup),
-                        1,
-                        0,
-                    )  # combination with a single predictor
-                    tempWT = tempWT * tempWT1  # combination with all predictors
-                    ind_inf = ind_inf + 2
-                    ind_sup = ind_inf + 1
-
-                wt_singleens_allwt = wt_singleens_allwt + (codes_wt[ind_wt] * tempWT)
-                wt_singleens_allwt = np.where(predictand == 0, 9999, wt_singleens_allwt)
-
-                WT_RainVals_SingleENS_SingleWT = predictand * tempWT
-                CDF_SingleENS_SingleWT = []
-                for ind_fer in range(num_fer):
-                    CDF_SingleENS_SingleWT.append(
-                        WT_RainVals_SingleENS_SingleWT * (fer.iloc[ind_wt, ind_fer] + 1)
-                    )
-
-                pt_bc_singleens_allwt = pt_bc_singleens_allwt + np.array(
-                    CDF_SingleENS_SingleWT
-                )
-                CDF_SingleENS_SingleWT = None
+            pt_bc_allwt = np.zeros((predictand.shape[0], num_fer, predictand.shape[1])) # (ens_batch_size, 100, 1661440)
+            for index in range(0, num_wt, wt_batch_size):
+                cdf_wtbatch = np.einsum(
+                    "...i,...jk->...jik", 
+                    fer[index: index + wt_batch_size] + 1, # (wt_batch_size, 100)
+                    wt_rain_allwt[index: index + wt_batch_size] # (wt_batch_size, ens_batch_size, 1661440)
+                ) # (wt_batch_size, ens_batch_size, 100, 1661440)
+                print("cdf_wtbatch", cdf_wtbatch.shape)
+                pt_bc_allwt += np.sum(cdf_wtbatch, axis=0) # (ens_batch_size, 100, 1661440)
+            print("pt_bc_allwt", pt_bc_allwt.shape)
 
             grid_bc_allens_allwt = np.vstack(
-                (grid_bc_allens_allwt, np.mean(pt_bc_singleens_allwt, axis=0))
+                (grid_bc_allens_allwt, np.mean(pt_bc_allwt, axis=1))
             )
-            pt_bc_allens_allwt = np.vstack((pt_bc_allens_allwt, pt_bc_singleens_allwt))
-            wt_allens_allwt = np.vstack((wt_allens_allwt, wt_singleens_allwt))
+            pt_bc_allens_allwt = np.vstack((pt_bc_allens_allwt, pt_bc_allwt))
+            wt_allens_allwt = np.vstack((wt_allens_allwt, np.where(predictand == 0, 9999, wt_allwt)))
 
+    print("grid_bc_allens_allwt", grid_bc_allens_allwt.shape)
+    print("pt_bc_allens_allwt", pt_bc_allens_allwt.shape)
+    print("wt_allens_allwt", wt_allens_allwt.shape)
     return pt_bc_allens_allwt, grid_bc_allens_allwt, wt_allens_allwt
 
 
