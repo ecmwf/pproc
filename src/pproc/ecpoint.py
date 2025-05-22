@@ -93,7 +93,7 @@ def compute_weather_types(
 
     with ResourceMeter("Compute realisations"):
         for ind_em in range(0, num_ens, ens_batch_size):
-            logger.info(f"Ensemble member: {ind_em + 1} - {ind_em + ens_batch_size + 1}")
+            logger.info(f"Ensemble member: {ind_em} - {ind_em + ens_batch_size - 1}")
 
             predictand = tp[ind_em: ind_em + ens_batch_size]
             predictand = np.where(predictand < min_predictand, 0, predictand)
