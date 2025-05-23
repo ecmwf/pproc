@@ -97,6 +97,7 @@ def compute_weather_types(
     with ResourceMeter("Compute realisations"):
         for ind_em in range(0, num_ens, ens_batch_size):
             end_ind_em = min(num_ens, ind_em + ens_batch_size)
+            ens_size = end_ind_em - index_em
             logger.info(f"Ensemble member: {ind_em} - {end_ind_em - 1}")
 
             predictand = tp[ind_em:end_ind_em]
@@ -150,7 +151,7 @@ def compute_weather_types(
                 wt_size = end_index - index
                 fer_reshaped = fer[index:end_index].reshape(wt_size, 1, num_fer, 1)
                 wt_rain_allwt_reshaped = wt_rain_allwt[index:end_index].reshape(
-                    wt_size, ens_batch_size, 1, num_gp
+                    wt_size, ens_size, 1, num_gp
                 )
                 cdf_wtbatch = numexpr.evaluate(
                     "sum((fer + 1) * wt_rain, axis=0)",
@@ -167,7 +168,7 @@ def compute_weather_types(
             pt_bc_allens_allwt = np.vstack(
                 (
                     pt_bc_allens_allwt,
-                    pt_bc_allwt.reshape(ens_batch_size * num_fer, num_gp, order="C"),
+                    pt_bc_allwt.reshape(ens_size * num_fer, num_gp, order="C"),
                 )
             )
             wt_allens_allwt = np.vstack(
