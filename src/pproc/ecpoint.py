@@ -153,9 +153,9 @@ def compute_weather_types(
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     bp_file = pd.read_csv(bp_loc, header=0, delimiter=",")
     fer_file = pd.read_csv(fer_loc, header=0, delimiter=",")
-    bp = bp_file.iloc[:, 1:].to_numpy()
-    fer = fer_file.iloc[:, 1:].to_numpy()
-    codes_wt = bp_file.iloc[:, 0].to_numpy()
+    bp = bp_file.iloc[:, 1:].to_numpy(dtype=np.float32)
+    fer = fer_file.iloc[:, 1:].to_numpy(dtype=np.float32)
+    codes_wt = bp_file.iloc[:, 0].to_numpy(dtype=np.float32)
     num_wt = bp.shape[0]
     num_pred = int(bp.shape[1] / 2)
     num_fer = fer.shape[1]
@@ -187,19 +187,9 @@ def compute_weather_types(
                     maxmucape[ind_em:end_ind_em],
                     sr[ind_em:end_ind_em],
                 ]
-            )  # (num_pred, ens_batch_size, num_gp)
-
-            predictors = predictors.reshape(
-                1, *predictors.shape
-            )  # (1, num_pred, ens_batch_size, num_gp)
-            print("predictors", predictors.shape)
-            thr_inf2 = bp[:, 0:-1:2].reshape(
-                num_wt, num_pred, 1, 1
-            )  # (num_wt, num_pred, 1, 1)
-            thr_sup2 = bp[:, 1::2].reshape(
-                num_wt, num_pred, 1, 1
-            )  # (num_wt, num_pred, 1, 1)
-            print("thr_inf2/thr_sup2", thr_inf2.shape, thr_sup2.shape)
+            ).reshape(1, num_pred, ens_size, num_gp)
+            thr_inf2 = bp[:, 0:-1:2].reshape(num_wt, num_pred, 1, 1)
+            thr_sup2 = bp[:, 1::2].reshape(num_wt, num_pred, 1, 1)
 
             pt_bc_allwt = np.zeros((ens_size, num_fer, num_gp))
             wt_allwt = np.zeros((ens_size, num_gp))
@@ -207,7 +197,6 @@ def compute_weather_types(
                 end_index = min(index + wt_batch_size, num_wt)
                 logger.info(f"Weather types: {index} - {end_index - 1}")
                 wt_size = end_index - index
-                fer_reshaped = fer[index:end_index].reshape(wt_size, 1, num_fer, 1)
 
                 temp_wts = numexpr.evaluate(
                     "prod(where((predictors >= thr_inf2) & (predictors < thr_sup2), 1, 0), axis=1)",
@@ -224,17 +213,17 @@ def compute_weather_types(
                         "pred": predictand[None, ...],
                         "wts": temp_wts,
                     },
-                ).reshape(
-                    wt_size, ens_size, 1, num_gp
-                )  # (num_wt, ens_batch_size, num_gp)
+                ).reshape(wt_size, ens_size, 1, num_gp)
                 cdf_wt = numexpr.evaluate(
                     "sum((fer + 1) * wt_rain, axis=0)",
-                    local_dict={"fer": fer_reshaped, "wt_rain": wt_rain},
-                )  # (ens_batch_size, num_fer, num_gp)
+                    local_dict={
+                        "fer": fer[index:end_index].reshape(wt_size, 1, num_fer, 1),
+                        "wt_rain": wt_rain,
+                    },
+                )
                 pt_bc_allwt = numexpr.evaluate(
                     "pt + cdf", local_dict={"pt": pt_bc_allwt, "cdf": cdf_wt}
                 )
-            print("pt_bc_allwt", pt_bc_allwt.shape)
 
             grid_bc_allens_allwt = np.vstack(
                 (grid_bc_allens_allwt, np.mean(pt_bc_allwt, axis=1))
@@ -246,12 +235,12 @@ def compute_weather_types(
                 )
             )
             wt_allens_allwt = np.vstack(
-                (wt_allens_allwt, np.where(predictand < min_predictand, 99999, wt_allwt))
+                (
+                    wt_allens_allwt,
+                    np.where(predictand < min_predictand, 99999, wt_allwt),
+                )
             )
 
-    print("grid_bc_allens_allwt", grid_bc_allens_allwt.shape)
-    print("pt_bc_allens_allwt", pt_bc_allens_allwt.shape)
-    print("wt_allens_allwt", wt_allens_allwt.shape)
     return pt_bc_allens_allwt, grid_bc_allens_allwt, wt_allens_allwt
 
 
