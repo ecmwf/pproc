@@ -370,7 +370,13 @@ class ECPointParamConfig(ParamConfig):
         return [getattr(self, dep) for dep in self._deps]
 
 
+class ECPointParallelisation(Parallelisation):
+    wt_batch_size: int = 1
+    ens_batch_size: int = 1
+
+
 class ECPointConfig(QuantilesConfig):
+    parallelisation: ECPointParallelisation = ECPointParallelisation()
     outputs: io.ECPointOutputModel = io.ECPointOutputModel()
     parameters: list[ECPointParamConfig]
     bp_location: Annotated[

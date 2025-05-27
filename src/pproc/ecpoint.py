@@ -30,6 +30,7 @@ from pproc.common.parallel import (
 from pproc.common.io import nan_to_missing, GribMetadata
 from pproc.common.accumulation_manager import AccumulationManager
 from pproc.common.grib_helpers import construct_message
+from pproc.quantiles.grib import quantiles_template
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,82 @@ def ratio(var_num, var_den):
     return output
 
 
+def grid_bc_template(
+    template: eccodes.GRIBMessage, out_keys: dict
+) -> eccodes.GRIBMessage:
+    edition = out_keys.get("edition", template.get("edition"))
+    if edition not in (1, 2):
+        raise ValueError(f"Unsupported GRIB edition {edition}")
+
+    grib_keys = out_keys.copy()
+    if edition == 2:
+        grib_keys.update(
+            {
+                "productDefinitionTemplateNumber": 73,
+                "type": "gbf",
+                "inputProcessIdentifier": 145,
+                "typeOfGeneratingProcess": 13,
+                "backgroundProcess": 1,
+                "generatingProcessIdentifier": 2,
+                "typeOfPostProcessing": 206,
+                "indicatorOfUnitForTimeIncrement": 1,
+                "timeIncrement": 1,
+            }
+        )
+    return construct_message(template, grib_keys)
+
+
+def weather_types_template(
+    template: eccodes.GRIBMessage, out_keys: dict
+) -> eccodes.GRIBMessage:
+    edition = out_keys.get("edition", template.get("edition"))
+    if edition not in (1, 2):
+        raise ValueError(f"Unsupported GRIB edition {edition}")
+
+    grib_keys = out_keys.copy()
+    if edition == 2:
+        grib_keys.update(
+            {
+                "productDefinitionTemplateNumber": 73,
+                "type": "gwt",
+                "typeOfOriginalFieldValues": 1,
+                "packingType": "grid_ieee",
+                "inputProcessIdentifier": 145,
+                "typeOfGeneratingProcess": 13,
+                "backgroundProcess": 1,
+                "generatingProcessIdentifier": 2,
+                "typeOfPostProcessing": 206,
+                "indicatorOfUnitForTimeIncrement": 1,
+                "timeIncrement": 1,
+            }
+        )
+    return construct_message(template, grib_keys)
+
+
+def point_scale_template(
+    template: eccodes.GRIBMessage, pert_number: int, total_number: int, out_keys: dict
+) -> eccodes.GRIBMessage:
+    edition = out_keys.get("edition", template.get("edition"))
+    if edition not in (1, 2):
+        raise ValueError(f"Unsupported GRIB edition {edition}")
+
+    grib_keys = out_keys.copy()
+    if edition == 2:
+        grib_keys.update(
+            {
+                "productDefinitionTemplateNumber": 90,
+                "type": "pfc",
+                "backgroundProcess": 1,
+                "generatingProcessIdentifier": 2,
+                "inputProcessIdentifier": 145,
+                "typeOfPostProcessing": 206,
+                "indicatorOfUnitForTimeIncrement": 1,
+                "timeIncrement": 1,
+            }
+        )
+    return quantiles_template(template, pert_number, total_number, grib_keys)
+
+
 def compute_weather_types(
     tp: np.ndarray,
     cpr: np.ndarray,
@@ -71,14 +148,14 @@ def compute_weather_types(
     bp_loc: str,
     fer_loc: str,
     min_predictand: float = 0.04,
-    wt_batch_size: int = 40,
-    ens_batch_size: int = 2,
+    wt_batch_size: int = 1,
+    ens_batch_size: int = 1,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     bp_file = pd.read_csv(bp_loc, header=0, delimiter=",")
     fer_file = pd.read_csv(fer_loc, header=0, delimiter=",")
-    bp = bp_file.iloc[:, 1:].to_numpy(dtype=np.float32)
-    fer = fer_file.iloc[:, 1:].to_numpy(dtype=np.float32)
-    codes_wt = bp_file.iloc[:, 0].to_numpy(dtype=np.float32)
+    bp = bp_file.iloc[:, 1:].to_numpy()
+    fer = fer_file.iloc[:, 1:].to_numpy()
+    codes_wt = bp_file.iloc[:, 0].to_numpy()
     num_wt = bp.shape[0]
     num_pred = int(bp.shape[1] / 2)
     num_fer = fer.shape[1]
@@ -98,7 +175,7 @@ def compute_weather_types(
         for ind_em in range(0, num_ens, ens_batch_size):
             end_ind_em = min(num_ens, ind_em + ens_batch_size)
             ens_size = end_ind_em - ind_em
-            logger.info(f"Ensemble member: {ind_em} - {end_ind_em - 1}")
+            logger.info(f"Ensemble members: {ind_em} - {end_ind_em - 1}")
 
             predictand = tp[ind_em:end_ind_em]
             predictand = np.where(predictand < min_predictand, 0, predictand)
@@ -123,42 +200,39 @@ def compute_weather_types(
                 num_wt, num_pred, 1, 1
             )  # (num_wt, num_pred, 1, 1)
             print("thr_inf2/thr_sup2", thr_inf2.shape, thr_sup2.shape)
-            temp_wts = numexpr.evaluate(
-                "prod(where((predictors >= thr_inf2) & (predictors < thr_sup2), 1, 0), axis=1)",
-                local_dict={
-                    "predictors": predictors,
-                    "thr_inf2": thr_inf2,
-                    "thr_sup2": thr_sup2,
-                },
-            )  # (num_wt, ens_batch_size, num_gp)
-            print("temp_wts", temp_wts.shape)
 
-            wt_allwt = np.einsum(
-                "i,i...", codes_wt, temp_wts
-            )  # (ens_batch_size, num_gp)
-            print("wt_allwt", wt_allwt.shape)
-            wt_rain_allwt = numexpr.evaluate(
-                "pred * wts",
-                local_dict={"pred": predictand[None, ...], "wts": temp_wts},
-            )  # (num_wt, ens_batch_size, num_gp)
-            print("wt_rain_allwt", wt_rain_allwt.shape)
-
-            pt_bc_allwt = np.zeros(
-                (predictand.shape[0], num_fer, num_gp)
-            )  # (ens_batch_size, num_fer, num_gp)
+            pt_bc_allwt = np.zeros((ens_size, num_fer, num_gp))
+            wt_allwt = np.zeros((ens_size, num_gp))
             for index in range(0, num_wt, wt_batch_size):
                 end_index = min(index + wt_batch_size, num_wt)
+                logger.info(f"Weather types: {index} - {end_index - 1}")
                 wt_size = end_index - index
                 fer_reshaped = fer[index:end_index].reshape(wt_size, 1, num_fer, 1)
-                wt_rain_allwt_reshaped = wt_rain_allwt[index:end_index].reshape(
-                    wt_size, ens_size, 1, num_gp
+
+                temp_wts = numexpr.evaluate(
+                    "prod(where((predictors >= thr_inf2) & (predictors < thr_sup2), 1, 0), axis=1)",
+                    local_dict={
+                        "predictors": predictors,
+                        "thr_inf2": thr_inf2[index:end_index],
+                        "thr_sup2": thr_sup2[index:end_index],
+                    },
                 )
-                cdf_wtbatch = numexpr.evaluate(
+                wt_allwt += np.einsum("i,i...", codes_wt[index:end_index], temp_wts)
+                wt_rain = numexpr.evaluate(
+                    "pred * wts",
+                    local_dict={
+                        "pred": predictand[None, ...],
+                        "wts": temp_wts,
+                    },
+                ).reshape(
+                    wt_size, ens_size, 1, num_gp
+                )  # (num_wt, ens_batch_size, num_gp)
+                cdf_wt = numexpr.evaluate(
                     "sum((fer + 1) * wt_rain, axis=0)",
-                    local_dict={"fer": fer_reshaped, "wt_rain": wt_rain_allwt_reshaped},
+                    local_dict={"fer": fer_reshaped, "wt_rain": wt_rain},
                 )  # (ens_batch_size, num_fer, num_gp)
                 pt_bc_allwt = numexpr.evaluate(
-                    "pt + cdf", local_dict={"pt": pt_bc_allwt, "cdf": cdf_wtbatch}
+                    "pt + cdf", local_dict={"pt": pt_bc_allwt, "cdf": cdf_wt}
                 )
             print("pt_bc_allwt", pt_bc_allwt.shape)
 
@@ -172,7 +246,7 @@ def compute_weather_types(
                 )
             )
             wt_allens_allwt = np.vstack(
-                (wt_allens_allwt, np.where(predictand == 0, 9999, wt_allwt))
+                (wt_allens_allwt, np.where(predictand < min_predictand, 99999, wt_allwt))
             )
 
     print("grid_bc_allens_allwt", grid_bc_allens_allwt.shape)
@@ -236,21 +310,23 @@ def ecpoint_iteration(
         config.bp_location,
         config.fer_location,
         config.min_predictand,
+        config.parallelisation.wt_batch_size,
+        config.parallelisation.ens_batch_size,
     )
 
-    # Save the grid-scale outputs
+    # Save the grid-scale outputs and weather types for each member
     out_bs = config.outputs.bs
     out_wt = config.outputs.wt
     for index, field in enumerate(input_params.sel(param="tp")):
         template = field.metadata()._handle
-        bs_message = construct_message(template, {**out_bs.metadata, **out_keys})
+        bs_message = grid_bc_template(template, {**out_bs.metadata, **out_keys})
         bs_message.set_array(
             "values", nan_to_missing(bs_message, grid_bc_allens_allwt[index])
         )
         out_bs.target.write(bs_message)
         out_bs.target.flush()
 
-        wt_message = construct_message(template, {**out_wt.metadata, **out_keys})
+        wt_message = weather_types_template(template, {**out_wt.metadata, **out_keys})
         wt_message.set_array(
             "values", nan_to_missing(wt_message, wt_allens_allwt[index])
         )
@@ -263,14 +339,20 @@ def ecpoint_iteration(
     with ResourceMeter("Compute the percentiles"):
         out_perc = config.outputs.perc
         template = input_params.sel(param="tp")[0].metadata()._handle
-        for quantile in iter_quantiles(
-            pt_bc_allens_allwt, config.quantiles, method="sort"
+        for i, quantile in enumerate(
+            iter_quantiles(pt_bc_allens_allwt, config.quantiles, method="sort")
         ):
-            # TODO: check keys that should be set for each percentile
-            message = construct_message(template, {**out_perc.metadata, **out_keys})
+            grib_keys = {
+                **out_perc.metadata,
+                **out_keys,
+            }
+            pert_number, total_number = config.quantile_indices(i)
+            message = point_scale_template(
+                template, pert_number, total_number, grib_keys
+            )
             message.set_array("values", nan_to_missing(message, quantile))
             out_perc.target.write(message)
-            out_perc.target.flush()
+        out_perc.target.flush()
 
     recovery.add_checkpoint(param=param.name, window=window_id)
 
