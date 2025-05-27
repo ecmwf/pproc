@@ -3,7 +3,7 @@ name: cd
 on:
   push:
     tags:
-      - '**'
+      - '[0-9]+.[0-9]+.[0-9]+' # NOTE there are other tags for generating "unstable modules", those should *not* trigger pypi upload
 
 jobs:
 
