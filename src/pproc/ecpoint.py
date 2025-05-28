@@ -7,6 +7,7 @@ import signal
 import logging
 import yaml
 import numexpr
+import concurrent.futures as fut
 
 import eccodes
 from meters import ResourceMeter
@@ -139,6 +140,61 @@ def point_scale_template(
     return quantiles_template(template, pert_number, total_number, grib_keys)
 
 
+def compute_single_ens(
+    predictand: np.ndarray,
+    predictors: np.ndarray,
+    thr_inf2: np.ndarray,
+    thr_sup2: np.ndarray,
+    fer: np.ndarray,
+    codes_wt: np.ndarray,
+    wt_batch_size: int = 1,
+) -> tuple[np.ndarray, np.ndarray]:
+    num_fer = fer.shape[1]
+    num_wt = thr_inf2.shape[0]
+    num_pred, num_gp = predictors.shape
+
+    pt_bc_allwt = np.zeros((num_fer, num_gp))
+    wt_allwt = np.zeros((num_gp,))
+    for index in range(0, num_wt, wt_batch_size):
+        end_index = min(index + wt_batch_size, num_wt)
+        logger.info(f"Weather types: {index} - {end_index - 1}")
+        wt_size = end_index - index
+
+        temp_wts = numexpr.evaluate(
+            "prod(where((predictors >= thr_inf2) & (predictors < thr_sup2), 1, 0), axis=1)",
+            local_dict={
+                "predictors": np.reshape(predictors, (1, num_pred, num_gp)),
+                "thr_inf2": np.reshape(
+                    thr_inf2[index:end_index], (wt_size, num_pred, 1)
+                ),
+                "thr_sup2": np.reshape(
+                    thr_sup2[index:end_index], (wt_size, num_pred, 1)
+                ),
+            },
+        )
+        temp_wts = np.where(np.any(np.isnan(predictors), axis=0), np.nan, temp_wts)
+        
+        wt_allwt += np.einsum("i,i...", codes_wt[index:end_index], temp_wts)
+        wt_rain = numexpr.evaluate(
+            "pred * wts",
+            local_dict={
+                "pred": np.reshape(predictand, (1, num_gp)),
+                "wts": temp_wts,
+            },
+        )
+        cdf_wt = numexpr.evaluate(
+            "sum((fer + 1) * wt_rain, axis=0)",
+            local_dict={
+                "fer": np.reshape(fer[index:end_index], (wt_size, num_fer, 1)),
+                "wt_rain": np.reshape(wt_rain, (wt_size, 1, num_gp)),
+            },
+        )
+        numexpr.evaluate(
+            "pt + cdf", local_dict={"pt": pt_bc_allwt, "cdf": cdf_wt}, out=pt_bc_allwt
+        )
+    return pt_bc_allwt, wt_allwt
+
+
 def compute_weather_types(
     tp: np.ndarray,
     cpr: np.ndarray,
@@ -150,95 +206,64 @@ def compute_weather_types(
     min_predictand: float = 0.04,
     wt_batch_size: int = 1,
     ens_batch_size: int = 1,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> Tuple[list[np.ndarray], list[np.ndarray], list[np.ndarray]]:
+    # Extract variables from files
     bp_file = pd.read_csv(bp_loc, header=0, delimiter=",")
     fer_file = pd.read_csv(fer_loc, header=0, delimiter=",")
-    bp = bp_file.iloc[:, 1:].to_numpy(dtype=np.float32)
-    fer = fer_file.iloc[:, 1:].to_numpy(dtype=np.float32)
-    codes_wt = bp_file.iloc[:, 0].to_numpy(dtype=np.float32)
+    bp = bp_file.iloc[:, 1:].to_numpy(dtype=np.float64)
+    fer = fer_file.iloc[:, 1:].to_numpy(dtype=np.float64)
+    codes_wt = bp_file.iloc[:, 0].to_numpy(dtype=np.float64)
+    thr_inf2 = bp[:, 0:-1:2]
+    thr_sup2 = bp[:, 1::2]
+
+    # Key dimensions
     num_wt = bp.shape[0]
     num_pred = int(bp.shape[1] / 2)
     num_fer = fer.shape[1]
+    num_ens, num_gp = tp.shape
 
-    num_gp = tp.shape[1]
-    num_ens = tp.shape[0]
+    predictand = np.where(tp < min_predictand, 0, tp)
+    predictors = np.asarray([cpr, tp, ws700, maxmucape, sr])
+    ens_partial = functools.partial(
+        compute_single_ens,
+        thr_inf2=thr_inf2,
+        thr_sup2=thr_sup2,
+        codes_wt=codes_wt,
+        fer=fer,
+        wt_batch_size=wt_batch_size,
+    )
+
     # inizialize field for the new post-processed ensemble (CDF)
     # built from all raw ensemble members and all WTs
-    pt_bc_allens_allwt = np.array([]).reshape(0, num_gp)
+    pt_bc_allens_allwt = []
     # inizialize field for the bias corrected (bc) at grid-scale
     # fields for all raw ensemble members and all WTs
-    grid_bc_allens_allwt = np.array([]).reshape(0, num_gp)
+    grid_bc_allens_allwt = []
     # inizialize field for the wt for all raw ensemble members and all WTs
-    wt_allens_allwt = np.array([]).reshape(0, num_gp)
+    wt_allens_allwt = []
 
-    with ResourceMeter("Compute realisations"):
-        for ind_em in range(0, num_ens, ens_batch_size):
-            end_ind_em = min(num_ens, ind_em + ens_batch_size)
-            ens_size = end_ind_em - ind_em
-            logger.info(f"Ensemble members: {ind_em} - {end_ind_em - 1}")
-
-            predictand = tp[ind_em:end_ind_em]
-            predictand = np.where(predictand < min_predictand, 0, predictand)
-            predictors = np.asarray(
-                [
-                    cpr[ind_em:end_ind_em],
-                    tp[ind_em:end_ind_em],
-                    ws700[ind_em:end_ind_em],
-                    maxmucape[ind_em:end_ind_em],
-                    sr[ind_em:end_ind_em],
-                ]
-            ).reshape(1, num_pred, ens_size, num_gp)
-            thr_inf2 = bp[:, 0:-1:2].reshape(num_wt, num_pred, 1, 1)
-            thr_sup2 = bp[:, 1::2].reshape(num_wt, num_pred, 1, 1)
-
-            pt_bc_allwt = np.zeros((ens_size, num_fer, num_gp))
-            wt_allwt = np.zeros((ens_size, num_gp))
-            for index in range(0, num_wt, wt_batch_size):
-                end_index = min(index + wt_batch_size, num_wt)
-                logger.info(f"Weather types: {index} - {end_index - 1}")
-                wt_size = end_index - index
-
-                temp_wts = numexpr.evaluate(
-                    "prod(where((predictors >= thr_inf2) & (predictors < thr_sup2), 1, 0), axis=1)",
-                    local_dict={
-                        "predictors": predictors,
-                        "thr_inf2": thr_inf2[index:end_index],
-                        "thr_sup2": thr_sup2[index:end_index],
-                    },
-                )
-                wt_allwt += np.einsum("i,i...", codes_wt[index:end_index], temp_wts)
-                wt_rain = numexpr.evaluate(
-                    "pred * wts",
-                    local_dict={
-                        "pred": predictand[None, ...],
-                        "wts": temp_wts,
-                    },
-                ).reshape(wt_size, ens_size, 1, num_gp)
-                cdf_wt = numexpr.evaluate(
-                    "sum((fer + 1) * wt_rain, axis=0)",
-                    local_dict={
-                        "fer": fer[index:end_index].reshape(wt_size, 1, num_fer, 1),
-                        "wt_rain": wt_rain,
-                    },
-                )
-                pt_bc_allwt = numexpr.evaluate(
-                    "pt + cdf", local_dict={"pt": pt_bc_allwt, "cdf": cdf_wt}
-                )
-
-            grid_bc_allens_allwt = np.vstack(
-                (grid_bc_allens_allwt, np.mean(pt_bc_allwt, axis=1))
+    with fut.ProcessPoolExecutor(
+        max_workers=ens_batch_size,
+        initializer=signal.signal,
+        initargs=(signal.SIGTERM, signal.SIG_DFL),
+    ) as executor:
+        for ind_em, result in enumerate(
+            executor.map(
+                ens_partial,
+                *zip(
+                    *[
+                        (predictand[index], predictors[:, index])
+                        for index in range(num_ens)
+                    ]
+                ),
             )
-            pt_bc_allens_allwt = np.vstack(
-                (
-                    pt_bc_allens_allwt,
-                    pt_bc_allwt.reshape(ens_size * num_fer, num_gp, order="C"),
-                )
-            )
-            wt_allens_allwt = np.vstack(
-                (
-                    wt_allens_allwt,
-                    np.where(predictand < min_predictand, 99999, wt_allwt),
-                )
+        ):
+            logger.info(f"Ensemble member: {ind_em}")
+            pt_bc_allwt, wt_allwt = result
+            grid_bc_allens_allwt.append(np.mean(pt_bc_allwt, axis=0))
+            pt_bc_allens_allwt.extend(list(pt_bc_allwt))
+            wt_allens_allwt.append(
+                np.where((predictand[ind_em] < min_predictand) & (np.invert(np.isnan(wt_allwt))), 99999, wt_allwt)
             )
 
     return pt_bc_allens_allwt, grid_bc_allens_allwt, wt_allens_allwt
@@ -280,7 +305,7 @@ def ecpoint_iteration(
     logging.info(
         f"Processing {window_id}, fields: \n {input_params.ls(namespace='mars')}"
     )
-    with ResourceMeter("Compute predictant and predictors"):
+    with ResourceMeter(f"Compute predictant and predictors: {window_id}"):
         tp = input_params.sel(param="tp").values
         maxmucape = input_params.sel(param="mxcape6").values
         sr = input_params.sel(param="cdir").values
@@ -290,32 +315,43 @@ def ecpoint_iteration(
             + input_params.sel(param="v").values ** 2
         )
 
-    pt_bc_allens_allwt, grid_bc_allens_allwt, wt_allens_allwt = compute_weather_types(
-        tp,
-        cpr,
-        ws700,
-        maxmucape,
-        sr,
-        config.bp_location,
-        config.fer_location,
-        config.min_predictand,
-        config.parallelisation.wt_batch_size,
-        config.parallelisation.ens_batch_size,
-    )
+    with ResourceMeter(f"Compute realisations: {window_id}"):
+        (
+            pt_bc_allens_allwt,
+            grid_bc_allens_allwt,
+            wt_allens_allwt,
+        ) = compute_weather_types(
+            tp,
+            cpr,
+            ws700,
+            maxmucape,
+            sr,
+            config.bp_location,
+            config.fer_location,
+            config.min_predictand,
+            config.parallelisation.wt_batch_size,
+            config.parallelisation.ens_batch_size,
+        )
 
     # Save the grid-scale outputs and weather types for each member
     out_bs = config.outputs.bs
     out_wt = config.outputs.wt
     for index, field in enumerate(input_params.sel(param="tp")):
         template = field.metadata()._handle
-        bs_message = grid_bc_template(template, {**out_bs.metadata, **out_keys})
+        bs_message = grid_bc_template(
+            template,
+            {
+                **out_keys,
+                **out_bs.metadata,
+            },
+        )
         bs_message.set_array(
             "values", nan_to_missing(bs_message, grid_bc_allens_allwt[index])
         )
         out_bs.target.write(bs_message)
         out_bs.target.flush()
 
-        wt_message = weather_types_template(template, {**out_wt.metadata, **out_keys})
+        wt_message = weather_types_template(template, {**out_keys, **out_wt.metadata})
         wt_message.set_array(
             "values", nan_to_missing(wt_message, wt_allens_allwt[index])
         )
@@ -325,15 +361,17 @@ def ecpoint_iteration(
     del grid_bc_allens_allwt
     del wt_allens_allwt
 
-    with ResourceMeter("Compute the percentiles"):
+    with ResourceMeter(f"Compute the percentiles: {window_id}"):
         out_perc = config.outputs.perc
         template = input_params.sel(param="tp")[0].metadata()._handle
         for i, quantile in enumerate(
-            iter_quantiles(pt_bc_allens_allwt, config.quantiles, method="sort")
+            iter_quantiles(
+                np.asarray(pt_bc_allens_allwt), config.quantiles, method="sort"
+            )
         ):
             grib_keys = {
-                **out_perc.metadata,
                 **out_keys,
+                **out_perc.metadata,
             }
             pert_number, total_number = config.quantile_indices(i)
             message = point_scale_template(
@@ -354,77 +392,75 @@ def main():
     logger.info(yaml.dump(cfg.model_dump(by_alias=True)))
     recover = create_recovery(cfg)
 
-    with create_executor(cfg.parallelisation) as executor:
-        for param in cfg.parameters:
-            managers = [
+    for param in cfg.parameters:
+        managers = [
+            AccumulationManager.create(
+                param.accumulations,
+                {
+                    **cfg.outputs.default.metadata,
+                    **param.metadata,
+                },
+            )
+        ]
+        checkpointed_windows = [
+            x["window"] for x in recover.computed(param=param.name)
+        ]
+        managers[0].delete(checkpointed_windows)
+        requesters = [
+            FilteredParamRequester(
+                param,
+                cfg.sources,
+                steps=managers[-1].dims["step"],
+                total=cfg.total_fields,
+            )
+        ]
+        dims = {k: set(val) for k, val in managers[0].dims.items()}
+        for input_param in param.dependencies:
+            managers.append(
                 AccumulationManager.create(
-                    param.accumulations,
+                    input_param.accumulations,
                     {
                         **cfg.outputs.default.metadata,
-                        **param.metadata,
+                        **input_param.metadata,
                     },
                 )
-            ]
-            checkpointed_windows = [
-                x["window"] for x in recover.computed(param=param.name)
-            ]
-            managers[0].delete(checkpointed_windows)
-            requesters = [
+            )
+            for dim, vals in managers[-1].dims.items():
+                min_val = min(managers[0].dims[dim])
+                max_val = max(managers[0].dims[dim])
+                dims[dim].update([x for x in vals if x > min_val and x < max_val])
+            requesters.append(
                 FilteredParamRequester(
-                    param,
+                    input_param,
                     cfg.sources,
                     steps=managers[-1].dims["step"],
                     total=cfg.total_fields,
                 )
-            ]
-            dims = {k: set(val) for k, val in managers[0].dims.items()}
-            for input_param in param.dependencies:
-                managers.append(
-                    AccumulationManager.create(
-                        input_param.accumulations,
-                        {
-                            **cfg.outputs.default.metadata,
-                            **input_param.metadata,
-                        },
-                    )
-                )
-                for dim, vals in managers[-1].dims.items():
-                    min_val = min(managers[0].dims[dim])
-                    max_val = max(managers[0].dims[dim])
-                    dims[dim].update([x for x in vals if x > min_val and x < max_val])
-                requesters.append(
-                    FilteredParamRequester(
-                        input_param,
-                        cfg.sources,
-                        steps=managers[-1].dims["step"],
-                        total=cfg.total_fields,
-                    )
-                )
-            ecpoint_partial = functools.partial(ecpoint_iteration, cfg, param, recover)
-            for keys, retrieved_data in parallel_data_retrieval(
-                cfg.parallelisation.n_par_read,
-                {k: sorted(list(val)) for k, val in dims.items()},
-                requesters,
-            ):
-                ids = ", ".join(f"{k}={v}" for k, v in keys.items())
-                window_id = None
-                fields = None
-                out_keys = {}
-                with ResourceMeter(f"{ids}: Compute accumulation"):
-                    for index, param_data in enumerate(retrieved_data):
-                        param_metadata, ens = param_data
-                        for wid, completed_window in managers[index].feed(keys, ens):
-                            if index == 0:
-                                window_id = wid
-                                out_keys = completed_window.grib_keys()
-                                fields = earthkit.data.FieldList()
-                            fields += earthkit.data.FieldList.from_array(
-                                completed_window.values, to_ekmetadata(param_metadata)
-                            )
-                        del ens
-                    if fields is not None:
-                        executor.submit(ecpoint_partial, window_id, fields, out_keys)
-            executor.wait()
+            )
+        ecpoint_partial = functools.partial(ecpoint_iteration, cfg, param, recover)
+        for keys, retrieved_data in parallel_data_retrieval(
+            cfg.parallelisation.n_par_read,
+            {k: sorted(list(val)) for k, val in dims.items()},
+            requesters,
+        ):
+            ids = ", ".join(f"{k}={v}" for k, v in keys.items())
+            window_id = None
+            fields = None
+            out_keys = {}
+            with ResourceMeter(f"{ids}: Compute accumulation"):
+                for index, param_data in enumerate(retrieved_data):
+                    param_metadata, ens = param_data
+                    for wid, completed_window in managers[index].feed(keys, ens):
+                        if index == 0:
+                            window_id = wid
+                            out_keys = completed_window.grib_keys()
+                            fields = earthkit.data.FieldList()
+                        fields += earthkit.data.FieldList.from_array(
+                            completed_window.values, to_ekmetadata(param_metadata)
+                        )
+                    del ens
+                if fields is not None:
+                    ecpoint_partial(window_id, fields, out_keys)
 
     recover.clean_file()
 
