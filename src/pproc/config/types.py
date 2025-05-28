@@ -57,7 +57,7 @@ class QuantilesConfig(BaseConfig):
         return self._total_number
 
     def quantile_indices(self, index: int) -> List[int]:
-        pert_number = index if self.even_spacing else int(self.quantiles[index] * 100)
+        pert_number = index if self.even_spacing else round(self.quantiles[index] * 100)
         return pert_number, self.total_number
 
     def _format_out(self, param: ParamConfig, req) -> dict:
