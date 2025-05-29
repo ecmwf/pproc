@@ -9,7 +9,7 @@
 
 from typing import Optional, List, Any, Annotated, ClassVar
 from typing_extensions import Self, Union
-from pydantic import model_validator, Field, Tag, Discriminator
+from pydantic import model_validator, BaseModel, Field, Tag, Discriminator
 import numpy as np
 import datetime
 import pandas as pd
@@ -370,7 +370,8 @@ class ECPointParamConfig(ParamConfig):
         return [getattr(self, dep) for dep in self._deps]
 
 
-class ECPointParallelisation(Parallelisation):
+class ECPointParallelisation(BaseModel):
+    n_par_read: int = 1
     wt_batch_size: int = 1
     ens_batch_size: int = 1
 

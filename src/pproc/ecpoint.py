@@ -143,14 +143,14 @@ def point_scale_template(
 def compute_single_ens(
     predictand: np.ndarray,
     predictors: np.ndarray,
-    thr_inf2: np.ndarray,
-    thr_sup2: np.ndarray,
+    thr_inf: np.ndarray,
+    thr_sup: np.ndarray,
     fer: np.ndarray,
     codes_wt: np.ndarray,
     wt_batch_size: int = 1,
 ) -> tuple[np.ndarray, np.ndarray]:
     num_fer = fer.shape[1]
-    num_wt = thr_inf2.shape[0]
+    num_wt = thr_inf.shape[0]
     num_pred, num_gp = predictors.shape
 
     pt_bc_allwt = np.zeros((num_fer, num_gp))
@@ -161,14 +161,14 @@ def compute_single_ens(
         wt_size = end_index - index
 
         temp_wts = numexpr.evaluate(
-            "prod(where((predictors >= thr_inf2) & (predictors < thr_sup2), 1, 0), axis=1)",
+            "prod(where((predictors >= thr_inf) & (predictors < thr_sup), 1, 0), axis=1)",
             local_dict={
                 "predictors": np.reshape(predictors, (1, num_pred, num_gp)),
-                "thr_inf2": np.reshape(
-                    thr_inf2[index:end_index], (wt_size, num_pred, 1)
+                "thr_inf": np.reshape(
+                    thr_inf[index:end_index], (wt_size, num_pred, 1)
                 ),
-                "thr_sup2": np.reshape(
-                    thr_sup2[index:end_index], (wt_size, num_pred, 1)
+                "thr_sup": np.reshape(
+                    thr_sup[index:end_index], (wt_size, num_pred, 1)
                 ),
             },
         )
@@ -210,9 +210,9 @@ def compute_weather_types(
     # Extract variables from files
     bp_file = pd.read_csv(bp_loc, header=0, delimiter=",")
     fer_file = pd.read_csv(fer_loc, header=0, delimiter=",")
-    bp = bp_file.iloc[:, 1:].to_numpy(dtype=np.float64)
-    fer = fer_file.iloc[:, 1:].to_numpy(dtype=np.float64)
-    codes_wt = bp_file.iloc[:, 0].to_numpy(dtype=np.float64)
+    bp = bp_file.iloc[:, 1:].to_numpy()
+    fer = fer_file.iloc[:, 1:].to_numpy()
+    codes_wt = bp_file.iloc[:, 0].to_numpy()
     thr_inf2 = bp[:, 0:-1:2]
     thr_sup2 = bp[:, 1::2]
 
