@@ -1,13 +1,13 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=78", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "pproc"
 description = "ECMWF Post-processing tools"
-version = "1.4.0"
-readme = "README.rst"
-license = { text = "Apache License Version 2.0" }
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [
     { name = "European Centre for Medium-Range Weather Forecasts (ECMWF)", email = "software.support@ecmwf.int" },
 ]
@@ -33,6 +33,7 @@ dependencies = [
     "pydantic",
     "conflator >= 0.1.7",
 ]
+dynamic = ["version"]
 
 [project.optional-dependencies]
 tcycl = ["pyinfero >= 0.1.1", "wget"]
@@ -75,3 +76,10 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools_scm]
+write_to = "src/pproc/_version.py"
+write_to_template = '''# Do not change! Do not track in version control!
+__version__ = "{version}"
+'''
+local_scheme = "no-local-version"
