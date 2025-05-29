@@ -255,9 +255,9 @@ def load_input(source: str, config: ThermoConfig, step: int):
     if src == "fdb":
         ds = earthkit.data.from_source("fdb", req, stream=True, read_all=True)
     elif src == "fileset":
-        loc.format_map(req)
+        loc = loc.format_map(req)
         req["paramId"] = req.pop("param")
-        ds = earthkit.data.from_source("file", loc).sel(req)
+        ds = earthkit.data.from_source("file", loc).sel(req).order_by("paramId")
     elif src == "mars":
         ds = earthkit.data.from_source("mars", req)
     else:
