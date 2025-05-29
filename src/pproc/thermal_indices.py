@@ -53,7 +53,7 @@ def load_input(config, param: ThermoParamConfig, source: str, step: int):
             elif src.type == "fileset":
                 loc = src.path.format_map(req)
                 req["paramId"] = req.pop("param")
-                ds = earthkit.data.from_source("file", loc).sel(req)
+                ds = earthkit.data.from_source("file", loc).sel(req).order_by("paramId")
             elif src.type == "mars":
                 ds = earthkit.data.from_source("mars", req)
             else:
@@ -168,7 +168,7 @@ def process_step(
         helpers.write(indices_target, wbgt)
 
     # Write out intermediate fields
-    for field in ["10si", "uvcossza", "dsrp"]:
+    for field in ["10si", "cossza", "dsrp"]:
         sel = indices.results.sel(param=field)
         if len(sel) != 0:
             helpers.write(config.outputs.intermediate, sel)

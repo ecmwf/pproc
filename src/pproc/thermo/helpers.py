@@ -18,7 +18,7 @@ MRT_DIFF_LOW = -30
 
 # parameter to units
 units = {
-    "uvcossza": "",
+    "cossza": "",
     "2t": "K",
     "2d": "K",
     "wcf": "K",
