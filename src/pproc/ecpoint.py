@@ -67,10 +67,9 @@ class FilteredParamRequester(ParamRequester):
 
 
 def ratio(var_num, var_den):
-    var_den_bitmap = np.where(var_den == 0, -9999, var_den)
-    ratio_bitmap = var_num / var_den_bitmap
-    output = np.where(ratio_bitmap == -9999, 0, ratio_bitmap)
-    return output
+    den_zero = var_den == 0
+    ratio_mapped = var_num / np.where(den_zero, -9999, var_den)
+    return np.where(den_zero, 0, ratio_mapped)
 
 
 def grid_bc_template(
@@ -192,7 +191,7 @@ def compute_single_ens(
             },
         )
         cdf_wt = numexpr.evaluate(
-            "sum((fer + 1) * wt_rain, axis=0)",
+            "sum(wt_rain * (fer + 1), axis=0)",
             local_dict={
                 "fer": np.reshape(fer[index:end_index], (wt_size, num_fer, 1)),
                 "wt_rain": np.reshape(wt_rain, (wt_size, 1, num_gp)),
@@ -222,21 +221,15 @@ def compute_weather_types(
     bp = bp_file.iloc[:, 1:].to_numpy()
     fer = fer_file.iloc[:, 1:].to_numpy()
     codes_wt = bp_file.iloc[:, 0].to_numpy()
-    thr_inf2 = bp[:, 0:-1:2]
-    thr_sup2 = bp[:, 1::2]
-
-    # Key dimensions
-    num_wt = bp.shape[0]
-    num_pred = int(bp.shape[1] / 2)
-    num_fer = fer.shape[1]
-    num_ens, num_gp = tp.shape
+    thr_inf = bp[:, 0:-1:2]
+    thr_sup = bp[:, 1::2]
 
     predictand = np.where(tp < min_predictand, 0, tp)
     predictors = np.asarray([cpr, tp, ws700, maxmucape, sr])
     ens_partial = functools.partial(
         compute_single_ens,
-        thr_inf2=thr_inf2,
-        thr_sup2=thr_sup2,
+        thr_inf=thr_inf,
+        thr_sup=thr_sup,
         codes_wt=codes_wt,
         fer=fer,
         wt_batch_size=wt_batch_size,
@@ -262,7 +255,7 @@ def compute_weather_types(
                 *zip(
                     *[
                         (predictand[index], predictors[:, index])
-                        for index in range(num_ens)
+                        for index in range(len(tp))
                     ]
                 ),
             )
