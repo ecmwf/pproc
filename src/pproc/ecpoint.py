@@ -85,10 +85,8 @@ def grid_bc_template(
             {
                 "productDefinitionTemplateNumber": 73,
                 "type": "gbf",
-                "inputProcessIdentifier": 145,
+                "inputProcessIdentifier": template.get("generatingProcessIdentifier"),
                 "typeOfGeneratingProcess": 13,
-                "backgroundProcess": 1,
-                "generatingProcessIdentifier": 2,
                 "typeOfPostProcessing": 206,
                 "indicatorOfUnitForTimeIncrement": 1,
                 "timeIncrement": 1,
@@ -106,16 +104,17 @@ def weather_types_template(
 
     grib_keys = out_keys.copy()
     if edition == 2:
+        # `typeOfOriginalFieldValues` needs to be set separately as it is a helper key for
+        # the packing, which doesn't exist any more after the packingType has been set
+        template = template.copy()
+        template.set({"edition": 2, "typeOfOriginalFieldValues": 1}, check_values=False)
         grib_keys.update(
             {
                 "productDefinitionTemplateNumber": 73,
                 "type": "gwt",
-                "typeOfOriginalFieldValues": 1,
                 "packingType": "grid_ieee",
-                "inputProcessIdentifier": 145,
+                "inputProcessIdentifier": template.get("generatingProcessIdentifier"),
                 "typeOfGeneratingProcess": 13,
-                "backgroundProcess": 1,
-                "generatingProcessIdentifier": 2,
                 "typeOfPostProcessing": 206,
                 "indicatorOfUnitForTimeIncrement": 1,
                 "timeIncrement": 1,
@@ -137,9 +136,7 @@ def point_scale_template(
             {
                 "productDefinitionTemplateNumber": 90,
                 "type": "pfc",
-                "backgroundProcess": 1,
-                "generatingProcessIdentifier": 2,
-                "inputProcessIdentifier": 145,
+                "inputProcessIdentifier": template.get("generatingProcessIdentifier"),
                 "typeOfPostProcessing": 206,
                 "indicatorOfUnitForTimeIncrement": 1,
                 "timeIncrement": 1,
