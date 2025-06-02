@@ -301,7 +301,9 @@ def ecpoint_iteration(
     out_keys: dict,
 ):
     if len(input_params.sel(param="cdir")) == 0:
-        # Fetch solar radiation if not present, which can be the case because it always has to use 24hr windows
+        # Fetch solar radiation if not present. This is to handle the special case of step ranges where 
+        # the end step is < 24 (e.g. 0-12) but uses solar radiation over 24hr window and therefore the end 
+        # step of the solar radiation window does not match the end step of the tp step interval
         input_params += retrieve_sr24(config, param.cdir, int(window_id.split("-")[1]))
 
     logging.info(
