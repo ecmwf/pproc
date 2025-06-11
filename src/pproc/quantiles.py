@@ -30,7 +30,7 @@ from pproc.common.parallel import (
 from pproc.common.param_requester import ParamConfig, ParamRequester
 from pproc.common.recovery import create_recovery, BaseRecovery
 from pproc.config.types import QuantilesConfig
-from pproc.quantiles.grib import quantiles_template
+from pproc.quantile.grib import quantiles_template
 
 
 def do_quantiles(

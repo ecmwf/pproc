@@ -40,7 +40,7 @@ from pproc.common.parallel import (
 from pproc.common.io import nan_to_missing, GribMetadata
 from pproc.common.accumulation_manager import AccumulationManager
 from pproc.common.grib_helpers import construct_message
-from pproc.quantiles.grib import quantiles_template
+from pproc.quantile.grib import quantiles_template
 
 logger = logging.getLogger(__name__)
 
