@@ -12,6 +12,7 @@ from typing_extensions import Self
 import itertools
 import os
 import logging
+import copy
 
 import numpy as np
 import pandas as pd
@@ -58,7 +59,7 @@ class ParamConfig(BaseModel):
         base_config: Source = getattr(sources, name)
         config = self.sources.get(name, {})
         reqs = update_request(
-            base_config.request.copy(),
+            copy.deepcopy(base_config.request),
             config.get("request", {}),
             **kwargs,
             **sources.overrides,
