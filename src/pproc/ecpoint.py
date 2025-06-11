@@ -169,16 +169,12 @@ def compute_single_ens(
             "prod(where((predictors >= thr_inf) & (predictors < thr_sup), 1, 0), axis=1)",
             local_dict={
                 "predictors": np.reshape(predictors, (1, num_pred, num_gp)),
-                "thr_inf": np.reshape(
-                    thr_inf[index:end_index], (wt_size, num_pred, 1)
-                ),
-                "thr_sup": np.reshape(
-                    thr_sup[index:end_index], (wt_size, num_pred, 1)
-                ),
+                "thr_inf": np.reshape(thr_inf[index:end_index], (wt_size, num_pred, 1)),
+                "thr_sup": np.reshape(thr_sup[index:end_index], (wt_size, num_pred, 1)),
             },
         )
         temp_wts = np.where(np.any(np.isnan(predictors), axis=0), np.nan, temp_wts)
-        
+
         wt_allwt += np.einsum("i,i...", codes_wt[index:end_index], temp_wts)
         wt_rain = numexpr.evaluate(
             "pred * wts",
@@ -262,7 +258,12 @@ def compute_weather_types(
             grid_bc_allens_allwt.append(np.mean(pt_bc_allwt, axis=0))
             pt_bc_allens_allwt.extend(list(pt_bc_allwt))
             wt_allens_allwt.append(
-                np.where((predictand[ind_em] < min_predictand) & (np.invert(np.isnan(wt_allwt))), 99999, wt_allwt)
+                np.where(
+                    (predictand[ind_em] < min_predictand)
+                    & (np.invert(np.isnan(wt_allwt))),
+                    99999,
+                    wt_allwt,
+                )
             )
 
     return pt_bc_allens_allwt, grid_bc_allens_allwt, wt_allens_allwt
@@ -298,8 +299,8 @@ def ecpoint_iteration(
     out_keys: dict,
 ):
     if len(input_params.sel(param="cdir")) == 0:
-        # Fetch solar radiation if not present. This is to handle the special case of step ranges where 
-        # the end step is < 24 (e.g. 0-12) but uses solar radiation over 24hr window and therefore the end 
+        # Fetch solar radiation if not present. This is to handle the special case of step ranges where
+        # the end step is < 24 (e.g. 0-12) but uses solar radiation over 24hr window and therefore the end
         # step of the solar radiation window does not match the end step of the tp step interval
         input_params += retrieve_sr24(config, param.cdir, int(window_id.split("-")[1]))
 
@@ -403,9 +404,7 @@ def main():
                 },
             )
         ]
-        checkpointed_windows = [
-            x["window"] for x in recover.computed(param=param.name)
-        ]
+        checkpointed_windows = [x["window"] for x in recover.computed(param=param.name)]
         managers[0].delete(checkpointed_windows)
         requesters = [
             FilteredParamRequester(
