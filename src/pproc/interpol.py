@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+# (C) Copyright 2021- ECMWF.
+#
+# This software is licensed under the terms of the Apache Licence Version 2.0
+# which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# In applying this licence, ECMWF does not waive the privileges and immunities
+# granted to it by virtue of its status as an intergovernmental organisation
+# nor does it submit to any jurisdiction.
+
 #
 # (C) Copyright 1996- ECMWF.
 #
@@ -22,7 +31,7 @@ class _Regex(object):
         self._pattern = re.compile(pattern)
 
     def __call__(self, value):
-        if not self._pattern.match(value):
+        if not self._pattern.fullmatch(value):
             raise argparse.ArgumentTypeError(
                 "must match '{}'".format(self._pattern.pattern)
             )
@@ -33,18 +42,21 @@ def main(args=None):
     g = r"[ONF][1-9][0-9]*"
     f = r"([0-9]*[.])?[0-9]+"
 
-    _grid = r"^" + f + r"/" + f + r"$|^" + g + r"$"
-    _area = r"^-?" + f + r"/-?" + f + r"/-?" + f + r"/-?" + f + r"$"
-    _interpolation = r"^(linear|nn|grid-box-average|grid-box-statistics|fail)$"
-    _statistics = r"^(maximum|minimum|count)$"
-    _intgrid = r"^" + g + r"$|^(none|source)$"
-    _truncation = r"^[1-9][0-9]*$|^none$"
+    _grid = f + r"/" + f + r"|" + g
+    _area = r"-?" + f + r"/-?" + f + r"/-?" + f + r"/-?" + f
+    _accuracy = r"\d+"
+    _edition = r"1|2"
+    _interpolation = r"linear|nn|grid-box-average|grid-box-statistics|fail"
+    _packing = r"ccsds|complex|ieee|second-order|simple"
+    _statistics = r"maximum|minimum|count"
+    _intgrid = g + r"|none|source"
+    _truncation = r"[1-9][0-9]*|none"
 
     grids = path.join(mir.home(), "etc", "mir", "grids.yaml")
     if path.exists(grids):
         with open(grids) as file:
             for key in yaml.safe_load(file).keys():
-                _grid = _grid + r"|^" + key + r"$"
+                _grid = _grid + r"|" + key
 
     arg = argparse.ArgumentParser()
 
@@ -66,6 +78,24 @@ def main(args=None):
         "--interpolation",
         type=_Regex(_interpolation),
         help="interpolation method (" + _interpolation + ")",
+    )
+
+    arg.add_argument(
+        "--packing",
+        type=_Regex(_packing),
+        help="packing method (GRIB packingType, " + _packing + ")",
+    )
+
+    arg.add_argument(
+        "--accuracy",
+        type=_Regex(_accuracy),
+        help="accuracy (GRIB bitsPerValue, " + _accuracy + ")",
+    )
+
+    arg.add_argument(
+        "--edition",
+        type=_Regex(_edition),
+        help="edition (GRIB edition, " + _edition + ")",
     )
 
     arg.add_argument(
@@ -115,6 +145,9 @@ def main(args=None):
         "interpolation",
         "interpolation_statistics",
         "intgrid",
+        "packing",
+        "accuracy",
+        "edition",
         "truncation",
     ]:
         if hasattr(args, k):

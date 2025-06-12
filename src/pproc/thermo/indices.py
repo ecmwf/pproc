@@ -1,3 +1,12 @@
+# (C) Copyright 2021- ECMWF.
+#
+# This software is licensed under the terms of the Apache Licence Version 2.0
+# which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# In applying this licence, ECMWF does not waive the privileges and immunities
+# granted to it by virtue of its status as an intergovernmental organisation
+# nor does it submit to any jurisdiction.
+
 from datetime import timedelta
 import logging
 import numpy as np
@@ -146,7 +155,7 @@ class ComputeIndices:
             return fields.sel(param="dsrp")
 
         fdir = field_values(fields, "fdir")  # W/m2
-        cossza = self.calc_field("uvcossza", self.calc_cossza_int, fields).to_array()
+        cossza = self.calc_field("cossza", self.calc_cossza_int, fields).to_array()
 
         dsrp = thermofeel.approximate_dsrp(fdir, cossza)
 
@@ -285,7 +294,7 @@ class ComputeIndices:
     @metered("mrt", out=logger.debug)
     def calc_mrt(self, fields):
 
-        cossza = self.calc_field("uvcossza", self.calc_cossza_int, fields).to_array()
+        cossza = self.calc_field("cossza", self.calc_cossza_int, fields).to_array()
         dsrp = self.calc_field("dsrp", self.calc_dsrp, fields).to_array()
 
         delta = step_interval(fields)
