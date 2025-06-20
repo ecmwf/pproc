@@ -127,7 +127,7 @@ def signi_iteration(
         steprange = accum.grib_keys()["stepRange"]
         clim_accum, clim_template = retrieve_clim(
             param.clim,
-            config.sources,
+            config.inputs,
             "clim",
             config.clim_total_fields,
             step=steprange,
@@ -137,7 +137,7 @@ def signi_iteration(
         if config.use_clim_anomaly:
             clim_em_accum, _ = retrieve_clim(
                 param.clim_em,
-                config.sources,
+                config.inputs,
                 "clim_em",
                 step=steprange,
             )
@@ -193,7 +193,7 @@ def main():
 
             requester = ParamRequester(
                 param,
-                cfg.sources,
+                cfg.inputs,
                 cfg.total_fields,
                 "fc",
             )

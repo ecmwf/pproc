@@ -13,7 +13,7 @@ import numpy as np
 import eccodes
 
 from pproc.common.param_requester import ParamRequester, ParamConfig
-from pproc.config.io import SourceCollection
+from pproc.config.io import InputsCollection
 
 
 class Climatology(ParamRequester):
@@ -24,17 +24,17 @@ class Climatology(ParamRequester):
     def __init__(
         self,
         param: ParamConfig,
-        sources: SourceCollection,
+        inputs: InputsCollection,
         src_name: Optional[str] = None,
     ):
         super().__init__(
             param,
-            sources,
+            inputs,
             total=2,
             src_name=src_name,
             index_func=self._index_func,
         )
-        clim_request = param.sources["clim"]["request"]
+        clim_request = param.inputs["clim"]["request"]
         if isinstance(clim_request, list):
             clim_request = clim_request[0]
         self.steps = clim_request.get("step", None)

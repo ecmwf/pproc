@@ -42,7 +42,7 @@ from pproc.prob.accumulation_manager import (
                 ],
             },
             {
-                f"{a}-{b}_0": (
+                f"step_{a}-{b}_0": (
                     SimpleAccumulation,
                     [{"comparison": "<=", "value": 273.15}],
                 )
@@ -70,7 +70,7 @@ from pproc.prob.accumulation_manager import (
                 ],
             },
             {
-                f"{a}-{b}_0": (
+                f"step_{a}-{b}_0": (
                     SimpleAccumulation,
                     [
                         {"comparison": ">=", "value": 15.0},
@@ -120,7 +120,7 @@ from pproc.prob.accumulation_manager import (
             },
             {
                 **{
-                    f"{a}-{b}_{i}": (
+                    f"step_{a}-{b}_{i}": (
                         Difference,
                         [{"comparison": ">=", "value": thr} for thr in thrs],
                     )
@@ -130,7 +130,7 @@ from pproc.prob.accumulation_manager import (
                     for a, b in [(0, 24), (12, 36), (336, 360)]
                 },
                 **{
-                    f"{a}-{b}_2": (
+                    f"step_{a}-{b}_2": (
                         DifferenceRate,
                         [
                             {"comparison": cmp, "value": val}
@@ -164,7 +164,7 @@ from pproc.prob.accumulation_manager import (
                 ],
             },
             {
-                f"{a}-{b}_0": (
+                f"step_{a}-{b}_0": (
                     Mean,
                     [
                         {"comparison": "<", "value": -2},
@@ -234,7 +234,7 @@ def test_create_threshold(config, expected, exp_coords):
             },
             {
                 **{
-                    f"{s}_{op}_0": (
+                    f"step_{s}_{op}_0": (
                         SimpleAccumulation,
                         [{"comparison": cmp, "value": val} for val in vals],
                     )
@@ -245,7 +245,7 @@ def test_create_threshold(config, expected, exp_coords):
                     for s in [0, 12, 360]
                 },
                 **{
-                    f"{a}-{b}_1": (
+                    f"step_{a}-{b}_1": (
                         Mean,
                         [
                             {"comparison": "<", "value": -4},
@@ -255,7 +255,7 @@ def test_create_threshold(config, expected, exp_coords):
                     for a, b in [(120, 240), (336, 360)]
                 },
                 **{
-                    f"std_{s}_{op}_0": (
+                    f"step_std_{s}_{op}_0": (
                         SimpleAccumulation,
                         [{"comparison": cmp, "value": val}],
                     )

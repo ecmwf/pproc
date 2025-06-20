@@ -106,9 +106,9 @@ class AccumConfig(BaseConfig):
         if req["type"] not in ["fcmean", "fcmax", "fcstdev", "fcmin"]:
             return req
 
-        src_name = self.sources.names[0]
-        source = param.in_sources(self.sources, src_name)
-        src_reqs = source[0].request
+        src_name = self.inputs.names[0]
+        inputs = param.input_list(self.inputs, src_name)
+        src_reqs = inputs[0].request
         if isinstance(src_reqs, dict):
             src_reqs = [src_reqs]
 
@@ -161,11 +161,11 @@ class HistogramConfig(BaseConfig):
 
 class ClimParamConfig(ParamConfig):
     clim: ParamConfig
-    _merge_exclude = ("accumulations", "sources", "clim")
+    _merge_exclude = ("accumulations", "inputs", "clim")
 
     @model_validator(mode="before")
     @classmethod
-    def validate_source(cls, data: Any) -> Any:
+    def validate_input(cls, data: Any) -> Any:
         clim = _get(data, "clim", {})
         if isinstance(clim, dict):
             clim_options = {**data, **clim}
@@ -173,28 +173,28 @@ class ClimParamConfig(ParamConfig):
         return data
 
     def in_keys(
-        self, sources: io.SourceCollection, filters: Optional[list[str]] = None
+        self, inputs: io.InputsCollection, filters: Optional[list[str]] = None
     ) -> Iterator[dict]:
-        for source in sources.names:
-            for psource in self.in_sources(sources, source):
-                if filters and psource.type not in filters:
+        for input in inputs.names:
+            for pinput in self.input_list(inputs, input):
+                if filters and pinput.type not in filters:
                     continue
 
                 reqs = (
-                    psource.request
-                    if isinstance(psource.request, list)
-                    else [psource.request]
+                    pinput.request
+                    if isinstance(pinput.request, list)
+                    else [pinput.request]
                 )
                 for req in reqs:
                     req["source"] = (
-                        psource.path if psource.path is not None else psource.type
+                        pinput.path if pinput.path is not None else pinput.type
                     )
                     if isinstance(req.get("step", []), dict):
                         req["step"] = list(req["step"].values())
 
                     accum_updates = (
-                        getattr(self, source).accumulations
-                        if hasattr(self, source)
+                        getattr(self, input).accumulations
+                        if hasattr(self, input)
                         else {}
                     )
                     accumulations = deep_update(
@@ -203,21 +203,21 @@ class ClimParamConfig(ParamConfig):
                     req.update(
                         {
                             key: accum.unique_coords()
-                            for key, accum in self.accumulations.items()
+                            for key, accum in accumulations.items()
                             if key not in req
                         }
                     )
                     yield req
 
-    def _merge_sources(self, other: Self) -> dict:
-        new_sources = copy.deepcopy(self.sources)
-        other_sources = copy.deepcopy(other.sources)
-        if "clim" in new_sources:
-            if "clim" not in other_sources:
-                raise ValueError("Merging of sources requires same source types")
+    def _merge_inputs(self, other: Self) -> dict:
+        new_inputs = copy.deepcopy(self.inputs)
+        other_inputs = copy.deepcopy(other.inputs)
+        if "clim" in new_inputs:
+            if "clim" not in other_inputs:
+                raise ValueError("Merging of inputs requires same inputs types")
             steps = []
-            for source in [new_sources, other_sources]:
-                clim_request = source["clim"].get("request", {})
+            for input in [new_inputs, other_inputs]:
+                clim_request = input["clim"].get("request", {})
                 if isinstance(clim_request, list):
                     clim_request = clim_request[0]
                 if clim_steps := clim_request.get("step", {}):
@@ -229,16 +229,16 @@ class ClimParamConfig(ParamConfig):
                     )
                 [
                     update_request(
-                        source["clim"].get("request", {}),
+                        input["clim"].get("request", {}),
                         {"step": {**steps[0], **steps[1]}},
                     )
-                    for source in [new_sources, other_sources]
+                    for input in [new_inputs, other_inputs]
                 ]
-        if new_sources != other_sources:
+        if new_inputs != other_inputs:
             raise ValueError(
-                "Merging of sources requires equality, except for clim steps"
+                "Merging of inputs requires equality, except for clim steps"
             )
-        return new_sources
+        return new_inputs
 
 
 class SigniParamConfig(ClimParamConfig):
@@ -249,7 +249,7 @@ class SigniParamConfig(ClimParamConfig):
 
     @model_validator(mode="before")
     @classmethod
-    def validate_source(cls, data: Any) -> Any:
+    def validate_input(cls, data: Any) -> Any:
         clim = _get(data, "clim", {})
         if isinstance(clim, dict):
             clim_options = {**data, **clim}
@@ -267,7 +267,7 @@ class SigniParamConfig(ClimParamConfig):
 class SigniConfig(BaseConfig):
     clim_total_fields: Annotated[int, Field(validate_default=True)] = 0
     parallelisation: Parallelisation = Parallelisation()
-    sources: io.SignificanceSourceModel
+    inputs: io.SignificanceInputModel
     outputs: io.SignificanceOutputModel = io.SignificanceOutputModel()
     parameters: list[SigniParamConfig]
     use_clim_anomaly: Annotated[
@@ -284,7 +284,7 @@ class SigniConfig(BaseConfig):
         return self
 
     @classmethod
-    def _populate_sources(
+    def _populate_inputs(
         cls, inputs: list[dict], accum_dims: list[str], **overrides
     ) -> dict:
         sorted_requests = {}
@@ -298,18 +298,18 @@ class SigniConfig(BaseConfig):
             [inp.pop(dim, None) for dim in accum_dims]
             sorted_requests.setdefault(src_name, []).append(inp)
 
-        sources = {}
+        ret = {}
         for src_name, requests in sorted_requests.items():
             src_overrides = overrides.get(src_name, {}).copy()
             request_overrides = src_overrides.pop("request", {})
             updated_inputs = update_request(requests, request_overrides)
-            sources[src_name] = {
+            ret[src_name] = {
                 "request": updated_inputs
                 if len(updated_inputs) > 1
                 else updated_inputs[0],
                 **src_overrides,
             }
-        return sources
+        return ret
 
     @classmethod
     def _populate_param(
@@ -336,7 +336,7 @@ class SigniConfig(BaseConfig):
 
 class AnomalyConfig(BaseConfig):
     parallelisation: Parallelisation = Parallelisation()
-    sources: io.ClimSourceModel
+    inputs: io.ClimInputModel
     outputs: io.AnomalyOutputModel = io.AnomalyOutputModel()
     parameters: list[ClimParamConfig]
 
@@ -363,7 +363,7 @@ class AnomalyConfig(BaseConfig):
         return param_config
 
     @classmethod
-    def _populate_sources(
+    def _populate_inputs(
         cls, inputs: list[dict], accum_dims: list[str], **overrides
     ) -> dict:
         sorted_requests = {}
@@ -375,18 +375,18 @@ class AnomalyConfig(BaseConfig):
             [inp.pop(dim, None) for dim in accum_dims]
             sorted_requests.setdefault(src_name, []).append(inp)
 
-        sources = {}
+        ret = {}
         for src_name, requests in sorted_requests.items():
             src_overrides = overrides.get(src_name, {})
             request_overrides = src_overrides.pop("request", {})
             updated_inputs = update_request(requests, request_overrides)
-            sources[src_name] = {
+            ret[src_name] = {
                 "request": updated_inputs
                 if len(updated_inputs) > 1
                 else updated_inputs[0],
                 **src_overrides,
             }
-        return sources
+        return ret
 
 
 def anom_discriminator(config: Any) -> str:
@@ -399,7 +399,7 @@ class ProbParamConfig(ClimParamConfig):
 
     @model_validator(mode="before")
     @classmethod
-    def validate_source(cls, data: Any) -> Any:
+    def validate_input(cls, data: Any) -> Any:
         clim = _get(data, "clim", None)
         if isinstance(clim, dict):
             clim_options = {
@@ -418,10 +418,10 @@ class ProbParamConfig(ClimParamConfig):
 
 class ProbConfig(BaseConfig):
     parallelisation: Parallelisation = Parallelisation()
-    sources: Annotated[
+    inputs: Annotated[
         Union[
-            Annotated[io.BaseSourceModel, Tag("base")],
-            Annotated[io.ClimSourceModel, Tag("clim")],
+            Annotated[io.BaseInputModel, Tag("base")],
+            Annotated[io.ClimInputModel, Tag("clim")],
         ],
         Discriminator(anom_discriminator),
     ]
@@ -430,7 +430,7 @@ class ProbConfig(BaseConfig):
 
     @model_validator(mode="after")
     def validate_param(self) -> Self:
-        if isinstance(self.sources, io.ClimSourceModel):
+        if isinstance(self.inputs, io.ClimInputModel):
             for param in self.parameters:
                 if not param.clim:
                     param.clim = ParamConfig(
@@ -451,7 +451,7 @@ class ProbConfig(BaseConfig):
         return super().from_schema(schema_config, **overrides)
 
     @classmethod
-    def _populate_sources(
+    def _populate_inputs(
         cls, inputs: list[dict], accum_dims: list[str], **overrides
     ) -> dict:
         sorted_requests = {}
@@ -470,18 +470,18 @@ class ProbConfig(BaseConfig):
         for clim_inp in sorted_requests.get("clim", []):
             clim_inp["step"] = {fc_step: clim_step}
 
-        sources = {}
+        ret = {}
         for src_name, requests in sorted_requests.items():
             src_overrides = overrides.get(src_name, {}).copy()
             request_overrides = src_overrides.pop("request", {})
             updated_inputs = update_request(requests, request_overrides)
-            sources[src_name] = {
+            ret[src_name] = {
                 "request": updated_inputs
                 if len(updated_inputs) > 1
                 else updated_inputs[0],
                 **src_overrides,
             }
-        return sources
+        return ret
 
 
 class ExtremeParamConfig(ClimParamConfig):
@@ -495,7 +495,7 @@ class ExtremeParamConfig(ClimParamConfig):
     allow_grib1_to_grib2: bool = False
     _merge_exclude: tuple[str] = (
         "accumulations",
-        "sources",
+        "inputs",
         "clim",
         "sot",
         "cpf_eps",
@@ -513,7 +513,7 @@ class ExtremeParamConfig(ClimParamConfig):
 
     @model_validator(mode="before")
     @classmethod
-    def validate_source(cls, data: Any) -> Any:
+    def validate_input(cls, data: Any) -> Any:
         clim = _get(data, "clim", {})
         if isinstance(clim, dict):
             clim_options = {
@@ -530,8 +530,8 @@ class ExtremeParamConfig(ClimParamConfig):
     def indices(self) -> dict[str, Index]:
         return create_indices(self.compute_indices, self.model_dump())
 
-    def out_keys(self, sources: io.SourceCollection) -> Iterator:
-        base_outs = [req for req in super().out_keys(sources)]
+    def out_keys(self, inputs: io.InputsCollection) -> Iterator:
+        base_outs = [req for req in super().out_keys(inputs)]
         indices = self.compute_indices.copy()
         if np.any([x["type"] in ["cf", "fc"] for x in base_outs]):
             indices.append("efic")
@@ -559,7 +559,7 @@ class ExtremeParamConfig(ClimParamConfig):
 
 class ExtremeConfig(BaseConfig):
     parallelisation: Parallelisation = Parallelisation()
-    sources: io.ClimSourceModel
+    inputs: io.ClimInputModel
     outputs: io.ExtremeOutputModel = io.ExtremeOutputModel()
     parameters: list[ExtremeParamConfig]
 
@@ -570,7 +570,7 @@ class ExtremeConfig(BaseConfig):
         return req
 
     @classmethod
-    def _populate_sources(
+    def _populate_inputs(
         cls, inputs: list[dict], accum_dims: list[str], **overrides
     ) -> dict:
         sorted_requests = {}
@@ -589,18 +589,18 @@ class ExtremeConfig(BaseConfig):
         for clim_inp in sorted_requests.get("clim", []):
             clim_inp["step"] = {fc_step: clim_step}
 
-        sources = {}
+        ret = {}
         for src_name, requests in sorted_requests.items():
             src_overrides = overrides.get(src_name, {}).copy()
             request_overrides = src_overrides.pop("request", {})
             updated_inputs = update_request(requests, request_overrides)
-            sources[src_name] = {
+            ret[src_name] = {
                 "request": updated_inputs
                 if len(updated_inputs) > 1
                 else updated_inputs[0],
                 **src_overrides,
             }
-        return sources
+        return ret
 
 
 class WindConfig(BaseConfig):
@@ -619,21 +619,21 @@ class ThermoParamConfig(ParamConfig):
     out_params: list[str | int]
 
     def in_keys(
-        self, sources: io.SourceCollection, filters: Optional[list[str]] = None
+        self, inputs: io.InputsCollection, filters: Optional[list[str]] = None
     ) -> Iterator[dict]:
-        for source in sources.names:
-            for psource in self.in_sources(sources, source):
-                if filters and psource.type not in filters:
+        for input in inputs.names:
+            for pinput in self.input_list(inputs, input):
+                if filters and pinput.type not in filters:
                     continue
 
                 reqs = (
-                    psource.request
-                    if isinstance(psource.request, list)
-                    else [psource.request]
+                    pinput.request
+                    if isinstance(pinput.request, list)
+                    else [pinput.request]
                 )
                 for req in reqs:
                     req["source"] = (
-                        psource.path if psource.path is not None else psource.type
+                        pinput.path if pinput.path is not None else pinput.type
                     )
                     req.update(
                         {
@@ -642,41 +642,41 @@ class ThermoParamConfig(ParamConfig):
                         }
                     )
                     # Override step for instantaneous params, which is equal to output steps
-                    if source == "inst":
-                        req["step"] = list(self.out_keys(sources))[0]["step"]
+                    if input == "inst":
+                        req["step"] = list(self.out_keys(inputs))[0]["step"]
                     yield req
 
-    def out_keys(self, sources: io.SourceCollection) -> Iterator:
-        for req in super().out_keys(sources):
+    def out_keys(self, inputs: io.InputsCollection) -> Iterator:
+        for req in super().out_keys(inputs):
             req["param"] = self.out_params
             req["step"] = [end_step(x) for x in req["step"]]
             yield req
 
-    def _merge_sources(self, other: Self) -> dict:
+    def _merge_inputs(self, other: Self) -> dict:
         # inst + inst -> merge accums and input params
         # accum + accum -> merge accums and input params
         # inst + (inst, accum) -> only merge in inst steps are encompassed in accum step ranges, becomes accum
-        new_sources = self.sources.copy()
-        other_sources = other.sources.copy()
-        for key in new_sources:
-            if key in other_sources:
-                current_params = new_sources[key]["request"].pop("param")
-                other_params = other_sources[key]["request"].pop("param")
+        new_inputs = self.inputs.copy()
+        other_inputs = other.inputs.copy()
+        for key in new_inputs:
+            if key in other_inputs:
+                current_params = new_inputs[key]["request"].pop("param")
+                other_params = other_inputs[key]["request"].pop("param")
                 if not isinstance(current_params, list):
                     current_params = [current_params]
                 if not isinstance(other_params, list):
                     other_params = [other_params]
-                if new_sources[key] != other_sources[key]:
+                if new_inputs[key] != other_inputs[key]:
                     raise ValueError(
-                        "Only sources equal up to request param can be merged"
+                        "Only inputs equal up to request param can be merged"
                     )
-                new_sources[key]["request"]["param"] = current_params + [
+                new_inputs[key]["request"]["param"] = current_params + [
                     x for x in other_params if x not in current_params
                 ]
-        for key in other_sources:
-            if key not in new_sources:
-                new_sources[key] = other_sources[key]
-        return new_sources
+        for key in other_inputs:
+            if key not in new_inputs:
+                new_inputs[key] = other_inputs[key]
+        return new_inputs
 
     def can_merge(self, other: Self) -> bool:
         if self.out_params == other.out_params:
@@ -702,7 +702,7 @@ class ThermoParamConfig(ParamConfig):
     def merge(self, other: Self) -> Self:
         if self.out_params == other.out_params:
             return super().merge(other)
-        exclude = ("name", "accumulations", "out_params", "sources")
+        exclude = ("name", "accumulations", "out_params", "inputs")
         if not partial_equality(self, other, exclude=exclude):
             raise ValueError(
                 f"Merging of two parameter configs requires equality, except for {exclude}"
@@ -719,19 +719,19 @@ class ThermoParamConfig(ParamConfig):
         merged["out_params"] = self.out_params + [
             x for x in other.out_params if x not in self.out_params
         ]
-        merged["sources"] = self._merge_sources(other)
+        merged["inputs"] = self._merge_inputs(other)
         merged["name"] = self.name
         return type(self)(**merged)
 
 
 class ThermoConfig(BaseConfig):
     parallelisation: Parallelisation = Parallelisation()
-    sources: io.ThermoSourceModel
+    inputs: io.ThermoInputModel
     outputs: io.ThermoOutputModel = io.ThermoOutputModel()
     parameters: list[ThermoParamConfig]
     validateutci: bool = False
     utci_misses: bool = False
-    _merge_exclude: tuple[str] = ("parameters", "sources")
+    _merge_exclude: tuple[str] = ("parameters", "inputs")
 
     @classmethod
     def from_schema(cls, schema_config: dict, **overrides) -> Self:
@@ -745,10 +745,10 @@ class ThermoConfig(BaseConfig):
         return super().from_schema(schema_config, **overrides)
 
     @model_validator(mode="after")
-    def validate_sources(self) -> Self:
+    def validate_inputs(self) -> Self:
         for param in self.parameters:
-            sources = param.in_sources(self.sources, "accum")
-            if any([src.type == "null" for src in sources]):
+            inputs = param.input_list(self.inputs, "accum")
+            if any([src.type == "null" for src in inputs]):
                 for out_req in param.accumulations["step"].out_mars("step"):
                     steps = out_req["step"]
                     if isinstance(steps, (str, int)):
@@ -756,11 +756,11 @@ class ThermoConfig(BaseConfig):
                     nsteps = list(map(lambda x: len(str(x).split("-")), steps))
                     assert np.all(
                         np.asarray(nsteps) == 1
-                    ), f"Accumulation source required for step ranges."
+                    ), f"Accumulation inputs required for step ranges."
         return self
 
     @classmethod
-    def _populate_sources(
+    def _populate_inputs(
         cls, inputs: list[dict], accum_dims: list[str], **overrides
     ) -> dict:
         sorted_requests = {}
@@ -772,18 +772,18 @@ class ThermoConfig(BaseConfig):
             [inp.pop(dim, None) for dim in accum_dims]
             sorted_requests.setdefault(src_name, []).append(inp)
 
-        sources = {}
+        ret = {}
         for src_name, requests in sorted_requests.items():
             src_overrides = overrides.get(src_name, {}).copy()
             request_overrides = src_overrides.pop("request", {})
             updated_inputs = update_request(requests, request_overrides)
-            sources[src_name] = {
+            ret[src_name] = {
                 "request": updated_inputs
                 if len(updated_inputs) > 1
                 else updated_inputs[0],
                 **src_overrides,
             }
-        return sources
+        return ret
 
     def _merge_parameters(self, other: Self) -> list[ThermoParamConfig]:
         merged_params = [self.parameters[0]]
@@ -798,21 +798,21 @@ class ThermoConfig(BaseConfig):
                 merged_params.append(in_param)
         return merged_params
 
-    def _merge_sources(self, other: Self) -> io.ThermoSourceModel:
-        new_sources = self.sources.model_copy()
-        other_sources = other.sources.model_copy()
-        if new_sources.accum.type_ == "null":
-            new_sources.accum.type_ = other_sources.accum.type_
-            new_sources.accum.path = other_sources.accum.path
-        if other_sources.accum.type_ == "null" and new_sources.accum.type_ != "null":
-            other_sources.accum.type_ = new_sources.accum.type_
-            other_sources.accum.path = new_sources.accum.path
-        if new_sources != other_sources:
+    def _merge_inputs(self, other: Self) -> io.ThermoInputModel:
+        new_inputs = self.inputs.model_copy()
+        other_inputs = other.inputs.model_copy()
+        if new_inputs.accum.type == "null":
+            new_inputs.accum.type = other_inputs.accum.type
+            new_inputs.accum.path = other_inputs.accum.path
+        if other_inputs.accum.type == "null" and new_inputs.accum.type != "null":
+            other_inputs.accum.type = new_inputs.accum.type
+            other_inputs.accum.path = new_inputs.accum.path
+        if new_inputs != other_inputs:
             raise ValueError(
-                "Can only merge configs with sources differing by accum source type"
+                "Can only merge configs with inputs differing by accum input type"
             )
-        return new_sources
-    
+        return new_inputs
+
 
 class ECPointParamConfig(ParamConfig):
     wind: ParamConfig

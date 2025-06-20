@@ -37,7 +37,7 @@ from pproc.common.recovery import create_recovery, BaseRecovery
 from pproc.common.steps import AnyStep
 from pproc.config.types import HistogramConfig, HistParamConfig
 from pproc.config.targets import Target
-from pproc.config.io import SourceCollection, Source
+from pproc.config.io import InputCollection, Input
 
 
 def write_histogram(
@@ -84,7 +84,7 @@ def write_histogram(
 
 
 def iter_ensemble(
-    source: Source,
+    input: Input,
     dtype=np.float32,
     **kwargs,
 ) -> Iterator[Tuple[eccodes.GRIBMessage, np.ndarray]]:
@@ -92,8 +92,8 @@ def iter_ensemble(
 
     Parameters
     ----------
-    sources: dict
-        Sources configuration
+    input: dict
+        Inputs configuration
     loc: str
         Location of the data (file path, named fdb request, ...)
     dtype: numpy data type
@@ -108,13 +108,13 @@ def iter_ensemble(
     numpy array (npoints)
         Field data
     """
-    loc = source.location()
-    readers = open_multi_dataset(source.legacy_config(), loc, **kwargs)
+    loc = input.location()
+    readers = open_multi_dataset(input.legacy_config(), loc, **kwargs)
     for reader in readers:
         with reader:
             message = reader.peek()
             if message is None:
-                raise EOFError(f"No data in {source!r}")
+                raise EOFError(f"No data in {input!r}")
             for message in reader:
                 data = missing_to_nan(message)
                 yield message, data.astype(dtype)
@@ -124,24 +124,24 @@ class HistParamRequester(ParamRequester):
     def __init__(
         self,
         param: HistParamConfig,
-        sources: SourceCollection,
+        inputs: InputCollection,
         total: int,
     ):
-        super().__init__(param, sources, total)
+        super().__init__(param, inputs, total)
 
     def retrieve_data(
         self, step: AnyStep, **kwargs
     ) -> Tuple[list[GribMetadata], np.ndarray]:
         assert isinstance(self.param, HistParamConfig)
-        sources = self.param.in_sources(self.sources, "fc", step=str(step), **kwargs)
-        metadata = [src.base_request() for src in sources]
+        inputs = self.param.input_list(self.inputs, "fc", step=str(step), **kwargs)
+        metadata = [src.base_request() for src in inputs]
 
         iterators = tuple(
             iter_ensemble(
-                source,
+                input,
                 dtype=self.param.dtype,
             )
-            for source in sources
+            for input in inputs
         )
         nbins = len(self.param.bins) - 1
         template = None
@@ -209,7 +209,7 @@ def main():
             ]
             accum_manager.delete(checkpointed_windows)
 
-            requester = HistParamRequester(param, cfg.sources, cfg.total_fields)
+            requester = HistParamRequester(param, cfg.inputs, cfg.total_fields)
             write_partial = functools.partial(
                 write_iteration, param, cfg.outputs.histogram.target, recovery
             )

@@ -52,7 +52,7 @@ def anomaly_iteration(
             additional_dims["levelist"] = template.get("level")
         clim_accum, _ = retrieve_clim(
             param.clim,
-            config.sources,
+            config.inputs,
             "clim",
             **additional_dims,
         )
@@ -117,7 +117,7 @@ def main():
             ]
             accum_manager.delete(checkpointed_windows)
 
-            requester = ParamRequester(param, cfg.sources, cfg.total_fields, "fc")
+            requester = ParamRequester(param, cfg.inputs, cfg.total_fields, "fc")
             anom_partial = functools.partial(anomaly_iteration, cfg, param, recovery)
             for keys, data in parallel_data_retrieval(
                 cfg.parallelisation.n_par_read,

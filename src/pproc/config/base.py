@@ -68,7 +68,7 @@ class BaseConfig(ConfigModel):
     total_fields: Annotated[int, Field(validate_default=True)] = 0
     parallelisation: int | Parallelisation = 1
     recovery: Recovery = Recovery()
-    sources: io.BaseSourceModel
+    inputs: io.BaseInputModel
     outputs: io.BaseOutputModel = io.BaseOutputModel()
     parameters: list[ParamConfig]
     _init: bool = False
@@ -98,8 +98,8 @@ class BaseConfig(ConfigModel):
         out = 0
         for param in self.parameters:
             total_fields = 0
-            source = param.in_sources(self.sources, src_name)
-            reqs = source[0].request
+            inputs = param.input_list(self.inputs, src_name)
+            reqs = inputs[0].request
             if isinstance(reqs, dict):
                 reqs = [reqs]
             for req in reqs:
@@ -121,7 +121,7 @@ class BaseConfig(ConfigModel):
     @model_validator(mode="after")
     def validate_totalfields(self) -> Self:
         if self.total_fields == 0 and len(self.parameters) > 0:
-            total_fields = self.compute_totalfields(self.sources.names[0])
+            total_fields = self.compute_totalfields(self.inputs.names[0])
             self.total_fields = total_fields
         return self
 
@@ -190,25 +190,25 @@ class BaseConfig(ConfigModel):
     def _populate_param(
         cls,
         config: dict,
-        inputs,
+        input_config: list[dict],
         src_name: Optional[str] = None,
         nested: bool = False,
         **overrides,
     ):
-        sort_inputs = cls._populate_sources(inputs, [], **overrides.get("sources", {}))
+        sort_inputs = cls._populate_inputs(input_config, [], **overrides.get("inputs", {}))
         if src_name is not None:
             reqs = sort_inputs[src_name]["request"]
-            inputs = [reqs] if isinstance(reqs, dict) else reqs
-        accums = cls._populate_accumulations(inputs, config.pop("accumulations", {}))
+            input_config = [reqs] if isinstance(reqs, dict) else reqs
+        accums = cls._populate_accumulations(input_config, config.pop("accumulations", {}))
         param_config = {
             "accumulations": accums,
             **config,
         }
-        updated_sources = cls._populate_sources(
-            inputs, accums.keys(), **overrides.pop("sources", {})
+        updated_inputs = cls._populate_inputs(
+            input_config, accums.keys(), **overrides.pop("inputs", {})
         )
         if not nested:
-            param_config["sources"] = updated_sources
+            param_config["inputs"] = updated_inputs
         deep_update(param_config, overrides)
         return param_config
 
@@ -235,7 +235,7 @@ class BaseConfig(ConfigModel):
         param_config = cls._populate_param(schema_config, inputs, **param_overrides)
 
         config = {
-            "sources": {src: {"type": "fdb"} for src in param_config["sources"].keys()},
+            "inputs": {src: {"source": {"type": "fdb"}} for src in param_config["inputs"].keys()},
             "outputs": {"default": {"target": {"type": "fdb"}}},
             "parameters": {param_name: param_config},
         }
@@ -284,7 +284,7 @@ class BaseConfig(ConfigModel):
         return accums
 
     @classmethod
-    def _populate_sources(
+    def _populate_inputs(
         cls, inputs: list[dict], accum_dims: list[str], **overrides
     ) -> dict:
         [req.pop(dim, None) for req in inputs for dim in accum_dims]
@@ -304,7 +304,7 @@ class BaseConfig(ConfigModel):
     def in_mars(self, sources: Optional[list[str]] = None) -> Iterator:
         seen = set()
         for param in self.parameters:
-            for req in param.in_keys(self.sources, sources):
+            for req in param.in_keys(self.inputs, sources):
                 req.pop("interpolate", None)
                 if str(req) not in seen:
                     seen.add(str(req))
@@ -328,7 +328,7 @@ class BaseConfig(ConfigModel):
 
         seen = []
         for param, output in itertools.product(self.parameters, outputs):
-            for req in param.out_keys(self.sources):
+            for req in param.out_keys(self.inputs):
                 req["target"] = (
                     output.target.path
                     if hasattr(output.target, "path")

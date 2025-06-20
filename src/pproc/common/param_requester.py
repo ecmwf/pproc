@@ -15,14 +15,14 @@ import numpy as np
 from pproc.common.dataset import open_multi_dataset
 from pproc.common.io import missing_to_nan, GribMetadata
 from pproc.common.steps import AnyStep
-from pproc.config.io import Source, SourceCollection
+from pproc.config.io import Input, InputsCollection
 from pproc.config.param import ParamConfig
 
 IndexFunc = Callable[[eccodes.GRIBMessage], int]
 
 
 def read_ensemble(
-    source: Source,
+    input: Input,
     total: int,
     dtype=np.float32,
     index_func: Optional[IndexFunc] = None,
@@ -32,8 +32,8 @@ def read_ensemble(
 
     Parameters
     ----------
-    sources: dict
-        Sources configuration
+    input: dict
+        Input configuration
     loc: str
         Location of the data (file path, named fdb request, ...)
     total: int
@@ -52,7 +52,7 @@ def read_ensemble(
     numpy array (total, npoints)
         Read data
     """
-    readers = open_multi_dataset(source.legacy_config(), source.location(), **kwargs)
+    readers = open_multi_dataset(input.legacy_config(), input.location(), **kwargs)
     templates = [None for x in range(total)]
     data = None
     n_read = 0
@@ -60,7 +60,7 @@ def read_ensemble(
         with reader:
             message = reader.peek()
             if message is None:
-                raise EOFError(f"No data in {source.location()}")
+                raise EOFError(f"No data in {input.location()}")
             if data is None:
                 data = np.empty((total, message.get("numberOfDataPoints")), dtype=dtype)
             for message in reader:
@@ -69,7 +69,7 @@ def read_ensemble(
                 data[i, :] = missing_to_nan(message)
                 n_read += 1
     if n_read != total:
-        raise EOFError(f"Expected {total} fields in {source!r}, got {n_read}")
+        raise EOFError(f"Expected {total} fields in {input!r}, got {n_read}")
     return templates, data
 
 
@@ -89,17 +89,17 @@ class ParamRequester:
     def __init__(
         self,
         param: ParamConfig,
-        sources: SourceCollection,
+        inputs: InputsCollection,
         total: int,
         src_name: Optional[str] = None,
         index_func: Optional[IndexFunc] = None,
     ):
         self.param = param
-        self.sources = sources
+        self.inputs = inputs
         self.src_name = src_name
         if self.src_name is None:
-            assert len(sources.names) == 1, "Multiple sources, must specify src_name"
-            self.src_name = sources.names[0]
+            assert len(inputs.names) == 1, "Multiple inputs, must specify src_name"
+            self.src_name = inputs.names[0]
         self.total = total * param.total_fields
         self.index_func = index_func
 
@@ -109,20 +109,20 @@ class ParamRequester:
         metadata = []
         data_list = []
         templates = None
-        in_sources = self.param.in_sources(
-            self.sources,
+        inputs = self.param.input_list(
+            self.inputs,
             self.src_name,
             step=str(step),
             **kwargs,
         )
-        for param_source in in_sources:
+        for pinput in inputs:
             new_templates, data = read_ensemble(
-                param_source,
+                pinput,
                 self.total,
                 dtype=self.param.dtype,
                 index_func=self.index_func,
             )
-            metadata.append(param_source.base_request())
+            metadata.append(pinput.base_request())
             data_list.append(data)
             if templates is None:
                 templates = new_templates

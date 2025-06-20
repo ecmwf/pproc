@@ -112,7 +112,7 @@ def main():
 
             requester = ParamRequester(
                 param,
-                cfg.sources,
+                cfg.inputs,
                 cfg.total_fields,
             )
             quantiles_partial = functools.partial(

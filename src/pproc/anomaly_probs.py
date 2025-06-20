@@ -50,10 +50,10 @@ def main():
             ]
             accum_manager.delete(checkpointed_windows)
 
-            requester = ParamRequester(param, cfg.sources, cfg.total_fields, "fc")
+            requester = ParamRequester(param, cfg.inputs, cfg.total_fields, "fc")
             clim = Climatology(
                 param.clim,
-                cfg.sources,
+                cfg.inputs,
                 "clim",
             )
             prob_partial = functools.partial(

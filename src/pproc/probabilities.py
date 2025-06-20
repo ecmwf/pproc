@@ -50,7 +50,7 @@ def main():
             ]
             accum_manager.delete(checkpointed_windows)
 
-            requester = ParamRequester(param, cfg.sources, cfg.total_fields, "fc")
+            requester = ParamRequester(param, cfg.inputs, cfg.total_fields, "fc")
             prob_partial = functools.partial(
                 prob_iteration, param, recovery, cfg.outputs.prob
             )
