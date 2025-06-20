@@ -50,12 +50,12 @@ def read_clim(
 ) -> tuple[np.ndarray, eccodes.GRIBMessage]:
     grib_keys = accum.grib_keys()
     clim_step = grib_keys.get("stepRange", grib_keys.get("step", None))
-    clim_request = param.sources["clim"]["request"]
+    clim_request = param.inputs["clim"]["request"]
     clim_request["quantile"] = ["{}:100".format(i) for i in range(n_clim)]
     step = clim_request.get("step", {}).get(clim_step, clim_step)
     clim_accum, clim_template = retrieve_clim(
         param,
-        config.sources,
+        config.inputs,
         "clim",
         n_clim,
         index_func=lambda x: int(x.get("quantile").split(":")[0]),
@@ -118,7 +118,7 @@ def main():
             accum_manager.delete(checkpointed_windows)
 
             indices_partial = functools.partial(compute_indices, cfg, param, recovery)
-            requester = ParamRequester(param, cfg.sources, cfg.total_fields, "fc")
+            requester = ParamRequester(param, cfg.inputs, cfg.total_fields, "fc")
             for keys, retrieved_data in parallel_data_retrieval(
                 cfg.parallelisation.n_par_read,
                 accum_manager.dims,

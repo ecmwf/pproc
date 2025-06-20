@@ -44,16 +44,16 @@ logger = logging.getLogger(__name__)
 
 
 def load_input(config, param: ThermoParamConfig, source: str, step: int):
-    sources = param.in_sources(config.sources, source, step=step)
+    inputs = param.input_list(config.inputs, source, step=step)
 
     ret = earthkit.data.from_source("empty")
-    for src in sources:
+    for src in inputs:
         if src.type == "null":
             continue
 
         for req in src.request:
             req = req.copy()
-            req.update(config.sources.overrides)
+            req.update(config.inputs.overrides)
             req["step"] = step
 
             logger.debug(f"Retrieve step {step}: source {src}")

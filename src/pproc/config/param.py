@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field, model_validator
 from pproc.config.preprocessing import PreprocessingConfig
 from pproc.config.accumulation import AccumulationConfig
 from pproc.config.utils import extract_mars, deep_update
-from pproc.config.io import Source, SourceCollection
+from pproc.config.io import Input, InputsCollection
 from pproc.config.utils import update_request, expand
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ def partial_equality(left: BaseModel, right: BaseModel, exclude: tuple[str]) -> 
 
 class ParamConfig(BaseModel):
     name: str
-    sources: dict = {}
+    inputs: dict = {}
     preprocessing: PreprocessingConfig = Field(default_factory=PreprocessingConfig)
     accumulations: dict[str, AccumulationConfig] = Field(default_factory=dict)
     dtype_: str = Field(alias="dtype", default="float32")
@@ -45,7 +45,7 @@ class ParamConfig(BaseModel):
 
     @model_validator(mode="after")
     def set_vod2uv(self) -> Self:
-        for src_config in self.sources.values():
+        for src_config in self.inputs.values():
             req = src_config.get("request", {})
             if isinstance(req, list):
                 req = req[0]
@@ -59,23 +59,26 @@ class ParamConfig(BaseModel):
     def dtype(self) -> type[Any]:
         return np.dtype(self.dtype_).type
 
-    def in_sources(
-        self, sources: SourceCollection, name: str, **kwargs
-    ) -> list[Source]:
-        base_config: Source = getattr(sources, name)
-        config = self.sources.get(name, {})
+    def input_list(
+        self, inputs: InputsCollection, name: str, **kwargs
+    ) -> list[Input]:
+        base_config: Input = getattr(inputs, name)
+        config = self.inputs.get(name, {})
+        cfg_source = config.get("source", {})
         reqs = update_request(
             base_config.request.copy(),
             config.get("request", {}),
             **kwargs,
-            **sources.overrides,
+            **inputs.overrides,
         )
 
         if self.vod2uv:
             return [
-                Source(
-                    type=config.get("type", base_config.type),
-                    path=config.get("path", base_config.path),
+                Input(
+                    source={
+                        "type": cfg_source.get("type", base_config.type),
+                        "path": cfg_source.get("path", base_config.path),
+                    }, 
                     request=reqs,
                 )
             ]
@@ -84,41 +87,45 @@ class ParamConfig(BaseModel):
         df = pd.DataFrame(reqs)
         if "param" in df:
             return [
-                Source(
-                    type=config.get("type", base_config.type),
-                    path=config.get("path", base_config.path),
+                Input(
+                    source={
+                        "type": cfg_source.get("type", base_config.type),
+                        "path": cfg_source.get("path", base_config.path),
+                    }, 
                     request=[row.dropna().to_dict() for _, row in items.iterrows()],
                 )
                 for _, items in df.groupby("param")
             ]
         return [
-            Source(
-                type=config.get("type", base_config.type),
-                path=config.get("path", base_config.path),
+            Input(
+                source={
+                    "type": cfg_source.get("type", base_config.type),
+                    "path": cfg_source.get("path", base_config.path),
+                }, 
                 request=reqs,
             )
         ]
 
     def in_keys(
-        self, sources: SourceCollection, filters: Optional[list[str]] = None
+        self, inputs: InputsCollection, filters: Optional[list[str]] = None
     ) -> Iterator[dict]:
-        for source in sources.names:
-            for psource in self.in_sources(sources, source):
-                if filters and psource.type not in filters:
+        for input in inputs.names:
+            for pinput in self.input_list(inputs, input):
+                if filters and pinput.type not in filters:
                     continue
 
                 reqs = (
-                    psource.request
-                    if isinstance(psource.request, list)
-                    else [psource.request]
+                    pinput.request
+                    if isinstance(pinput.request, list)
+                    else [pinput.request]
                 )
                 for req in reqs:
                     req["source"] = (
-                        psource.path if psource.path is not None else psource.type
+                        pinput.path if pinput.path is not None else pinput.type
                     )
                     accum_updates = (
-                        getattr(self, source).accumulations
-                        if hasattr(self, source)
+                        getattr(self, input).accumulations
+                        if hasattr(self, input)
                         else {}
                     )
                     accumulations = deep_update(
@@ -132,14 +139,14 @@ class ParamConfig(BaseModel):
                     )
                     yield req
 
-    def out_keys(self, sources: SourceCollection) -> Iterator[dict]:
-        fc_name = sources.names[0]
-        base_source: Source = getattr(sources, fc_name)
-        param_source = self.sources.get(fc_name, {})
+    def out_keys(self, inputs: InputsCollection) -> Iterator[dict]:
+        fc_name = inputs.names[0]
+        base_input: Input = getattr(inputs, fc_name)
+        param_input = self.inputs.get(fc_name, {})
         reqs = update_request(
-            base_source.request,
-            param_source.get("request", {}),
-            **sources.overrides,
+            base_input.request,
+            param_input.get("request", {}),
+            **inputs.overrides,
             **extract_mars(self.metadata),
         )
         if isinstance(reqs, dict):

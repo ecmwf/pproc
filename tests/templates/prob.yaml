@@ -4,7 +4,7 @@ parallelisation:
   queue_size: 1
 parameters:
   2t:
-    sources:
+    inputs:
       fc:
         request:
           param: 167
@@ -18,7 +18,7 @@ parameters:
             local_scale_factor: 2
             out_paramid: 131073
             value: 273.15
-sources:  
+inputs:  
   fc:
     request:
       class: od
@@ -30,7 +30,8 @@ sources:
       date: 20240507
       time: 12
       number: [1, 2, 3, 4, 5]
-    type: fdb
+    source:
+      type: fdb
 outputs:
   default:
     metadata:

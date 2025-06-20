@@ -21,7 +21,7 @@ from pproc.config.utils import deep_update
 @pytest.fixture(scope="function")
 def config(tmpdir) -> str:
     required = {
-        "sources": {"fc": {"type": "fdb", "request": {}}},
+        "inputs": {"fc": {"source": {"type": "fdb"}, "request": {}}},
         "parameters": [],
     }
     with open(f"{tmpdir}/config.yaml", "w") as file:
@@ -30,10 +30,10 @@ def config(tmpdir) -> str:
 
 
 base_config = {
-    "sources": {"fc": {"type": "fdb", "request": {}}},
+    "inputs": {"fc": {"source": {"type": "fdb"}, "request": {}}},
     "parameters": {
         "param": {
-            "sources": {"fc": {"request": {"param": "param"}}},
+            "inputs": {"fc": {"request": {"param": "param"}}},
             "accumulations": {
                 "step": {
                     "type": "legacywindow",
@@ -50,7 +50,7 @@ base_config = {
     [
         [
             ["--override-input", "class=ai", "--override-input", "type=x"],
-            "sources.overrides",
+            "inputs.overrides",
             {"class": "ai", "type": "x"},
         ],
         [
@@ -96,10 +96,10 @@ def test_recovery(config, overrides, checkpointing, from_checkpoint):
     [
         [
             {
-                "sources": {"fc": {"type": "fdb", "request": {}}},
+                "inputs": {"fc": {"source": {"type": "fdb"}, "request": {}}},
                 "parameters": {
                     "tp": {
-                        "sources": {"fc": {"request": {"param": "tp"}}},
+                        "inputs": {"fc": {"request": {"param": "tp"}}},
                         "accumulations": {
                             "step": {
                                 "type": "legacywindow",
@@ -110,10 +110,10 @@ def test_recovery(config, overrides, checkpointing, from_checkpoint):
                 },
             },
             {
-                "sources": {"fc": {"type": "fdb", "request": {}}},
+                "inputs": {"fc": {"source": {"type": "fdb"}, "request": {}}},
                 "parameters": {
                     "param": {
-                        "sources": {"fc": {"request": {"param": "param"}}},
+                        "inputs": {"fc": {"request": {"param": "param"}}},
                         "accumulations": {
                             "step": {
                                 "type": "legacywindow",
@@ -122,7 +122,7 @@ def test_recovery(config, overrides, checkpointing, from_checkpoint):
                         },
                     },
                     "tp": {
-                        "sources": {"fc": {"request": {"param": "tp"}}},
+                        "inputs": {"fc": {"request": {"param": "tp"}}},
                         "accumulations": {
                             "step": {
                                 "type": "legacywindow",
@@ -135,10 +135,10 @@ def test_recovery(config, overrides, checkpointing, from_checkpoint):
         ],
         [
             {
-                "sources": {"fc": {"type": "fdb", "request": {}}},
+                "inputs": {"fc": {"source": {"type": "fdb"}, "request": {}}},
                 "parameters": {
                     "param": {
-                        "sources": {"fc": {"request": {"param": "param"}}},
+                        "inputs": {"fc": {"request": {"param": "param"}}},
                         "accumulations": {
                             "step": {
                                 "type": "legacywindow",
@@ -149,10 +149,10 @@ def test_recovery(config, overrides, checkpointing, from_checkpoint):
                 },
             },
             {
-                "sources": {"fc": {"type": "fdb", "request": {}}},
+                "inputs": {"fc": {"source": {"type": "fdb"}, "request": {}}},
                 "parameters": {
                     "param": {
-                        "sources": {"fc": {"request": {"param": "param"}}},
+                        "inputs": {"fc": {"request": {"param": "param"}}},
                         "accumulations": {
                             "step": {
                                 "type": "legacywindow",
@@ -186,7 +186,7 @@ def test_merge(other: dict, merged: dict):
     [
         [
             {
-                "sources": {
+                "inputs": {
                     "fc": {
                         "request": [
                             {
@@ -205,7 +205,7 @@ def test_merge(other: dict, merged: dict):
                 },
                 "parameters": {
                     "param": {
-                        "sources": {
+                        "inputs": {
                             "fc": {"request": {"param": "167", "levtype": "sfc"}}
                         },
                         "accumulations": {
@@ -214,6 +214,7 @@ def test_merge(other: dict, merged: dict):
                                 "windows": [
                                     {
                                         "operation": "mean",
+                                        "include_start": True,
                                         "coords": [[x for x in range(0, 25, 6)]],
                                     }
                                 ],
@@ -246,18 +247,20 @@ def test_merge(other: dict, merged: dict):
         ],
         [
             {
-                "sources": {"fc": {"request": {"class": "od", "stream": "enfo"}}},
+                "inputs": {"fc": {"request": {"class": "od", "stream": "enfo"}}},
                 "parameters": {
                     "param": {
-                        "sources": {
+                        "inputs": {
                             "fc": {
                                 "request": {
                                     "class": "ai",
                                     "param": "130",
                                     "levtype": "pl",
                                 },
-                                "type": "fileset",
-                                "path": "data.grib",
+                                "source": {
+                                    "type": "file",
+                                    "path": "data.grib",
+                                }
                             }
                         },
                         "accumulations": {
@@ -284,13 +287,13 @@ def test_merge(other: dict, merged: dict):
         ],
         [
             {
-                "sources": {
+                "inputs": {
                     "fc": {"request": {"class": "od", "stream": "enfo"}},
                     "overrides": {"class": "ai"},
                 },
                 "parameters": {
                     "param": {
-                        "sources": {
+                        "inputs": {
                             "fc": {
                                 "request": {
                                     "param": "167",
@@ -323,7 +326,7 @@ def test_merge(other: dict, merged: dict):
                 "parameters": {
                     "param": {
                         "preprocessing": [{"operation": "norm"}],
-                        "sources": {
+                        "inputs": {
                             "fc": {
                                 "request": [
                                     {
@@ -348,6 +351,7 @@ def test_merge(other: dict, merged: dict):
                                 "windows": [
                                     {
                                         "operation": "mean",
+                                        "include_start": True,
                                         "coords": [[x for x in range(0, 25, 6)]],
                                     }
                                 ],
@@ -387,4 +391,5 @@ def test_merge(other: dict, merged: dict):
 )
 def test_inputs(overrides: dict, expected: list[dict]):
     config = BaseConfig(**deep_update(copy.deepcopy(base_config), overrides))
+    config.print()
     assert list(config.in_mars()) == expected

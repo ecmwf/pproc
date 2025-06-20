@@ -678,9 +678,9 @@ config:
                   date:
                     operation: mean
         "*":
+          dtype: float64
           filter:stream:
-            "enfo/waef/weef/enfh/enwh": 
-              dtype: float64
+            "enfo/waef/eefo/weef/enfh/enwh": 
               entrypoint: pproc-accumulate
               accumulations:
                 step:

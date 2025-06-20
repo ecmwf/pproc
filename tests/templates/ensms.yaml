@@ -5,7 +5,7 @@ parallelisation:
   queue_size: 2
 parameters:
   2t:
-    sources: 
+    inputs: 
       fc:
         request:
           param: '167.128'
@@ -14,7 +14,7 @@ parameters:
         type: legacywindow
         windows:
           - coords: [[12], [36]]
-sources:
+inputs:
   fc:
     request:
       - class: od
@@ -34,7 +34,8 @@ sources:
         time: 12
         type: pf
         number: [1, 2, 3, 4, 5]
-    type: "fdb"    
+    source:
+      type: "fdb"    
 outputs:
   default:
     metadata:

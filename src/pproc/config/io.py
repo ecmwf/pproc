@@ -20,6 +20,7 @@ from pydantic import (
     Tag,
     create_model,
     model_validator,
+    field_validator,
 )
 
 from pproc.config import utils
@@ -43,12 +44,10 @@ def split_location(
         return (default, loc)
     return m.groups()
 
-
 class Source(ConfigModel):
     model_config = ConfigDict(populate_by_name=True)
 
     type_: str = Field(alias="type")
-    request: dict | list[dict] = {}
     path: Optional[str] = None
 
     @model_validator(mode="before")
@@ -62,9 +61,19 @@ class Source(ConfigModel):
             return config
         return data
 
+class Input(ConfigModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    source: Source
+    request: dict | list[dict] = {}
+
     @property
     def type(self) -> str:
-        return self.type_
+        return self.source.type_
+
+    @property
+    def path(self) -> str:
+        return self.source.path
 
     def location(self) -> str:
         return f"{self.type}:{self.path}" if self.type == "file" else f"{self.type}:req"
@@ -87,7 +96,7 @@ class Source(ConfigModel):
         }
 
 
-class SourceCollection(ConfigModel):
+class InputsCollection(ConfigModel):
     names: ClassVar[list[str]]
     overrides: Annotated[
         dict,
@@ -110,8 +119,8 @@ class SourceCollection(ConfigModel):
             return data
         def_source = data["default"]
         for sub in cls.names:
-            subsec = Source.validate_source(data.setdefault(sub, {}))
-            data[sub] = utils.deep_update(def_source, subsec)
+            subsec = data.setdefault(sub, {})
+            data[sub] = utils.deep_update(subsec, def_source)
         return data
 
 
@@ -135,7 +144,7 @@ class Output(ConfigModel):
     ]
     metadata: dict = {}
 
-    @model_validator(mode="before")
+    @field_validator("target", mode="before")
     @classmethod
     def validate_target(cls, data: Any) -> Any:
         if isinstance(data, str):
@@ -143,7 +152,7 @@ class Output(ConfigModel):
             config = {"type": type_}
             if loc:
                 config["path"] = loc
-            return {"target": config}
+            return config
         return data
 
 
@@ -169,7 +178,7 @@ class OutputsCollection(ConfigModel):
         defaults = utils._get(data, "default", {})
         overrides = utils._get(data, "overrides", None)
         for sub in cls.names:
-            subsec = Output.validate_target(utils._get(data, sub, {}))
+            subsec = utils._get(data, sub, {})
             # Insert default metadata for each output type
             def_metadata = cls.metadata_defaults.get(sub, {})
             metadata = {
@@ -178,41 +187,24 @@ class OutputsCollection(ConfigModel):
                 **utils._get(subsec, "metadata", {}),
             }
             # Set target from default, if specified
-            target = utils._get(subsec, "target", utils._get(defaults, "target", {}))
+            target = Output.validate_target(utils._get(subsec, "target", utils._get(defaults, "target", {})))
             if overrides:
                 utils._set(target, "overrides", overrides)
             utils._set(data, sub, {"target": target, "metadata": metadata})
         return data
 
 
-def create_source_model(
-    name: str, sources: list[str], optional: list[str] = [], **kwargs
+def create_input_model(
+    name: str, inputs: list[str], optional: list[str] = [], **kwargs
 ):
-    field_definitions = {
-        source: (
-            Annotated[
-                Source,
-                CLIArg(f"--in-{source}"),
-                Field(description=f"Input source for {source}"),
-            ],
-            ...,
-        )
-        for source in sources
-    }
-    for source in optional:
-        field_definitions[source] = (
-            Annotated[
-                Source,
-                CLIArg(f"--in-{source}"),
-                Field(description=f"Input source for {source}. Default is null."),
-            ],
-            Source(type="null"),
-        )
+    field_definitions = {input: (Input, ...) for input in inputs}
+    for input in optional:
+        field_definitions[input] = (Input, Input(source={"type": "null"}))
     return create_model(
-        f"{name}SourceModel",
-        names=(ClassVar[list[str]], sources + optional),
+        f"{name}InputModel",
+        names=(ClassVar[list[str]], inputs + optional),
         **field_definitions,
-        __base__=SourceCollection,
+        __base__=InputsCollection,
         **kwargs,
     )
 
@@ -221,19 +213,7 @@ def create_output_model(
     name: str, outputs: Union[list[str], dict[str, dict]], **kwargs
 ):
     field_definitions = {
-        output: (
-            Annotated[
-                Output,
-                CLIArg(f"--out-{output}"),
-                Field(
-                    description=f"Output target for {output}",
-                    default=Output(
-                        metadata=(outputs[output] if isinstance(outputs, dict) else {})
-                    ),
-                ),
-            ],
-            ...,
-        )
+        output: (Output, ...)
         for output in outputs
     }
     names = outputs if isinstance(outputs, list) else list(outputs.keys())
@@ -250,7 +230,7 @@ def create_output_model(
     )
 
 
-BaseSourceModel = create_source_model("Base", ["fc"])
+BaseInputModel = create_input_model("Base", ["fc"])
 BaseOutputModel = create_output_model("Base", [])
 EnsmsOutputModel = create_output_model(
     "Ensms",
@@ -260,11 +240,11 @@ QuantilesOutputModel = create_output_model("Quantiles", {"quantiles": {"type": "
 AccumOutputModel = create_output_model("Accum", ["accum"])
 MonthlyStatsOutputModel = create_output_model("MonthlyStats", ["stats"])
 HistogramOutputModel = create_output_model("Histogram", {"histogram": {"type": "pd"}})
-SignificanceSourceModel = create_source_model("Significance", ["fc", "clim", "clim_em"])
+SignificanceInputModel = create_input_model("Significance", ["fc", "clim", "clim_em"])
 SignificanceOutputModel = create_output_model(
     "Significance", {"signi": {"type": "taem"}}
 )
-ClimSourceModel = create_source_model("Clim", ["fc", "clim"])
+ClimInputModel = create_input_model("Clim", ["fc", "clim"])
 AnomalyOutputModel = create_output_model(
     "Anomaly", {"ens": {"type": "fcmean"}, "ensm": {"type": "taem"}}
 )
@@ -274,5 +254,5 @@ WindOutputModel = create_output_model(
     "Wind",
     {"mean": {"type": "em"}, "std": {"type": "es"}, "ws": {}},
 )
-ThermoSourceModel = create_source_model("Thermo", ["inst"], optional=["accum"])
+ThermoInputModel = create_input_model("Thermo", ["inst"], optional=["accum"])
 ThermoOutputModel = create_output_model("Thermo", ["indices", "accum", "intermediate"])

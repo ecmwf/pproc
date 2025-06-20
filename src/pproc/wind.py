@@ -65,7 +65,7 @@ def wind_iteration(
 ):
     requester = ParamRequester(
         param,
-        config.sources,
+        config.inputs,
         src_name="fc",
         total=config.total_fields,
     )

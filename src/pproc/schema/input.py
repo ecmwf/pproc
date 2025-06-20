@@ -203,7 +203,8 @@ class InputConfig(BaseModel):
 
             fc_config = fc_inputs[0]
             for clim_inp in self.climatology.inputs:
-                clim_inp.request["date"] = clim_inp.derive_date.derive(
+                assert len(clim_inp.derive_date) == 1, "Climatology can only have a single date"
+                clim_inp.request["date"] = clim_inp.derive_date[0].derive(
                     fc_config.base_request(), self.climatology.scheme
                 )
             try:
