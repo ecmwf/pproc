@@ -60,6 +60,7 @@ class Source(ConfigModel):
                 config["path"] = loc
             return config
         return data
+    
 
 class Input(ConfigModel):
     model_config = ConfigDict(populate_by_name=True)
