@@ -33,7 +33,6 @@ from pproc.common.param_requester import ParamRequester, IndexFunc
 from pproc.common.steps import AnyStep
 from pproc.common.recovery import create_recovery, Recovery
 from pproc.common.parallel import (
-    create_executor,
     parallel_data_retrieval,
     sigterm_handler,
 )
@@ -176,13 +175,7 @@ def compute_single_ens(
         temp_wts = np.where(np.any(np.isnan(predictors), axis=0), np.nan, temp_wts)
 
         wt_allwt += np.einsum("i,i...", codes_wt[index:end_index], temp_wts)
-        wt_rain = numexpr.evaluate(
-            "pred * wts",
-            local_dict={
-                "pred": np.reshape(predictand, (1, num_gp)),
-                "wts": temp_wts,
-            },
-        )
+        wt_rain = np.reshape(predictand, (1, num_gp)) * temp_wts
         cdf_wt = numexpr.evaluate(
             "sum(wt_rain * (fer + 1), axis=0)",
             local_dict={
@@ -190,9 +183,7 @@ def compute_single_ens(
                 "wt_rain": np.reshape(wt_rain, (wt_size, 1, num_gp)),
             },
         )
-        numexpr.evaluate(
-            "pt + cdf", local_dict={"pt": pt_bc_allwt, "cdf": cdf_wt}, out=pt_bc_allwt
-        )
+        pt_bc_allwt += cdf_wt
     return pt_bc_allwt, wt_allwt
 
 
@@ -243,15 +234,7 @@ def compute_weather_types(
         initargs=(signal.SIGTERM, signal.SIG_DFL),
     ) as executor:
         for ind_em, result in enumerate(
-            executor.map(
-                ens_partial,
-                *zip(
-                    *[
-                        (predictand[index], predictors[:, index])
-                        for index in range(len(tp))
-                    ]
-                ),
-            )
+            executor.map(ens_partial, predictand, predictors.T)
         ):
             logger.info(f"Ensemble member: {ind_em}")
             pt_bc_allwt, wt_allwt = result
