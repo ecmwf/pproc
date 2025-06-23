@@ -234,7 +234,7 @@ def compute_weather_types(
         initargs=(signal.SIGTERM, signal.SIG_DFL),
     ) as executor:
         for ind_em, result in enumerate(
-            executor.map(ens_partial, predictand, predictors.T)
+            executor.map(ens_partial, predictand, predictors.transpose(1, 0, 2))
         ):
             logger.info(f"Ensemble member: {ind_em}")
             pt_bc_allwt, wt_allwt = result
