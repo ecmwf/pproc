@@ -30,7 +30,6 @@ class ConfigFactory:
         "pproc-monthly-stats": types.MonthlyStatsConfig,
         "pproc-quantiles": types.QuantilesConfig,
         "pproc-probabilities": types.ProbConfig,
-        "pproc-anomaly-probabilities": types.ProbConfig,
         "pproc-extreme": types.ExtremeConfig,
         "pproc-thermal-indices": types.ThermoConfig,
         "pproc-anomaly": types.AnomalyConfig,

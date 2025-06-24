@@ -56,10 +56,12 @@ class ThresholdAccumulationManager(AccumulationManager):
         for accum_id in accumulations:
             del self._thresholds[accum_id]
 
-
-class AnomalyAccumulationManager(ThresholdAccumulationManager):
     def feed(
-        self, keys: dict, data: np.array, clim_mean: np.array, clim_std: np.array
+        self,
+        keys: dict,
+        data: np.ndarray,
+        clim_mean: np.ndarray | int = 0,
+        clim_std: np.ndarray | int = 1,
     ) -> Iterator[Tuple[str, Accumulator]]:
         """
         Updates all windows that include the given keys with either the anomaly

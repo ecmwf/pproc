@@ -195,11 +195,15 @@ class BaseConfig(ConfigModel):
         nested: bool = False,
         **overrides,
     ):
-        sort_inputs = cls._populate_inputs(input_config, [], **overrides.get("inputs", {}))
+        sort_inputs = cls._populate_inputs(
+            input_config, [], **overrides.get("inputs", {})
+        )
         if src_name is not None:
             reqs = sort_inputs[src_name]["request"]
             input_config = [reqs] if isinstance(reqs, dict) else reqs
-        accums = cls._populate_accumulations(input_config, config.pop("accumulations", {}))
+        accums = cls._populate_accumulations(
+            input_config, config.pop("accumulations", {})
+        )
         param_config = {
             "accumulations": accums,
             **config,
@@ -235,7 +239,10 @@ class BaseConfig(ConfigModel):
         param_config = cls._populate_param(schema_config, inputs, **param_overrides)
 
         config = {
-            "inputs": {src: {"source": {"type": "fdb"}} for src in param_config["inputs"].keys()},
+            "inputs": {
+                src: {"source": {"type": "fdb"}}
+                for src in param_config["inputs"].keys()
+            },
             "outputs": {"default": {"target": {"type": "fdb"}}},
             "parameters": {param_name: param_config},
         }
