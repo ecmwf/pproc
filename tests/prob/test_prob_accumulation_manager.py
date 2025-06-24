@@ -17,7 +17,6 @@ from pproc.common.accumulation import (
 )
 from pproc.prob.accumulation_manager import (
     ThresholdAccumulationManager,
-    AnomalyAccumulationManager,
 )
 
 
@@ -272,7 +271,7 @@ def test_create_threshold(config, expected, exp_coords):
     ],
 )
 def test_create_anomaly(config, expected, exp_coords):
-    acc_mgr = AnomalyAccumulationManager.create({"step": config}, {})
+    acc_mgr = ThresholdAccumulationManager.create({"step": config}, {})
     assert set(acc_mgr.accumulations.keys()) == set(expected.keys())
     assert set(acc_mgr._thresholds.keys()) == set(expected.keys())
     for name in expected:

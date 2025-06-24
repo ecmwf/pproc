@@ -126,12 +126,12 @@ def prob_iteration(
             )
             grib_set = out_prob.metadata.copy()
             grib_set.update(accum.grib_keys())
-            grib_set.update(threshold.get("metadata", {}))
             grib_set.update(
                 threshold_grib_headers(
                     grib_set.get("edition", 1), threshold, clim_metadata
                 )
             )
+            grib_set.update(threshold.get("metadata", {}))
             common.io.write_grib(
                 out_prob.target,
                 construct_message(
