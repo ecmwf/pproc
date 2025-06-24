@@ -65,7 +65,7 @@ class Climatology(ParamRequester):
         :return: tuple containing climatology period dates as Dict
         and
         """
-        cstep = step if not self.steps else self.steps[step]
+        cstep = step if not self.steps else self.steps.get(step, step)
         metadata, ret = super().retrieve_data(step=cstep, **kwargs)
         clim_grib = {
             "climateDateFrom": metadata[0].get("climateDateFrom"),
