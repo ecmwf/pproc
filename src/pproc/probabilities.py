@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # (C) Copyright 2021- ECMWF.
 #
 # This software is licensed under the terms of the Apache Licence Version 2.0
@@ -25,6 +24,7 @@ from pproc.common.param_requester import ParamRequester
 from pproc.config.types import ProbConfig
 from pproc.prob.parallel import prob_iteration
 from pproc.prob.accumulation_manager import ThresholdAccumulationManager
+from pproc.prob.climatology import create_clim
 
 
 def main():
@@ -50,19 +50,29 @@ def main():
             ]
             accum_manager.delete(checkpointed_windows)
 
-            requester = ParamRequester(param, cfg.inputs, cfg.total_fields, "fc")
+            requesters = [
+                ParamRequester(param, cfg.inputs, cfg.total_fields, "fc"),
+                create_clim(
+                    param.clim,
+                    cfg.inputs,
+                    "clim",
+                )
+            ]
             prob_partial = functools.partial(
                 prob_iteration, param, recovery, cfg.outputs.prob
             )
-            for keys, data in parallel_data_retrieval(
+            for keys, retrieved_data in parallel_data_retrieval(
                 cfg.parallelisation.n_par_read,
                 accum_manager.dims,
-                [requester],
+                requesters,
             ):
                 ids = ", ".join(f"{k}={v}" for k, v in keys.items())
-                metadata, ens = data[0]
+                metadata, ens = retrieved_data[0]
+                clim_metadata, clim_data = retrieved_data[1]
                 with ResourceMeter(f"{param.name}, {ids}: Compute accumulation"):
-                    completed_windows = accum_manager.feed(keys, ens)
+                    completed_windows = accum_manager.feed(
+                        keys, ens, *clim_data, 
+                    )
                     del ens
                 for window_id, accum in completed_windows:
                     executor.submit(
@@ -71,6 +81,7 @@ def main():
                         window_id,
                         accum,
                         accum_manager.thresholds(window_id),
+                        clim_metadata[0],
                     )
             executor.wait()
 

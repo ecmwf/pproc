@@ -16,6 +16,13 @@ from pproc.common.param_requester import ParamRequester, ParamConfig
 from pproc.config.io import InputsCollection
 
 
+class NullRequester:
+    def retrieve_data(
+        self, step: int, **kwargs
+    ) -> Tuple[list[Dict], Tuple[np.array, np.array]]:
+        return [{}], []
+
+
 class Climatology(ParamRequester):
     """
     Retrieves data for mean and standard deviation of climatology
@@ -66,3 +73,13 @@ class Climatology(ParamRequester):
             "referenceDate": metadata[0].get("referenceDate"),
         }
         return [clim_grib], ret
+
+
+def create_clim(
+    param: Optional[ParamConfig],
+    inputs: InputsCollection,
+    src_name: Optional[str] = None,
+):
+    if param is None:
+        return NullRequester()
+    return Climatology(param, inputs, src_name)

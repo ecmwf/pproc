@@ -44,6 +44,7 @@ def split_location(
         return (default, loc)
     return m.groups()
 
+
 class Source(ConfigModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -60,7 +61,7 @@ class Source(ConfigModel):
                 config["path"] = loc
             return config
         return data
-    
+
 
 class Input(ConfigModel):
     model_config = ConfigDict(populate_by_name=True)
@@ -188,7 +189,9 @@ class OutputsCollection(ConfigModel):
                 **utils._get(subsec, "metadata", {}),
             }
             # Set target from default, if specified
-            target = Output.validate_target(utils._get(subsec, "target", utils._get(defaults, "target", {})))
+            target = Output.validate_target(
+                utils._get(subsec, "target", utils._get(defaults, "target", {}))
+            )
             if overrides:
                 utils._set(target, "overrides", overrides)
             utils._set(data, sub, {"target": target, "metadata": metadata})
@@ -213,10 +216,7 @@ def create_input_model(
 def create_output_model(
     name: str, outputs: Union[list[str], dict[str, dict]], **kwargs
 ):
-    field_definitions = {
-        output: (Output, ...)
-        for output in outputs
-    }
+    field_definitions = {output: (Output, ...) for output in outputs}
     names = outputs if isinstance(outputs, list) else list(outputs.keys())
     return create_model(
         f"{name}OutputModel",

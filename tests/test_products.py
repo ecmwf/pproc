@@ -16,7 +16,6 @@ import pyfdb
 import eccodes
 
 from pproc.probabilities import main as prob_main
-from pproc.anomaly_probs import main as anomaly_prob_main
 from pproc.ensms import main as ensms_main
 from pproc.extreme import main as extreme_main
 from pproc.quantiles import main as quantiles_main
@@ -40,7 +39,7 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
         ],
         [
             "t850",
-            anomaly_prob_main,
+            prob_main,
             [],
             {
                 "levtype": "pl",

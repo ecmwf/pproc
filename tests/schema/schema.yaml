@@ -468,7 +468,6 @@ config:
             value: 273.15
             local_scale_factor: 2
         "131020":
-          entrypoint: pproc-anomaly-probabilities
           accumulations: 
             step:
               type: legacywindow
@@ -480,7 +479,6 @@ config:
             metadata:
               bitsPerValue: 24
         "131021":
-          entrypoint: pproc-anomaly-probabilities
           accumulations: 
             step:
               type: legacywindow
@@ -492,7 +490,6 @@ config:
             metadata:
               bitsPerValue: 24
         "131022": 
-          entrypoint: pproc-anomaly-probabilities
           accumulations: 
             step:
               type: legacywindow
@@ -503,7 +500,6 @@ config:
             metadata:
               bitsPerValue: 24
         "131023": 
-          entrypoint: pproc-anomaly-probabilities 
           accumulations: 
             step:
               type: legacywindow
@@ -514,7 +510,6 @@ config:
             metadata:
               bitsPerValue: 24
         "131024":  
-          entrypoint: pproc-anomaly-probabilities
           accumulations: 
             step:
               type: legacywindow
@@ -525,7 +520,6 @@ config:
             metadata:
               bitsPerValue: 24
         "131025":  
-          entrypoint: pproc-anomaly-probabilities
           accumulations: 
             step:
               type: legacywindow
@@ -536,7 +530,6 @@ config:
             metadata:
               bitsPerValue: 24
         "133093":
-          entrypoint: pproc-anomaly-probabilities
           accumulations: 
             step:
               type: legacywindow
@@ -556,7 +549,6 @@ config:
               typeOfStatisticalProcessing: 10
               packingType: "grid_ccsds"
         "133094":
-          entrypoint: pproc-anomaly-probabilities
           accumulations: 
             step:
               type: legacywindow
@@ -578,7 +570,6 @@ config:
               packingType: "grid_ccsds"
               scaleFactorOfLowerLimit: 1
         "133095":
-          entrypoint: pproc-anomaly-probabilities
           accumulations: 
             step:
               type: legacywindow
@@ -598,7 +589,6 @@ config:
               typeOfStatisticalProcessing: 10
               packingType: "grid_ccsds"
         "133096":
-          entrypoint: pproc-anomaly-probabilities
           accumulations: 
             step:
               type: legacywindow
@@ -619,7 +609,6 @@ config:
               typeOfStatisticalProcessing: 10
               packingType: "grid_ccsds"
         "133097":
-          entrypoint: pproc-anomaly-probabilities
           accumulations: 
             step:
               type: legacywindow
@@ -641,7 +630,6 @@ config:
               scaleFactorOfLowerLimit: 1
             limit_type: lower
         "133098":
-          entrypoint: pproc-anomaly-probabilities
           accumulations: 
             step:
               type: legacywindow

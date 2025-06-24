@@ -59,9 +59,7 @@ class ParamConfig(BaseModel):
     def dtype(self) -> type[Any]:
         return np.dtype(self.dtype_).type
 
-    def input_list(
-        self, inputs: InputsCollection, name: str, **kwargs
-    ) -> list[Input]:
+    def input_list(self, inputs: InputsCollection, name: str, **kwargs) -> list[Input]:
         base_config: Input = getattr(inputs, name)
         config = self.inputs.get(name, {})
         cfg_source = config.get("source", {})
@@ -78,7 +76,7 @@ class ParamConfig(BaseModel):
                     source={
                         "type": cfg_source.get("type", base_config.type),
                         "path": cfg_source.get("path", base_config.path),
-                    }, 
+                    },
                     request=reqs,
                 )
             ]
@@ -91,7 +89,7 @@ class ParamConfig(BaseModel):
                     source={
                         "type": cfg_source.get("type", base_config.type),
                         "path": cfg_source.get("path", base_config.path),
-                    }, 
+                    },
                     request=[row.dropna().to_dict() for _, row in items.iterrows()],
                 )
                 for _, items in df.groupby("param")
@@ -101,7 +99,7 @@ class ParamConfig(BaseModel):
                 source={
                     "type": cfg_source.get("type", base_config.type),
                     "path": cfg_source.get("path", base_config.path),
-                }, 
+                },
                 request=reqs,
             )
         ]
