@@ -458,17 +458,24 @@ class ProbConfig(BaseConfig):
         fc_step = 0
         clim_step = 0
         for inp in inputs:
+            steps = inp["step"] if isinstance(inp["step"], list) else [inp["step"]]
             if inp["type"] in ["em", "es"]:
                 src_name = "clim"
-                clim_step = inp["step"]
+                clim_step = steps
             else:
                 src_name = "fc"
-                fc_step = inp["step"]
+                fc_step = steps
             [inp.pop(dim, None) for dim in accum_dims]
             sorted_requests.setdefault(src_name, []).append(inp.copy())
 
-        for clim_inp in sorted_requests.get("clim", []):
-            clim_inp["step"] = {fc_step: clim_step}
+        assert len(fc_step) == len(
+            clim_step
+        ), f"Forecast and clim steps must be of the same length"
+        if clim_step != fc_step:
+            for clim_inp in sorted_requests.get("clim", []):
+                clim_inp["step"] = {
+                    fc_step[x]: clim_step[x] for x in range(len(fc_step))
+                }
 
         ret = {}
         for src_name, requests in sorted_requests.items():
