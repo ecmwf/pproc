@@ -86,35 +86,41 @@ def extreme_template(accum, template_fc, template_clim, allow_grib1_to_grib2=Fal
             ext_stat["indicatorOfUnitForTimeIncrement"] = 255
             ext_stat["timeIncrement"] = 0
             set_stat = [ext_stat, in_stat]
-        grib_keys.update({
-            "typeOfProcessedData": 255,
-            "productDefinitionTemplateNumber": 107,
-            "numberOfTimeRanges": len(set_stat),
-        })
+        grib_keys.update(
+            {
+                "typeOfProcessedData": 255,
+                "productDefinitionTemplateNumber": 107,
+                "numberOfTimeRanges": len(set_stat),
+            }
+        )
         template_ext.set(grib_keys)
         for key in ext_stat.keys():
             template_ext.set_array(key, [st[key] for st in set_stat])
         grib_keys = {}
-        grib_keys.update({
-            "derivedForecast": 255,
-        })
+        grib_keys.update(
+            {
+                "derivedForecast": 255,
+            }
+        )
         clim_date = datetime.strptime(template_clim["date:str"], "%Y%m%d")
         clim_nyears = template_clim["numberOfReforecastYearsInModelClimate"]
         clim_start = clim_date.replace(year=clim_date.year - clim_nyears)
         clim_size = template_clim["sampleSizeOfModelClimate"]
         clim_window = template_clim["numberOfDaysInClimateSamplingWindow:int"]
         clim_start -= timedelta(days=clim_window // 2)
-        grib_keys.update({
-            "typeOfReferenceDataset": 2,
-            "yearOfStartOfReferencePeriod": clim_start.year,
-            "monthOfStartOfReferencePeriod": clim_start.month,
-            "dayOfStartOfReferencePeriod": clim_start.day,
-            "hourOfStartOfReferencePeriod": 0,
-            "minuteOfStartOfReferencePeriod": 0,
-            "secondOfStartOfReferencePeriod": 0,
-            "sampleSizeOfReferencePeriod": clim_size,
-            "numberOfReferencePeriodTimeRanges": 2,
-        })
+        grib_keys.update(
+            {
+                "typeOfReferenceDataset": 2,
+                "yearOfStartOfReferencePeriod": clim_start.year,
+                "monthOfStartOfReferencePeriod": clim_start.month,
+                "dayOfStartOfReferencePeriod": clim_start.day,
+                "hourOfStartOfReferencePeriod": 0,
+                "minuteOfStartOfReferencePeriod": 0,
+                "secondOfStartOfReferencePeriod": 0,
+                "sampleSizeOfReferencePeriod": clim_size,
+                "numberOfReferencePeriodTimeRanges": 2,
+            }
+        )
         template_ext.set(grib_keys)
         arr_grib_keys = {
             "typeOfStatisticalProcessingForTimeRangeForReferencePeriod": [20, 20],
@@ -198,7 +204,9 @@ def sot_template(template, sot):
 
 def cpf_template(template):
     template_cpf = template.copy()
-    template_cpf["marsType"] = 27  # FIXME: this corresponds to efi, should be a new value for cpf
+    template_cpf[
+        "marsType"
+    ] = 27  # FIXME: this corresponds to efi, should be a new value for cpf
     template_cpf["bitsPerValue"] = 24
 
     edition = template_cpf["edition"]
