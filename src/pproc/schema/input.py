@@ -67,7 +67,7 @@ class ClimatologyInput(ForecastInput):
     @field_validator("derive_date", mode="before")
     @classmethod
     def format_derive_date(cls, data: Any) -> Any:
-        if isinstance(data, dict): 
+        if isinstance(data, dict):
             return [data]
         return data
 
@@ -203,7 +203,9 @@ class InputConfig(BaseModel):
 
             fc_config = fc_inputs[0]
             for clim_inp in self.climatology.inputs:
-                assert len(clim_inp.derive_date) == 1, "Climatology can only have a single date"
+                assert (
+                    len(clim_inp.derive_date) == 1
+                ), "Climatology can only have a single date"
                 clim_inp.request["date"] = clim_inp.derive_date[0].derive(
                     fc_config.base_request(), self.climatology.scheme
                 )

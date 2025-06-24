@@ -56,7 +56,7 @@ def main():
                     param.clim,
                     cfg.inputs,
                     "clim",
-                )
+                ),
             ]
             prob_partial = functools.partial(
                 prob_iteration, param, recovery, cfg.outputs.prob
@@ -71,7 +71,9 @@ def main():
                 clim_metadata, clim_data = retrieved_data[1]
                 with ResourceMeter(f"{param.name}, {ids}: Compute accumulation"):
                     completed_windows = accum_manager.feed(
-                        keys, ens, *clim_data, 
+                        keys,
+                        ens,
+                        *clim_data,
                     )
                     del ens
                 for window_id, accum in completed_windows:
