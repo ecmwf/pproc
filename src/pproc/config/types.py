@@ -455,8 +455,8 @@ class ProbConfig(BaseConfig):
         cls, inputs: list[dict], accum_dims: list[str], **overrides
     ) -> dict:
         sorted_requests = {}
-        fc_step = 0
-        clim_step = 0
+        fc_step: list[int]
+        clim_step: Optional[list[int]] = None
         for inp in inputs:
             steps = inp["step"] if isinstance(inp["step"], list) else [inp["step"]]
             if inp["type"] in ["em", "es"]:
@@ -468,10 +468,10 @@ class ProbConfig(BaseConfig):
             [inp.pop(dim, None) for dim in accum_dims]
             sorted_requests.setdefault(src_name, []).append(inp.copy())
 
-        assert len(fc_step) == len(
-            clim_step
-        ), f"Forecast and clim steps must be of the same length"
-        if clim_step != fc_step:
+        if clim_step is not None and clim_step != fc_step:
+            assert len(fc_step) == len(
+                clim_step
+            ), f"Forecast and clim steps must be of the same length"
             for clim_inp in sorted_requests.get("clim", []):
                 clim_inp["step"] = {
                     fc_step[x]: clim_step[x] for x in range(len(fc_step))
