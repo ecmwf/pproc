@@ -94,12 +94,57 @@ class AccumParamConfig(ParamConfig):
     vmax: Optional[float] = None
     out_accum_key: str = "perturbationNumber"
     out_accum_values: Optional[list[float]] = None
+    _merge_exclude = ("inputs", "accumulations")
+
+    def _merge_inputs(self, other: Self) -> dict:
+        if self.inputs == other.inputs:
+            return self.inputs
+        inputs = copy.deepcopy(self.inputs)
+        for key, values in inputs.items():
+            requests = values["request"]
+            if not isinstance(requests, list):
+                requests = [requests]
+            other_requests = other.inputs[key]["request"]
+            if not isinstance(other_requests, list):
+                other_requests = [other_requests]
+            inputs[key]["request"] = requests + [
+                x for x in other_requests if x not in requests
+            ]
+        return inputs
+
+    def can_merge(self, other: Self) -> bool:
+        if self.accumulations == other.accumulations:
+            # Can merge requests of different types e.g. fc and pf if
+            # other parts of the source are equal
+            compatible_inputs = True
+            for src, values in self.inputs.items():
+                input = copy.deepcopy(values)
+                other_input = copy.deepcopy(other.inputs[src])
+                for xinput in [input, other_input]:
+                    if isinstance(xinput["request"], dict):
+                        xinput["request"] = [xinput["request"]]
+                    for req in xinput["request"]:
+                        [req.pop(key, None) for key in ["stream", "type", "number"]]
+                if input != other_input:
+                    compatible_inputs = False
+                    break
+            if compatible_inputs:
+                return True
+        return self.inputs == other.inputs
 
 
 class AccumConfig(BaseConfig):
     parallelisation: Parallelisation = Parallelisation()
     outputs: io.AccumOutputModel = io.AccumOutputModel()
     parameters: list[AccumParamConfig]
+    _merge_exclude = ("total_fields", "parameters")
+
+    def finalise(self):
+        new_params = self._merge_parameters()
+        if new_params != self.parameters:
+            self.parameters = new_params
+        self.total_fields = 0
+        super().finalise()
 
     def _format_out(self, param: AccumParamConfig, req: dict) -> dict:
         req = req.copy()
@@ -123,6 +168,27 @@ class AccumConfig(BaseConfig):
             number = [0] + number
         req["number"] = number
         return req
+
+    def _merge_parameters(self, other: Self = None) -> list[AccumParamConfig]:
+        merged_params = [self.parameters[0]]
+        other_params = self.parameters[1:]
+        if other is not None:
+            other_params.extend(other.parameters)
+        for in_param in other_params:
+            merged = False
+            for index, out_param in enumerate(merged_params):
+                if out_param.can_merge(in_param):
+                    merged_params[index] = out_param.merge(in_param)
+                    merged = True
+                    break
+            if not merged:
+                merged_params.append(in_param)
+        return merged_params
+
+    def _merge_total_fields(self, other: Self) -> int:
+        # Temporarily set to 1 to avoid validation failure, will be set properly
+        # when finalise is called
+        return 1
 
 
 class MonthlyStatsConfig(BaseConfig):
@@ -743,7 +809,7 @@ class ThermoConfig(BaseConfig):
         # Output of config generation can have additional
         # parameters, which can be merged. This ensures they are merged
         # as soon as possible
-        new_params = self._merge_parameters(self)
+        new_params = self._merge_parameters()
         if new_params != self.parameters:
             self.parameters = new_params
         return self
@@ -800,9 +866,12 @@ class ThermoConfig(BaseConfig):
             }
         return ret
 
-    def _merge_parameters(self, other: Self) -> list[ThermoParamConfig]:
+    def _merge_parameters(self, other: Self = None) -> list[ThermoParamConfig]:
         merged_params = [self.parameters[0]]
-        for in_param in self.parameters[1:] + other.parameters:
+        other_params = self.parameters[1:]
+        if other is not None:
+            other_params.extend(other.parameters)
+        for in_param in other_params:
             merged = False
             for index, out_param in enumerate(merged_params):
                 if out_param.can_merge(in_param):
