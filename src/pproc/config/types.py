@@ -661,8 +661,8 @@ class ThermoParamConfig(ParamConfig):
         # inst + inst -> merge accums and input params
         # accum + accum -> merge accums and input params
         # inst + (inst, accum) -> only merge in inst steps are encompassed in accum step ranges, becomes accum
-        new_inputs = self.inputs.copy()
-        other_inputs = other.inputs.copy()
+        new_inputs = copy.deepcopy(self.inputs)
+        other_inputs = copy.deepcopy(other.inputs)
         for key in new_inputs:
             if key in other_inputs:
                 current_params = new_inputs[key]["request"].pop("param")
@@ -737,6 +737,16 @@ class ThermoConfig(BaseConfig):
     validateutci: bool = False
     utci_misses: bool = False
     _merge_exclude: tuple[str] = ("parameters", "inputs")
+
+    @model_validator(mode="after")
+    def validate_params(self) -> Self:
+        # Output of config generation can have additional
+        # parameters, which can be merged. This ensures they are merged 
+        # as soon as possible
+        new_params = self._merge_parameters(self)
+        if new_params != self.parameters:
+            self.parameters = new_params
+        return self
 
     @classmethod
     def from_schema(cls, schema_config: dict, **overrides) -> Self:
