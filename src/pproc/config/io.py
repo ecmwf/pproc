@@ -73,9 +73,17 @@ class Input(ConfigModel):
     def type(self) -> str:
         return self.source.type_
 
+    @type.setter
+    def type(self, value: str):
+        self.source.type_ = value
+
     @property
     def path(self) -> str:
         return self.source.path
+
+    @path.setter
+    def path(self, value: str):
+        self.source.path = value
 
     def location(self) -> str:
         return f"{self.type}:{self.path}" if self.type == "file" else f"{self.type}:req"
