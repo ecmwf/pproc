@@ -92,21 +92,24 @@ def process_step(
 ):
     fields = load_input(config, param, "inst", step)
     if len(accum["step"].coords) > 1:
-        logger.info(f"Write out accum fields to target {config.outputs.accum}")
+        logger.debug(f"Write out accum fields to target {config.outputs.accum}")
         # Set step range for de-accumulated fields
         step_range = "-".join(map(str, accum["step"].coords))
         accum_fields = earthkit.data.FieldList.from_array(
             accum.values,
             [
                 x.override(
-                    **config.outputs.accum.metadata,
                     stepType="diff",
                     stepRange=step_range,
                 )
                 for x in accum_metadata
             ],
         )
-        helpers.write(config.outputs.accum, accum_fields)
+        helpers.write(
+            config.outputs.accum.target,
+            accum_fields,
+            metadata=config.outputs.accum.metadata,
+        )
         fields += accum_fields
 
     assert len(fields) != 0, f"No fields retrieved for param {param}."
@@ -118,11 +121,10 @@ def process_step(
         f"Compute indices step {step}, validtime {validtime.isoformat()} - "
         + f"basetime {basetime.date().isoformat()}, time {time}"
     )
-    logger.info(f"Inputs \n {fields.ls(namespace='mars')}")
+    logger.debug(f"Inputs \n {fields.ls(namespace='mars')}")
     indices = ComputeIndices({**config.outputs.indices.metadata, **param.metadata})
-    params = fields.indices()["param"]
 
-    indices_target = config.outputs.indices
+    indices_target = config.outputs.indices.target
     # Mean Radiant Temperature - shortName mrt - ECMWF product
     if is_target_param(param.out_params, {"mrt", 261002}):
         mrt = indices.calc_field("mrt", indices.calc_mrt, fields)
@@ -188,14 +190,11 @@ def process_step(
     for field in ["10si", "cossza", "dsrp"]:
         sel = indices.results.sel(param=field)
         if len(sel) != 0:
-            sel = earthkit.data.FieldList.from_array(
-                sel.values,
-                [
-                    x.override(**config.outputs.intermediate.metadata)
-                    for x in sel.metadata()
-                ],
+            helpers.write(
+                config.outputs.intermediate.target,
+                sel,
+                metadata=config.outputs.intermediate.metadata,
             )
-            helpers.write(config.outputs.intermediate, sel)
 
     for name in config.outputs.names:
         getattr(config.outputs, name).target.flush()
