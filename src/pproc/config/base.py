@@ -138,84 +138,6 @@ class BaseConfig(ConfigModel):
                 return param
         return None
 
-    def _merge_parameters(self, other: Self) -> list[ParamConfig]:
-        current_params = {
-            cparam.name: cparam.model_dump(by_alias=True) for cparam in self.parameters
-        }
-
-        other_params = {
-            oparam.name: oparam.model_dump(by_alias=True) for oparam in other.parameters
-        }
-        merged_params = []
-        for name in list(current_params.keys()) + [
-            x for x in other_params.keys() if x not in current_params
-        ]:
-            current_param = self.param(name)
-            other_param = other.param(name)
-            if current_param and other_param:
-                merged_params.append(current_param.merge(other_param))
-            else:
-                merged_params.append(current_param or other_param)
-        return merged_params
-
-    def merge(self, other: Self) -> Self:
-        """
-        Merge two configs, where all elements except for parameters must be the same.
-        Duplicate parameters with the same name are not allowed.
-        """
-        if not isinstance(other, type(self)):
-            raise ValueError("Can only merge configs of the same type")
-
-        if not partial_equality(self, other, exclude=self._merge_exclude):
-            raise ValueError(
-                f"Can only merge configs that are equal except for {self._merge_exclude}"
-            )
-
-        merged = self.model_dump(by_alias=True, exclude=self._merge_exclude)
-        for attr in self._merge_exclude:
-            if merge_func := getattr(self, f"_merge_{attr}", None):
-                merged[attr] = merge_func(other)
-            elif isinstance(getattr(self, attr), list):
-                self_attr = getattr(self, attr)
-                merged[attr] = self_attr + [
-                    x for x in getattr(other, attr) if x not in self_attr
-                ]
-            else:
-                raise ValueError(
-                    f"No merge protocol defined for {attr} in {type(self)}"
-                )
-        return type(self)(**merged)
-
-    @classmethod
-    def _populate_param(
-        cls,
-        config: dict,
-        input_config: list[dict],
-        src_name: Optional[str] = None,
-        nested: bool = False,
-        **overrides,
-    ):
-        sort_inputs = cls._populate_inputs(
-            input_config, [], **overrides.get("inputs", {})
-        )
-        if src_name is not None:
-            reqs = sort_inputs[src_name]["request"]
-            input_config = [reqs] if isinstance(reqs, dict) else reqs
-        accums = cls._populate_accumulations(
-            input_config, config.pop("accumulations", {})
-        )
-        param_config = {
-            "accumulations": accums,
-            **config,
-        }
-        updated_inputs = cls._populate_inputs(
-            input_config, accums.keys(), **overrides.pop("inputs", {})
-        )
-        if not nested:
-            param_config["inputs"] = updated_inputs
-        deep_update(param_config, overrides)
-        return param_config
-
     @classmethod
     def from_schema(cls, schema_config: dict, **overrides) -> Self:
         schema_config = copy.deepcopy(schema_config)
@@ -248,6 +170,115 @@ class BaseConfig(ConfigModel):
         }
         deep_update(config, overrides)
         return cls(**config)
+
+    def merge(self, other: Self, finalise: bool = True) -> Self:
+        """
+        Merge two configs, where all elements except for parameters must be the same.
+        Duplicate parameters with the same name are not allowed.
+        """
+        if not isinstance(other, type(self)):
+            raise ValueError("Can only merge configs of the same type")
+
+        if not partial_equality(self, other, exclude=self._merge_exclude):
+            raise ValueError(
+                f"Can only merge configs that are equal except for {self._merge_exclude}"
+            )
+
+        merged = self.model_dump(by_alias=True, exclude=self._merge_exclude)
+        for attr in self._merge_exclude:
+            if merge_func := getattr(self, f"_merge_{attr}", None):
+                merged[attr] = merge_func(other)
+            elif isinstance(getattr(self, attr), list):
+                self_attr = getattr(self, attr)
+                merged[attr] = self_attr + [
+                    x for x in getattr(other, attr) if x not in self_attr
+                ]
+            else:
+                raise ValueError(
+                    f"No merge protocol defined for {attr} in {type(self)}"
+                )
+        result = type(self)(**merged)
+        if finalise:
+            result.finalise()
+        return result
+
+    def finalise(self):
+        # Check parameter names are unique
+        seen = set()
+        for param in self.parameters:
+            assert param.name not in seen, "Parameter names should be unique"
+            seen.add(param.name)
+
+    def _format_out(self, param: ParamConfig, req: dict) -> dict:
+        out = req.copy()
+        out.pop("number", None)
+        return out
+
+    def in_mars(self, sources: Optional[list[str]] = None) -> Iterator:
+        seen = set()
+        for param in self.parameters:
+            for req in param.in_keys(self.inputs, sources):
+                req.pop("interpolate", None)
+                if str(req) not in seen:
+                    seen.add(str(req))
+                    yield req
+
+    def out_mars(self, targets: Optional[list[str]] = None) -> Iterator:
+        outputs = []
+        for name in self.outputs.names:
+            if name == "default":
+                continue
+            output = getattr(self.outputs, name)
+            out_type = output.target.type_
+            if out_type == "null" or (targets and out_type not in targets):
+                continue
+            outputs.append(output)
+
+        seen = []
+        for param, output in itertools.product(self.parameters, outputs):
+            for req in param.out_keys(self.inputs):
+                req["target"] = (
+                    output.target.path
+                    if hasattr(output.target, "path")
+                    else output.target.type_
+                )
+                req.update(extract_mars(output.metadata))
+                req.update(extract_mars(self.outputs.overrides))
+                req = self._format_out(param, req)
+                req.pop("interpolate", None)
+                if req not in seen:
+                    seen.append(req)
+                    yield req
+
+    @classmethod
+    def _populate_param(
+        cls,
+        config: dict,
+        input_config: list[dict],
+        src_name: Optional[str] = None,
+        nested: bool = False,
+        **overrides,
+    ):
+        sort_inputs = cls._populate_inputs(
+            input_config, [], **overrides.get("inputs", {})
+        )
+        if src_name is not None:
+            reqs = sort_inputs[src_name]["request"]
+            input_config = [reqs] if isinstance(reqs, dict) else reqs
+        accums = cls._populate_accumulations(
+            input_config, config.pop("accumulations", {})
+        )
+        param_config = {
+            "accumulations": accums,
+            **config,
+        }
+        updated_inputs = cls._populate_inputs(
+            input_config, accums.keys(), **overrides.pop("inputs", {})
+        )
+        if not nested:
+            param_config["inputs"] = updated_inputs
+        deep_update(param_config, overrides)
+        return param_config
 
     @classmethod
     def _populate_accumulations(cls, inputs: list[dict], base_accum: dict) -> dict:
@@ -313,43 +344,22 @@ class BaseConfig(ConfigModel):
             }
         }
 
-    def in_mars(self, sources: Optional[list[str]] = None) -> Iterator:
-        seen = set()
-        for param in self.parameters:
-            for req in param.in_keys(self.inputs, sources):
-                req.pop("interpolate", None)
-                if str(req) not in seen:
-                    seen.add(str(req))
-                    yield req
+    def _merge_parameters(self, other: Self) -> list[ParamConfig]:
+        current_params = {
+            cparam.name: cparam.model_dump(by_alias=True) for cparam in self.parameters
+        }
 
-    def _format_out(self, param: ParamConfig, req: dict) -> dict:
-        out = req.copy()
-        out.pop("number", None)
-        return out
-
-    def out_mars(self, targets: Optional[list[str]] = None) -> Iterator:
-        outputs = []
-        for name in self.outputs.names:
-            if name == "default":
-                continue
-            output = getattr(self.outputs, name)
-            out_type = output.target.type_
-            if out_type == "null" or (targets and out_type not in targets):
-                continue
-            outputs.append(output)
-
-        seen = []
-        for param, output in itertools.product(self.parameters, outputs):
-            for req in param.out_keys(self.inputs):
-                req["target"] = (
-                    output.target.path
-                    if hasattr(output.target, "path")
-                    else output.target.type_
-                )
-                req.update(extract_mars(output.metadata))
-                req.update(extract_mars(self.outputs.overrides))
-                req = self._format_out(param, req)
-                req.pop("interpolate", None)
-                if req not in seen:
-                    seen.append(req)
-                    yield req
+        other_params = {
+            oparam.name: oparam.model_dump(by_alias=True) for oparam in other.parameters
+        }
+        merged_params = []
+        for name in list(current_params.keys()) + [
+            x for x in other_params.keys() if x not in current_params
+        ]:
+            current_param = self.param(name)
+            other_param = other.param(name)
+            if current_param and other_param:
+                merged_params.append(current_param.merge(other_param))
+            else:
+                merged_params.append(current_param or other_param)
+        return merged_params
