@@ -8,13 +8,15 @@
 # nor does it submit to any jurisdiction.
 
 import earthkit.data
+from earthkit.data.encoders import grib
 import logging
 import numpy as np
 import thermofeel
 from meters import metered
+from typing import Optional
 
 from pproc import common
-from pproc.config.io import Output
+from pproc.config.targets import Target
 
 logger = logging.getLogger(__name__)
 
@@ -175,15 +177,19 @@ def step_interval(fields) -> int:
 
 
 def write(
-    output: Output,
+    target: Target,
     ds: "earthkit.data.FieldList | earthkit.data.core.fieldlist.Field",
+    metadata: Optional[dict] = None,
 ):
-    if isinstance(ds, earthkit.data.FieldList):
-        for f in ds:
-            message = f.metadata()._handle.copy()
-            message.set(output.metadata)
-            common.io.write_grib(output.target, message, f.values)
-    else:
-        message = ds.metadata()._handle.copy()
-        message.set(output.metadata)
-        common.io.write_grib(output.target, message, ds.values)
+    if isinstance(ds, earthkit.data.core.fieldlist.Field):
+        ds = [ds]
+    metadata = metadata or {}
+    for f in ds:
+        field_metadata = f.metadata()
+        updates = metadata.copy()
+        # Handle wrapped metadata
+        if hasattr(field_metadata, "extra"):
+            updates.update(field_metadata.extra)
+        message = f.metadata()._handle.copy()
+        message.set(updates)
+        common.io.write_grib(target, message, f.values)

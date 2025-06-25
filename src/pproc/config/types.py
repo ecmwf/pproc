@@ -739,9 +739,9 @@ class ThermoConfig(BaseConfig):
     _merge_exclude: tuple[str] = ("parameters", "inputs")
 
     @model_validator(mode="after")
-    def validate_params(self) -> Self:
+    def check_params(self) -> Self:
         # Output of config generation can have additional
-        # parameters, which can be merged. This ensures they are merged 
+        # parameters, which can be merged. This ensures they are merged
         # as soon as possible
         new_params = self._merge_parameters(self)
         if new_params != self.parameters:
