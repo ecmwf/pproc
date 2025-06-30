@@ -86,6 +86,9 @@ def compute_indices(
         ens = accum.values
         assert ens is not None
 
+        if param.vmin is not None or param.vmax is not None:
+            np.clip(ens, param.vmin, param.vmax, out=ens)
+
         for name, index in param.indices.items():
             target = getattr(cfg.outputs, name).target
             index.compute(clim, ens, target, message_template, template_extreme)
