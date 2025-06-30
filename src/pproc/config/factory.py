@@ -59,7 +59,9 @@ class ConfigFactory:
     ) -> BaseConfig:
         entrypoint = None
         config = None
-        reqs = list(expand(output_requests, exclude=["levelist", "number", "quantile"]))
+        reqs = list(
+            expand(output_requests, exclude=["levelist", "number", "quantile", "hdate"])
+        )
         for req in reqs:
             schema_config = schema.config_from_output(req)
             req_entry = schema_config.pop("entrypoint")

@@ -290,10 +290,11 @@ class BaseConfig(ConfigModel):
             if dim == "step":
                 # Handled separately below
                 continue
+            values = req[dim]
+            if not isinstance(values, list):
+                values = [values]
             acc_config["coords"] = (
-                [req[dim]]
-                if acc_config.get("operation", None)
-                else [[x] for x in req[dim]]
+                [values] if acc_config.get("operation", None) else [[x] for x in values]
             )
 
         # Most entrypoints don't handle array with level dimension, so put this into accumulations to
