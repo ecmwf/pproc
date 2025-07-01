@@ -147,7 +147,7 @@ class BaseConfig(ConfigModel):
         inputs = copy.deepcopy(schema_config.pop("inputs"))
         interp_keys = schema_config.pop("interp_keys", {})
         for req in inputs:
-            if grid := req.pop("interp_grid", None):
+            if grid := req.pop("target_grid", None):
                 req["interpolate"] = {
                     "grid": grid,
                     **interp_keys,
