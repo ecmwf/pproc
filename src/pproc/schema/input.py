@@ -13,7 +13,6 @@ from pydantic import BaseModel, model_validator, field_validator
 import copy
 import pandas as pd
 import logging
-import os
 
 from pproc.schema.base import BaseSchema
 from pproc.schema.deriver import (
@@ -22,14 +21,19 @@ from pproc.schema.deriver import (
     ClimDateDeriver,
     ClimStepDeriver,
 )
+from pproc.schema.filters import _steplength, _steptype, _selection
 from pproc.schema.step import StepSchema
 from pproc.config.utils import update_request, expand, squeeze, deep_update
 
 logger = logging.getLogger(__name__)
 
 
-def format_request(request: dict) -> dict:
-    for key, value in request.items():
+def format_request(request: dict, pop: Optional[list[str]] = None) -> dict:
+    for key in list(request.keys()):
+        if pop and key in pop:
+            request.pop(key, None)
+            continue
+        value = request[key]
         if isinstance(value, list) and len(value) == 1:
             request[key] = value[0]
         if key == "number":
@@ -188,10 +192,10 @@ class InputConfig(BaseModel):
 
     def inputs(self) -> Iterator[dict]:
         for input in self.forecast.inputs:
-            yield format_request(input.request)
+            yield format_request(input.request, pop=["selection"])
         if self.climatology.required:
             for input in self.climatology.inputs:
-                yield format_request(input.request)
+                yield format_request(input.request, pop=["selection"])
 
     def match(self, input_requests: list[dict]) -> Iterator[Self]:
         fc_inputs = list(self.forecast.match(input_requests))
@@ -226,12 +230,6 @@ class InputConfig(BaseModel):
                     climatology=self.climatology,
                     from_inputs=self.from_inputs,
                 )
-
-
-def _steptype(request: dict, key: str) -> str:
-    step = request.get("step", [])
-    steprange = str(step).split("-")
-    return "range" if len(steprange) == 2 else "instantaneous"
 
 
 def _update_config(config: dict, update: dict[str, dict]) -> dict:
@@ -293,7 +291,11 @@ class InputSchema(BaseSchema):
         "forecast": _update_config,
         "climatology": _update_config,
     }
-    custom_filter = {"steptype": _steptype}
+    custom_filter = {
+        "steptype": _steptype,
+        "steplength": _steplength,
+        "selection": _selection,
+    }
     custom_match = {"forecast": _match_forecast, "climatology": _match_forecast}
 
     @classmethod

@@ -156,7 +156,11 @@ TEST_CASES = {
             "parameters": {
                 "130_pl": {
                     "dtype": "float64",
-                    "metadata": {"bitsPerValue": 16, "perturbationNumber": 0},
+                    "metadata": {
+                        "bitsPerValue": 16,
+                        "numberOfForecastsInEnsemble": 51,
+                        "perturbationNumber": 0,
+                    },
                     "accumulations": {
                         "levelist": {"coords": [[250], [500]]},
                         "step": {"coords": [[x] for x in range(0, 169, 6)]},
@@ -542,7 +546,9 @@ def test_from_outputs(request, output_request, input_param):
     ],
     ids=["accumulate", "ensms", "monthly-stats"],
 )
-def test_from_inputs(request, entrypoint, input_request, step_accum, include_start, stepby):
+def test_from_inputs(
+    request, entrypoint, input_request, step_accum, include_start, stepby
+):
     test_schema = Schema(**schema())
 
     overrides, cfg_type, updates = TEST_CASES[request.node.callspec.id]
@@ -564,11 +570,13 @@ def test_from_inputs(request, entrypoint, input_request, step_accum, include_sta
             {
                 "source": "fdb",
                 **req,
-                "step": list(range(
-                    req["step"][0] if include_start else req["step"][0] + stepby, 
-                    req["step"][-1] + 1, 
-                    stepby
-                    )),
+                "step": list(
+                    range(
+                        req["step"][0] if include_start else req["step"][0] + stepby,
+                        req["step"][-1] + 1,
+                        stepby,
+                    )
+                ),
             }
             for req in input_request
         ],
