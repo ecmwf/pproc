@@ -259,6 +259,8 @@ class ProbConfig(BaseConfig):
 
 
 class ExtremeParamConfig(ClimParamConfig):
+    vmin: Optional[float] = None
+    vmax: Optional[float] = None
     eps: float = -1.0
     sot: list[int] = []
     cpf_eps: Optional[float] = None

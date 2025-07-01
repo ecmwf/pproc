@@ -43,7 +43,7 @@ class Index(metaclass=ABCMeta):
 class EFI(Index):
     def __init__(self, options):
         super().__init__(options)
-        self.eps = float(options["eps"]) if "eps" in options else -1.0
+        self.eps = float(options.get("eps", -1.0))
 
     def compute(
         self,
@@ -66,8 +66,8 @@ class EFI(Index):
 class SOT(Index):
     def __init__(self, options):
         super().__init__(options)
-        self.eps = float(options["eps"]) if "eps" in options else -1.0
-        self.sot = list(map(int, options["sot"])) if "sot" in options else []
+        self.eps = float(options.get("eps", -1.0))
+        self.sot = list(map(int, options.get("sot", [])))
 
     def compute(
         self,
@@ -86,7 +86,7 @@ class SOT(Index):
 class CPF(Index):
     def __init__(self, options):
         super().__init__(options)
-        self.eps = float(options["cpf_eps"]) if "cpf_eps" in options else None
+        self.eps = float(options["cpf_eps"]) if options.get("cpf_eps", None) is not None else None
         self.symmetric = options.get("cpf_symmetric", False)
 
     def compute(
