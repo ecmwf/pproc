@@ -99,10 +99,14 @@ class Input(ConfigModel):
     def base_request(self) -> dict:
         if isinstance(self.request, dict):
             return self.request
+
+        keys = set(self.request[0].keys())
+        for ireq in range(1, len(self.request)):
+            keys.intersection_update(self.request[ireq].keys())
         return {
-            k: v
-            for k, v in self.request[0].items()
-            if all(v == x[k] for x in self.request)
+            k: self.request[0][k]
+            for k in keys
+            if all(self.request[0][k] == x[k] for x in self.request)
         }
 
 
