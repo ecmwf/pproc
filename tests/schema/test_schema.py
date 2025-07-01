@@ -151,7 +151,7 @@ from conftest import schema
                 "time": "00",
                 "step": 12,
                 "type": "em",
-                "interp_grid": "O640",
+                "target_grid": "O640",
             },
             {
                 "entrypoint": "pproc-ensms",
@@ -175,7 +175,7 @@ from conftest import schema
                         "type": "cf",
                         "levelist": [250, 850],
                         "step": 12,
-                        "interp_grid": "O640",
+                        "target_grid": "O640",
                     },
                     {
                         "class": "od",
@@ -190,7 +190,7 @@ from conftest import schema
                         "levelist": [250, 850],
                         "step": 12,
                         "number": list(range(1, 51)),
-                        "interp_grid": "O640",
+                        "target_grid": "O640",
                     },
                 ],
                 "metadata": {
