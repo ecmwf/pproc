@@ -10,9 +10,12 @@
 import numpy as np
 
 from pproc.schema.base import BaseSchema
+from pproc.schema.filters import _steplength, _selection
 
 
 class ConfigSchema(BaseSchema):
+    custom_filter = {"steplength": _steplength, "selection": _selection}
+
     def config(self, output_request: dict) -> dict:
         config = self.traverse(output_request)
         if output_request["type"] in ["pb", "cd"]:

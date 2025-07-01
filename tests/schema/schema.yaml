@@ -16,6 +16,8 @@ config:
     "121/122/228026/228027":
       filter:type:
         em/es/pb:
+          metadata: 
+            timeRangeIndicator: 2
           accumulations:
             step:
               type: legacywindow
@@ -46,6 +48,9 @@ config:
     "207/228249":
       preprocessing:
         - operation: norm
+    "140249":
+      preprocessing:
+        - operation: "direction"
     "172142/172143/172144/172228":
       filter:type:
         fcmean/fcstdev/fcmin/fcmax:
@@ -82,13 +87,18 @@ config:
     "260033/260053": 
       preprocessing:
         - operation: sum
-        - operation: scale
-          value: 3600
+      metadata:
+        shortName: tprate
+        edition: 2
     "200189/200142/200143/200144/228216/200228":
       accumulations:
         step:
+          type: legacywindow
           operation: difference
           include_start: true
+          metadata:
+            timeRangeIndicator: 5
+            stepType: diff
     "235117":
       metadata:
         discipline: 0
@@ -101,20 +111,47 @@ config:
       filter:param:
         "261016/260242/260004/260005/261018/260255":
           entrypoint: pproc-thermal-indices
+          metadata:
+            edition: 2
+            bitsPerValue: 16
+            packingType: "grid_ccsds"
+            typeOfGeneratingProcess: 2
         "261001/261002/261014/261015":
           entrypoint: pproc-thermal-indices
+          metadata:
+            edition: 2
+            bitsPerValue: 16
+            packingType: "grid_ccsds"
+            typeOfGeneratingProcess: 2
           accumulations: 
             step:
               operation: difference
               include_start: true
         "*":
           entrypoint: pproc-accumulate
+          filter:stream:
+            "enfh/enwh/eefh/weeh": 
+              accumulations:
+                hdate: {}
+            "*": {}
     em/es:
       dtype: float64
       metadata: 
         perturbationNumber: 0
         bitsPerValue: 16
       entrypoint: pproc-ensms
+      filter:stream:
+        enfo/waef:
+          metadata: 
+            numberOfForecastsInEnsemble: 51
+        eefo/weef:
+          metadata: 
+            numberOfForecastsInEnsemble: 101
+      filter:param:
+        "10":
+          metadata:
+            bitsPerValue: 24
+        "*": {}
     efi/sot/efic:
       entrypoint: pproc-extreme
       dtype: float64
@@ -197,13 +234,22 @@ config:
                   value: 604800000
     ep:
       entrypoint: pproc-probabilities
+      dtype: float64
+      accumulations:
+        step:
+          type: legacywindow
+          metadata:
+            localDefinitionNumber: 5
+            bitsPerValue: 8
       filter:param:
         "131060":
           accumulations:
             step:
-              type: legacywindow
               operation: difference
               include_start: true
+              metadata:
+                timeRangeIndicator: 5
+                stepType: diff 
           threshold:
             comparison: ">="
             value: 0.001
@@ -211,9 +257,11 @@ config:
         "131061":
           accumulations:
             step:
-              type: legacywindow
               operation: difference
               include_start: true
+              metadata:
+                timeRangeIndicator: 5
+                stepType: diff 
           threshold:
             comparison: ">="
             value: 0.005
@@ -221,9 +269,11 @@ config:
         "131062":
           accumulations:
             step:
-              type: legacywindow
               operation: difference
               include_start: true
+              metadata:
+                timeRangeIndicator: 5
+                stepType: diff 
           threshold:
             comparison: ">="
             value: 0.01
@@ -231,9 +281,11 @@ config:
         "131063":
           accumulations:
             step:
-              type: legacywindow
               operation: difference
               include_start: true
+              metadata:
+                timeRangeIndicator: 5
+                stepType: diff 
           threshold:
             comparison: ">="
             value: 0.02
@@ -241,66 +293,68 @@ config:
         "131098":
           accumulations:
             step:
-              type: legacywindow
               operation: difference
               include_start: true
+              metadata:
+                stepType: "accum"
+                stepRange: "0-0"
+                edition: 2
+                typeOfGeneratingProcess: 5
+                indicatorOfUnitForTimeIncrement: 1
+                timeIncrement: 12
+                packingType: "grid_ccsds"
           threshold:
             comparison: ">="
             value: 0.025
             local_scale_factor: 3
             metadata:
-              stepType: 'accum'
-              stepRange: '0-0' 
-              edition: 2
-              typeOfGeneratingProcess: 5
-              indicatorOfUnitForTimeIncrement: 1
-              timeIncrement: 12
-              packingType: "grid_ccsds"
               scaleFactorOfLowerLimit: 0
         "131099": 
           accumulations:
             step:
-              type: legacywindow
               operation: difference
               include_start: true
+              metadata:
+                stepType: "accum"
+                stepRange: "0-0"
+                edition: 2
+                typeOfGeneratingProcess: 5
+                indicatorOfUnitForTimeIncrement: 1
+                timeIncrement: 12
+                packingType: "grid_ccsds"
           threshold:
             comparison: ">="
             value: 0.05
             local_scale_factor: 3
             metadata:
-              stepType: 'accum'
-              stepRange: '0-0' 
-              edition: 2
-              typeOfGeneratingProcess: 5
-              indicatorOfUnitForTimeIncrement: 1
-              timeIncrement: 12
-              packingType: "grid_ccsds"
               scaleFactorOfLowerLimit: 0
         "131085": 
           accumulations:
             step:
-              type: legacywindow
               operation: difference
               include_start: true
+              metadata:
+                stepType: "accum"
+                stepRange: "0-0"
+                edition: 2
+                typeOfGeneratingProcess: 5
+                indicatorOfUnitForTimeIncrement: 1
+                timeIncrement: 12
+                packingType: "grid_ccsds"
           threshold:
             comparison: ">="
             value: 0.1
             local_scale_factor: 3
             metadata:
-              stepType: 'accum'
-              stepRange: '0-0' 
-              edition: 2
-              typeOfGeneratingProcess: 5
-              indicatorOfUnitForTimeIncrement: 1
-              timeIncrement: 12
-              packingType: "grid_ccsds"
               scaleFactorOfLowerLimit: 0
         "131064":
           accumulations:
             step:
-              type: legacywindow
               operation: difference
               include_start: true
+              metadata:
+                timeRangeIndicator: 5
+                stepType: diff 
           threshold:
             comparison: '<'
             value: 0.0001
@@ -308,10 +362,12 @@ config:
         "131065": 
           accumulations:
             step:
-              type: legacywindow
               operation: difference_rate
               factor: 0.041666666666666664
               include_start: true
+              metadata:
+                timeRangeIndicator: 5
+                stepType: diff 
           threshold:
             comparison: '<'
             value: 0.001
@@ -319,10 +375,12 @@ config:
         "131066": 
           accumulations:
             step:
-              type: legacywindow
               operation: difference_rate
               factor: 0.041666666666666664
               include_start: true
+              metadata:
+                timeRangeIndicator: 5
+                stepType: diff 
           threshold:
             comparison: '>='
             value: 0.003
@@ -330,10 +388,12 @@ config:
         "131067":
           accumulations:
             step:
-              type: legacywindow
               operation: difference_rate
               factor: 0.041666666666666664
               include_start: true
+              metadata:
+                timeRangeIndicator: 5
+                stepType: diff 
           threshold:
             comparison: '>='
             value: 0.005
@@ -341,7 +401,6 @@ config:
         "131068":
           accumulations: 
             step:
-              type: legacywindow
               operation: maximum
           threshold:
             comparison: ">="
@@ -349,7 +408,6 @@ config:
         "131069":
           accumulations: 
             step:
-              type: legacywindow
               operation: maximum
           threshold:
             comparison: ">="
@@ -357,7 +415,6 @@ config:
         "131070":
           accumulations: 
             step:
-              type: legacywindow
               operation: maximum
           threshold:
             comparison: ">="
@@ -365,7 +422,6 @@ config:
         "131071":
           accumulations: 
             step:
-              type: legacywindow
               operation: maximum
           threshold:
             comparison: ">="
@@ -373,7 +429,6 @@ config:
         "131072":
           accumulations: 
             step:
-              type: legacywindow
               operation: maximum
           threshold:
             comparison: ">="
@@ -381,23 +436,21 @@ config:
         "131100":
           accumulations: 
             step:
-              type: legacywindow
               operation: maximum
+              metadata:
+                edition: 2
+                productDefinitionTemplateNumber: 9
+                typeOfGeneratingProcess: 5
+                indicatorOfUnitForTimeIncrement: 1
+                timeIncrement: 12
+                typeOfTimeIncrement: 2
+                packingType: "grid_ccsds"
           threshold:
             comparison: ">="
             value: 10 
-            metadata:
-              edition: 2
-              productDefinitionTemplateNumber: 9
-              typeOfGeneratingProcess: 5
-              indicatorOfUnitForTimeIncrement: 1
-              timeIncrement: 12
-              typeOfTimeIncrement: 2
-              packingType: "grid_ccsds"
         "131074":
           accumulations: 
             step:
-              type: legacywindow
               operation: maximum
           threshold:
             comparison: ">="
@@ -405,7 +458,6 @@ config:
         "131075":
           accumulations: 
             step:
-              type: legacywindow
               operation: maximum
           threshold:
             comparison: ">="
@@ -413,7 +465,6 @@ config:
         "131076": 
           accumulations: 
             step:
-              type: legacywindow
               operation: maximum
           threshold:
             comparison: ">="
@@ -421,47 +472,41 @@ config:
         "131077": 
           accumulations: 
             step:
-              type: legacywindow
               operation: maximum
           threshold:
             comparison: ">="
             value: 8
-        "131074": 
+        "131078": 
           accumulations: 
             step:
-              type: legacywindow
-              operation: maximum
-          threshold:
-            comparison: ">="
-            value: 2
-        "131075":  
-          accumulations: 
-            step:
-              type: legacywindow
-              operation: maximum
-          threshold:
-            comparison: ">="
-            value: 4
-        "131076":  
-          accumulations: 
-            step:
-              type: legacywindow
-              operation: maximum
-          threshold:
-            comparison: ">="
-            value: 6
-        "131077":  
-          accumulations: 
-            step:
-              type: legacywindow
               operation: maximum
           threshold:
             comparison: ">="
             value: 8
+        "131079":  
+          accumulations: 
+            step:
+              operation: maximum
+          threshold:
+            comparison: ">="
+            value: 10
+        "131080":  
+          accumulations: 
+            step:
+              operation: maximum
+          threshold:
+            comparison: ">="
+            value: 12
+        "131081":  
+          accumulations: 
+            step:
+              operation: maximum
+          threshold:
+            comparison: ">="
+            value: 15
         "131073":
           accumulations: 
             step:
-              type: legacywindow
               operation: minimum
           threshold:
             comparison: "<="
@@ -470,185 +515,181 @@ config:
         "131020":
           accumulations: 
             step:
-              type: legacywindow
               include_start: true
               operation: "mean"
+              metadata:
+                bitsPerValue: 24
           threshold:
             comparison: "<"
             value: -2
-            metadata:
-              bitsPerValue: 24
         "131021":
           accumulations: 
             step:
-              type: legacywindow
               include_start: true
               operation: "mean"
+              metadata:
+                bitsPerValue: 24
           threshold:
             comparison: ">="
             value: 2
-            metadata:
-              bitsPerValue: 24
         "131022": 
           accumulations: 
             step:
-              type: legacywindow
               operation: minimum
+              metadata:
+                bitsPerValue: 24
           threshold: 
             comparison: "<"
             value: -8
-            metadata:
-              bitsPerValue: 24
         "131023": 
           accumulations: 
             step:
-              type: legacywindow
               operation: minimum
+              metadata:
+                bitsPerValue: 24
           threshold: 
             comparison: "<"
             value: -4
-            metadata:
-              bitsPerValue: 24
         "131024":  
           accumulations: 
             step:
-              type: legacywindow
               operation: maximum
+              metadata:
+                bitsPerValue: 24
           threshold: 
             comparison: ">"
             value: 4
-            metadata:
-              bitsPerValue: 24
         "131025":  
           accumulations: 
             step:
-              type: legacywindow
               operation: maximum
+              metadata:
+                bitsPerValue: 24
           threshold: 
             comparison: ">"
             value: 8
-            metadata:
-              bitsPerValue: 24
         "133093":
           accumulations: 
             step:
-              type: legacywindow
               operation: maximum
               std_anomaly: true
+              metadata:
+                localDefinitionNumber: 30
+                bitsPerValue: 24
+                edition: 2
+                productDefinitionTemplateNumber: 9
+                typeOfGeneratingProcess: 5
+                indicatorOfUnitForTimeIncrement: 1
+                paramId: 0
+                timeIncrement: 12
+                typeOfStatisticalProcessing: 10
+                packingType: "grid_ccsds"
           threshold:
             comparison: '>'
             value: 1
-            metadata:
-              localDefinitionNumber: 30
-              bitsPerValue: 24
-              edition: 2
-              productDefinitionTemplateNumber: 9
-              typeOfGeneratingProcess: 5
-              paramId: 0
-              timeIncrement: 12
-              typeOfStatisticalProcessing: 10
-              packingType: "grid_ccsds"
         "133094":
           accumulations: 
             step:
-              type: legacywindow
               operation: maximum
               std_anomaly: true
+              metadata:
+                localDefinitionNumber: 30
+                bitsPerValue: 24
+                edition: 2
+                productDefinitionTemplateNumber: 9
+                typeOfGeneratingProcess: 5
+                indicatorOfUnitForTimeIncrement: 1
+                paramId: 0
+                timeIncrement: 12
+                typeOfStatisticalProcessing: 10
+                packingType: "grid_ccsds"
           threshold:
             comparison: '>'
             value: 1.5
             local_scale_factor: 1
             metadata:
-              localDefinitionNumber: 30
-              bitsPerValue: 24
-              edition: 2
-              productDefinitionTemplateNumber: 9
-              typeOfGeneratingProcess: 5
-              paramId: 0
-              timeIncrement: 12
-              typeOfStatisticalProcessing: 10
-              packingType: "grid_ccsds"
               scaleFactorOfLowerLimit: 1
         "133095":
           accumulations: 
             step:
-              type: legacywindow
               operation: maximum
               std_anomaly: true
+              metadata:
+                localDefinitionNumber: 30
+                bitsPerValue: 24
+                edition: 2
+                productDefinitionTemplateNumber: 9
+                typeOfGeneratingProcess: 5
+                indicatorOfUnitForTimeIncrement: 1
+                paramId: 0
+                timeIncrement: 12
+                typeOfStatisticalProcessing: 10
+                packingType: "grid_ccsds"
           threshold:
             comparison: '>'
             value: 2
-            metadata:
-              localDefinitionNumber: 30
-              bitsPerValue: 24
-              edition: 2
-              productDefinitionTemplateNumber: 9
-              typeOfGeneratingProcess: 5
-              paramId: 0
-              timeIncrement: 12
-              typeOfStatisticalProcessing: 10
-              packingType: "grid_ccsds"
         "133096":
           accumulations: 
             step:
-              type: legacywindow
               operation: minimum
               std_anomaly: true
+              metadata:
+                localDefinitionNumber: 30
+                bitsPerValue: 24
+                edition: 2
+                productDefinitionTemplateNumber: 9
+                typeOfGeneratingProcess: 5
+                indicatorOfUnitForTimeIncrement: 1
+                paramId: 0
+                timeIncrement: 12
+                typeOfStatisticalProcessing: 10
+                packingType: "grid_ccsds"
           threshold:
             comparison: '<'
             value: -1
             limit_type: lower
-            metadata:
-              localDefinitionNumber: 30
-              bitsPerValue: 24
-              edition: 2
-              productDefinitionTemplateNumber: 9
-              typeOfGeneratingProcess: 5
-              paramId: 0
-              timeIncrement: 12
-              typeOfStatisticalProcessing: 10
-              packingType: "grid_ccsds"
         "133097":
           accumulations: 
             step:
-              type: legacywindow
               operation: minimum
               std_anomaly: true
+              metadata:
+                localDefinitionNumber: 30
+                bitsPerValue: 24
+                edition: 2
+                productDefinitionTemplateNumber: 9
+                typeOfGeneratingProcess: 5
+                indicatorOfUnitForTimeIncrement: 1
+                paramId: 0
+                timeIncrement: 12
+                typeOfStatisticalProcessing: 10
           threshold:
             comparison: '<'
             value: -1.5
             local_scale_factor: 1
-            metadata:
-              localDefinitionNumber: 30
-              bitsPerValue: 24
-              edition: 2
-              productDefinitionTemplateNumber: 9
-              typeOfGeneratingProcess: 5
-              paramId: 0
-              timeIncrement: 12
-              typeOfStatisticalProcessing: 10
-              scaleFactorOfLowerLimit: 1
             limit_type: lower
+            metadata:
+              scaleFactorOfLowerLimit: 1
         "133098":
           accumulations: 
             step:
-              type: legacywindow
               operation: minimum
               std_anomaly: true
+              metadata:
+                localDefinitionNumber: 30
+                bitsPerValue: 24
+                edition: 2
+                productDefinitionTemplateNumber: 9
+                typeOfGeneratingProcess: 5
+                indicatorOfUnitForTimeIncrement: 1
+                paramId: 0
+                timeIncrement: 12
+                typeOfStatisticalProcessing: 10
+                packingType: "grid_ccsds"
           threshold:
             comparison: '<'
             value: -2
             limit_type: lower
-            metadata:
-              localDefinitionNumber: 30
-              bitsPerValue: 24
-              edition: 2
-              productDefinitionTemplateNumber: 9
-              typeOfGeneratingProcess: 5
-              paramId: 0
-              timeIncrement: 12
-              typeOfStatisticalProcessing: 10
-              packingType: "grid_ccsds"
     fcmean:
       filter:param:
         171130/171139/171151/171167/173228:
@@ -668,7 +709,7 @@ config:
         "*":
           dtype: float64
           filter:stream:
-            "enfo/waef/eefo/weef/enfh/enwh": 
+            "enfo/waef/eefo/weef": 
               entrypoint: pproc-accumulate
               accumulations:
                 step:
@@ -676,6 +717,162 @@ config:
                   operation: mean
                   metadata:
                     type: fcmean
+            "enfh/enwh/eefh/weeh": 
+              entrypoint: pproc-accumulate
+              accumulations:
+                step:
+                  type: legacywindow
+                hdate: {}
+              filter:selection:  
+                mclimate:
+                  filter:param:
+                    "123/140229":
+                      vmin: 0.
+                      accumulations: 
+                        step:
+                          metadata:
+                            type: fcmean
+                            timeRangeIndicator: 2
+                            stepType: max
+                    "140249":
+                      vmin: 0.
+                      vmax: 360.
+                      accumulations:
+                        step:
+                          operation: aggregation
+                          metadata:
+                            type: fcmean
+                    "162071":
+                      preprocessing:
+                        - operation: norm
+                      accumulations: 
+                        step:
+                          metadata:
+                            edition: 1
+                            type: fcmean
+                            timeRangeIndicator: 3
+                            stepType: avg
+                    "164":
+                      vmin: 0.
+                      vmax: 1.
+                      accumulations:
+                        step:
+                          metadata:
+                            timeRangeIndicator: 3
+                            stepType: avg
+                    "167":
+                      accumulations: 
+                        step:
+                          metadata:
+                            type: fcmean
+                            timeRangeIndicator: 3
+                            stepType: avg
+                    "228/144":
+                      vmin: 0.
+                      accumulations:
+                        step: 
+                          metadata:
+                            type: fcmean
+                            timeRangeIndicator: 5
+                            stepType: diff
+                    "201":
+                      accumulations: 
+                        step:
+                          metadata:
+                            type: fcmean
+                            timeRangeIndicator: 2
+                            stepType: max
+                    "202":
+                      accumulations: 
+                        step:
+                          metadata:
+                            type: fcmean
+                            timeRangeIndicator: 2
+                    "207":
+                      vmin: 0.
+                      accumulations: 
+                        step:
+                          metadata:
+                            type: fcmean
+                            timeRangeIndicator: 3
+                            stepType: avg
+                    "228044":
+                      vmin: 0
+                      preprocessing:
+                      - operation: mask
+                        select: {param: "228035"}
+                        mask: [{param: "228035"}, "<=", 10]
+                      accumulations:
+                        step:
+                          metadata:
+                            typeOfStatisticalProcessing: 1  
+                            edition: 1
+                            indicatorOfTypeOfLevel: 1
+                            type: fcmean
+                            timeRangeIndicator: 2
+                            stepType: max
+                    "59":
+                      vmin: 0
+                      preprocessing:
+                      - operation: mask
+                        select: {param: "228035"}
+                        mask: [{param: "228035"}, "<=", 10]
+                      accumulations:
+                        step:
+                          metadata:
+                            typeOfStatisticalProcessing: 1  
+                            edition: 1
+                            indicatorOfTypeOfLevel: 1
+                            type: fcmean
+                            timeRangeIndicator: 2
+                            stepType: max
+                  filter:steplength:
+                    "*":
+                      filter:param:
+                        "228/144":
+                          accumulations:
+                            step:
+                              operation: difference
+                              include_start: true
+                              metadata:
+                                numberIncludedInAverage: "{num_steps}" 
+                        "123/140229/201/228044/59":
+                          accumulations:
+                            step:
+                              operation: maximum 
+                              metadata:
+                                numberIncludedInAverage: "{num_steps}" 
+                        "202":
+                          accumulations:
+                            step:
+                              operation: minimum 
+                              metadata:
+                                numberIncludedInAverage: "{num_steps}" 
+                        "164/167/162071/207":
+                          accumulations:
+                            step:
+                              operation: mean 
+                              metadata:
+                                numberIncludedInAverage: "{num_steps}" 
+                    "168":
+                      accumulations: 
+                        step:
+                          operation: aggregation
+                      filter:param:
+                        "228":
+                          preprocessing:
+                          - operation: scale
+                            value: 604800000
+                        "167": {}
+                            
+                "*":
+                  accumulations:
+                    step:
+                      type: legacywindow
+                      operation: mean
+                      metadata:
+                        type: fcmean
+                    hdate: {}                    
             msmm/swmm:
               entrypoint: pproc-monthly-stats
               accumulations:
@@ -689,7 +886,7 @@ config:
     fcstdev:
       dtype: float64
       filter:stream:
-        "enfo/waef/eefo/weef/enfh/enwh": 
+        "enfo/waef/eefo/weef": 
           entrypoint: pproc-accumulate
           accumulations:
             step:
@@ -697,6 +894,15 @@ config:
               operation: standard_deviation
               metadata:
                 type: fcstdev
+        "enfh/enwh/eefh/weeh": 
+          entrypoint: pproc-accumulate
+          accumulations:
+            step:
+              type: legacywindow
+              operation: standard_deviation
+              metadata:
+                type: fcstdev
+            hdate: {}
           filter:param:
             "*": {}
             "239117":
@@ -719,7 +925,7 @@ config:
     fcmin:
       dtype: float64
       filter:stream:
-        "enfo/waef/eefo/weef/enfh/enwh": 
+        "enfo/waef/eefo/weef": 
           entrypoint: pproc-accumulate
           accumulations:
             step:
@@ -727,6 +933,15 @@ config:
               operation: minimum
               metadata:
                 type: fcmin
+        "enfh/enwh/eefh/weeh": 
+          entrypoint: pproc-accumulate
+          accumulations:
+            step:
+              type: legacywindow
+              operation: minimum
+              metadata:
+                type: fcmin
+            hdate: {}
           filter:param:
             "*": {}
             "238117":
@@ -749,7 +964,7 @@ config:
     fcmax:
       dtype: float64
       filter:stream:
-        "enfo/waef/eefo/weef/enfh/enwh": 
+        "enfo/waef/eefo/weef": 
           entrypoint: pproc-accumulate
           accumulations:
             step:
@@ -757,6 +972,15 @@ config:
               operation: maximum
               metadata:
                 type: fcmax
+        "enfh/enwh/eefh/weeh": 
+          entrypoint: pproc-accumulate
+          accumulations:
+            step:
+              type: legacywindow
+              operation: maximum
+              metadata:
+                type: fcmax
+            hdate: {}
           filter:param:
             "*": {}
             "237117":
@@ -846,7 +1070,7 @@ windows:
         - from: 144
           to: 360
           by: 6 
-    eefo/weef:
+    eefo/weef/eefh/weeh/eehs:
       in_steps:
         - from: 0
           to: 1104
@@ -856,20 +1080,15 @@ windows:
         - from: 0
           to: 5160
           by: 6
-    efhs/wehs:
+    enfh/enwh/efhs/wehs:
       in_steps:
         - from: 0
           to: 360
           by: 6
-    eehs:
-      in_steps:
-        - from: 0
-          to: 1104
-          by: 6
   filter:type:
     em/es/pb:
       filter:stream:
-        enfo:
+        enfo/waef:
           filter:param:
             "*":
               out_steps:
@@ -886,7 +1105,7 @@ windows:
               out_steps:
                 type: instantaneous
                 interval: 3
-        eefo:
+        eefo/weef:
           type: instantaneous
         efhs/wehs:
           out_steps:
@@ -905,11 +1124,73 @@ windows:
                 deaccumulate: true
     fcmean/fcstdev/fcmax/fcmin:
       filter:stream:
-        "enfo/eefo/oper":
+        "enfo/eefo/oper/eefh/weef":
           out_steps:
             type: range
             interval: 24 
             width: 168
+        "enfh/enwh":
+          out_steps:
+            filter:param:
+              "*":
+                filter:time:
+                  "12":
+                    out_steps:
+                      - type: range
+                        start: 12
+                        end: 240
+                        width: 24
+                        interval: 24
+                      - type: range
+                        start: 12
+                        end: 240
+                        width: 72
+                        interval: 24
+                        end: 216
+                      - type: range
+                        start: 12
+                        end: 240
+                        width: 120
+                        interval: 24
+                      - type: range
+                        start: 240
+                        width: 24
+                        interval: 24
+                      - "0-240"
+                      - "0-360"
+                      - "240-360"
+                  "00":
+                    out_steps:
+                      - type: range
+                        width: 24
+                        interval: 24
+                      - type: range
+                        width: 72
+                        end: 240
+                        interval: 24
+                        end: 216
+                      - type: range
+                        width: 120
+                        end: 240
+                        interval: 24
+                      - "0-240"
+                      - "0-360"
+                      - "240-360"
+              201/202/123/140229/59/228044/140249/164:
+                filter:time:
+                  "12":
+                    out_steps:
+                      type: range
+                      start: 12
+                      end: 180
+                      width: 24
+                      interval: 24
+                  "00":
+                    out_steps:
+                      type: range
+                      end: 168
+                      width: 24
+                      interval: 24 
         "msmm":
           out_steps:
             type: monthly
@@ -930,7 +1211,7 @@ windows:
                 type: range
                 width: 24
                 interval: 12
-            131064/131065/131066/131067/131070/131071/131072/131100/131074/131075/131076/131077/131078/131079/131080/131081/131020/131021/131073:
+            131064/131065/131066/131067/131070/131071/131072/131100/131020/131021/131073:
               out_steps:
                 - type: range
                   width: 120
@@ -938,7 +1219,22 @@ windows:
                   interval: 120
                 - "120-168"
                 - "168-240"
-            131068/131069/131074/131075/131076/131077/131078/131079/131080/131081/131073/131022/131023/131024/131025/133093/133094/133095/133096/133097/133098:
+            131068/131069/131073/131022/131023/131024/131025/133093/133094/133095/133096/133097/133098:
+              out_steps:
+                type: instantaneous
+                start: 12
+                interval: 12
+        waef: 
+          filter:param:
+            131074/131075/131076/131077/131078/131079/131080/131081:
+              out_steps:
+                - type: range
+                  width: 120
+                  start: 120
+                  interval: 120
+                - "120-168"
+                - "168-240"
+            131074/131075/131076/131077/131078/131079/131080/131081:
               out_steps:
                 type: instantaneous
                 start: 12
@@ -953,7 +1249,7 @@ windows:
         "enfo/waef":
           filter:param:
             "*":
-              time:
+              filter:time:
                 "12":
                   out_steps:
                     - type: range
@@ -997,7 +1293,7 @@ windows:
                     - "0-360"
                     - "240-360"
             132201/132202/132049/132144/132216/132059/132044:
-              time:
+              filter:time:
                 "12":
                   out_steps:
                     type: range
@@ -1258,9 +1554,125 @@ inputs:
               members:
                 start: 0
                 end: 50
+    enfh:
+      filter:type:
+        "fcmean/fcstdev/fcmax/fcmin":
+          forecast:
+            inputs:
+              - request:
+                  stream: enfh
+                  type: "cf"
+              - request:
+                  stream: enfh
+                  type: "pf"
+                members:
+                  start: 1
+                  end: 10
+    enwh:
+      filter:type:
+        "fcmean/fcstdev/fcmax/fcmin":
+          forecast:
+            inputs:
+              - request:
+                  stream: enwh
+                  type: "cf"
+              - request:
+                  stream: enwh
+                  type: "pf"
+                members:
+                  start: 1
+                  end: 10
+    eefh:
+      filter:type:
+        "fcmean/fcstdev/fcmax/fcmin":
+          forecast:
+            inputs:
+              - request:
+                  stream: eefh
+                  type: "cf"
+              - request:
+                  stream: eefh
+                  type: "pf"
+                members:
+                  start: 1
+                  end: 10
+    weeh:
+      filter:type:
+        "fcmean/fcstdev/fcmax/fcmin":
+          forecast:
+            inputs:
+              - request:
+                  stream: weeh
+                  type: "cf"
+              - request:
+                  stream: weeh
+                  type: "pf"
+                members:
+                  start: 1
+                  end: 10
+    efhs:
+      filter:type:
+        cd/em/es:
+          forecast:
+            inputs:
+              request:
+                stream: enfh
+                type: fcmean
+              members:
+                start: 0
+                end: 10
+              derive_step:
+                type: default
+                precomputed: true
+              derive_date:
+                - option: bracket
+                  num: 4
+                  strict: False  
+    wehs:
+      filter:type:
+        cd/em/es:
+          forecast:
+            inputs:
+              request:
+                stream: enwh
+                type: fcmean
+              members:
+                start: 0
+                end: 10
+              derive_step:
+                type: default
+                precomputed: true
+              derive_date:
+                - option: bracket
+                  num: 4
+                  strict: False  
+    eehs:
+      filter:type:
+        cd/em/es:
+          forecast:
+            inputs:
+              request:
+                stream: eefh
+                type: fcmean
+              members:
+                start: 0
+                end: 10
+              derive_step:
+                type: default
+                precomputed: true
+              derive_date:
+                - option: bracket
+                  num: 2
+                  strict: False
   filter:param:
     "*": 
       filter:type:
+        "fc/cf/pf":
+          from_inputs: False
+          forecast:
+            inputs:
+              request:  
+                param: "{param}"
         "em/es/pb/fcmean/fcstdev/fcmin/fcmax": 
           forecast:
             inputs:
@@ -1721,24 +2133,36 @@ inputs:
         inputs:
           request: 
             param: "142"
+          derive_step:
+            type: default
+            deaccumulation: true
     "200143":
       from_inputs: false
       forecast:
         inputs:
           request: 
             param: "143"
+          derive_step:
+            type: default
+            deaccumulation: true
     "200144":
       from_inputs: false
       forecast:
         inputs:
           request: 
             param: "144"
+          derive_step:
+            type: default
+            deaccumulation: true
     "200189":
       from_inputs: false
       forecast:
         inputs:
           request: 
             param: "189"
+          derive_step:
+            type: default
+            deaccumulation: true
     "200228":
       from_inputs: false
       forecast:
@@ -1763,6 +2187,14 @@ inputs:
               request: 
                 param: "122"
     "207":
+      filter:type:
+        fc/cf/pf/em/es/pb/fcmean/fcstdev/fcmin/fcmax:
+          forecast:
+            inputs:
+              request: 
+                param: ["165", "166"]
+    "140249":
+      from_inputs: false
       filter:type:
         fc/cf/pf/em/es/pb/fcmean/fcstdev/fcmin/fcmax:
           forecast:
@@ -1937,9 +2369,9 @@ inputs:
   filter:type:
     fcmean/fcstdev/fcmax:
       filter:stream:
-        "*":
+        enfo/waef/eefo/weef:
           filter:param:
-            "31/33/34/39/49/78/79/121/122/136/137/139/141/151/151130/151131/151145/151148/151163/151164/151175/159/164/165/166/167/168//202/207/228246/228247/235117/237117/238117/239117": 
+            "31/33/34/39/49/78/79/121/122/136/137/139/141/151/151130/151131/151145/151148/151163/151164/151175/159/164/165/166/167/168/201/202/207/228246/228247/235117/237117/238117/239117": 
               forecast:
                 inputs:
                   derive_step: 
@@ -1956,6 +2388,11 @@ inputs:
                   derive_step:
                     type: default
                     by: 12
+        enfh/enwh/eefh/weeh:
+          forecast:
+            inputs:
+              derive_step: 
+                type: default
         msmm/swmm:
           filter:param:
             "34/139/151/164/165/166/167/168/168/207/229/230": 
@@ -1977,9 +2414,9 @@ inputs:
                     by: 12
     fcmin:
       filter:stream:
-        "*":
+        enfo/waef/eefo/weef:
           filter:param:
-            "31/33/34/39/49/78/79/121/122/136/137/139/141/151/151130/151131/151145/151148/151163/151164/151175/159/164/165/166/167/168//202/207/228246/228247/235117/237117/238117/239117": 
+            "31/33/34/39/49/78/79/121/122/136/137/139/141/151/151130/151131/151145/151148/151163/151164/151175/159/164/165/166/167/168/201/202/207/228246/228247/235117/237117/238117/239117": 
               forecast:
                 inputs:
                   derive_step: 
@@ -1998,6 +2435,11 @@ inputs:
                   derive_step:
                     type: default
                     by: 12
+        enfh/enwh/eefh/weeh:
+          forecast:
+            inputs:
+              derive_step: 
+                type: default
         msmm/swmm:
           filter:param:
             "34/139/151/164/165/166/167/168/168/207/229/230": 
@@ -2071,3 +2513,61 @@ inputs:
                     type: range
                 required: true
     fc/cf/pf/em/es/ep/pb/cd: {}
+  filter:selection:
+    mclimate:
+      from_inputs: false
+      filter:param:
+        "162071":
+          forecast:
+            inputs:
+              request: 
+                param: ["162071", "162072"]
+        "59":
+          forecast:
+            inputs:
+              request: 
+                param: "228035"
+        "228044":
+          forecast:
+            inputs:
+              request: 
+                param: ["228035", "228036"]
+        "167/228/144":
+          filter:steplength:
+            "*": 
+              filter:param:
+                "228/144":
+                  forecast: 
+                    inputs:
+                      derive_step:
+                        type: default
+                        deaccumulation: true
+                "*": {}
+            "168":
+              forecast:
+                inputs:
+                  - request: 
+                      type: fcmean
+                    members: 
+                      start: 0
+                      end: 0
+                    derive_step:
+                      type: default
+                      precomputed: true
+                  - request:
+                      type: fcmean
+                    derive_step:
+                      type: default
+                      precomputed: true
+              filter:param:
+                "228":
+                  forecast:
+                    inputs:
+                      request:
+                        param: "172228"
+                "167": 
+                  forecast:
+                    inputs:
+                      request:
+                        param: "167"
+    "*": {}

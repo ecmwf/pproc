@@ -24,6 +24,7 @@ INPUTS = {
             "param": "167",
             "step": 3,
             "type": "cf",
+            "time": "00",
         },
         {
             "stream": "enfo",
@@ -33,6 +34,7 @@ INPUTS = {
             "step": 3,
             "type": "pf",
             "number": list(range(1, 51)),
+            "time": "00",
         },
     ],
     "thermofeel": [
@@ -42,6 +44,7 @@ INPUTS = {
             "param": ["169", "175", "176", "177", "228021", "47"],
             "step": [2, 3],
             "type": "cf",
+            "time": "00",
         },
         {
             "stream": "enfo",
@@ -49,6 +52,7 @@ INPUTS = {
             "param": ["165", "166", "167", "168"],
             "step": 3,
             "type": "cf",
+            "time": "00",
         },
     ],
     "t850": [
@@ -103,7 +107,7 @@ INPUTS = {
             "type": "fcmean",
             "date": "20250315",
             "number": list(range(0, 101)),
-            "time": 0,
+            "time": "00",
         },
         {
             "stream": "eehs",
@@ -125,6 +129,7 @@ INPUTS = {
             "type": "fc",
             "number": list(range(0, 51)),
             "date": "20241001",
+            "time": "00",
         },
     ],
     "prob": [
@@ -135,6 +140,7 @@ INPUTS = {
             "step": [0, 24],
             "type": "pf",
             "number": list(range(1, 51)),
+            "time": "00",
         },
     ],
 }
@@ -143,13 +149,21 @@ INPUTS = {
 @pytest.mark.parametrize(
     "output",
     [
-        {"stream": "enfo", "type": "em", "param": "167", "step": 3, "levtype": "sfc"},
+        {
+            "stream": "enfo",
+            "type": "em",
+            "time": "00",
+            "param": "167",
+            "step": 3,
+            "levtype": "sfc",
+        },
         {
             "stream": "enfo",
             "type": "cf",
             "param": "261001",
             "step": 3,
             "levtype": "sfc",
+            "time": "00",
         },
         {
             "stream": "enfo",
@@ -168,7 +182,7 @@ INPUTS = {
             "param": "132167",
             "step": "0-168",
             "date": "20250315",
-            "time": 0,
+            "time": "00",
         },
         {
             "stream": "msmm",
@@ -178,6 +192,7 @@ INPUTS = {
             "fcmonth": 1,
             "date": "20241001",
             "number": list(range(0, 51)),
+            "time": "00",
         },
         {
             "stream": "enfo",
@@ -185,6 +200,7 @@ INPUTS = {
             "type": "ep",
             "param": "131060",
             "step": "0-24",
+            "time": "00",
         },
     ],
     ids=["ensms", "thermofeel", "t850", "efi", "monthly", "prob"],
@@ -248,6 +264,7 @@ def test_outputs(request, out_type, num_outputs):
                     "step": [2, 3],
                     "type": "fc",
                     "levtype": "sfc",
+                    "time": "00",
                 }
             ],
             {"type": "fc"},
@@ -260,6 +277,7 @@ def test_outputs(request, out_type, num_outputs):
                     "param": ["228246", "228247"],
                     "type": "cf",
                     "levtype": "sfc",
+                    "time": "00",
                 }
             ],
             {"type": "cf"},
@@ -273,6 +291,7 @@ def test_outputs(request, out_type, num_outputs):
                     "type": "cf",
                     "levtype": "sfc",
                     "step": 3,
+                    "time": "00",
                 },
                 {
                     "stream": "enfo",
@@ -281,6 +300,7 @@ def test_outputs(request, out_type, num_outputs):
                     "levtype": "sfc",
                     "number": list(range(1, 51)),
                     "step": 3,
+                    "time": "00",
                 },
                 {
                     "stream": "enfo",
@@ -289,6 +309,7 @@ def test_outputs(request, out_type, num_outputs):
                     "levtype": "pl",
                     "levelist": [50, 100],
                     "step": 3,
+                    "time": "00",
                 },
                 {
                     "stream": "enfo",
@@ -298,6 +319,7 @@ def test_outputs(request, out_type, num_outputs):
                     "number": list(range(1, 51)),
                     "levelist": [50, 100],
                     "step": 3,
+                    "time": "00",
                 },
             ],
             {"levtype": "pl", "levelist": 50, "type": "em"},

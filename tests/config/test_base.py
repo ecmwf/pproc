@@ -260,7 +260,7 @@ def test_merge(other: dict, merged: dict):
                                 "source": {
                                     "type": "file",
                                     "path": "data.grib",
-                                }
+                                },
                             }
                         },
                         "accumulations": {

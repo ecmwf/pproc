@@ -195,6 +195,7 @@ from conftest import schema
                 ],
                 "metadata": {
                     "bitsPerValue": 16,
+                    "numberOfForecastsInEnsemble": 51,
                     "perturbationNumber": 0,
                 },
             },
@@ -428,6 +429,7 @@ def test_schema_from_output(req, config):
                 "dtype": "float64",
                 "metadata": {
                     "bitsPerValue": 16,
+                    "numberOfForecastsInEnsemble": 51,
                     "perturbationNumber": 0,
                 },
             },
