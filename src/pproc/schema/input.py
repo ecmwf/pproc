@@ -45,6 +45,14 @@ class ForecastInput(BaseModel):
     members: Optional[dict] = None
     request: dict
     derive_step: ForecastStepDeriver
+    derive_date: Optional[list[ClimDateDeriver]] = None
+
+    @field_validator("derive_date", mode="before")
+    @classmethod
+    def format_derive_date(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            return [data]
+        return data
 
     @model_validator(mode="after")
     def populate_request(self) -> Self:
@@ -56,24 +64,21 @@ class ForecastInput(BaseModel):
             self.request.pop("number", None)
         return self
 
-    def populate_derived(self, output_request, fc_steps: list[int]):
+    def populate_derived(
+        self, base_request: dict, steps: list[int], scheme: Optional[str] = None
+    ):
         for k, v in self.request.items():
-            self.request[k] = v if v != f"{{{k}}}" else output_request[k]
-        self.request["step"] = self.derive_step.derive(output_request, fc_steps)
+            self.request[k] = v if v != f"{{{k}}}" else base_request[k]
+        self.request["step"] = self.derive_step.derive(base_request, steps)
+        if self.derive_date:
+            request = base_request.copy()
+            for deriver in self.derive_date:
+                request["date"] = deriver.derive(request, scheme)
+            self.request["date"] = request["date"]
 
 
 class ClimatologyInput(ForecastInput):
-    members: Optional[dict] = None
-    request: dict
-    derive_date: Optional[list[ClimDateDeriver]] = None
     derive_step: Optional[ClimStepDeriver] = None
-
-    @field_validator("derive_date", mode="before")
-    @classmethod
-    def format_derive_date(cls, data: Any) -> Any:
-        if isinstance(data, dict):
-            return [data]
-        return data
 
     @model_validator(mode="after")
     def populate_request(self) -> Self:
@@ -82,23 +87,16 @@ class ClimatologyInput(ForecastInput):
             self.request["quantile"] = [f"{x}:100" for x in range(0, 101)]
         return self
 
-    def populate_derived(
-        self, fc_request: dict, clim_steps: list[int | str], scheme: str
-    ):
+    def populate_derived(self, base_request: dict, steps: list[int | str], scheme: str):
         assert (
             self.derive_step and self.derive_date
         ), "Both step and date derivers required"
-        for k, v in self.request.items():
-            self.request[k] = v if v != f"{{{k}}}" else fc_request[k]
-        self.request["step"] = self.derive_step.derive(fc_request, clim_steps)
-        request = fc_request.copy()
-        for deriver in self.derive_date:
-            request["date"] = deriver.derive(request, scheme)
-        self.request["date"] = request["date"]
+        super().populate_derived(base_request, steps, scheme)
 
 
 class ForecastConfig(BaseModel):
     inputs: list[ForecastInput]
+    scheme: Optional[str] = None
 
     def steps(self) -> list[int]:
         out = set()
@@ -180,14 +178,14 @@ class InputConfig(BaseModel):
         clim_steps: Optional[list[int | str]] = None,
     ):
         for input in self.forecast.inputs:
-            input.populate_derived(output_request, fc_steps)
+            input.populate_derived(output_request, fc_steps, self.forecast.scheme)
 
         if self.climatology.required:
             for input in self.climatology.inputs:
                 input.populate_derived(
-                    fc_request=self.forecast.base_request(),
-                    clim_steps=clim_steps,
-                    scheme=self.climatology.scheme,
+                    self.forecast.base_request(),
+                    clim_steps,
+                    self.climatology.scheme,
                 )
 
     def inputs(self) -> Iterator[dict]:
