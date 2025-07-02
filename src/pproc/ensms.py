@@ -36,6 +36,7 @@ from pproc.common.parallel import (
 )
 from pproc.common.param_requester import ParamConfig, ParamRequester
 from pproc.common.recovery import create_recovery, BaseRecovery
+from pproc.common.grib_helpers import fill_template_values
 from pproc.config.types import EnsmsConfig
 
 
@@ -48,6 +49,9 @@ def template_ensemble(
 
     grib_sets = accum.grib_keys().copy()
     grib_sets.update(out_keys)
+    grib_sets = fill_template_values(
+        grib_sets, {"num_fields": np.prod(accum.values.shape[:-1])}
+    )
     template_ens.set(grib_sets)
     return template_ens
 

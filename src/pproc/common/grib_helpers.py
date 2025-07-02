@@ -45,3 +45,14 @@ def construct_message(template_grib, window_grib_headers: Dict):
     for missing_key in set_missing:
         out_grib.set_missing(missing_key)
     return out_grib
+
+
+def fill_template_values(metadata: dict, template_map: dict) -> dict:
+    metadata.update(
+        {
+            key: val.format_map(template_map)
+            for key, val in metadata.items()
+            if isinstance(val, str) and val.lstrip("{").rstrip("}") in template_map
+        }
+    )
+    return metadata
