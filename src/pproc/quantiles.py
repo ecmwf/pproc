@@ -21,7 +21,6 @@ from conflator import Conflator
 
 from pproc.common.accumulation import Accumulator
 from pproc.common.accumulation_manager import AccumulationManager
-from pproc.common.grib_helpers import construct_message
 from pproc.common.io import nan_to_missing
 from pproc.common.parallel import (
     create_executor,
@@ -31,6 +30,7 @@ from pproc.common.parallel import (
 from pproc.common.param_requester import ParamConfig, ParamRequester
 from pproc.common.recovery import create_recovery, BaseRecovery
 from pproc.config.types import QuantilesConfig
+from pproc.quantile.grib import quantiles_template
 
 
 def do_quantiles(
@@ -55,32 +55,13 @@ def do_quantiles(
     out_keys: dict, optional
         Extra GRIB keys to set on the output
     """
-    edition = out_keys.get("edition", template.get("edition"))
-    if edition not in (1, 2):
-        raise ValueError(f"Unsupported GRIB edition {edition}")
     for i, quantile in enumerate(
         iter_quantiles(
             ens.reshape((-1, ens.shape[-1])), config.quantiles, method="sort"
         )
     ):
         pert_number, total_number = config.quantile_indices(i)
-        grib_keys = {**out_keys}
-        if edition == 1:
-            grib_keys.update(
-                {
-                    "totalNumber": total_number,
-                    "perturbationNumber": pert_number,
-                }
-            )
-        else:
-            grib_keys.setdefault("productDefinitionTemplateNumber", 86)
-            grib_keys.update(
-                {
-                    "totalNumberOfQuantiles": total_number,
-                    "quantileValue": pert_number,
-                }
-            )
-        message = construct_message(template, grib_keys)
+        message = quantiles_template(template, pert_number, total_number, out_keys)
         message.set_array("values", nan_to_missing(message, quantile))
         config.outputs.quantiles.target.write(message)
 

@@ -7,10 +7,9 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-import os
-from typing import Optional, List, Any, Annotated, Iterator
+from typing import Optional, List, Any, Annotated, ClassVar
 from typing_extensions import Self, Union
-from pydantic import model_validator, Field, Tag, Discriminator
+from pydantic import model_validator, BaseModel, Field, Tag, Discriminator
 import numpy as np
 import datetime
 import pandas as pd
@@ -58,7 +57,7 @@ class QuantilesConfig(BaseConfig):
         return self._total_number
 
     def quantile_indices(self, index: int) -> List[int]:
-        pert_number = index if self.even_spacing else int(self.quantiles[index] * 100)
+        pert_number = index if self.even_spacing else round(self.quantiles[index] * 100)
         return pert_number, self.total_number
 
     def _format_out(self, param: ParamConfig, req) -> dict:
@@ -348,3 +347,45 @@ class ThermoConfig(BaseConfig):
                         np.asarray(nsteps) == 1
                     ), f"Accumulation source required for step ranges."
         return self
+
+
+class ECPointParamConfig(ParamConfig):
+    wind: ParamConfig
+    cp: ParamConfig
+    cdir: ParamConfig
+    cape: ParamConfig
+    _deps: ClassVar[list[str]] = ["wind", "cp", "cdir", "cape"]
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_deps(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+
+        for param in cls._deps:
+            param_config = data[param]
+            param_config.setdefault("name", param)
+        return data
+
+    @property
+    def dependencies(self) -> list[ParamConfig]:
+        return [getattr(self, dep) for dep in self._deps]
+
+
+class ECPointParallelisation(BaseModel):
+    n_par_read: int = 1
+    wt_batch_size: int = 1
+    ens_batch_size: int = 1
+
+
+class ECPointConfig(QuantilesConfig):
+    parallelisation: ECPointParallelisation = ECPointParallelisation()
+    outputs: io.ECPointOutputModel = io.ECPointOutputModel()
+    parameters: list[ECPointParamConfig]
+    bp_location: Annotated[
+        str, CLIArg("--bp-loc"), Field(description="Location of BP CSV file")
+    ]
+    fer_location: Annotated[
+        str, CLIArg("--fer-loc"), Field(description="Location of FER CSV file")
+    ]
+    min_predictand: float = 0.04
