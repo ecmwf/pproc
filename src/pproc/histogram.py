@@ -21,7 +21,7 @@ from conflator import Conflator
 from pproc.common.accumulation import Accumulator
 from pproc.common.accumulation_manager import AccumulationManager
 from pproc.common.dataset import open_multi_dataset
-from pproc.common.grib_helpers import construct_message
+from pproc.common.grib_helpers import construct_message, fill_template_values
 from pproc.common.io import (
     missing_to_nan,
     nan_to_missing,
@@ -174,6 +174,9 @@ def write_iteration(
 ):
     with ResourceMeter(f"{param.name}, window {window_id!s}: Write histogram"):
         hist = accum.values
+        out_keys = fill_template_values(
+            accum.grib_keys(), {"num_fields": np.prod(hist.shape[:-1])}
+        )
         assert hist is not None
         write_histogram(
             hist,
@@ -181,7 +184,7 @@ def write_iteration(
             target,
             param.normalise,
             param.scale_out,
-            out_keys=accum.grib_keys(),
+            out_keys=out_keys,
         )
     recovery.add_checkpoint(param=param.name, window=str(window_id))
 

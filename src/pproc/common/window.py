@@ -9,6 +9,8 @@
 
 from typing import Dict, Iterator, Optional, Tuple, Union, Any
 
+from pproc.common.grib_helpers import fill_template_values
+
 
 def window_operation_from_config(window_config: dict) -> Dict[str, list]:
     """
@@ -96,19 +98,16 @@ def translate_window_config(
         extra["factor"] = window_options.get("factor", 1.0)
 
     grib_header = {} if grib_keys is None else grib_keys.copy()
-    grib_header.update(
+    grib_header = fill_template_values(
+        grib_header,
         {
-            key: val.format_map(
-                {
-                    "num_steps": len(coords),
-                    "start_step": start,
-                    "end_step": end,
-                }
-            )
-            for key, val in grib_header.items()
-            if isinstance(val, str)
-        }
+            "num_steps": len(coords),
+            "start_step": start,
+            "end_step": end,
+            "step_length": end - start,
+        },
     )
+
     if end > start and end >= 256:
         if grib_header.get("edition", 1) == 1:
             # The range is encoded as two 8-bit integers
