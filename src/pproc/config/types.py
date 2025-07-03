@@ -224,6 +224,12 @@ class HistogramConfig(BaseConfig):
     outputs: io.HistogramOutputModel = io.HistogramOutputModel()
     parameters: list[HistParamConfig]
 
+    @classmethod
+    def from_schema(cls, schema_config: dict, **overrides) -> Self:
+        quantiles = schema_config.pop("quantiles", None)
+        assert quantiles == len(schema_config["bins"]) - 1
+        return super().from_schema(schema_config, **overrides)
+
 
 class ClimParamConfig(ParamConfig):
     clim: ParamConfig
