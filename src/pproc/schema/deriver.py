@@ -95,7 +95,7 @@ class ClimStepDeriver(BaseModel):
 
     @staticmethod
     def _range(fc_request: dict, clim_steps: list[int]) -> str:
-        time = int(fc_request["time"])
+        time = int(fc_request["time"]) // 100
         req_steps = fc_request["step"]
 
         if len(req_steps) == 1:
@@ -122,7 +122,7 @@ class ClimStepDeriver(BaseModel):
 
     @staticmethod
     def _instantaneous(fc_request: dict, clim_steps: list[int]) -> list[int]:
-        time = int(fc_request["time"])
+        time = int(fc_request["time"]) // 100
         steps = fc_request["step"]
         if time in [12, 18]:
             return [

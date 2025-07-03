@@ -54,6 +54,15 @@ class Schema:
                     )
                 except ValueError:
                     pass
+        # Format time 
+        if "time" in out:
+            time = out["time"]
+            if isinstance(time, list):
+                assert len(time) == 1, "Only single value of time supported per request"
+                time = time[0]
+            if isinstance(time, int):
+                time = f"{time:02d}"
+            out["time"] = time.ljust(4, "0")
         return out
 
     def config_from_output(
@@ -96,7 +105,7 @@ class Schema:
         matching_types = pd.DataFrame([x for x, _ in reconstructed])
         output_keys = [] if output_template is None else list(output_template.keys())
         drop = [
-            x for x in self.config_schema.filters.difference(["type"] + output_keys)
+            x for x in self.config_schema.all_filters.difference(["type"] + output_keys)
         ]
         matching_types.drop(columns=drop, inplace=True, errors="ignore")
         matching_types.drop_duplicates(inplace=True)

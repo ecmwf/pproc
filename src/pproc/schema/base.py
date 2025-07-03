@@ -32,8 +32,8 @@ class BaseSchema:
     custom_match: dict[str, MatchFunc] = {}
 
     def __init__(self, schema: dict):
-        self.filters, self.schema = self.expand(schema)
-        self.filters = self.filters.difference(set(self.custom_filter.keys()))
+        self.all_filters, self.schema = self.expand(schema)
+        self.filters = self.all_filters.difference(set(self.custom_filter.keys()))
 
     @classmethod
     def from_file(cls, schema_path: str) -> Self:

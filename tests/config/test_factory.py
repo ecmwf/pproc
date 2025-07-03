@@ -38,7 +38,7 @@ DEFAULT_REQUEST = {
     "domain": "g",
     "param": "130",
     "date": "20241001",
-    "time": "0",
+    "time": "0000",
 }
 
 
@@ -62,7 +62,7 @@ def default_config(name: str, param: str):
                                 "domain": "g",
                                 "param": param,
                                 "date": "20241001",
-                                "time": "0",
+                                "time": "0000",
                                 "type": "cf",
                             },
                             {
@@ -73,7 +73,7 @@ def default_config(name: str, param: str):
                                 "domain": "g",
                                 "param": param,
                                 "date": "20241001",
-                                "time": "0",
+                                "time": "0000",
                                 "type": "pf",
                                 "number": list(range(1, 51)),
                             },
@@ -158,7 +158,7 @@ TEST_CASES = {
                     "dtype": "float64",
                     "metadata": {
                         "bitsPerValue": 16,
-                        "numberOfForecastsInEnsemble": 51,
+                        "numberOfForecastsInEnsemble": "{num_fields}",
                         "perturbationNumber": 0,
                     },
                     "accumulations": {
