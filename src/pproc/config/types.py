@@ -607,8 +607,8 @@ class ExtremeParamConfig(ClimParamConfig):
     def indices(self) -> dict[str, Index]:
         return create_indices(self.compute_indices, self.model_dump())
 
-    def out_keys(self, inputs: io.InputsCollection) -> Iterator:
-        base_outs = [req for req in super().out_keys(inputs)]
+    def out_keys(self, inputs: io.InputsCollection, metadata: Optional[dict] = None) -> Iterator:
+        base_outs = [req for req in super().out_keys(inputs, metadata)]
         indices = self.compute_indices.copy()
         if np.any([x["type"] in ["cf", "fc"] for x in base_outs]):
             indices.append("efic")
@@ -723,8 +723,8 @@ class ThermoParamConfig(ParamConfig):
                         req["step"] = list(self.out_keys(inputs))[0]["step"]
                     yield req
 
-    def out_keys(self, inputs: io.InputsCollection) -> Iterator:
-        for req in super().out_keys(inputs):
+    def out_keys(self, inputs: io.InputsCollection, metadata: Optional[dict] = None) -> Iterator:
+        for req in super().out_keys(inputs, metadata):
             req["param"] = self.out_params
             req["step"] = [end_step(x) for x in req["step"]]
             yield req
