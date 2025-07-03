@@ -138,7 +138,7 @@ class ParamConfig(BaseModel):
                     )
                     yield req
 
-    def out_keys(self, inputs: InputsCollection) -> Iterator[dict]:
+    def out_keys(self, inputs: InputsCollection, metadata: Optional[dict] = None) -> Iterator[dict]:
         fc_name = inputs.names[0]
         base_input: Input = getattr(inputs, fc_name)
         param_input = self.inputs.get(fc_name, {})
@@ -146,6 +146,7 @@ class ParamConfig(BaseModel):
             base_input.request,
             param_input.get("request", {}),
             **inputs.overrides,
+            **extract_mars(metadata or {}),
             **extract_mars(self.metadata),
         )
         if isinstance(reqs, dict):

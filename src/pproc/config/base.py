@@ -236,14 +236,12 @@ class BaseConfig(ConfigModel):
 
         seen = []
         for param, output in itertools.product(self.parameters, outputs):
-            for preq in param.out_keys(self.inputs):
-                req = extract_mars(output.metadata)
+            for req in param.out_keys(self.inputs, output.metadata):
                 req["target"] = (
                     output.target.path
                     if hasattr(output.target, "path")
                     else output.target.type_
                 )
-                req.update(preq)
                 req.update(extract_mars(self.outputs.overrides))
                 req = self._format_out(param, req)
                 req.pop("interpolate", None)
