@@ -49,7 +49,7 @@ from conftest import schema
                         "domain": "g",
                         "param": "167",
                         "date": "20241001",
-                        "time": "0",
+                        "time": "0000",
                         "type": "fc",
                         "step": list(range(0, 745, 6)),
                         "number": list(range(0, 51)),
@@ -115,7 +115,7 @@ from conftest import schema
                         "domain": "g",
                         "param": "228",
                         "date": "20241001",
-                        "time": "00",
+                        "time": "0000",
                         "type": "cf",
                         "step": list(range(0, 169, 24)),
                     },
@@ -127,7 +127,7 @@ from conftest import schema
                         "domain": "g",
                         "param": "228",
                         "date": "20241001",
-                        "time": "00",
+                        "time": "0000",
                         "type": "pf",
                         "step": list(range(0, 169, 24)),
                         "number": list(range(1, 101)),
@@ -171,7 +171,7 @@ from conftest import schema
                         "domain": "g",
                         "param": "130",
                         "date": "20241001",
-                        "time": "00",
+                        "time": "0000",
                         "type": "cf",
                         "levelist": [250, 850],
                         "step": 12,
@@ -185,7 +185,7 @@ from conftest import schema
                         "domain": "g",
                         "param": "130",
                         "date": "20241001",
-                        "time": "00",
+                        "time": "0000",
                         "type": "pf",
                         "levelist": [250, 850],
                         "step": 12,
@@ -195,7 +195,7 @@ from conftest import schema
                 ],
                 "metadata": {
                     "bitsPerValue": 16,
-                    "numberOfForecastsInEnsemble": 51,
+                    "numberOfForecastsInEnsemble": "{num_fields}",
                     "perturbationNumber": 0,
                 },
             },
@@ -258,7 +258,7 @@ def test_schema_from_output(req, config):
                         "domain": "g",
                         "param": "167",
                         "date": "20241001",
-                        "time": "0",
+                        "time": "0000",
                         "type": "cf",
                         "step": list(range(0, 169, 6)),
                     },
@@ -270,7 +270,7 @@ def test_schema_from_output(req, config):
                         "domain": "g",
                         "param": "167",
                         "date": "20241001",
-                        "time": "0",
+                        "time": "0000",
                         "type": "pf",
                         "step": list(range(0, 169, 6)),
                         "number": list(range(1, 11)),
@@ -339,7 +339,7 @@ def test_schema_from_output(req, config):
                         "domain": "g",
                         "param": "228",
                         "date": "20241001",
-                        "time": "00",
+                        "time": "0000",
                         "type": "fc",
                         "step": list(range(0, 745, 24)),
                         "number": list(range(1, 21)),
@@ -402,7 +402,7 @@ def test_schema_from_output(req, config):
                         "domain": "g",
                         "param": "130",
                         "date": "20241001",
-                        "time": "0",
+                        "time": "0000",
                         "type": "cf",
                         "step": 0,
                     },
@@ -415,7 +415,7 @@ def test_schema_from_output(req, config):
                         "domain": "g",
                         "param": "130",
                         "date": "20241001",
-                        "time": "0",
+                        "time": "0000",
                         "type": "pf",
                         "step": 0,
                         "number": list(range(1, 51)),
@@ -429,7 +429,7 @@ def test_schema_from_output(req, config):
                 "dtype": "float64",
                 "metadata": {
                     "bitsPerValue": 16,
-                    "numberOfForecastsInEnsemble": 51,
+                    "numberOfForecastsInEnsemble": "{num_fields}",
                     "perturbationNumber": 0,
                 },
             },
@@ -440,5 +440,8 @@ def test_schema_from_output(req, config):
 def test_schema_from_input(entrypoint, req, num_expected, expected):
     test_schema = Schema(**schema())
     configs = list(test_schema.config_from_input(req, entrypoint=entrypoint))
+    for config in configs:
+        print(config)
+        print("\n")
     assert len(configs) == num_expected
     assert configs[0] == expected

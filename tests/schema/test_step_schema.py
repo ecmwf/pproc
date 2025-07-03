@@ -80,4 +80,6 @@ def test_in_steps():
     ],
 )
 def test_out_steps(out, expected, in_steps):
-    test_schema = StepSchema
+    test_schema = StepSchema(schema("windows"))
+    _, out_steps = test_schema.out_steps(out, in_steps)
+    assert out_steps == expected
