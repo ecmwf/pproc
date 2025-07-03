@@ -33,6 +33,7 @@ class ConfigFactory:
         "pproc-extreme": types.ExtremeConfig,
         "pproc-thermal-indices": types.ThermoConfig,
         "pproc-anomaly": types.AnomalyConfig,
+        "pproc-histogram": types.HistogramConfig,
     }
 
     @classmethod

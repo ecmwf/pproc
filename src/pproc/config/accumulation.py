@@ -216,15 +216,16 @@ class DefaultAccumulation(BaseAccumulation):
         if self.operation is not None and dim not in ["step", "date"]:
             return [base]
 
+        base[dim] = []
         if dim == "date":
-            # Take midpoint in coords
-            assert (
-                len(self.coords) % 2 == 1
-            ), "Determination of output date only supported for odd date spans"
-            base[dim] = self.coords[len(self.coords) // 2 + 1]
+            for coord in self.coords:
+                # Take midpoint in coords
+                assert (
+                    len(coord) % 2 == 1
+                ), "Determination of output date only supported for odd date spans"
+                base[dim].append(coord[len(coord) // 2 + 1])
             return [base]
 
-        base[dim] = []
         for coord in self.coords:
             if isinstance(coord, list):
                 base[dim].append(
