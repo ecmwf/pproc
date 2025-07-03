@@ -37,7 +37,7 @@ from pproc.common.recovery import create_recovery, BaseRecovery
 from pproc.common.steps import AnyStep
 from pproc.config.types import HistogramConfig, HistParamConfig
 from pproc.config.targets import Target
-from pproc.config.io import InputCollection, Input
+from pproc.config.io import InputsCollection, Input
 
 
 def write_histogram(
@@ -124,7 +124,7 @@ class HistParamRequester(ParamRequester):
     def __init__(
         self,
         param: HistParamConfig,
-        inputs: InputCollection,
+        inputs: InputsCollection,
         total: int,
     ):
         super().__init__(param, inputs, total)
