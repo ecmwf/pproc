@@ -223,7 +223,7 @@ class DefaultAccumulation(BaseAccumulation):
                 assert (
                     len(coord) % 2 == 1
                 ), "Determination of output date only supported for odd date spans"
-                base[dim].append(coord[len(coord) // 2 + 1])
+                base[dim].append(coord[len(coord) // 2])
             return [base]
 
         for coord in self.coords:

@@ -144,9 +144,11 @@ class ParamConfig(BaseModel):
         reqs = update_request(
             base_input.request,
             param_input.get("request", {}),
-            **inputs.overrides,
-            **extract_mars(metadata or {}),
-            **extract_mars(self.metadata),
+            **{
+                **inputs.overrides,
+                **extract_mars(metadata or {}),
+                **extract_mars(self.metadata)
+            },
         )
         if isinstance(reqs, dict):
             reqs = [reqs]
