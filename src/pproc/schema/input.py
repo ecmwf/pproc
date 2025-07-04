@@ -20,6 +20,7 @@ from pproc.schema.deriver import (
     DefaultStepDeriver,
     ClimDateDeriver,
     ClimStepDeriver,
+    HindcastDatesDeriver,
 )
 from pproc.schema.filters import _steplength, _steptype, _selection
 from pproc.schema.step import StepSchema
@@ -46,6 +47,7 @@ class ForecastInput(BaseModel):
     request: dict
     derive_step: ForecastStepDeriver
     derive_date: Optional[list[ClimDateDeriver]] = None
+    derive_hdate: Optional[HindcastDatesDeriver] = None
 
     @field_validator("derive_date", mode="before")
     @classmethod
@@ -75,6 +77,8 @@ class ForecastInput(BaseModel):
             for deriver in self.derive_date:
                 request["date"] = deriver.derive(request, scheme)
             self.request["date"] = request["date"]
+        if self.derive_hdate:
+            self.request["hdate"] = self.derive_hdate.derive(base_request)
 
 
 class ClimatologyInput(ForecastInput):
