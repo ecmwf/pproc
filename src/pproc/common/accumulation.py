@@ -440,7 +440,14 @@ class DeaccumulationWrapper(Accumulation):
         return self.acc.get_values()
 
     def grib_keys(self) -> dict:
-        return self.acc.grib_keys()
+        return fill_template_values(
+            self.acc._grib_keys,
+            {
+                "num_coords": len(self.coords) - 1,
+                "start_coord": self.coords[1],
+                "end_coord": self.coords[-1],
+            },
+        )
 
     def combine(self, coord: Coord, values: np.ndarray) -> bool:
         processed = self.acc.feed(coord, values - self.values)
