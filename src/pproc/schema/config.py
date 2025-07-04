@@ -10,11 +10,11 @@
 import numpy as np
 
 from pproc.schema.base import BaseSchema
-from pproc.schema.filters import _steplength, _selection
+from pproc.schema.filters import _steplength, _selection, _steptype
 
 
 class ConfigSchema(BaseSchema):
-    custom_filter = {"steplength": _steplength, "selection": _selection}
+    custom_filter = {"steplength": _steplength, "selection": _selection, "steptype": _steptype}
 
     def config(self, output_request: dict) -> dict:
         config = self.traverse(output_request)

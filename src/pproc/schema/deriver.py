@@ -13,6 +13,7 @@ import bisect
 from pydantic import BaseModel, Field, model_validator, ConfigDict
 
 from earthkit.time import Sequence
+from earthkit.time.climatology import RelativeYear, date_range
 
 from pproc.common.stepseq import fcmonth_to_steprange
 
@@ -147,3 +148,16 @@ class ClimDateDeriver(BaseModel):
         if isinstance(clim_date, datetime.date):
             return datetime.datetime.strftime(clim_date, "%Y%m%d")
         return [datetime.datetime.strftime(x, "%Y%m%d") for x in clim_date]
+
+class HindcastDatesDeriver(BaseModel):
+    rstart: int
+    rend: int
+    recurrence: str = "yearly"
+    include_endpoint: bool = False
+
+    def derive(self, fc_request: dict) -> list[str]:
+        date = datetime.datetime.strptime(str(fc_request["date"]), "%Y%m%d").date()
+        kwargs = self.model_dump()
+        start = RelativeYear(self.rstart).relative_to(date)
+        end = RelativeYear(self.rend).relative_to(date)
+        return [datetime.datetime.strftime(x, "%Y%m%d") for x in date_range(date, start, end, self.recurrence, self.include_endpoint)]
