@@ -14,6 +14,8 @@ import pandas as pd
 
 from pproc.common.utils import dict_product
 
+METADATA_KEYS = {"param": "paramId", "date": "dataDate"}
+
 
 def parse_vars(items):
     """
@@ -132,8 +134,9 @@ def squeeze(reqs: list[dict], dims: list[str]) -> Iterator[dict]:
 
 
 def extract_mars(keys: dict) -> dict:
-    if "paramId" in keys:
-        keys["param"] = keys.pop("paramId")
+    for key, metadata_key in METADATA_KEYS.items():
+        if metadata_key in keys:
+            keys[key] = keys.pop(metadata_key)
     mars_namespace = [
         "class",
         "type",

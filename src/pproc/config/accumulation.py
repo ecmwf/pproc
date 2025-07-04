@@ -213,19 +213,10 @@ class DefaultAccumulation(BaseAccumulation):
 
     def out_mars(self, dim: str) -> list[dict]:
         base = extract_mars(self.metadata)
-        if self.operation is not None and dim not in ["step", "date"]:
+        if self.operation is not None and dim != "step":
             return [base]
 
         base[dim] = []
-        if dim == "date":
-            for coord in self.coords:
-                # Take midpoint in coords
-                assert (
-                    len(coord) % 2 == 1
-                ), "Determination of output date only supported for odd date spans"
-                base[dim].append(coord[len(coord) // 2])
-            return [base]
-
         for coord in self.coords:
             if isinstance(coord, list):
                 base[dim].append(
