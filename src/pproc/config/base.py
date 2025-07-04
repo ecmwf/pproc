@@ -282,7 +282,14 @@ class BaseConfig(ConfigModel):
     @classmethod
     def _populate_accumulations(cls, inputs: list[dict], base_accum: dict) -> dict:
         req = inputs[0]
-        accums = base_accum.copy()
+
+        # Most entrypoints don't handle array with level dimension, so put this into accumulations to
+        # separate different levels
+        accums = {}
+        if levelist := req.get("levelist", None):
+            levelist = [levelist] if np.ndim(levelist) == 0 else levelist
+            accums["levelist"] = {"coords": [[level] for level in levelist]}
+        accums.update(base_accum)
 
         # Populate coords in accumulations from inputs
         for dim, acc_config in accums.items():
@@ -295,12 +302,6 @@ class BaseConfig(ConfigModel):
             acc_config["coords"] = (
                 [values] if acc_config.get("operation", None) else [[x] for x in values]
             )
-
-        # Most entrypoints don't handle array with level dimension, so put this into accumulations to
-        # separate different levels
-        if levelist := req.get("levelist", None):
-            levelist = [levelist] if np.ndim(levelist) == 0 else levelist
-            accums.setdefault("levelist", {"coords": [[level] for level in levelist]})
 
         steps = req.get("step", None)
         if steps is not None:
