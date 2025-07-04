@@ -18,7 +18,17 @@ from pproc.schema.config import ConfigSchema
 from pproc.schema.input import InputSchema
 from pproc.schema.step import StepSchema
 
-from pproc.config.utils import expand
+from pproc.config.utils import expand, METADATA_KEYS
+
+VALUE_TYPES = {
+    "param": str,
+    "paramId": int,
+    "levelist": int,
+    "step": int,
+    "fcmonth": int,
+    "number": int,
+    "dataDate": int,
+}
 
 
 class Schema:
@@ -37,13 +47,7 @@ class Schema:
     def validate_request(cls, request: dict) -> dict:
         out = copy.deepcopy(request)
         # Map types
-        for key, value_type in [
-            ("param", str),
-            ("levelist", int),
-            ("step", int),
-            ("fcmonth", int),
-            ("number", int),
-        ]:
+        for key, value_type in VALUE_TYPES.items():
             if key in out:
                 value = out[key]
                 try:
@@ -54,7 +58,7 @@ class Schema:
                     )
                 except ValueError:
                     pass
-        # Format time 
+        # Format time
         if "time" in out:
             time = out["time"]
             if isinstance(time, list):
@@ -76,15 +80,18 @@ class Schema:
         base_request = inputs[0]
         metadata = config.setdefault("metadata", {})
         if base_request["param"] != valid_out["param"]:
-            metadata["paramId"] = int(valid_out["param"])
             if (
                 not isinstance(base_request["param"], str)
                 and len(base_request["param"]) > 1
             ):
                 config["name"] = f"{valid_out['param']}_{valid_out['levtype']}"
         config.setdefault("name", f"{base_request['param']}_{valid_out['levtype']}")
-        if base_request["stream"] != valid_out["stream"]:
-            metadata["stream"] = valid_out["stream"]
+        for key in ["param", "stream", "date"]:
+            if base_request[key] != valid_out[key]:
+                metadata_key = METADATA_KEYS.get(key, key)
+                metadata[metadata_key] = VALUE_TYPES.get(metadata_key, str)(
+                    valid_out[key]
+                )
         return {**config, "inputs": inputs}
 
     def config_from_input(
