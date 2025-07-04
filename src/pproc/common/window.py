@@ -101,10 +101,9 @@ def translate_window_config(
     grib_header = fill_template_values(
         grib_header,
         {
-            "num_steps": len(coords),
-            "start_step": start,
-            "end_step": end,
-            "step_length": end - start,
+            "num_coords": len(coords),
+            "start_coord": start,
+            "end_coord": end,
         },
     )
 

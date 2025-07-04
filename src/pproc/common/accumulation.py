@@ -16,6 +16,8 @@ from typing import Dict, Iterable, List, Optional, Tuple, Union
 import numpy as np
 from numpy.typing import DTypeLike
 
+from pproc.common.grib_helpers import fill_template_values
+
 
 NumericCoord = int
 NumericCoords = Union[List[int], range]
@@ -69,7 +71,14 @@ class Accumulation(metaclass=ABCMeta):
         return self.values
 
     def grib_keys(self) -> dict:
-        return self._grib_keys
+        return fill_template_values(
+            self._grib_keys,
+            {
+                "num_coords": len(self.coords),
+                "start_coord": self.coords[0],
+                "end_coord": self.coords[-1],
+            },
+        )
 
     @abstractmethod
     def combine(self, coord: Coord, values: np.ndarray) -> bool:
