@@ -86,6 +86,7 @@ INPUTS = {
             "time": "0000",
             "levtype": "pl",
             "levelist": 250,
+            "climatology": True,
         },
         {
             "stream": "efhs",
@@ -96,6 +97,7 @@ INPUTS = {
             "time": "0000",
             "levtype": "pl",
             "levelist": 250,
+            "climatology": True,
         },
     ],
     "efi": [
@@ -118,6 +120,7 @@ INPUTS = {
             "date": "20250315",
             "time": "0000",
             "quantile": [f"{x}:100" for x in range(0, 101)],
+            "climatology": True,
         },
     ],
     "monthly": [

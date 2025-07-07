@@ -197,7 +197,7 @@ class InputConfig(BaseModel):
             yield format_request(input.request, pop=["selection"])
         if self.climatology.required:
             for input in self.climatology.inputs:
-                yield format_request(input.request, pop=["selection"])
+                yield format_request({**input.request, "climatology": True}, pop=["selection"])
 
     def match(self, input_requests: list[dict]) -> Iterator[Self]:
         fc_inputs = list(self.forecast.match(input_requests))

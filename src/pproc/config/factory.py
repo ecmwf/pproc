@@ -34,6 +34,7 @@ class ConfigFactory:
         "pproc-thermal-indices": types.ThermoConfig,
         "pproc-anomaly": types.AnomalyConfig,
         "pproc-histogram": types.HistogramConfig,
+        "pproc-significance": types.SigniConfig,
     }
 
     @classmethod
