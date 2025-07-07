@@ -387,7 +387,7 @@ class SigniConfig(BaseConfig):
     def _populate_param(
         cls,
         config: dict,
-        inputs,
+        inputs_config,
         src_name: Optional[str] = None,
         nested: bool = False,
         **overrides,
@@ -396,12 +396,12 @@ class SigniConfig(BaseConfig):
         for nparam in ["clim", "clim_em"]:
             nested_params[nparam] = super()._populate_param(
                 config.pop(nparam, {}),
-                inputs,
+                inputs_config,
                 src_name=nparam,
                 nested=True,
                 **overrides.pop(nparam, {}),
             )
-        param_config = super()._populate_param(config, inputs, **overrides)
+        param_config = super()._populate_param(config, inputs_config, **overrides)
         param_config.update(nested_params)
         return param_config
 
@@ -416,7 +416,7 @@ class AnomalyConfig(BaseConfig):
     def _populate_param(
         cls,
         config: dict,
-        inputs,
+        inputs_config,
         src_name: Optional[str] = None,
         nested: bool = False,
         **overrides,
@@ -425,12 +425,12 @@ class AnomalyConfig(BaseConfig):
         for nparam in ["clim"]:
             nested_params[nparam] = super()._populate_param(
                 config.pop(nparam, {}),
-                inputs,
+                inputs_config,
                 src_name=nparam,
                 nested=True,
                 **overrides.pop(nparam, {}),
             )
-        param_config = super()._populate_param(config, inputs, **overrides)
+        param_config = super()._populate_param(config, inputs_config, **overrides)
         param_config.update(nested_params)
         return param_config
 
