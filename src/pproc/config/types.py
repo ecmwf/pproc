@@ -437,6 +437,29 @@ class AnomalyConfig(BaseConfig):
             sorted_requests.setdefault(src_name, []).append(inp)
         return sorted_requests
 
+    def _format_out(self, param: ClimParamConfig, req: dict) -> dict:
+        req = req.copy()
+        if req["type"] != "fcmean":
+            req.pop("number", None)
+            return req
+
+        src_name = self.inputs.names[0]
+        inputs = param.input_list(self.inputs, src_name)
+        src_reqs = inputs[0].request
+        if isinstance(src_reqs, dict):
+            src_reqs = [src_reqs]
+
+        number = None
+        num_members = super().compute_totalfields(src_name)
+        for src_req in src_reqs:
+            if len(src_req) == 0:
+                continue
+            number = src_req.get("number", number)
+
+        if len(number) == num_members - 1:
+            number = [0] + number
+        req["number"] = number
+        return req
 
 def anom_discriminator(config: Any) -> str:
     clim = _get(config, "clim", None)
