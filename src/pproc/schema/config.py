@@ -11,7 +11,7 @@ import numpy as np
 
 from pproc.schema.base import BaseSchema
 from pproc.schema.filters import _steplength, _selection, _steptype
-
+from pproc.common.grib_helpers import fill_template_values
 
 class ConfigSchema(BaseSchema):
     custom_filter = {"steplength": _steplength, "selection": _selection, "steptype": _steptype}
@@ -32,4 +32,6 @@ class ConfigSchema(BaseSchema):
             config["quantiles"] = quantiles
         if output_request["type"] == "sot":
             config["sot"] = output_request["number"]
+
+        config["metadata"] = fill_template_values(config.get("metadata", {}), output_request)
         return config
