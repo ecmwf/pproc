@@ -348,40 +348,31 @@ class SigniConfig(BaseConfig):
         Field(description="Use anomaly of climatology in significance computation"),
     ] = False
 
+    @classmethod
+    def from_schema(cls, schema_config: dict, **overrides) -> Self:
+        use_clim_anomaly = schema_config.pop("use_clim_anomaly", False)
+        return super().from_schema(schema_config, use_clim_anomaly=use_clim_anomaly)
+
     @model_validator(mode="after")
     def validate_totalfields(self) -> Self:
         super().validate_totalfields()
         if self.clim_total_fields == 0:
-            self.clim_total_fields = self.total_fields("clim")
+            self.clim_total_fields = self.compute_totalfields("clim")
         return self
 
     @classmethod
-    def _populate_inputs(
-        cls, inputs: list[dict], accum_dims: list[str], **overrides
-    ) -> dict:
+    def sort_inputs(cls, inputs: list[dict]) -> dict:
         sorted_requests = {}
         for inp in inputs:
-            if inp["type"] == "fcmean":
+            is_clim = inp.get("climatology", False)
+            if is_clim and inp["type"] == "fcmean":
                 src_name = "clim"
-            elif inp["type"] == "taem":
+            elif is_clim and inp["type"] == "taem":
                 src_name = "clim_em"
             else:
                 src_name = "fc"
-            [inp.pop(dim, None) for dim in accum_dims]
             sorted_requests.setdefault(src_name, []).append(inp)
-
-        ret = {}
-        for src_name, requests in sorted_requests.items():
-            src_overrides = overrides.get(src_name, {}).copy()
-            request_overrides = src_overrides.pop("request", {})
-            updated_inputs = update_request(requests, request_overrides)
-            ret[src_name] = {
-                "request": updated_inputs
-                if len(updated_inputs) > 1
-                else updated_inputs[0],
-                **src_overrides,
-            }
-        return ret
+        return sorted_requests
 
     @classmethod
     def _populate_param(
@@ -435,30 +426,16 @@ class AnomalyConfig(BaseConfig):
         return param_config
 
     @classmethod
-    def _populate_inputs(
-        cls, inputs: list[dict], accum_dims: list[str], **overrides
-    ) -> dict:
+    def sort_inputs(cls, inputs: list[dict]) -> dict:
         sorted_requests = {}
         for inp in inputs:
-            if inp["type"] == "taem":
+            is_clim = inp.get("climatology", False)
+            if is_clim:
                 src_name = "clim"
             else:
                 src_name = "fc"
-            [inp.pop(dim, None) for dim in accum_dims]
             sorted_requests.setdefault(src_name, []).append(inp)
-
-        ret = {}
-        for src_name, requests in sorted_requests.items():
-            src_overrides = overrides.get(src_name, {})
-            request_overrides = src_overrides.pop("request", {})
-            updated_inputs = update_request(requests, request_overrides)
-            ret[src_name] = {
-                "request": updated_inputs
-                if len(updated_inputs) > 1
-                else updated_inputs[0],
-                **src_overrides,
-            }
-        return ret
+        return sorted_requests
 
 
 def anom_discriminator(config: Any) -> str:
@@ -523,21 +500,19 @@ class ProbConfig(BaseConfig):
         return super().from_schema(schema_config, **overrides)
 
     @classmethod
-    def _populate_inputs(
-        cls, inputs: list[dict], accum_dims: list[str], **overrides
-    ) -> dict:
+    def sort_requests(cls, inputs: list[dict]) -> dict:
         sorted_requests = {}
         fc_step: list[int]
         clim_step: Optional[list[int]] = None
         for inp in inputs:
             steps = inp["step"] if isinstance(inp["step"], list) else [inp["step"]]
-            if inp["type"] in ["em", "es"]:
+            is_clim = inp.get("climatology", False)
+            if is_clim:
                 src_name = "clim"
                 clim_step = steps
             else:
                 src_name = "fc"
                 fc_step = steps
-            [inp.pop(dim, None) for dim in accum_dims]
             sorted_requests.setdefault(src_name, []).append(inp.copy())
 
         if clim_step is not None and clim_step != fc_step:
@@ -548,19 +523,7 @@ class ProbConfig(BaseConfig):
                 clim_inp["step"] = {
                     fc_step[x]: clim_step[x] for x in range(len(fc_step))
                 }
-
-        ret = {}
-        for src_name, requests in sorted_requests.items():
-            src_overrides = overrides.get(src_name, {}).copy()
-            request_overrides = src_overrides.pop("request", {})
-            updated_inputs = update_request(requests, request_overrides)
-            ret[src_name] = {
-                "request": updated_inputs
-                if len(updated_inputs) > 1
-                else updated_inputs[0],
-                **src_overrides,
-            }
-        return ret
+        return sorted_requests
 
 
 class ExtremeParamConfig(ClimParamConfig):
@@ -651,37 +614,23 @@ class ExtremeConfig(BaseConfig):
         return req
 
     @classmethod
-    def _populate_inputs(
-        cls, inputs: list[dict], accum_dims: list[str], **overrides
-    ) -> dict:
+    def sort_inputs(cls, inputs: list[dict]) -> dict:
         sorted_requests = {}
         fc_step = 0
         clim_step = 0
         for inp in inputs:
-            if inp["type"] == "cd":
+            is_clim = inp.get("climatology", False)
+            if is_clim:
                 src_name = "clim"
                 clim_step = inp["step"]
             else:
                 src_name = "fc"
                 fc_step = steprange(inp["step"])
-            [inp.pop(dim, None) for dim in accum_dims]
             sorted_requests.setdefault(src_name, []).append(inp.copy())
 
         for clim_inp in sorted_requests.get("clim", []):
             clim_inp["step"] = {fc_step: clim_step}
-
-        ret = {}
-        for src_name, requests in sorted_requests.items():
-            src_overrides = overrides.get(src_name, {}).copy()
-            request_overrides = src_overrides.pop("request", {})
-            updated_inputs = update_request(requests, request_overrides)
-            ret[src_name] = {
-                "request": updated_inputs
-                if len(updated_inputs) > 1
-                else updated_inputs[0],
-                **src_overrides,
-            }
-        return ret
+        return sorted_requests
 
 
 class WindConfig(BaseConfig):
@@ -853,30 +802,15 @@ class ThermoConfig(BaseConfig):
         return self
 
     @classmethod
-    def _populate_inputs(
-        cls, inputs: list[dict], accum_dims: list[str], **overrides
-    ) -> dict:
+    def sort_inputs(cls, inputs: list[dict]) -> dict:
         sorted_requests = {}
         for inp in inputs:
             if isinstance(inp["step"], list) and len(inp["step"]) > 1:
                 src_name = "accum"
             else:
                 src_name = "inst"
-            [inp.pop(dim, None) for dim in accum_dims]
             sorted_requests.setdefault(src_name, []).append(inp)
-
-        ret = {}
-        for src_name, requests in sorted_requests.items():
-            src_overrides = overrides.get(src_name, {}).copy()
-            request_overrides = src_overrides.pop("request", {})
-            updated_inputs = update_request(requests, request_overrides)
-            ret[src_name] = {
-                "request": updated_inputs
-                if len(updated_inputs) > 1
-                else updated_inputs[0],
-                **src_overrides,
-            }
-        return ret
+        return sorted_requests
 
     def _merge_parameters(self, other: Self = None) -> list[ThermoParamConfig]:
         merged_params = [self.parameters[0]]

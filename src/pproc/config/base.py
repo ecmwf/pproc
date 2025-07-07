@@ -258,12 +258,9 @@ class BaseConfig(ConfigModel):
         nested: bool = False,
         **overrides,
     ):
-        sort_inputs = cls._populate_inputs(
-            input_config, [], **overrides.get("inputs", {})
-        )
         if src_name is not None:
-            reqs = sort_inputs[src_name]["request"]
-            input_config = [reqs] if isinstance(reqs, dict) else reqs
+            sorted_inputs = cls.sort_inputs(input_config)
+            input_config = sorted_inputs[src_name]
         accums = cls._populate_accumulations(
             input_config, config.pop("accumulations", {})
         )
@@ -327,23 +324,30 @@ class BaseConfig(ConfigModel):
                 }
         return accums
 
+    def sort_inputs(cls, inputs: list[dict]):
+        return {"fc": inputs}
+
     @classmethod
     def _populate_inputs(
         cls, inputs: list[dict], accum_dims: list[str], **overrides
     ) -> dict:
-        [req.pop(dim, None) for req in inputs for dim in accum_dims]
-        src_name = "fc"
-        src_overrides = overrides.get(src_name, {})
-        request_overrides = src_overrides.pop("request", {})
-        updated_inputs = update_request(inputs, request_overrides)
-        return {
-            src_name: {
+        sorted_requests = cls.sort_inputs(inputs)
+
+        ret = {}
+        for src_name, requests in sorted_requests.items():
+            [req.pop(dim, None) for req in inputs for dim in accum_dims]
+            src_overrides = overrides.get(src_name, {}).copy()
+            request_overrides = src_overrides.pop("request", {})
+            updated_inputs = [
+                extract_mars(x) for x in update_request(requests, request_overrides)
+            ]
+            ret[src_name] = {
                 "request": updated_inputs
                 if len(updated_inputs) > 1
                 else updated_inputs[0],
                 **src_overrides,
             }
-        }
+        return ret
 
     def _merge_parameters(self, other: Self) -> list[ParamConfig]:
         current_params = {
