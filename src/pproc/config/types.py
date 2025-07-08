@@ -351,7 +351,9 @@ class SigniConfig(BaseConfig):
     @classmethod
     def from_schema(cls, schema_config: dict, **overrides) -> Self:
         use_clim_anomaly = schema_config.pop("use_clim_anomaly", False)
-        return super().from_schema(schema_config, use_clim_anomaly=use_clim_anomaly)
+        return super().from_schema(
+            schema_config, **overrides, use_clim_anomaly=use_clim_anomaly
+        )
 
     @model_validator(mode="after")
     def validate_totalfields(self) -> Self:
@@ -460,6 +462,7 @@ class AnomalyConfig(BaseConfig):
             number = [0] + number
         req["number"] = number
         return req
+
 
 def anom_discriminator(config: Any) -> str:
     clim = _get(config, "clim", None)
