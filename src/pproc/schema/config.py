@@ -13,8 +13,13 @@ from pproc.schema.base import BaseSchema
 from pproc.schema.filters import _steplength, _selection, _steptype
 from pproc.common.grib_helpers import fill_template_values
 
+
 class ConfigSchema(BaseSchema):
-    custom_filter = {"steplength": _steplength, "selection": _selection, "steptype": _steptype}
+    custom_filter = {
+        "steplength": _steplength,
+        "selection": _selection,
+        "steptype": _steptype,
+    }
 
     def config(self, output_request: dict) -> dict:
         config = self.traverse(output_request)
@@ -33,5 +38,7 @@ class ConfigSchema(BaseSchema):
         if output_request["type"] == "sot":
             config["sot"] = output_request["number"]
 
-        config["metadata"] = fill_template_values(config.get("metadata", {}), output_request)
+        config["metadata"] = fill_template_values(
+            config.get("metadata", {}), output_request
+        )
         return config

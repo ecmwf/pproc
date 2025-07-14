@@ -8,6 +8,7 @@
 # nor does it submit to any jurisdiction.
 
 from typing import Dict
+import re
 
 
 def construct_message(template_grib, window_grib_headers: Dict):
@@ -47,12 +48,27 @@ def construct_message(template_grib, window_grib_headers: Dict):
     return out_grib
 
 
+_TEMPLATE_RE = re.compile("^{([a-zA-Z]*)}:?([a-z]*)$", re.I)
+_TYPES = {
+    "int": int,
+    "str": str,
+    "float": float,
+}
+
+
 def fill_template_values(metadata: dict, template_map: dict) -> dict:
-    metadata.update(
-        {
-            key: val.format_map(template_map)
-            for key, val in metadata.items()
-            if isinstance(val, str) and val.lstrip("{").rstrip("}") in template_map
-        }
-    )
+    updates = {}
+    for key, val in metadata.items():
+        if isinstance(val, str):
+            m = _TEMPLATE_RE.fullmatch(val)
+            if m is None:
+                continue
+            value, tp = m.groups()
+            if value not in template_map:
+                continue
+
+            updates[key] = (
+                template_map[value] if len(tp) == 0 else _TYPES[tp](template_map[value])
+            )
+    metadata.update(updates)
     return metadata

@@ -149,6 +149,7 @@ class ClimDateDeriver(BaseModel):
             return datetime.datetime.strftime(clim_date, "%Y%m%d")
         return [datetime.datetime.strftime(x, "%Y%m%d") for x in clim_date]
 
+
 class HindcastDatesDeriver(BaseModel):
     rstart: int
     rend: int
@@ -160,4 +161,9 @@ class HindcastDatesDeriver(BaseModel):
         kwargs = self.model_dump()
         start = RelativeYear(self.rstart).relative_to(date)
         end = RelativeYear(self.rend).relative_to(date)
-        return [datetime.datetime.strftime(x, "%Y%m%d") for x in date_range(date, start, end, self.recurrence, self.include_endpoint)]
+        return [
+            datetime.datetime.strftime(x, "%Y%m%d")
+            for x in date_range(
+                date, start, end, self.recurrence, self.include_endpoint
+            )
+        ]
