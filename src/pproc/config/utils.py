@@ -133,7 +133,8 @@ def squeeze(reqs: list[dict], dims: list[str]) -> Iterator[dict]:
         yield req
 
 
-def extract_mars(keys: dict) -> dict:
+def extract_mars(keys: dict, additional: Optional[dict] = None) -> dict:
+    additional = additional or {}
     for key, metadata_key in METADATA_KEYS.items():
         if metadata_key in keys:
             keys[key] = keys.pop(metadata_key)
@@ -161,4 +162,4 @@ def extract_mars(keys: dict) -> dict:
         "origin",
         "system",
     ]
-    return {k: v for k, v in keys.items() if k in mars_namespace}
+    return {k: v for k, v in keys.items() if (k in mars_namespace) or (k in additional)}
