@@ -324,7 +324,8 @@ class BaseConfig(ConfigModel):
                 }
         return accums
 
-    def sort_inputs(cls, inputs: list[dict]):
+    @classmethod
+    def sort_inputs(cls, inputs: list[dict]) -> dict:
         return {"fc": inputs}
 
     @classmethod
