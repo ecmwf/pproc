@@ -48,7 +48,7 @@ def construct_message(template_grib, window_grib_headers: Dict):
     return out_grib
 
 
-_TEMPLATE_RE = re.compile("^{([a-zA-Z]*)}:?([a-z]*)$", re.I)
+_TEMPLATE_RE = re.compile("^{([a-z_]*)}:?([a-z]*)$", re.I)
 _TYPES = {
     "int": int,
     "str": str,
