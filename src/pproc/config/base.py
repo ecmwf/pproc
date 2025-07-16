@@ -340,7 +340,8 @@ class BaseConfig(ConfigModel):
             src_overrides = overrides.get(src_name, {}).copy()
             request_overrides = src_overrides.pop("request", {})
             updated_inputs = [
-                extract_mars(x, additional="interpolate") for x in update_request(requests, request_overrides)
+                extract_mars(x, additional="interpolate")
+                for x in update_request(requests, request_overrides)
             ]
             ret[src_name] = {
                 "request": updated_inputs
