@@ -20,9 +20,7 @@ class ConfigSchema(BaseSchema):
         "selection": _selection,
         "steptype": _steptype,
     }
-    custom_update = {
-        "interp_keys": dict_update
-    }
+    custom_update = {"interp_keys": dict_update}
 
     def config(self, output_request: dict) -> dict:
         config = self.traverse(output_request)

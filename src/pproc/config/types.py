@@ -151,22 +151,7 @@ class AccumConfig(BaseConfig):
         if req["type"] not in ["fcmean", "fcmax", "fcstdev", "fcmin"]:
             return req
 
-        src_name = self.inputs.names[0]
-        inputs = param.input_list(self.inputs, src_name)
-        src_reqs = inputs[0].request
-        if isinstance(src_reqs, dict):
-            src_reqs = [src_reqs]
-
-        number = None
-        num_members = super().compute_totalfields(src_name)
-        for src_req in src_reqs:
-            if len(src_req) == 0:
-                continue
-            number = src_req.get("number", number)
-
-        if len(number) == num_members - 1:
-            number = [0] + number
-        req["number"] = number
+        self._append_number(req)
         return req
 
     def _merge_parameters(self, other: Self = None) -> list[AccumParamConfig]:
@@ -445,22 +430,7 @@ class AnomalyConfig(BaseConfig):
             req.pop("number", None)
             return req
 
-        src_name = self.inputs.names[0]
-        inputs = param.input_list(self.inputs, src_name)
-        src_reqs = inputs[0].request
-        if isinstance(src_reqs, dict):
-            src_reqs = [src_reqs]
-
-        number = None
-        num_members = super().compute_totalfields(src_name)
-        for src_req in src_reqs:
-            if len(src_req) == 0:
-                continue
-            number = src_req.get("number", number)
-
-        if len(number) == num_members - 1:
-            number = [0] + number
-        req["number"] = number
+        self._append_number(param, req)
         return req
 
 
@@ -876,7 +846,7 @@ class ECPointParamConfig(ParamConfig):
     cdir: ParamConfig
     cape: ParamConfig
     _deps: ClassVar[list[str]] = ["wind", "cp", "cdir", "cape"]
-    _merge_exclude =  ("accumulations", "wind", "cp", "cdir", "cape")
+    _merge_exclude = ("accumulations", "wind", "cp", "cdir", "cape")
 
     @model_validator(mode="before")
     @classmethod
@@ -892,6 +862,14 @@ class ECPointParamConfig(ParamConfig):
     @property
     def dependencies(self) -> list[ParamConfig]:
         return [getattr(self, dep) for dep in self._deps]
+
+    def in_keys(
+        self, inputs: io.InputsCollection, filters: Optional[list[str]] = None
+    ) -> Iterator[dict]:
+        yield from super().in_keys(inputs, filters)
+
+        for param in self.dependencies:
+            yield from param.in_keys(inputs, filters)
 
 
 class ECPointParallelisation(BaseModel):
@@ -930,6 +908,17 @@ class ECPointConfig(QuantilesConfig):
                 nested=False,
                 **overrides.pop(nparam, {}),
             )
-        param_config = super()._populate_param(config, [inputs_config[0], inputs_config[5]], **overrides)
+        param_config = super()._populate_param(
+            config, [inputs_config[0], inputs_config[5]], **overrides
+        )
         param_config.update(nested_params)
         return param_config
+
+    def _format_out(self, param: ParamConfig, req) -> dict:
+        req = super()._format_out(param, req)
+        if req["type"] == "pfc":
+            return req
+
+        req.pop("quantile")
+        self._append_number(param, req)
+        return req

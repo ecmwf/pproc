@@ -214,6 +214,24 @@ class BaseConfig(ConfigModel):
         out.pop("number", None)
         return out
 
+    def _append_number(self, param: ParamConfig, req: dict):
+        src_name = self.inputs.names[0]
+        inputs = param.input_list(self.inputs, src_name)
+        src_reqs = inputs[0].request
+        if isinstance(src_reqs, dict):
+            src_reqs = [src_reqs]
+
+        number = None
+        num_members = self.compute_totalfields(src_name)
+        for src_req in src_reqs:
+            if len(src_req) == 0:
+                continue
+            number = src_req.get("number", number)
+
+        if len(number) == num_members - 1:
+            number = [0] + number
+        req["number"] = number
+
     def in_mars(self, sources: Optional[list[str]] = None) -> Iterator:
         seen = set()
         for param in self.parameters:

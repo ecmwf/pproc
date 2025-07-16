@@ -70,7 +70,9 @@ def deep_update(original: dict, update: dict) -> dict:
     return original
 
 
-def update_request(base: dict | list[dict], update: dict | list[dict], method: str = "map", **kwargs):
+def update_request(
+    base: dict | list[dict], update: dict | list[dict], method: str = "map", **kwargs
+):
     if isinstance(base, dict):
         base = [base]
     if isinstance(update, dict):
@@ -88,10 +90,14 @@ def update_request(base: dict | list[dict], update: dict | list[dict], method: s
             combinations = itertools.product(base, update)
     elif method == "product":
         combinations = itertools.product(base, update)
-    else:   
-        raise ValueError(f"Unknown method for combining requests: {method}. Supported methods are 'map' and 'product'")
-    return [deep_update(copy.deepcopy(breq), {**ureq, **kwargs}) for breq, ureq in combinations]
-    
+    else:
+        raise ValueError(
+            f"Unknown method for combining requests: {method}. Supported methods are 'map' and 'product'"
+        )
+    return [
+        deep_update(copy.deepcopy(breq), {**ureq, **kwargs})
+        for breq, ureq in combinations
+    ]
 
 
 def expand(

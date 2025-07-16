@@ -174,8 +174,8 @@ def _to_date_range(coords: Any) -> Any:
 
 
 class BaseAccumulation(BaseModel):
-    model_config = ConfigDict(extra="allow") 
-    
+    model_config = ConfigDict(extra="allow")
+
     operation: Optional[str] = None
     metadata: dict = {}
     sequential: bool = False

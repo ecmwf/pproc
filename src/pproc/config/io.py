@@ -269,4 +269,11 @@ WindOutputModel = create_output_model(
 )
 ThermoInputModel = create_input_model("Thermo", ["inst"], optional=["accum"])
 ThermoOutputModel = create_output_model("Thermo", ["indices", "accum", "intermediate"])
-ECPointOutputModel = create_output_model("ECPoint", ["bs", "wt", "perc"])
+ECPointOutputModel = create_output_model(
+    "ECPoint",
+    {
+        "bs": {"edition": 2, "type": "gbf"},
+        "wt": {"edition": 2, "type": "gwt"},
+        "perc": {"edition": 2, "type": "pfc"},
+    },
+)
