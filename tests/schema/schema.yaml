@@ -158,16 +158,16 @@ config:
             versionOfModelClimate: 0
             efiOrder: 0
             numberOfReforecastYearsInModelClimate: 20
-            accumulations:
-              date:
-                operation: "aggregation"
-            filter:steplength:
-              "*":
-                metadata:
-                  numberOfDaysInClimateSamplingWindow: 31
-              "168":
-                metadata:
-                  numberOfDaysInClimateSamplingWindow: 7
+          accumulations:
+            date:
+              operation: "aggregation"
+          filter:steplength:
+            "*":
+              metadata:
+                numberOfDaysInClimateSamplingWindow: 31
+            "168":
+              metadata:
+                numberOfDaysInClimateSamplingWindow: 7
     efi/sot/efic:
       entrypoint: pproc-extreme
       dtype: float64
