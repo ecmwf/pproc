@@ -21,6 +21,10 @@ UpdateFunc = Callable[[dict, dict], dict]
 FilterFunc = Callable[[dict, str], Any]
 MatchFunc = Callable[[dict, Any, Any], bool]
 
+def dict_update(base: dict, update: dict) -> dict:
+    base.update(update)
+    return base
+
 DEFAULT_UPDATE: UpdateFunc = deep_update
 DEFAULT_FILTER: FilterFunc = dict.__getitem__
 DEFAULT_MATCH: MatchFunc = lambda _, value, expected: value == expected

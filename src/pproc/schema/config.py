@@ -9,7 +9,7 @@
 
 import numpy as np
 
-from pproc.schema.base import BaseSchema
+from pproc.schema.base import BaseSchema, dict_update
 from pproc.schema.filters import _steplength, _selection, _steptype
 from pproc.common.grib_helpers import fill_template_values
 
@@ -19,6 +19,9 @@ class ConfigSchema(BaseSchema):
         "steplength": _steplength,
         "selection": _selection,
         "steptype": _steptype,
+    }
+    custom_update = {
+        "interp_keys": dict_update
     }
 
     def config(self, output_request: dict) -> dict:

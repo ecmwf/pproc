@@ -242,7 +242,8 @@ def _update_config(config: dict, update: dict[str, dict]) -> dict:
         fc_config = config[fc_type].model_dump(exclude_none=True, by_alias=True)
         current_inputs = fc_config.pop("inputs")
         update_inputs = fc_update.pop("inputs", [])
-        inputs = update_request(current_inputs, update_inputs)
+        method = fc_update.get("update_request_method", "map")
+        inputs = update_request(current_inputs, update_inputs, method=method)
         config[fc_type] = type(config[fc_type])(
             **deep_update(fc_config, fc_update), inputs=inputs
         )

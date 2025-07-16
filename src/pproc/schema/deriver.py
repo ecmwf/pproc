@@ -38,7 +38,9 @@ class DefaultStepDeriver(BaseModel):
         if self.precomputed:
             in_steps = [f"{start}-{end}"]
         elif self.deaccumulation:
-            in_steps = [start, end]
+            self.by = self.by or 0
+            end = max(end, self.by)
+            in_steps = [min(end - self.by, start), end]
         else:
             if self.by:
                 fc_steps = [

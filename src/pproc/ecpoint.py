@@ -28,7 +28,7 @@ from earthkit.data.readers.grib.codes import GribCodesHandle
 
 from pproc.config.param import ParamConfig
 from pproc.config.types import ECPointConfig, ECPointParamConfig
-from pproc.config.io import SourceCollection
+from pproc.config.io import InputsCollection
 from pproc.common.param_requester import ParamRequester, IndexFunc
 from pproc.common.steps import AnyStep
 from pproc.common.recovery import create_recovery, Recovery
@@ -48,13 +48,13 @@ class FilteredParamRequester(ParamRequester):
     def __init__(
         self,
         param: ECPointParamConfig,
-        sources: SourceCollection,
+        inputs: InputsCollection,
         steps: list[int],
         total: Optional[int] = None,
         src_name: Optional[str] = None,
         index_func: Optional[IndexFunc] = None,
     ):
-        super().__init__(param, sources, total, src_name, index_func)
+        super().__init__(param, inputs, total, src_name, index_func)
         self.steps = steps
 
     def retrieve_data(
@@ -264,7 +264,7 @@ def to_ekmetadata(metadata: list[GribMetadata]) -> list[StandAloneGribMetadata]:
 def retrieve_sr24(
     config: ECPointConfig, param: ParamConfig, step: int
 ) -> earthkit.data.FieldList:
-    requester = ParamRequester(param, config.sources, config.total_fields, "fc")
+    requester = ParamRequester(param, config.inputs, config.total_fields, "fc")
     end_step = max(step, 24)
     _, start_data = requester.retrieve_data(end_step - 24)
     metadata, end_data = requester.retrieve_data(end_step)
@@ -392,7 +392,7 @@ def main():
         requesters = [
             FilteredParamRequester(
                 param,
-                cfg.sources,
+                cfg.inputs,
                 steps=managers[-1].dims["step"],
                 total=cfg.total_fields,
             )
@@ -415,7 +415,7 @@ def main():
             requesters.append(
                 FilteredParamRequester(
                     input_param,
-                    cfg.sources,
+                    cfg.inputs,
                     steps=managers[-1].dims["step"],
                     total=cfg.total_fields,
                 )

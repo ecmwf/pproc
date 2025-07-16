@@ -283,8 +283,7 @@ class BaseConfig(ConfigModel):
         # Most entrypoints don't handle array with level dimension, so put this into accumulations to
         # separate different levels
         accums = {}
-        if levelist := req.get("levelist", None):
-            levelist = [levelist] if np.ndim(levelist) == 0 else levelist
+        if levelist := req.get("levelist", None) and np.ndim(req["levelist"]) > 0:
             accums["levelist"] = {"coords": [[level] for level in levelist]}
         accums.update(base_accum)
 

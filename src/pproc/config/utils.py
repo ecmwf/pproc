@@ -11,6 +11,7 @@ from typing import Any, Optional, Iterator
 import copy
 import numpy as np
 import pandas as pd
+import itertools
 
 from pproc.common.utils import dict_product
 
@@ -69,7 +70,7 @@ def deep_update(original: dict, update: dict) -> dict:
     return original
 
 
-def update_request(base: dict | list[dict], update: dict | list[dict], **kwargs):
+def update_request(base: dict | list[dict], update: dict | list[dict], method: str = "map", **kwargs):
     if isinstance(base, dict):
         base = [base]
     if isinstance(update, dict):
@@ -77,15 +78,20 @@ def update_request(base: dict | list[dict], update: dict | list[dict], **kwargs)
 
     if len(update) == 0:
         return copy.deepcopy(base)
-    if len(base) != len(update):
-        broadcast_len = max(len(base), len(update))
-        if len(base) == 0:
-            return [copy.deepcopy(up) for up in update]
-        if len(base) == 1:
-            base = [copy.deepcopy(base[0]) for _ in range(broadcast_len)]
-        if len(update) == 1:
-            update = update * broadcast_len
-    return [deep_update(breq, {**ureq, **kwargs}) for breq, ureq in zip(base, update)]
+    if len(base) == 0:
+        return copy.deepcopy(update)
+    if method == "map":
+        if len(base) == len(update):
+            combinations = zip(base, update)
+        else:
+            assert len(base) == 1 or len(update) == 1
+            combinations = itertools.product(base, update)
+    elif method == "product":
+        combinations = itertools.product(base, update)
+    else:   
+        raise ValueError(f"Unknown method for combining requests: {method}. Supported methods are 'map' and 'product'")
+    return [deep_update(copy.deepcopy(breq), {**ureq, **kwargs}) for breq, ureq in combinations]
+    
 
 
 def expand(

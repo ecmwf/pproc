@@ -876,6 +876,7 @@ class ECPointParamConfig(ParamConfig):
     cdir: ParamConfig
     cape: ParamConfig
     _deps: ClassVar[list[str]] = ["wind", "cp", "cdir", "cape"]
+    _merge_exclude =  ("accumulations", "wind", "cp", "cdir", "cape")
 
     @model_validator(mode="before")
     @classmethod
@@ -885,7 +886,7 @@ class ECPointParamConfig(ParamConfig):
 
         for param in cls._deps:
             param_config = data[param]
-            param_config.setdefault("name", param)
+            _set(param_config, "name", param)
         return data
 
     @property
@@ -910,3 +911,25 @@ class ECPointConfig(QuantilesConfig):
         str, CLIArg("--fer-loc"), Field(description="Location of FER CSV file")
     ]
     min_predictand: float = 0.04
+
+    @classmethod
+    def _populate_param(
+        cls,
+        config: dict,
+        inputs_config,
+        src_name: Optional[str] = None,
+        nested: bool = False,
+        **overrides,
+    ) -> dict:
+        nested_params = {}
+        for index, nparam in enumerate(ECPointParamConfig._deps):
+            nested_params[nparam] = super()._populate_param(
+                config.pop(nparam, {}),
+                [inputs_config[index + 1], inputs_config[index + 6]],
+                src_name="fc",
+                nested=False,
+                **overrides.pop(nparam, {}),
+            )
+        param_config = super()._populate_param(config, [inputs_config[0], inputs_config[5]], **overrides)
+        param_config.update(nested_params)
+        return param_config

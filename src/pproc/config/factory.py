@@ -35,6 +35,7 @@ class ConfigFactory:
         "pproc-anomaly": types.AnomalyConfig,
         "pproc-histogram": types.HistogramConfig,
         "pproc-significance": types.SigniConfig,
+        "pproc-ecpoint": types.ECPointConfig,
     }
 
     @classmethod

@@ -50,8 +50,10 @@ class ParamConfig(BaseModel):
             req = src_config.get("request", {})
             if isinstance(req, list):
                 req = req[0]
-            self.vod2uv = req.get("interpolate", {}).get("vod2uv", False)
-            break
+            req_vod2uv = req.get("interpolate", {}).get("vod2uv", False)
+            if req_vod2uv or self.vod2uv:
+                self.vod2uv = True
+                req.setdefault("interpolate", {})["vod2uv"] = True
         if self.vod2uv:
             self.total_fields = 2
         return self
