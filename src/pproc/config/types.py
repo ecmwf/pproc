@@ -496,7 +496,7 @@ class ProbConfig(BaseConfig):
         return super().from_schema(schema_config, **overrides)
 
     @classmethod
-    def sort_requests(cls, inputs: list[dict]) -> dict:
+    def sort_inputs(cls, inputs: list[dict]) -> dict:
         sorted_requests = {}
         fc_step: list[int]
         clim_step: Optional[list[int]] = None
