@@ -860,6 +860,13 @@ class ThermoConfig(BaseConfig):
                 "Can only merge configs with inputs differing by accum input type"
             )
         return new_inputs
+    
+    def _format_out(self, param: ParamConfig, req) -> dict:
+        req = super()._format_out(param, req)
+        if req["type"] in ["cf", "fc"]:
+            return req
+        self._append_number(param, req)
+        return req
 
 
 class ECPointParamConfig(ParamConfig):

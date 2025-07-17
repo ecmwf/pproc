@@ -320,19 +320,17 @@ class InputSchema(BaseSchema):
         initial = {
             "forecast": ForecastConfig.model_construct(
                 inputs=[
-                    {
-                        "request": self._format_output_request(output_request),
-                        "derive_step": DefaultStepDeriver(),
-                    }
+                    ForecastInput.model_construct(
+                        request=self._format_output_request(output_request),
+                        derive_step=DefaultStepDeriver(),
+                    )
                 ],
             ),
             "climatology": ClimatologyConfig.model_construct(
                 inputs=[
-                    {
-                        "request": self._format_output_request(
-                            output_request, pop=["date"]
-                        )
-                    }
+                    ClimatologyInput.model_construct(
+                        request=self._format_output_request(output_request, pop=["date"])
+                    )
                 ],
             ),
         }
@@ -358,9 +356,11 @@ class InputSchema(BaseSchema):
             [
                 {
                     "recon_req": output_template or {},
-                    "forecast": ForecastConfig.model_construct(inputs=[{"request": base_request}]),
+                    "forecast": ForecastConfig.model_construct(
+                        inputs=[ForecastInput.model_construct(request=base_request)]
+                    ),
                     "climatology": ClimatologyConfig.model_construct(
-                        inputs=[{"request": base_request}]
+                        inputs=[ClimatologyInput.model_construct(request=base_request)]
                     ),
                 }
             ],
