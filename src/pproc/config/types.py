@@ -524,7 +524,7 @@ class ProbConfig(BaseConfig):
                 fc_step = steps
             sorted_requests.setdefault(src_name, []).append(inp.copy())
 
-        if clim_step is not None and clim_step != fc_step:
+        if clim_step is not None:
             assert len(fc_step) == len(
                 clim_step
             ), f"Forecast and clim steps must be of the same length"
