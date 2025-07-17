@@ -287,7 +287,7 @@ class BaseConfig(ConfigModel):
             **config,
         }
         updated_inputs = cls._populate_inputs(
-            input_config, accums.keys(), **overrides.pop("inputs", {})
+            input_config, list(accums.keys()), **overrides.pop("inputs", {})
         )
         if not nested:
             param_config["inputs"] = updated_inputs
@@ -301,7 +301,7 @@ class BaseConfig(ConfigModel):
         # Most entrypoints don't handle array with level dimension, so put this into accumulations to
         # separate different levels
         accums = {}
-        if levelist := req.get("levelist", None) and np.ndim(req["levelist"]) > 0:
+        if (levelist := req.get("levelist", None)) and np.ndim(req["levelist"]) > 0:
             accums["levelist"] = {"coords": [[level] for level in levelist]}
         accums.update(base_accum)
 
@@ -346,6 +346,17 @@ class BaseConfig(ConfigModel):
         return {"fc": inputs}
 
     @classmethod
+    def _input_request(
+        cls, src_name: str, requests: list[dict], accum_dims: list[str], **overrides
+    ) -> dict | list[dict]:
+        [req.pop(dim, None) for req in requests for dim in accum_dims]
+        updated_inputs = [
+            extract_mars(x, additional=["interpolate"])
+            for x in update_request(requests, overrides)
+        ]
+        return updated_inputs if len(updated_inputs) > 1 else updated_inputs[0]
+
+    @classmethod
     def _populate_inputs(
         cls, inputs: list[dict], accum_dims: list[str], **overrides
     ) -> dict:
@@ -353,17 +364,11 @@ class BaseConfig(ConfigModel):
 
         ret = {}
         for src_name, requests in sorted_requests.items():
-            [req.pop(dim, None) for req in inputs for dim in accum_dims]
             src_overrides = overrides.get(src_name, {}).copy()
-            request_overrides = src_overrides.pop("request", {})
-            updated_inputs = [
-                extract_mars(x, additional="interpolate")
-                for x in update_request(requests, request_overrides)
-            ]
             ret[src_name] = {
-                "request": updated_inputs
-                if len(updated_inputs) > 1
-                else updated_inputs[0],
+                "request": cls._input_request(
+                    src_name, requests, accum_dims, **src_overrides.pop("request", {})
+                ),
                 **src_overrides,
             }
         return ret

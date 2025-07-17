@@ -151,7 +151,7 @@ class AccumConfig(BaseConfig):
         if req["type"] not in ["fcmean", "fcmax", "fcstdev", "fcmin"]:
             return req
 
-        self._append_number(req)
+        self._append_number(param, req)
         return req
 
     def _merge_parameters(self, other: Self = None) -> list[AccumParamConfig]:
@@ -284,13 +284,12 @@ class ClimParamConfig(ParamConfig):
                     raise ValueError(
                         "Merging of two parameter configs requires clim steps to be compatible"
                     )
-                [
-                    update_request(
+                for input in [new_inputs, other_inputs]:
+                    input["clim"]["request"] = update_request(
                         input["clim"].get("request", {}),
                         {"step": {**steps[0], **steps[1]}},
                     )
-                    for input in [new_inputs, other_inputs]
-                ]
+
         if new_inputs != other_inputs:
             raise ValueError(
                 "Merging of inputs requires equality, except for clim steps"
@@ -496,6 +495,15 @@ class ProbConfig(BaseConfig):
         return super().from_schema(schema_config, **overrides)
 
     @classmethod
+    def _input_request(
+        cls, src_name: str, requests: list[dict], accum_dims: list[str], **overrides
+    ) -> dict | list[dict]:
+        if src_name == "clim":
+            accum_dims = accum_dims.copy()
+            accum_dims.remove("step")
+        return super()._input_request(src_name, requests, accum_dims, **overrides)
+
+    @classmethod
     def sort_inputs(cls, inputs: list[dict]) -> dict:
         sorted_requests = {}
         fc_step: list[int]
@@ -608,6 +616,15 @@ class ExtremeConfig(BaseConfig):
         if req["type"] == "sot":
             req["number"] = param.sot
         return req
+
+    @classmethod
+    def _input_request(
+        cls, src_name: str, requests: list[dict], accum_dims: list[str], **overrides
+    ) -> dict | list[dict]:
+        if src_name == "clim":
+            accum_dims = accum_dims.copy()
+            accum_dims.remove("step")
+        return super()._input_request(src_name, requests, accum_dims, **overrides)
 
     @classmethod
     def sort_inputs(cls, inputs: list[dict]) -> dict:

@@ -145,8 +145,8 @@ def squeeze(reqs: list[dict], dims: list[str]) -> Iterator[dict]:
         yield req
 
 
-def extract_mars(keys: dict, additional: Optional[dict] = None) -> dict:
-    additional = additional or {}
+def extract_mars(keys: dict, additional: list[str] = None) -> dict:
+    additional = additional or []
     for key, metadata_key in METADATA_KEYS.items():
         if metadata_key in keys:
             keys[key] = keys.pop(metadata_key)
