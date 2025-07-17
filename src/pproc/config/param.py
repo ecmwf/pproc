@@ -47,13 +47,14 @@ class ParamConfig(BaseModel):
     @model_validator(mode="after")
     def set_vod2uv(self) -> Self:
         for src_config in self.inputs.values():
-            req = src_config.get("request", {})
-            if isinstance(req, list):
-                req = req[0]
-            req_vod2uv = req.get("interpolate", {}).get("vod2uv", False)
-            if req_vod2uv or self.vod2uv:
-                self.vod2uv = True
-                req.setdefault("interpolate", {})["vod2uv"] = True
+            reqs = src_config.get("request", {})
+            if not isinstance(reqs, list):
+                reqs = [reqs]
+            for req in reqs:
+                req_vod2uv = req.get("interpolate", {}).get("vod2uv", False)
+                if req_vod2uv or self.vod2uv:
+                    self.vod2uv = True
+                    req.setdefault("interpolate", {})["vod2uv"] = True
         if self.vod2uv:
             self.total_fields = 2
         return self
