@@ -318,7 +318,7 @@ class InputSchema(BaseSchema):
 
     def inputs(self, output_request: dict, step_schema: StepSchema) -> Iterator[dict]:
         initial = {
-            "forecast": ForecastConfig(
+            "forecast": ForecastConfig.model_construct(
                 inputs=[
                     {
                         "request": self._format_output_request(output_request),
@@ -326,7 +326,7 @@ class InputSchema(BaseSchema):
                     }
                 ],
             ),
-            "climatology": ClimatologyConfig(
+            "climatology": ClimatologyConfig.model_construct(
                 inputs=[
                     {
                         "request": self._format_output_request(
@@ -358,8 +358,8 @@ class InputSchema(BaseSchema):
             [
                 {
                     "recon_req": output_template or {},
-                    "forecast": ForecastConfig(inputs=[{"request": base_request}]),
-                    "climatology": ClimatologyConfig(
+                    "forecast": ForecastConfig.model_construct(inputs=[{"request": base_request}]),
+                    "climatology": ClimatologyConfig.model_construct(
                         inputs=[{"request": base_request}]
                     ),
                 }

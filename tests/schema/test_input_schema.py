@@ -55,6 +55,26 @@ INPUTS = {
             "time": "0000",
         },
     ],
+    "thermo_pf": [
+        {
+            "stream": "enfo",
+            "levtype": "sfc",
+            "param": ["169", "175", "176", "177", "228021", "47"],
+            "step": [2, 3],
+            "type": "pf",
+            "time": "0000",
+            "number": [1, 2, 3],
+        },
+        {
+            "stream": "enfo",
+            "levtype": "sfc",
+            "param": ["165", "166", "167", "168"],
+            "step": 3,
+            "type": "pf",
+            "time": "0000",
+            "number": [1, 2, 3],
+        },
+    ],
     "t850": [
         {
             "stream": "enfo",
@@ -170,6 +190,15 @@ INPUTS = {
         },
         {
             "stream": "enfo",
+            "type": "pf",
+            "param": "261001",
+            "step": 3,
+            "levtype": "sfc",
+            "time": "0000",
+            "number": [1, 2, 3],
+        },
+        {
+            "stream": "enfo",
             "type": "ep",
             "param": "131020",
             "step": "120-168",
@@ -206,7 +235,7 @@ INPUTS = {
             "time": "0000",
         },
     ],
-    ids=["ensms", "thermofeel", "t850", "efi", "monthly", "prob"],
+    ids=["ensms", "thermofeel", "thermo_pf", "t850", "efi", "monthly", "prob"],
 )
 def test_inputs(request, output):
     expected_inputs = INPUTS[request.node.callspec.id]

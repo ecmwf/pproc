@@ -374,7 +374,7 @@ def main():
     signal.signal(signal.SIGTERM, sigterm_handler)
 
     cfg = Conflator(app_name="pproc-ecpoint", model=ECPointConfig).load()
-    logger.info(yaml.dump(cfg.model_dump(by_alias=True)))
+    cfg.print()
     recover = create_recovery(cfg)
 
     for param in cfg.parameters:
