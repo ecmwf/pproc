@@ -285,9 +285,14 @@ class ClimParamConfig(ParamConfig):
                         "Merging of two parameter configs requires clim steps to be compatible"
                     )
                 for input in [new_inputs, other_inputs]:
-                    input["clim"]["request"] = update_request(
+                    updated_request = update_request(
                         input["clim"].get("request", {}),
                         {"step": {**steps[0], **steps[1]}},
+                    )
+                    input["clim"]["request"] = (
+                        updated_request
+                        if len(updated_request) > 1
+                        else updated_request[0]
                     )
 
         if new_inputs != other_inputs:
