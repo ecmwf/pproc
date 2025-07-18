@@ -12,6 +12,7 @@ from typing_extensions import Self
 from pydantic import BaseModel, model_validator, field_validator
 import copy
 import pandas as pd
+import numpy as np
 import logging
 
 from pproc.schema.base import BaseSchema
@@ -101,6 +102,31 @@ class ClimatologyInput(ForecastInput):
 class ForecastConfig(BaseModel):
     inputs: list[ForecastInput]
     scheme: Optional[str] = None
+
+    @model_validator(mode="after")
+    def simplify_requests(self) -> Self:
+        if len(self.inputs) == 1:
+            return self
+        base_input = self.inputs[0].model_dump(exclude="members")
+        number = set(base_input["request"].pop("number", []))
+        for input in self.inputs[1:]:
+            input_dict = input.model_dump(exclude="members")
+            input_number = input_dict["request"].pop("number", [])
+            if base_input != input_dict:
+                return self
+            number = number.union(input_number)
+        number = sorted(list(number))
+        diff = set(np.diff(number))
+        if len(diff) != 0 and diff != {1}:
+            return self
+        members = None
+        if len(number) != 0:
+            base_input["request"]["number"] = number
+            members = {"start": number[0], "end": number[-1]}
+        self.inputs = [
+            ForecastInput(**base_input, members=members)
+        ]
+        return self
 
     def steps(self) -> list[int]:
         out = set()
@@ -329,7 +355,9 @@ class InputSchema(BaseSchema):
             "climatology": ClimatologyConfig.model_construct(
                 inputs=[
                     ClimatologyInput.model_construct(
-                        request=self._format_output_request(output_request, pop=["date"])
+                        request=self._format_output_request(
+                            output_request, pop=["date"]
+                        )
                     )
                 ],
             ),

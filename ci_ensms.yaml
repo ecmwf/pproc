@@ -1,0 +1,104 @@
+log:
+  format: '%(asctime)s; %(name)s; %(levelname)s - %(message)s'
+  level: INFO
+outputs:
+  default:
+    metadata:
+      bitsPerValue: 12
+      dataDate: 20250713
+      efiOrder: 0
+      expver: '0001'
+      implementationDateOfModelCycle: 20241112
+      localDefinitionNumber: 19
+      numberOfDaysInClimateSamplingWindow: 31
+      numberOfReforecastYearsInModelClimate: 20
+      sampleSizeOfModelClimate: 1980
+      subCentre: 0
+      versionNumberOfExperimentalSuite: 79
+      versionOfModelClimate: 0
+    target:
+      type: fdb
+  mean:
+    metadata:
+      bitsPerValue: 12
+      dataDate: 20250713
+      efiOrder: 0
+      expver: '0001'
+      implementationDateOfModelCycle: 20241112
+      localDefinitionNumber: 19
+      numberOfDaysInClimateSamplingWindow: 31
+      numberOfReforecastYearsInModelClimate: 20
+      sampleSizeOfModelClimate: 1980
+      subCentre: 0
+      type: em
+      versionNumberOfExperimentalSuite: 79
+      versionOfModelClimate: 0
+    target:
+      type: fdb
+  overrides: {}
+  std:
+    metadata:
+      bitsPerValue: 12
+      dataDate: 20250713
+      efiOrder: 0
+      expver: '0001'
+      implementationDateOfModelCycle: 20241112
+      localDefinitionNumber: 19
+      numberOfDaysInClimateSamplingWindow: 31
+      numberOfReforecastYearsInModelClimate: 20
+      sampleSizeOfModelClimate: 1980
+      subCentre: 0
+      type: es
+      versionNumberOfExperimentalSuite: 79
+      versionOfModelClimate: 0
+    target:
+      type: fdb
+parallelisation:
+  n_par_compute: 1
+  n_par_read: 1
+  queue_size: 1
+parameters:
+- accumulations:
+    date:
+      coords:
+      - after: 4
+        before: 4
+        date: 2025-07-13
+        strict: false
+      metadata: {}
+      operation: aggregation
+      sequence: ecmwf-4days
+      sequential: false
+      type: dateseq
+    step:
+      coords:
+      - - 0-24
+      deaccumulate: false
+      metadata: {}
+      operation: null
+      sequential: false
+      type: default
+  dtype: float32
+  metadata:
+    paramId: 228
+    stream: efhs
+  name: tp
+  preprocessing:
+    actions: []
+  sources:
+    fc:
+      request:
+        param: '228.128'
+  total_fields: 1
+  vod2uv: false
+recovery:
+  enable_checkpointing: true
+  from_checkpoint: false
+  root_dir: null
+sources:
+  fc:
+    path: /ec/res4/scratch/mawj/pproc_flow/results/refc_ens/mclim/accum/{date}/accum_tp_{date}_0-24.grib
+    request: {}
+    type: fileset
+  overrides: {}
+total_fields: 220

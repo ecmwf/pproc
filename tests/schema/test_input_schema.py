@@ -10,7 +10,12 @@
 import pytest
 
 from pproc.config.utils import expand
-from pproc.schema.input import InputSchema
+from pproc.schema.input import (
+    format_request,
+    InputSchema,
+    ForecastConfig,
+    ForecastInput,
+)
 from pproc.schema.step import StepSchema
 
 from conftest import schema
@@ -167,6 +172,105 @@ INPUTS = {
         },
     ],
 }
+
+
+@pytest.mark.parametrize(
+    "req, expected",
+    [
+        [{"levelist": [250]}, {"levelist": 250}],
+        [{"number": [0]}, {"number": [0]}],
+        [{"number": ["0", "1"]}, {"number": [0, 1]}],
+    ],
+    ids=["squeeze", "number-is-list", "number-is-int"],
+)
+def test_format_request(req, expected):
+    assert format_request(req) == expected
+
+
+@pytest.mark.parametrize(
+    "inputs, expected_num_inputs",
+    [
+        [
+            [
+                ForecastInput(request={"type": "em"}),
+                ForecastInput(request={"type": "es"}),
+            ],
+            2,
+        ],
+        [
+            [
+                ForecastInput(request={"type": "cf"}),
+                ForecastInput(
+                    request={"type": "pf", "number": [0, 1]},
+                    members={"start": 0, "end": 1},
+                ),
+            ],
+            2,
+        ],
+        [
+            [
+                ForecastInput(
+                    request={"type": "fcmean", "number": [0, 1]},
+                    members={"start": 0, "end": 1},
+                ),
+                ForecastInput(
+                    request={"type": "pf", "number": [4, 5]},
+                    members={"start": 4, "end": 5},
+                ),
+            ],
+            2,
+        ],
+        [
+            [
+                ForecastInput(
+                    request={"type": "fcmean", "number": [0]},
+                    members={"start": 0, "end": 0},
+                ),
+                ForecastInput(
+                    request={"type": "fcmean", "number": [1, 2]},
+                    members={"start": 0, "end": 2},
+                ),
+            ],
+            1,
+        ],
+        [
+            [
+                ForecastInput(
+                    request={"type": "cf"},
+                ),
+                ForecastInput(
+                    request={"type": "cf"},
+                ),
+            ],
+            1,
+        ],
+        [
+            [
+                ForecastInput(
+                    request={"type": "pf", "number": [0, 1]},
+                    members={"start": 0, "end": 1},
+                ),
+                ForecastInput(
+                    request={"type": "pf", "number": [0, 1]},
+                    members={"start": 0, "end": 1},
+                ),
+            ],
+            1,
+        ],
+    ],
+    ids=[
+        "diff-type",
+        "diff-with-number",
+        "number-discontinous",
+        "merge",
+        "same-type",
+        "same-type-with-number",
+    ],
+)
+def test_forecast_config(inputs, expected_num_inputs):
+    config = ForecastConfig(inputs=inputs)
+    print("INPUTS", config.inputs)
+    assert len(config.inputs) == expected_num_inputs
 
 
 @pytest.mark.parametrize(
