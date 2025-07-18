@@ -18,7 +18,7 @@ def test_reconstruct():
     assert len(cfgs) != 0
     for out, cfg in cfgs:
         assert cfg["entrypoint"] == "pproc-ensms"
-        assert out["type"] in ["em", "es"]
+        assert out["type"] in ["em", "es", "taem", "taes"]
     assert len([x for x, _ in cfgs if x["type"] == "em"]) == len(
         [x for x, _ in cfgs if x["type"] == "es"]
     )

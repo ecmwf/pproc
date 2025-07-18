@@ -96,7 +96,10 @@ from conftest import schema
                         "operation": "mean",
                         "deaccumulate": True,
                         "include_start": True,
-                        "metadata": {"type": "fcmean"},
+                        "metadata": {
+                            "type": "fcmean",
+                            "numberIncludedInAverage": "{num_coords}:int",
+                        },
                     }
                 },
                 "vmin": 0.0,
@@ -134,7 +137,12 @@ from conftest import schema
                     },
                 ],
                 "metadata": {
+                    "bitsPerValue": 16,
+                    "legBaseDate": 0,
+                    "legNumber": 0,
                     "paramId": 172228,
+                    "timeRangeIndicator": 3,
+                    "stepType": "avg",
                 },
             },
         ],
@@ -195,7 +203,7 @@ from conftest import schema
                 ],
                 "metadata": {
                     "bitsPerValue": 16,
-                    "numberOfForecastsInEnsemble": "{num_fields}",
+                    "numberOfForecastsInEnsemble": "{num_fields}:int",
                     "perturbationNumber": 0,
                 },
             },
@@ -429,7 +437,7 @@ def test_schema_from_output(req, config):
                 "dtype": "float64",
                 "metadata": {
                     "bitsPerValue": 16,
-                    "numberOfForecastsInEnsemble": "{num_fields}",
+                    "numberOfForecastsInEnsemble": "{num_fields}:int",
                     "perturbationNumber": 0,
                 },
             },

@@ -158,7 +158,7 @@ TEST_CASES = {
                     "dtype": "float64",
                     "metadata": {
                         "bitsPerValue": 16,
-                        "numberOfForecastsInEnsemble": "{num_fields}",
+                        "numberOfForecastsInEnsemble": "{num_fields}:int",
                         "perturbationNumber": 0,
                     },
                     "accumulations": {

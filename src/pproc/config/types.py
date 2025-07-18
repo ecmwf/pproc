@@ -94,7 +94,7 @@ class AccumParamConfig(ParamConfig):
     vmax: Optional[float] = None
     out_accum_key: str = "perturbationNumber"
     out_accum_values: Optional[list[float]] = None
-    _merge_exclude = ("inputs", "accumulations")
+    _merge_exclude = ("name", "inputs", "accumulations")
 
     def _merge_inputs(self, other: Self) -> dict:
         if self.inputs == other.inputs:
@@ -111,6 +111,9 @@ class AccumParamConfig(ParamConfig):
                 x for x in other_requests if x not in requests
             ]
         return inputs
+    
+    def _merge_name(self, other: Self) -> str:
+        return self.name
 
     def can_merge(self, other: Self) -> bool:
         if self.accumulations == other.accumulations:

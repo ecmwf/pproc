@@ -79,14 +79,13 @@ class Schema:
         # Set metadata
         base_request = inputs[0]
         metadata = config.setdefault("metadata", {})
-        if base_request["param"] != valid_out["param"]:
-            if (
+        if (
                 not isinstance(base_request["param"], str)
                 and len(base_request["param"]) > 1
-            ):
-                config["name"] = f"{valid_out['param']}_{valid_out['levtype']}"
+        ):
+            config["name"] = f"{valid_out['param']}_{valid_out['levtype']}"
         config.setdefault("name", f"{base_request['param']}_{valid_out['levtype']}")
-        for key in ["param", "stream", "date"]:
+        for key in config.pop("metadata_from_output"):
             if base_request[key] != valid_out[key]:
                 metadata_key = METADATA_KEYS.get(key, key)
                 metadata[metadata_key] = VALUE_TYPES.get(metadata_key, str)(
