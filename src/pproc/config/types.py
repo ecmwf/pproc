@@ -215,6 +215,8 @@ class HistogramConfig(BaseConfig):
     @classmethod
     def from_schema(cls, schema_config: dict, **overrides) -> Self:
         quantiles = schema_config.pop("quantiles", None)
+        if not isinstance(quantiles, int):
+            quantiles = len(quantiles)
         assert quantiles == len(schema_config["bins"]) - 1
         return super().from_schema(schema_config, **overrides)
 

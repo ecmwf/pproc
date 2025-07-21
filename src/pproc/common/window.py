@@ -80,6 +80,11 @@ def translate_window_config(
 
     name = str(end) if start == end else f"{start}-{end}"
     include_init = start == end or include_start
+    if deaccumulate:
+        if not include_init:
+            raise ValueError("De-accumulation without `include_start` not allowed")
+        if len(coords) < 2:
+            raise ValueError("De-accumulation can not be performed on single coord")
 
     operation = None
     extra = {}

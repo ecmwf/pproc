@@ -9,7 +9,7 @@
 
 import pytest
 
-from pproc.config.utils import expand
+from pproc.config.utils import expand, update_request
 from pproc.schema.input import (
     format_request,
     InputSchema,
@@ -178,7 +178,7 @@ INPUTS = {
     "req, expected",
     [
         [{"levelist": [250]}, {"levelist": 250}],
-        [{"number": [0]}, {"number": [0]}],
+        [{"number": 0}, {"number": [0]}],
         [{"number": ["0", "1"]}, {"number": [0, 1]}],
     ],
     ids=["squeeze", "number-is-list", "number-is-int"],
@@ -269,7 +269,6 @@ def test_format_request(req, expected):
 )
 def test_forecast_config(inputs, expected_num_inputs):
     config = ForecastConfig(inputs=inputs)
-    print("INPUTS", config.inputs)
     assert len(config.inputs) == expected_num_inputs
 
 
@@ -472,3 +471,25 @@ def test_redundant_inputs(inputs, template, num_outputs):
         input_schema.outputs(expanded_inputs, step_schema, output_template=template)
     )
     assert len(generated) == num_outputs
+
+@pytest.mark.parametrize("number, updates", [
+    [0, {"type": "cf"}], 
+    [[0, 1], [{"type": "cf"}, {"type": "pf", "number": [1]}]], 
+    [1, {"type": "pf", "number": [1]}],
+], ids=["cf", "cf-and-pf", "pf"])
+def test_fcstat_inputs(number, updates):
+    input_schema = InputSchema(schema("inputs"))
+    step_schema = StepSchema(schema("windows"))
+    output = {
+        "stream": "eefo", 
+        "type": "fcmean",
+        "number": number, 
+        "param": "167", 
+        "step": "0-168", 
+        "time": "0000",
+    }
+    inputs = input_schema.inputs(output, step_schema)
+    base_input = output.copy()
+    base_input.pop("number")
+    expected = update_request({**base_input, "step": list(range(0, 169, 6))}, updates)
+    assert list(inputs) == expected

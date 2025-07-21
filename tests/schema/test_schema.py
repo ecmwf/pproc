@@ -16,7 +16,7 @@ from conftest import schema
 
 
 @pytest.mark.parametrize(
-    "req, config",
+    "req, config, num_generated",
     [
         [
             {
@@ -67,6 +67,7 @@ from conftest import schema
                     "stream": "msmm",
                 },
             },
+            1,
         ],
         [
             {
@@ -80,6 +81,7 @@ from conftest import schema
                 "time": "00",
                 "step": "0-168",
                 "type": "fcmean",
+                "number": [0, 1, 2, 3],
             },
             {
                 "entrypoint": "pproc-accumulate",
@@ -133,7 +135,7 @@ from conftest import schema
                         "time": "0000",
                         "type": "pf",
                         "step": list(range(0, 169, 24)),
-                        "number": list(range(1, 101)),
+                        "number": list(range(1, 4)),
                     },
                 ],
                 "metadata": {
@@ -145,6 +147,7 @@ from conftest import schema
                     "stepType": "avg",
                 },
             },
+            2,
         ],
         [
             {
@@ -207,18 +210,19 @@ from conftest import schema
                     "perturbationNumber": 0,
                 },
             },
+            1,
         ],
     ],
     ids=["2t", "tp", "T"],
 )
-def test_schema_from_output(req, config):
+def test_schema_from_output(req, config, num_generated):
     test_schema = Schema(**schema())
     assert config == test_schema.config_from_output(req)
 
     generated = test_schema.config_from_input(
         config["inputs"], {k: req[k] for k in ["stream", "type", "param"]}
     )
-    assert len(list(generated)) == 1
+    assert len(list(generated)) == num_generated
 
 
 @pytest.mark.parametrize(
@@ -253,7 +257,7 @@ def test_schema_from_output(req, config):
                     "type": "cf",
                 },
             ],
-            4,
+            8,
             {
                 "entrypoint": "pproc-accumulate",
                 "name": "167_sfc",
@@ -269,20 +273,7 @@ def test_schema_from_output(req, config):
                         "time": "0000",
                         "type": "cf",
                         "step": list(range(0, 169, 6)),
-                    },
-                    {
-                        "class": "od",
-                        "stream": "enfo",
-                        "expver": "0001",
-                        "levtype": "sfc",
-                        "domain": "g",
-                        "param": "167",
-                        "date": "20241001",
-                        "time": "0000",
-                        "type": "pf",
-                        "step": list(range(0, 169, 6)),
-                        "number": list(range(1, 11)),
-                    },
+                    }
                 ],
                 "accumulations": {
                     "step": {
@@ -448,8 +439,5 @@ def test_schema_from_output(req, config):
 def test_schema_from_input(entrypoint, req, num_expected, expected):
     test_schema = Schema(**schema())
     configs = list(test_schema.config_from_input(req, entrypoint=entrypoint))
-    for config in configs:
-        print(config)
-        print("\n")
     assert len(configs) == num_expected
     assert configs[0] == expected

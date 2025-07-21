@@ -38,7 +38,7 @@ class ConfigSchema(BaseSchema):
             ):
                 quantiles = int(totals[0])
             else:
-                quantiles = numbers / totals
+                quantiles = list(numbers / totals)
             config["quantiles"] = quantiles
         if output_request["type"] == "sot":
             config["sot"] = output_request["number"]

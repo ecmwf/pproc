@@ -1625,7 +1625,7 @@ inputs:
                 type: fc
     enfo:
       filter:type:
-        "em/es/pb/fcmean/fcstdev/fcmin/fcmax/efi/sot/pfc":
+        "em/es/pb/efi/sot/pfc":
           forecast:
             inputs:
               - request: 
@@ -1652,6 +1652,36 @@ inputs:
               members: 
                 start: 1
                 end: 50
+        fcmean/fcstdev/fcmin/fcmax:
+          filter:number:
+            only_zero:
+              forecast:
+                inputs:
+                  request: 
+                    stream: enfo
+                    type: "cf"
+            no_zero:
+              forecast:
+                inputs:
+                  request:
+                    stream: enfo
+                    type: "pf"
+                  members: 
+                    start: 1
+                    end: 50
+            contains_zero:
+              from_inputs: false
+              forecast:
+                inputs:
+                  - request: 
+                      stream: enfo
+                      type: "cf"
+                  - request:
+                      stream: enfo
+                      type: "pf"
+                    members: 
+                      start: 1
+                      end: 50
       climatology: 
         inputs:
           request:
@@ -1660,7 +1690,7 @@ inputs:
         scheme: ecmwf-4days
     waef:
       filter:type:
-        em/es/pb/fcmean/fcstdev/fcmin/fcmax/efi/sot:
+        em/es/pb/efi/sot:
           forecast:
             inputs:
               - request: 
@@ -1687,6 +1717,36 @@ inputs:
               members: 
                 start: 1
                 end: 50
+        fcmean/fcstdev/fcmin/fcmax:
+          filter:number:
+            only_zero:
+              forecast:
+                inputs:
+                  request: 
+                    stream: waef
+                    type: "cf"
+            no_zero:
+              forecast:
+                inputs:
+                  request:
+                    stream: waef
+                    type: "pf"
+                  members: 
+                    start: 1
+                    end: 50
+            contains_zero:
+              from_inputs: false
+              forecast:
+                inputs:
+                  - request: 
+                      stream: waef
+                      type: "cf"
+                  - request:
+                      stream: waef
+                      type: "pf"
+                    members: 
+                      start: 1
+                      end: 50
       climatology: 
         inputs:
           request:
@@ -1695,34 +1755,18 @@ inputs:
         scheme: ecmwf-4days
     eefo:
       filter:type:
-        "em/es/pb/fcmean/fcstdev/fcmin/fcmax":
-          filter:param:
-            "*":
-              forecast:
-                inputs:
-                  - request: 
-                      stream: eefo
-                      type: "cf"
-                  - request:
-                      stream: eefo
-                      type: "pf"
-                    members: 
-                      start: 1
-                      end: 100
-            "171130/171139/171151/171167/173228":
-              filter:type: 
-                fcmean:
-                  forecast:
-                    inputs:
-                      - request:
-                          stream: eefo
-                          type: fcmean
-                        members:
-                          start: 0
-                          end: 100
-                        derive_step: 
-                          type: default
-                          precomputed: true  
+        "em/es/pb":
+          forecast:
+            inputs:
+              - request: 
+                  stream: eefo
+                  type: "cf"
+              - request:
+                  stream: eefo
+                  type: "pf"
+                members: 
+                  start: 1
+                  end: 100
         "cf":
           forecast:
             inputs:
@@ -1738,6 +1782,49 @@ inputs:
               members: 
                 start: 1
                 end: 100
+        fcmean/fcstdev/fcmin/fcmax:
+          filter:param:
+            "*":
+              filter:number:
+                only_zero:
+                  forecast:
+                    inputs:
+                      request: 
+                        stream: eefo
+                        type: "cf"
+                no_zero:
+                  forecast:
+                    inputs:
+                      request:
+                        stream: eefo
+                        type: "pf"
+                      members: 
+                        start: 1
+                        end: 100
+                contains_zero:
+                  from_inputs: false
+                  forecast:
+                    inputs:
+                      - request: 
+                          stream: eefo
+                          type: "cf"
+                      - request:
+                          stream: eefo
+                          type: "pf"
+                        members: 
+                          start: 1
+                          end: 100
+            "171130/171139/171151/171167/173228":
+              filter:type: 
+                fcmean:
+                  forecast:
+                    inputs:
+                      request:
+                        stream: eefo
+                        type: fcmean
+                      members:
+                        start: 0
+                        end: 100
         "efi/sot/taem/taes":
           forecast:
             inputs:
@@ -1758,7 +1845,7 @@ inputs:
         scheme: ecmwf-2days
     weef:
       filter:type:
-        "em/es/pb/fcmean/fcstdev/fcmin/fcmax":
+        "em/es/pb":
           forecast:
             inputs:
               - request: 
@@ -1785,6 +1872,36 @@ inputs:
               members: 
                 start: 1
                 end: 100
+        fcmean/fcstdev/fcmin/fcmax:
+          filter:number:
+            only_zero:
+              forecast:
+                inputs:
+                  request: 
+                    stream: weef
+                    type: "cf"
+            no_zero:
+              forecast:
+                inputs:
+                  request:
+                    stream: weef
+                    type: "pf"
+                  members: 
+                    start: 1
+                    end: 100
+            contains_zero:
+              from_inputs: false
+              forecast:
+                inputs:
+                  - request: 
+                      stream: weef
+                      type: "cf"
+                  - request:
+                      stream: weef
+                      type: "pf"
+                    members: 
+                      start: 1
+                      end: 100
         "efi/efic/sot/taem/taes":
           forecast:
             inputs:
@@ -1828,71 +1945,159 @@ inputs:
     enfh:
       filter:type:
         "fcmean/fcstdev/fcmax/fcmin":
-          forecast:
-            inputs:
-              - request:
-                  stream: enfh
-                  type: "cf"
-                  time: "0000"
-              - request:
-                  stream: enfh
-                  type: "pf"
-                  time: "0000"
-                members:
-                  start: 1
-                  end: 10
-            scheme: ecmwf-4days
+          filter:number:
+            only_zero:
+              forecast:
+                inputs:
+                  request:
+                    stream: enfh
+                    type: "cf"
+                    time: "0000"
+                scheme: ecmwf-4days
+            no_zero:
+              forecast:
+                inputs:
+                  request:
+                    stream: enfh
+                    type: "pf"
+                    time: "0000"
+                  members:
+                    start: 1
+                    end: 10
+                scheme: ecmwf-4days
+            contains_zero:
+              from_inputs: false
+              forecast:
+                inputs:
+                  - request:
+                      stream: enfh
+                      type: "cf"
+                      time: "0000"
+                  - request:
+                      stream: enfh
+                      type: "pf"
+                      time: "0000"
+                    members:
+                      start: 1
+                      end: 10
+                scheme: ecmwf-4days
     enwh:
       filter:type:
         "fcmean/fcstdev/fcmax/fcmin":
-          forecast:
-            inputs:
-              - request:
-                  stream: enwh
-                  type: "cf"
-                  time: "0000"
-              - request:
-                  stream: enwh
-                  type: "pf"
-                  time: "0000"
-                members:
-                  start: 1
-                  end: 10
-            scheme: ecmwf-4days
+          filter:number:
+            only_zero:
+              forecast:
+                inputs:
+                  request:
+                    stream: enwh
+                    type: "cf"
+                    time: "0000"
+                scheme: ecmwf-4days
+            no_zero:
+              forecast:
+                inputs:
+                  request:
+                    stream: enwh
+                    type: "pf"
+                    time: "0000"
+                  members:
+                    start: 1
+                    end: 10
+                scheme: ecmwf-4days
+            contains_zero:
+              from_inputs: false
+              forecast:
+                inputs:
+                  - request:
+                      stream: enwh
+                      type: "cf"
+                      time: "0000"
+                  - request:
+                      stream: enwh
+                      type: "pf"
+                      time: "0000"
+                    members:
+                      start: 1
+                      end: 10
+                scheme: ecmwf-4days
     eefh:
       filter:type:
         "fcmean/fcstdev/fcmax/fcmin":
-          forecast:
-            inputs:
-              - request:
-                  stream: eefh
-                  type: "cf"
-                  time: "0000"
-              - request:
-                  stream: eefh
-                  type: "pf"
-                  time: "0000"
-                members:
-                  start: 1
-                  end: 10
-            scheme: ecmwf-2days
+          filter:number:
+            only_zero:
+              forecast:
+                inputs:
+                  request:
+                    stream: eefh
+                    type: "cf"
+                    time: "0000"
+                scheme: ecmwf-2days
+            no_zero:
+              forecast:
+                inputs:
+                  request:
+                    stream: eefh
+                    type: "pf"
+                    time: "0000"
+                  members:
+                    start: 1
+                    end: 10
+                scheme: ecmwf-2days
+            contains_zero:
+              from_inputs: false
+              forecast:
+                inputs:
+                  - request:
+                      stream: eefh
+                      type: "cf"
+                      time: "0000"
+                  - request:
+                      stream: eefh
+                      type: "pf"
+                      time: "0000"
+                    members:
+                      start: 1
+                      end: 10
+                scheme: ecmwf-2days
     weeh:
       filter:type:
         "fcmean/fcstdev/fcmax/fcmin":
-          forecast:
-            inputs:
-              - request:
-                  stream: weeh
-                  type: "cf"
-                  time: "0000"
-              - request:
-                  stream: weeh
-                  type: "pf"
-                  time: "0000"
-                members:
-                  start: 1
-                  end: 10
-          scheme: ecmwf-2days
+          filter:number:
+            only_zero:
+              forecast:
+                inputs:
+                  request:
+                    stream: weeh
+                    type: "cf"
+                    time: "0000"
+                scheme: ecmwf-2days
+            no_zero:
+              forecast:
+                inputs:
+                  request:
+                    stream: weeh
+                    type: "pf"
+                    time: "0000"
+                  members:
+                    start: 1
+                    end: 10
+                scheme: ecmwf-2days
+            contains_zero:
+              from_inputs: false
+              forecast:
+                inputs:
+                  - request:
+                      stream: weeh
+                      type: "cf"
+                      time: "0000"
+                  - request:
+                      stream: weeh
+                      type: "pf"
+                      time: "0000"
+                    members:
+                      start: 1
+                      end: 10
+                scheme: ecmwf-2days
     efhs:
       forecast:
         inputs:

@@ -448,6 +448,8 @@ class StandardDeviation(Mean):
 
 class DeaccumulationWrapper(Accumulation):
     def __init__(self, accumulation: Accumulation):
+        if len(accumulation.coords) < 2:
+            raise ValueError("Deaccumulation can not be performed on single coord")
         self.coords = copy.deepcopy(accumulation.coords)
         # Remove first coord from accumulation
         accumulation.coords = list(accumulation.coords)

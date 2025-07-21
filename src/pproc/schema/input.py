@@ -23,7 +23,7 @@ from pproc.schema.deriver import (
     ClimStepDeriver,
     HindcastDatesDeriver,
 )
-from pproc.schema.filters import _steplength, _steptype, _selection
+from pproc.schema.filters import _steplength, _steptype, _selection, _number
 from pproc.schema.step import StepSchema
 from pproc.config.utils import update_request, expand, squeeze, deep_update
 
@@ -36,10 +36,12 @@ def format_request(request: dict, pop: Optional[list[str]] = None) -> dict:
             request.pop(key, None)
             continue
         value = request[key]
-        if isinstance(value, list) and len(value) == 1:
-            request[key] = value[0]
         if key == "number":
+            if np.ndim(value) == 0:
+                value = [value]
             request[key] = list(map(int, value))
+        elif isinstance(value, list) and len(value) == 1:
+            request[key] = value[0]
     return request
 
 
@@ -60,9 +62,12 @@ class ForecastInput(BaseModel):
     @model_validator(mode="after")
     def populate_request(self) -> Self:
         if self.members:
-            self.request.setdefault(
-                "number", list(range(self.members["start"], self.members["end"] + 1))
-            )
+            if "number" in self.request:
+                number = np.asarray(self.request["number"])
+                number = list(number[(number >= self.members["start"]) & (number <= self.members["end"])])
+            else:
+                number = list(range(self.members["start"], self.members["end"] + 1))
+            self.request["number"] = number
         else:
             self.request.pop("number", None)
         return self
@@ -326,6 +331,7 @@ class InputSchema(BaseSchema):
         "steptype": _steptype,
         "steplength": _steplength,
         "selection": _selection,
+        "number": _number,
     }
     custom_match = {"forecast": _match_forecast, "climatology": _match_forecast}
 
