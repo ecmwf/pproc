@@ -101,6 +101,6 @@ class ConfigFactory:
                     finalise=False,
                 )
         assert config is not None, f"No config generated for requests: {input_requests}"
-        # Call manually at the as number of configs generated from inputs is unknown
+        # Call manually at the end as number of configs generated from inputs is unknown
         config.finalise()
         return config

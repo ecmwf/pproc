@@ -143,9 +143,11 @@ class AccumConfig(BaseConfig):
     _merge_exclude = ("total_fields", "parameters")
 
     def finalise(self):
+        # Continue merging until parameters can not be merged anymore
         new_params = self._merge_parameters()
-        if new_params != self.parameters:
+        while new_params != self.parameters:
             self.parameters = new_params
+            new_params = self._merge_parameters()
         self.total_fields = 0
         super().finalise()
 
