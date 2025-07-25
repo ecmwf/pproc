@@ -72,8 +72,10 @@ class QuantilesConfig(BaseConfig):
 
     @classmethod
     def from_schema(cls, schema_config: dict, **overrides) -> Self:
-        quantiles = schema_config.get("quantiles", None)
-        return super().from_schema(schema_config, **overrides, quantiles=quantiles)
+        overrides = overrides.copy()
+        if "quantiles" in schema_config:
+            overrides.setdefault("quantiles", schema_config.pop("quantiles"))
+        return super().from_schema(schema_config, **overrides)
 
     def _format_out(self, param: ParamConfig, req) -> dict:
         req = super()._format_out(param, req)
@@ -111,7 +113,7 @@ class AccumParamConfig(ParamConfig):
                 x for x in other_requests if x not in requests
             ]
         return inputs
-    
+
     def _merge_name(self, other: Self) -> str:
         return self.name
 
@@ -346,10 +348,12 @@ class SigniConfig(BaseConfig):
 
     @classmethod
     def from_schema(cls, schema_config: dict, **overrides) -> Self:
-        use_clim_anomaly = schema_config.pop("use_clim_anomaly", False)
-        return super().from_schema(
-            schema_config, **overrides, use_clim_anomaly=use_clim_anomaly
-        )
+        overrides = overrides.copy()
+        if "use_clim_anomaly" in schema_config:
+            overrides.setdefault(
+                "use_clim_anomaly", schema_config.pop("use_clim_anomaly")
+            )
+        return super().from_schema(schema_config, **overrides)
 
     @model_validator(mode="after")
     def validate_totalfields(self) -> Self:
@@ -867,7 +871,7 @@ class ThermoConfig(BaseConfig):
                 "Can only merge configs with inputs differing by accum input type"
             )
         return new_inputs
-    
+
     def _format_out(self, param: ParamConfig, req) -> dict:
         req = super()._format_out(param, req)
         if req["type"] in ["cf", "fc"]:
@@ -877,12 +881,8 @@ class ThermoConfig(BaseConfig):
 
 
 class ECPointParamConfig(ParamConfig):
-    wind: ParamConfig
-    cp: ParamConfig
-    cdir: ParamConfig
-    cape: ParamConfig
-    _deps: ClassVar[list[str]] = ["wind", "cp", "cdir", "cape"]
-    _merge_exclude = ("accumulations", "wind", "cp", "cdir", "cape")
+    dependencies: dict[str, ParamConfig]
+    _merge_exclude = ("accumulations", "dependencies")
 
     @model_validator(mode="before")
     @classmethod
@@ -890,22 +890,23 @@ class ECPointParamConfig(ParamConfig):
         if not isinstance(data, dict):
             return data
 
-        for param in cls._deps:
-            param_config = data[param]
-            _set(param_config, "name", param)
+        for name, param in data.get("dependencies", {}).items():
+            _set(param, "name", name)
         return data
-
-    @property
-    def dependencies(self) -> list[ParamConfig]:
-        return [getattr(self, dep) for dep in self._deps]
 
     def in_keys(
         self, inputs: io.InputsCollection, filters: Optional[list[str]] = None
     ) -> Iterator[dict]:
         yield from super().in_keys(inputs, filters)
 
-        for param in self.dependencies:
+        for param in self.dependencies.values():
             yield from param.in_keys(inputs, filters)
+
+    def _merge_dependencies(self, other: Self) -> dict[str, ParamConfig]:
+        new_deps = {}
+        for name, config in self.dependencies.items():
+            new_deps[name] = config.merge(other.dependencies[name])
+        return new_deps
 
 
 class ECPointParallelisation(BaseModel):
@@ -915,6 +916,7 @@ class ECPointParallelisation(BaseModel):
 
 
 class ECPointConfig(QuantilesConfig):
+    total_fields: int = 1
     parallelisation: ECPointParallelisation = ECPointParallelisation()
     outputs: io.ECPointOutputModel = io.ECPointOutputModel()
     parameters: list[ECPointParamConfig]
@@ -924,7 +926,42 @@ class ECPointConfig(QuantilesConfig):
     fer_location: Annotated[
         str, CLIArg("--fer-loc"), Field(description="Location of FER CSV file")
     ]
+    predictors: list[str] = ["cpr", "tp", "ws", "mxcape6", "cdir"]
     min_predictand: float = 0.04
+
+    @classmethod
+    def from_schema(cls, schema_config: dict, **overrides) -> Self:
+        overrides = overrides.copy()
+        for var in ["bp_location", "fer_location", "predictors", "min_predictant"]:
+            if var in schema_config:
+                overrides.setdefault(var, schema_config.pop(var))
+        return super().from_schema(schema_config, **overrides)
+
+    @model_validator(mode="after")
+    def compute_totalfields(self) -> Self:
+        for param in self.parameters:
+            for input_config in [param] + list(param.dependencies.keys()):
+                if isinstance(input_config, str):
+                    input_config = param.dependencies[input_config]
+                total_fields = 0
+                inputs = input_config.input_list(self.inputs, self.inputs.names[0])
+                reqs = inputs[0].request
+                if isinstance(reqs, dict):
+                    reqs = [reqs]
+                for req in reqs:
+                    if len(req) == 0:
+                        continue
+                    if isinstance(req.get("number", None), list):
+                        total_fields += len(req["number"])
+                    else:
+                        total_fields += 1
+                assert total_fields != 0, ValueError(
+                    "Could not derived total_fields from requests."
+                )
+                total_fields *= int(input_config.vod2uv) + 1
+                if input_config.total_fields != total_fields:
+                    input_config.total_fields = total_fields
+        return self
 
     @classmethod
     def _populate_param(
@@ -935,19 +972,24 @@ class ECPointConfig(QuantilesConfig):
         nested: bool = False,
         **overrides,
     ) -> dict:
-        nested_params = {}
-        for index, nparam in enumerate(ECPointParamConfig._deps):
-            nested_params[nparam] = super()._populate_param(
-                config.pop(nparam, {}),
-                [inputs_config[index + 1], inputs_config[index + 6]],
+        paired_requests = {}
+        for inp in inputs_config:
+            param = inp["param"] if isinstance(inp["param"], str) else inp["param"][0]
+            paired_requests.setdefault(param, []).append(inp)
+        paired_requests = list(paired_requests.values())
+
+        dependencies = {}
+        config_dep = config.pop("dependencies")
+        for index, (name, param_config) in enumerate(config_dep.items()):
+            dependencies[name] = super()._populate_param(
+                param_config,
+                paired_requests[index + 1],
                 src_name="fc",
                 nested=False,
-                **overrides.pop(nparam, {}),
+                **overrides,
             )
-        param_config = super()._populate_param(
-            config, [inputs_config[0], inputs_config[5]], **overrides
-        )
-        param_config.update(nested_params)
+        param_config = super()._populate_param(config, paired_requests[0], **overrides)
+        param_config["dependencies"] = dependencies
         return param_config
 
     def _format_out(self, param: ParamConfig, req) -> dict:

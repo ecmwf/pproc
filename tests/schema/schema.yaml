@@ -13,6 +13,9 @@ config:
           shape: 2
         - operation: norm
       vod2uv: true
+    "131/132":
+      metadata_from_output: ["stream", "date"]
+      vod2uv: true
     "121/122/228026/228027":
       filter:type:
         em/es/pb:
@@ -1248,7 +1251,7 @@ config:
       metadata:
         edition: 2
         bitsPerValue: 24
-        generatingProcessIdentifier: 300
+        generatingProcessIdentifier: 3
         paramId: 228
       quantiles: [0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17, 0.18, 0.19, 0.2, 0.21, 0.22, 0.23, 0.24, 0.25, 0.26, 0.27, 0.28, 0.29, 0.3, 0.31, 0.32, 0.33, 0.34, 0.35, 0.36, 0.37, 0.38, 0.39, 0.4, 0.41, 0.42, 0.43, 0.44, 0.45, 0.46, 0.47, 0.48, 0.49, 0.5, 0.51, 0.52, 0.53, 0.54, 0.55, 0.56, 0.57, 0.58, 0.59, 0.6, 0.61, 0.62, 0.63, 0.64, 0.65, 0.66, 0.67, 0.68, 0.69, 0.7, 0.71, 0.72, 0.73, 0.74, 0.75, 0.76, 0.77, 0.78, 0.79, 0.8, 0.81, 0.82, 0.83, 0.84, 0.85, 0.86, 0.87, 0.88, 0.89, 0.9, 0.91, 0.92, 0.93, 0.94, 0.95, 0.96, 0.97, 0.98, 0.99]
       preprocessing:
@@ -1257,32 +1260,67 @@ config:
       accumulations:
         step: 
           operation: difference 
-      wind:
-        vod2uv: true
-        accumulations:
-          step:
-            operation: weighted_mean 
-            weights: [0.25, 0.5, 0.25]
-      cp:
-        preprocessing:
-          - operation: scale 
-            value: 1000
-        accumulations:
-          step:
-            operation: difference
-      cdir:
-        preprocessing:
-          - operation: scale
-            value: 0.00001157407
-        accumulations:
-          step:
-            operation: difference
-      cape:
-        accumulations:
-          step:
-            type: legacywindow
-            include_start: false
-            operation: maximum
+      filter:steplength:
+        "6":
+          predictors: ["cpr", "tp", "cdir", "lst", "sdfor", "ws", "mucape"]
+          dependencies:
+            wind:
+              vod2uv: true
+              accumulations:
+                step:
+                  operation: weighted_mean 
+                  weights: [0.25, 0.5, 0.25]
+            cp:
+              preprocessing:
+                - operation: scale 
+                  value: 1000
+              accumulations:
+                step:
+                  operation: difference
+            cdir:
+              preprocessing:
+                - operation: scale
+                  value: 0.00001157407
+              accumulations:
+                step:
+                  operation: difference
+            cape:
+              accumulations:
+                step:
+                  operation: weighted_mean 
+                  weights: [0.25, 0.5, 0.25]
+            sdfor:
+              accumulations:
+                step: {}
+        "12/24":
+          predictors: ["cpr", "tp", "ws", "mxcape6", "cdir"]
+          dependencies:
+            wind:
+              vod2uv: true
+              accumulations:
+                step:
+                  operation: weighted_mean 
+                  weights: [0.25, 0.5, 0.25]
+            cp:
+              preprocessing:
+                - operation: scale 
+                  value: 1000
+              accumulations:
+                step:
+                  operation: difference
+            cdir:
+              preprocessing:
+                - operation: scale
+                  value: 0.00001157407
+              accumulations:
+                step:
+                  operation: difference
+            cape:
+              accumulations:
+                step:
+                  type: legacywindow
+                  include_start: false
+                  operation: maximum
 windows:
   defs:
     width6:
@@ -1770,7 +1808,7 @@ inputs:
         "cf":
           forecast:
             inputs:
-              request: 
+              request:
                 stream: eefo
                 type: "cf"
         "pf":
@@ -2157,9 +2195,9 @@ inputs:
             inputs:
               request:  
                 param: "{param}"
-    "10": 
+    "10/131/132": 
       filter:type:
-        fc/cf/pf/em/es/pb:
+        fc/cf/pf/em/es/pb/fcmean/fcstdev/fcmin/fcmax:
           forecast:
             inputs:
               request:
@@ -2182,44 +2220,118 @@ inputs:
       filter:type:
         pfc:
           from_inputs: false
-          forecast:
-            update_request_method: product
-            inputs:
-              - request:
-                  param: "228"
-                derive_step:
-                  type: default
-                  deaccumulation: true
-              - request:
-                  param: ["138", "155"]
-                  levtype: pl
-                  levelist: 700 
-                derive_step:
-                  type: default
-                  by: 6
-              - request:
-                  param: "143"
-                derive_step:
-                  type: default
-                  deaccumulation: true
-              - request:
-                  param: "228022"
-                derive_step:
-                  type: default
-                  deaccumulation: true
-                  by: 24
-              - request: 
-                  param: "228035"
-                derive_step:
-                  type: default
-                  by: 6
+          filter:steplength:
+            "6":
+              forecast:
+                update_request_method: product
+                inputs:
+                  - request:
+                      param: "228"
+                    derive_step:
+                      type: default
+                      deaccumulation: true
+                  - request:
+                      param: ["138", "155"]
+                      levtype: pl
+                      levelist: 700 
+                    derive_step:
+                      type: default
+                      by: 3
+                  - request:
+                      param: "143"
+                    derive_step:
+                      type: default
+                      deaccumulation: true
+                  - request:
+                      param: "228022"
+                    derive_step:
+                      type: default
+                      deaccumulation: true
+                      by: 24
+                  - request: 
+                      param: "228235"
+                    derive_step:
+                      type: default
+                      by: 3
+                  - request: 
+                      param: "74"
+                      stream: oper
+                      type: fc
+                    members: null
+                    derive_step:
+                      type: select
+                      index: -1
+            "12":
+              forecast:
+                update_request_method: product
+                inputs:
+                  - request:
+                      param: "228"
+                    derive_step:
+                      type: default
+                      deaccumulation: true
+                  - request:
+                      param: ["138", "155"]
+                      levtype: pl
+                      levelist: 700 
+                    derive_step:
+                      type: default
+                      by: 6
+                  - request:
+                      param: "143"
+                    derive_step:
+                      type: default
+                      deaccumulation: true
+                  - request:
+                      param: "228022"
+                    derive_step:
+                      type: default
+                      deaccumulation: true
+                      by: 24
+                  - request: 
+                      param: "228035"
+                    derive_step:
+                      type: default
+                      by: 6
+            "24":  
+              forecast:
+                update_request_method: product
+                inputs:
+                  - request:
+                      param: "228"
+                    derive_step:
+                      type: default
+                      deaccumulation: true
+                  - request:
+                      param: ["138", "155"]
+                      levtype: pl
+                      levelist: 700 
+                    derive_step:
+                      type: default
+                      by: 12
+                  - request:
+                      param: "143"
+                    derive_step:
+                      type: default
+                      deaccumulation: true
+                  - request:
+                      param: "228022"
+                    derive_step:
+                      type: default
+                      deaccumulation: true
+                      by: 24
+                  - request: 
+                      param: "228035"
+                    derive_step:
+                      type: default
+                      by: 12
         "fc/cf/pf/fcmean":
           from_inputs: False
           forecast:
             inputs:
               request:  
                 param: "{param}"
-        "em/es/pb": 
+        "em/es/pb/cd": 
           forecast:
             inputs:
               request:  
@@ -3616,12 +3728,20 @@ inputs:
                         derive_step:
                           type: default
                           precomputed: true
+                        derive_date:
+                          - option: bracket
+                            num: 4
+                            strict: False 
                       - request:
                           param: "229.140"
                           type: "fcmean"
                         derive_step:
                           type: default
                           precomputed: true
+                        derive_date:
+                          - option: bracket
+                            num: 4
+                            strict: False 
             instantaneous: 
               forecast:
                 inputs:

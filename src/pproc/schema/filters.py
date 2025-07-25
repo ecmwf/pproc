@@ -14,6 +14,7 @@ def _steplength(request: dict, key: str) -> str:
 def _selection(request: dict, key: str) -> str:
     return request.get("selection", "default")
 
+
 def _number(request: dict, key: str) -> str:
     number = request["number"]
     if isinstance(number, int):

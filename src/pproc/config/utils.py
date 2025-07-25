@@ -94,10 +94,16 @@ def update_request(
         raise ValueError(
             f"Unknown method for combining requests: {method}. Supported methods are 'map' and 'product'"
         )
-    return [
+    new_requests = [
         deep_update(copy.deepcopy(breq), {**ureq, **kwargs})
         for breq, ureq in combinations
     ]
+    # Remove duplicates
+    deduplicated = []
+    for inp in new_requests:
+        if inp not in deduplicated:
+            deduplicated.append(inp)
+    return deduplicated
 
 
 def expand(

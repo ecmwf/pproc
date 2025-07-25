@@ -64,7 +64,12 @@ class ForecastInput(BaseModel):
         if self.members:
             if "number" in self.request:
                 number = np.asarray(self.request["number"])
-                number = list(number[(number >= self.members["start"]) & (number <= self.members["end"])])
+                number = list(
+                    number[
+                        (number >= self.members["start"])
+                        & (number <= self.members["end"])
+                    ]
+                )
             else:
                 number = list(range(self.members["start"], self.members["end"] + 1))
             self.request["number"] = number
@@ -128,9 +133,7 @@ class ForecastConfig(BaseModel):
         if len(number) != 0:
             base_input["request"]["number"] = number
             members = {"start": number[0], "end": number[-1]}
-        self.inputs = [
-            ForecastInput(**base_input, members=members)
-        ]
+        self.inputs = [ForecastInput(**base_input, members=members)]
         return self
 
     def steps(self) -> list[int]:

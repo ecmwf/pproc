@@ -65,7 +65,7 @@ def read_ensemble(
                 data = np.empty((total, message.get("numberOfDataPoints")), dtype=dtype)
             for message in reader:
                 i = n_read if index_func is None else index_func(message)
-                templates[i] = GribMetadata(message, headers_only=True)
+                templates[i] = GribMetadata(message._handle, headers_only=True)
                 data[i, :] = missing_to_nan(message)
                 n_read += 1
     if n_read != total:

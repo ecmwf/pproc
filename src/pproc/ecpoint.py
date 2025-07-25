@@ -14,7 +14,6 @@ import numpy as np
 import pandas as pd
 import signal
 import logging
-import yaml
 import numexpr
 import concurrent.futures as fut
 
@@ -23,10 +22,7 @@ from meters import ResourceMeter
 from earthkit.meteo.stats import iter_quantiles
 from conflator import Conflator
 import earthkit.data
-from earthkit.data.readers.grib.metadata import StandAloneGribMetadata
-from earthkit.data.readers.grib.codes import GribCodesHandle
 
-from pproc.config.param import ParamConfig
 from pproc.config.types import ECPointConfig, ECPointParamConfig
 from pproc.config.io import InputsCollection
 from pproc.common.param_requester import ParamRequester, IndexFunc
@@ -40,6 +36,7 @@ from pproc.common.io import nan_to_missing, GribMetadata
 from pproc.common.accumulation_manager import AccumulationManager
 from pproc.common.grib_helpers import construct_message
 from pproc.quantile.grib import quantiles_template
+from pproc.ecpt.predictors import compute_predictors, to_ekmetadata
 
 logger = logging.getLogger(__name__)
 
@@ -63,12 +60,6 @@ class FilteredParamRequester(ParamRequester):
         if step not in self.steps:
             return ([], None)
         return super().retrieve_data(step, **kwargs)
-
-
-def ratio(var_num, var_den):
-    den_zero = var_den == 0
-    ratio_mapped = var_num / np.where(den_zero, -9999, var_den)
-    return np.where(den_zero, 0, ratio_mapped)
 
 
 def grid_bc_template(
@@ -189,10 +180,7 @@ def compute_single_ens(
 
 def compute_weather_types(
     tp: np.ndarray,
-    cpr: np.ndarray,
-    ws700: np.ndarray,
-    maxmucape: np.ndarray,
-    sr: np.ndarray,
+    predictors: np.ndarray,
     bp_loc: str,
     fer_loc: str,
     min_predictand: float = 0.04,
@@ -209,7 +197,6 @@ def compute_weather_types(
     thr_sup = bp[:, 1::2]
 
     predictand = np.where(tp < min_predictand, 0, tp)
-    predictors = np.asarray([cpr, tp, ws700, maxmucape, sr])
     ens_partial = functools.partial(
         compute_single_ens,
         thr_inf=thr_inf,
@@ -252,27 +239,6 @@ def compute_weather_types(
     return pt_bc_allens_allwt, grid_bc_allens_allwt, wt_allens_allwt
 
 
-def to_ekmetadata(metadata: list[GribMetadata]) -> list[StandAloneGribMetadata]:
-    return [
-        StandAloneGribMetadata(
-            GribCodesHandle(eccodes.codes_clone(x._handle), None, None)
-        )
-        for x in metadata
-    ]
-
-
-def retrieve_sr24(
-    config: ECPointConfig, param: ParamConfig, step: int
-) -> earthkit.data.FieldList:
-    requester = ParamRequester(param, config.inputs, config.total_fields, "fc")
-    end_step = max(step, 24)
-    _, start_data = requester.retrieve_data(end_step - 24)
-    metadata, end_data = requester.retrieve_data(end_step)
-    return earthkit.data.FieldList.from_array(
-        end_data - start_data, to_ekmetadata(metadata)
-    )
-
-
 def ecpoint_iteration(
     config: ECPointConfig,
     param: ECPointParamConfig,
@@ -281,23 +247,13 @@ def ecpoint_iteration(
     input_params: earthkit.data.FieldList,
     out_keys: dict,
 ):
-    if len(input_params.sel(param="cdir")) == 0:
-        # Fetch solar radiation if not present. This is to handle the special case of step ranges where
-        # the end step is < 24 (e.g. 0-12) but uses solar radiation over 24hr window and therefore the end
-        # step of the solar radiation window does not match the end step of the tp step interval
-        input_params += retrieve_sr24(config, param.cdir, int(window_id.split("-")[1]))
-
     logging.info(
         f"Processing {window_id}, fields: \n {input_params.ls(namespace='mars')}"
     )
     with ResourceMeter(f"Compute predictant and predictors: {window_id}"):
         tp = input_params.sel(param="tp").values
-        maxmucape = input_params.sel(param="mxcape6").values
-        sr = input_params.sel(param="cdir").values
-        cpr = ratio(input_params.sel(param="cp").values, tp)
-        ws700 = np.sqrt(
-            input_params.sel(param="u").values ** 2
-            + input_params.sel(param="v").values ** 2
+        predictors = compute_predictors(
+            config, param, window_id.lstrip("step_"), input_params
         )
 
     with ResourceMeter(f"Compute realisations: {window_id}"):
@@ -307,10 +263,7 @@ def ecpoint_iteration(
             wt_allens_allwt,
         ) = compute_weather_types(
             tp,
-            cpr,
-            ws700,
-            maxmucape,
-            sr,
+            predictors,
             config.bp_location,
             config.fer_location,
             config.min_predictand,
@@ -398,7 +351,7 @@ def main():
             )
         ]
         dims = {k: set(val) for k, val in managers[0].dims.items()}
-        for input_param in param.dependencies:
+        for input_param in param.dependencies.values():
             managers.append(
                 AccumulationManager.create(
                     input_param.accumulations,

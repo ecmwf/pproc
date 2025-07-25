@@ -80,8 +80,8 @@ class Schema:
         base_request = inputs[0]
         metadata = config.setdefault("metadata", {})
         if (
-                not isinstance(base_request["param"], str)
-                and len(base_request["param"]) > 1
+            not isinstance(base_request["param"], str)
+            and len(base_request["param"]) > 1
         ):
             config["name"] = f"{valid_out['param']}_{valid_out['levtype']}"
         config.setdefault("name", f"{base_request['param']}_{valid_out['levtype']}")

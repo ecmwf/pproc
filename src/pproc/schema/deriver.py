@@ -80,8 +80,28 @@ class FcmonthStepDeriver(BaseModel):
         return fc_steps[fc_steps.index(start) : fc_steps.index(end) + 1]
 
 
+class SelectionStepDeriver(BaseModel):
+    type_: Literal["select"] = Field("select", alias="type")
+    index: int
+    by: Optional[int] = None
+
+    def derive(self, output_request: dict, fc_steps: list[int]) -> list[int]:
+        steps = list(map(int, str(output_request["step"]).split("-")))
+        if len(steps) == 1:
+            assert ValueError("SelectionStepDeriver can not be used for single steps")
+        start, end = steps
+        if self.by:
+            fc_steps = [
+                x
+                for x in fc_steps
+                if x in range(fc_steps[0], fc_steps[-1] + 1, self.by)
+            ]
+        selection_range = fc_steps[fc_steps.index(start) : fc_steps.index(end) + 1]
+        return [selection_range[self.index]]
+
+
 ForecastStepDeriver = Annotated[
-    Union[DefaultStepDeriver, FcmonthStepDeriver],
+    Union[DefaultStepDeriver, FcmonthStepDeriver, SelectionStepDeriver],
     Field(default_factory=DefaultStepDeriver, discriminator="type_"),
 ]
 
