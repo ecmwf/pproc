@@ -141,6 +141,7 @@ class BaseConfig(ConfigModel):
     @classmethod
     def from_schema(cls, schema_config: dict, **overrides) -> Self:
         schema_config = copy.deepcopy(schema_config)
+        outputs = schema_config.pop("outputs", {})
         overrides = copy.deepcopy(overrides)
 
         # Construct parameter config
@@ -165,7 +166,7 @@ class BaseConfig(ConfigModel):
                 src: {"source": {"type": "fdb"}}
                 for src in param_config["inputs"].keys()
             },
-            "outputs": {"default": {"target": {"type": "fdb"}}},
+            "outputs": deep_update({"default": {"target": {"type": "fdb"}}}, outputs),
             "parameters": {param_name: param_config},
         }
         deep_update(config, overrides)
