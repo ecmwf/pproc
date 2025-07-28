@@ -43,7 +43,14 @@ class ConfigSchema(BaseSchema):
         if output_request["type"] == "sot":
             config["sot"] = output_request["number"]
 
-        config["metadata"] = fill_template_values(
-            config.get("metadata", {}), output_request
+        out_vals = output_request.copy()
+        date = str(output_request["date"])
+        out_vals.update(
+            {
+                "year": date[0:4],
+                "month": date[4:6],
+                "day": date[6:8],
+            }
         )
+        config["metadata"] = fill_template_values(config.get("metadata", {}), out_vals)
         return config
