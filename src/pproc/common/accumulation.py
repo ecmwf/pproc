@@ -16,6 +16,8 @@ from typing import Dict, Iterable, List, Optional, Tuple, Union
 import numpy as np
 from numpy.typing import DTypeLike
 
+from pproc.common.grib_helpers import fill_template_values
+
 
 NumericCoord = int
 NumericCoords = Union[List[int], range]
@@ -69,7 +71,14 @@ class Accumulation(metaclass=ABCMeta):
         return self.values
 
     def grib_keys(self) -> dict:
-        return self._grib_keys
+        return fill_template_values(
+            self._grib_keys,
+            {
+                "num_coords": len(self.coords),
+                "start_coord": self.coords[0],
+                "end_coord": self.coords[-1],
+            },
+        )
 
     @abstractmethod
     def combine(self, coord: Coord, values: np.ndarray) -> bool:
@@ -439,6 +448,8 @@ class StandardDeviation(Mean):
 
 class DeaccumulationWrapper(Accumulation):
     def __init__(self, accumulation: Accumulation):
+        if len(accumulation.coords) < 2:
+            raise ValueError("Deaccumulation can not be performed on single coord")
         self.coords = copy.deepcopy(accumulation.coords)
         # Remove first coord from accumulation
         accumulation.coords = list(accumulation.coords)
@@ -458,7 +469,14 @@ class DeaccumulationWrapper(Accumulation):
         return self.acc.get_values()
 
     def grib_keys(self) -> dict:
-        return self.acc.grib_keys()
+        return fill_template_values(
+            self.acc._grib_keys,
+            {
+                "num_coords": len(self.coords) - 1,
+                "start_coord": self.coords[1],
+                "end_coord": self.coords[-1],
+            },
+        )
 
     def combine(self, coord: Coord, values: np.ndarray) -> bool:
         processed = self.acc.feed(coord, values - self.values)
@@ -621,8 +639,5 @@ class Accumulator:
             dims.append((key, create_accumulation(acc_cfg)))
         if not names:
             name = None
-        elif len(dims) == 1:
-            name = next(str(v) for v in names.values())
-        else:
-            name = ":".join(f"{k}_{v}" for k, v in names.items())
+        name = ":".join(f"{k}_{v}" for k, v in names.items())
         return cls(dims, name)

@@ -29,13 +29,14 @@ parameters:
       step:
         coords: [[0]]
   indices:
-    sources:   
+    inputs:   
       accum:   
         request:                   
           <<: *base_request
           date: 20240605
           param: *accum_params
-        type: fdb
+        source:
+          type: fdb
     accumulations:
       step:
         operation: difference
@@ -52,13 +53,14 @@ parameters:
       - wbpt
       - wbgt
       - 2r
-sources:     
+inputs:     
   inst:
     request:
       <<: *base_request
       date: 20240605
       param: *inst_params
-    type: fdb
+    source:
+      type: fdb
 outputs:
   default:
     metadata:

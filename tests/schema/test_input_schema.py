@@ -9,8 +9,13 @@
 
 import pytest
 
-from pproc.config.utils import expand
-from pproc.schema.input import InputSchema
+from pproc.config.utils import expand, update_request
+from pproc.schema.input import (
+    format_request,
+    InputSchema,
+    ForecastConfig,
+    ForecastInput,
+)
 from pproc.schema.step import StepSchema
 
 from conftest import schema
@@ -24,6 +29,7 @@ INPUTS = {
             "param": "167",
             "step": 3,
             "type": "cf",
+            "time": "0000",
         },
         {
             "stream": "enfo",
@@ -33,6 +39,7 @@ INPUTS = {
             "step": 3,
             "type": "pf",
             "number": list(range(1, 51)),
+            "time": "0000",
         },
     ],
     "thermofeel": [
@@ -42,6 +49,7 @@ INPUTS = {
             "param": ["169", "175", "176", "177", "228021", "47"],
             "step": [2, 3],
             "type": "cf",
+            "time": "0000",
         },
         {
             "stream": "enfo",
@@ -49,6 +57,27 @@ INPUTS = {
             "param": ["165", "166", "167", "168"],
             "step": 3,
             "type": "cf",
+            "time": "0000",
+        },
+    ],
+    "thermo_pf": [
+        {
+            "stream": "enfo",
+            "levtype": "sfc",
+            "param": ["169", "175", "176", "177", "228021", "47"],
+            "step": [2, 3],
+            "type": "pf",
+            "time": "0000",
+            "number": [1, 2, 3],
+        },
+        {
+            "stream": "enfo",
+            "levtype": "sfc",
+            "param": ["165", "166", "167", "168"],
+            "step": 3,
+            "type": "pf",
+            "time": "0000",
+            "number": [1, 2, 3],
         },
     ],
     "t850": [
@@ -58,7 +87,7 @@ INPUTS = {
             "step": list(range(120, 169, 12)),
             "type": "cf",
             "date": "20250314",
-            "time": 12,
+            "time": "1200",
             "levtype": "pl",
             "levelist": 250,
         },
@@ -69,7 +98,7 @@ INPUTS = {
             "type": "pf",
             "number": list(range(1, 51)),
             "date": "20250314",
-            "time": 12,
+            "time": "1200",
             "levtype": "pl",
             "levelist": 250,
         },
@@ -79,9 +108,10 @@ INPUTS = {
             "step": list(range(132, 181, 12)),
             "type": "em",
             "date": "20250313",
-            "time": "00",
+            "time": "0000",
             "levtype": "pl",
             "levelist": 250,
+            "climatology": True,
         },
         {
             "stream": "efhs",
@@ -89,9 +119,10 @@ INPUTS = {
             "step": list(range(132, 181, 12)),
             "type": "es",
             "date": "20250313",
-            "time": "00",
+            "time": "0000",
             "levtype": "pl",
             "levelist": 250,
+            "climatology": True,
         },
     ],
     "efi": [
@@ -103,7 +134,7 @@ INPUTS = {
             "type": "fcmean",
             "date": "20250315",
             "number": list(range(0, 101)),
-            "time": 0,
+            "time": "0000",
         },
         {
             "stream": "eehs",
@@ -112,8 +143,9 @@ INPUTS = {
             "step": "0-168",
             "type": "cd",
             "date": "20250315",
-            "time": "00",
+            "time": "0000",
             "quantile": [f"{x}:100" for x in range(0, 101)],
+            "climatology": True,
         },
     ],
     "monthly": [
@@ -125,6 +157,7 @@ INPUTS = {
             "type": "fc",
             "number": list(range(0, 51)),
             "date": "20241001",
+            "time": "0000",
         },
     ],
     "prob": [
@@ -135,21 +168,137 @@ INPUTS = {
             "step": [0, 24],
             "type": "pf",
             "number": list(range(1, 51)),
+            "time": "0000",
         },
     ],
 }
 
 
 @pytest.mark.parametrize(
+    "req, expected",
+    [
+        [{"levelist": [250]}, {"levelist": 250}],
+        [{"number": 0}, {"number": [0]}],
+        [{"number": ["0", "1"]}, {"number": [0, 1]}],
+    ],
+    ids=["squeeze", "number-is-list", "number-is-int"],
+)
+def test_format_request(req, expected):
+    assert format_request(req) == expected
+
+
+@pytest.mark.parametrize(
+    "inputs, expected_num_inputs",
+    [
+        [
+            [
+                ForecastInput(request={"type": "em"}),
+                ForecastInput(request={"type": "es"}),
+            ],
+            2,
+        ],
+        [
+            [
+                ForecastInput(request={"type": "cf"}),
+                ForecastInput(
+                    request={"type": "pf", "number": [0, 1]},
+                    members={"start": 0, "end": 1},
+                ),
+            ],
+            2,
+        ],
+        [
+            [
+                ForecastInput(
+                    request={"type": "fcmean", "number": [0, 1]},
+                    members={"start": 0, "end": 1},
+                ),
+                ForecastInput(
+                    request={"type": "pf", "number": [4, 5]},
+                    members={"start": 4, "end": 5},
+                ),
+            ],
+            2,
+        ],
+        [
+            [
+                ForecastInput(
+                    request={"type": "fcmean", "number": [0]},
+                    members={"start": 0, "end": 0},
+                ),
+                ForecastInput(
+                    request={"type": "fcmean", "number": [1, 2]},
+                    members={"start": 0, "end": 2},
+                ),
+            ],
+            1,
+        ],
+        [
+            [
+                ForecastInput(
+                    request={"type": "cf"},
+                ),
+                ForecastInput(
+                    request={"type": "cf"},
+                ),
+            ],
+            1,
+        ],
+        [
+            [
+                ForecastInput(
+                    request={"type": "pf", "number": [0, 1]},
+                    members={"start": 0, "end": 1},
+                ),
+                ForecastInput(
+                    request={"type": "pf", "number": [0, 1]},
+                    members={"start": 0, "end": 1},
+                ),
+            ],
+            1,
+        ],
+    ],
+    ids=[
+        "diff-type",
+        "diff-with-number",
+        "number-discontinous",
+        "merge",
+        "same-type",
+        "same-type-with-number",
+    ],
+)
+def test_forecast_config(inputs, expected_num_inputs):
+    config = ForecastConfig(inputs=inputs)
+    assert len(config.inputs) == expected_num_inputs
+
+
+@pytest.mark.parametrize(
     "output",
     [
-        {"stream": "enfo", "type": "em", "param": "167", "step": 3, "levtype": "sfc"},
+        {
+            "stream": "enfo",
+            "type": "em",
+            "time": "0000",
+            "param": "167",
+            "step": 3,
+            "levtype": "sfc",
+        },
         {
             "stream": "enfo",
             "type": "cf",
             "param": "261001",
             "step": 3,
             "levtype": "sfc",
+            "time": "0000",
+        },
+        {
+            "stream": "enfo",
+            "type": "pf",
+            "param": "261001",
+            "step": 3,
+            "levtype": "sfc",
+            "time": "0000",
+            "number": [1, 2, 3],
         },
         {
             "stream": "enfo",
@@ -157,7 +306,7 @@ INPUTS = {
             "param": "131020",
             "step": "120-168",
             "date": "20250314",
-            "time": 12,
+            "time": "1200",
             "levtype": "pl",
             "levelist": 250,
         },
@@ -168,7 +317,7 @@ INPUTS = {
             "param": "132167",
             "step": "0-168",
             "date": "20250315",
-            "time": 0,
+            "time": "0000",
         },
         {
             "stream": "msmm",
@@ -178,6 +327,7 @@ INPUTS = {
             "fcmonth": 1,
             "date": "20241001",
             "number": list(range(0, 51)),
+            "time": "0000",
         },
         {
             "stream": "enfo",
@@ -185,9 +335,10 @@ INPUTS = {
             "type": "ep",
             "param": "131060",
             "step": "0-24",
+            "time": "0000",
         },
     ],
-    ids=["ensms", "thermofeel", "t850", "efi", "monthly", "prob"],
+    ids=["ensms", "thermofeel", "thermo_pf", "t850", "efi", "monthly", "prob"],
 )
 def test_inputs(request, output):
     expected_inputs = INPUTS[request.node.callspec.id]
@@ -248,6 +399,7 @@ def test_outputs(request, out_type, num_outputs):
                     "step": [2, 3],
                     "type": "fc",
                     "levtype": "sfc",
+                    "time": "00",
                 }
             ],
             {"type": "fc"},
@@ -260,6 +412,7 @@ def test_outputs(request, out_type, num_outputs):
                     "param": ["228246", "228247"],
                     "type": "cf",
                     "levtype": "sfc",
+                    "time": "00",
                 }
             ],
             {"type": "cf"},
@@ -273,6 +426,7 @@ def test_outputs(request, out_type, num_outputs):
                     "type": "cf",
                     "levtype": "sfc",
                     "step": 3,
+                    "time": "00",
                 },
                 {
                     "stream": "enfo",
@@ -281,6 +435,7 @@ def test_outputs(request, out_type, num_outputs):
                     "levtype": "sfc",
                     "number": list(range(1, 51)),
                     "step": 3,
+                    "time": "00",
                 },
                 {
                     "stream": "enfo",
@@ -289,6 +444,7 @@ def test_outputs(request, out_type, num_outputs):
                     "levtype": "pl",
                     "levelist": [50, 100],
                     "step": 3,
+                    "time": "00",
                 },
                 {
                     "stream": "enfo",
@@ -298,6 +454,7 @@ def test_outputs(request, out_type, num_outputs):
                     "number": list(range(1, 51)),
                     "levelist": [50, 100],
                     "step": 3,
+                    "time": "00",
                 },
             ],
             {"levtype": "pl", "levelist": 50, "type": "em"},
@@ -314,3 +471,25 @@ def test_redundant_inputs(inputs, template, num_outputs):
         input_schema.outputs(expanded_inputs, step_schema, output_template=template)
     )
     assert len(generated) == num_outputs
+
+@pytest.mark.parametrize("number, updates", [
+    [0, {"type": "cf"}], 
+    [[0, 1], [{"type": "cf"}, {"type": "pf", "number": [1]}]], 
+    [1, {"type": "pf", "number": [1]}],
+], ids=["cf", "cf-and-pf", "pf"])
+def test_fcstat_inputs(number, updates):
+    input_schema = InputSchema(schema("inputs"))
+    step_schema = StepSchema(schema("windows"))
+    output = {
+        "stream": "eefo", 
+        "type": "fcmean",
+        "number": number, 
+        "param": "167", 
+        "step": "0-168", 
+        "time": "0000",
+    }
+    inputs = input_schema.inputs(output, step_schema)
+    base_input = output.copy()
+    base_input.pop("number")
+    expected = update_request({**base_input, "step": list(range(0, 169, 6))}, updates)
+    assert list(inputs) == expected

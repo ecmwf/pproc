@@ -9,6 +9,8 @@
 
 from typing import Dict, Iterator, Optional, Tuple, Union, Any
 
+from pproc.common.grib_helpers import fill_template_values
+
 
 def window_operation_from_config(window_config: dict) -> Dict[str, list]:
     """
@@ -78,6 +80,11 @@ def translate_window_config(
 
     name = str(end) if start == end else f"{start}-{end}"
     include_init = start == end or include_start
+    if deaccumulate:
+        if not include_init:
+            raise ValueError("De-accumulation without `include_start` not allowed")
+        if len(coords) < 2:
+            raise ValueError("De-accumulation can not be performed on single coord")
 
     operation = None
     extra = {}
@@ -96,6 +103,14 @@ def translate_window_config(
         extra["factor"] = window_options.get("factor", 1.0)
 
     grib_header = {} if grib_keys is None else grib_keys.copy()
+    grib_header = fill_template_values(
+        grib_header,
+        {
+            "num_coords": len(coords) - 1 * int(deaccumulate),
+            "start_coord": start if not deaccumulate else coords[1],
+            "end_coord": end,
+        },
+    )
 
     if end > start and end >= 256:
         if grib_header.get("edition", 1) == 1:

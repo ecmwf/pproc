@@ -11,6 +11,7 @@ from datetime import timedelta
 import logging
 import numpy as np
 import copy
+from typing import Optional
 
 import earthkit.data
 import earthkit.meteo.solar
@@ -40,8 +41,8 @@ def metadata_accumulation(fields):
 
 
 class ComputeIndices:
-    def __init__(self, out_keys={}):
-        self.out_keys = out_keys
+    def __init__(self, out_keys: Optional[dict] = None):
+        self.out_keys = out_keys or {}
         self.results = None
 
     def create_output(self, values, template, **overrides):

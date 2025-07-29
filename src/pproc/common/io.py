@@ -394,11 +394,9 @@ def target_from_location(
 
 
 class GribMetadata(eccodes.Message):
-    def __init__(self, message: eccodes.Message, headers_only: bool = False):
-        handle = eccodes.codes_clone(message._handle, headers_only=headers_only)
-        super().__init__(handle)
-        self.set_array("values", np.zeros(message.data.size))
-        self.set("bitsPerValue", message.get("bitsPerValue"))
+    def __init__(self, handle, headers_only: bool = False):
+        new_handle = eccodes.codes_clone(handle, headers_only=headers_only)
+        super().__init__(new_handle)
 
     def __getstate__(self) -> dict:
         ret = {"_handle": self.get_buffer()}

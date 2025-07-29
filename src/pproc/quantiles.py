@@ -21,6 +21,7 @@ from conflator import Conflator
 
 from pproc.common.accumulation import Accumulator
 from pproc.common.accumulation_manager import AccumulationManager
+from pproc.common.grib_helpers import construct_message, fill_template_values
 from pproc.common.io import nan_to_missing
 from pproc.common.parallel import (
     create_executor,
@@ -61,7 +62,10 @@ def do_quantiles(
         )
     ):
         pert_number, total_number = config.quantile_indices(i)
-        message = quantiles_template(template, pert_number, total_number, out_keys)
+        grib_keys = fill_template_values(
+            out_keys.copy(), {"num_fields": np.prod(ens.shape[:-1])}
+        )
+        message = quantiles_template(template, pert_number, total_number, grib_keys)
         message.set_array("values", nan_to_missing(message, quantile))
         config.outputs.quantiles.target.write(message)
 
@@ -112,7 +116,7 @@ def main():
 
             requester = ParamRequester(
                 param,
-                cfg.sources,
+                cfg.inputs,
                 cfg.total_fields,
             )
             quantiles_partial = functools.partial(

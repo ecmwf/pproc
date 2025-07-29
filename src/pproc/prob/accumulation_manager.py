@@ -35,10 +35,14 @@ class ThresholdAccumulationManager(AccumulationManager):
             thresholds = step_cfg.pop("thresholds", [])
             if not thresholds:
                 raise ValueError("Step accumulation does not contain thresholds")
-            all_thresholds[window_id] = thresholds
+            all_thresholds[f"step_{window_id}"] = thresholds
 
         mgr = super().create(config, grib_keys)
-        mgr._thresholds = all_thresholds
+        mgr._thresholds = {}
+        for accum_name in mgr.accumulations.keys():
+            dims = accum_name.split(":")
+            step_name = [x for x in dims if "step" in x][0]
+            mgr._thresholds[accum_name] = all_thresholds[step_name]
         return mgr
 
     def thresholds(self, identifier: str) -> dict:
@@ -52,10 +56,12 @@ class ThresholdAccumulationManager(AccumulationManager):
         for accum_id in accumulations:
             del self._thresholds[accum_id]
 
-
-class AnomalyAccumulationManager(ThresholdAccumulationManager):
     def feed(
-        self, keys: dict, data: np.array, clim_mean: np.array, clim_std: np.array
+        self,
+        keys: dict,
+        data: np.ndarray,
+        clim_mean: np.ndarray | int = 0,
+        clim_std: np.ndarray | int = 1,
     ) -> Iterator[Tuple[str, Accumulator]]:
         """
         Updates all windows that include the given keys with either the anomaly

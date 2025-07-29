@@ -44,15 +44,16 @@ logger = logging.getLogger(__name__)
 
 
 def load_input(config, param: ThermoParamConfig, source: str, step: int):
-    sources = param.in_sources(config.sources, source, step=step)
+    inputs = param.input_list(config.inputs, source, step=step)
 
     ret = earthkit.data.from_source("empty")
-    for src in sources:
+    for src in inputs:
+        if src.type == "null":
+            continue
+
         for req in src.request:
-            if len(req) == 0:
-                continue
             req = req.copy()
-            req.update(config.sources.overrides)
+            req.update(config.inputs.overrides)
             req["step"] = step
 
             logger.debug(f"Retrieve step {step}: source {src}")
@@ -96,9 +97,19 @@ def process_step(
         step_range = "-".join(map(str, accum["step"].coords))
         accum_fields = earthkit.data.FieldList.from_array(
             accum.values,
-            [x.override(stepType="diff", stepRange=step_range) for x in accum_metadata],
+            [
+                x.override(
+                    stepType="diff",
+                    stepRange=step_range,
+                )
+                for x in accum_metadata
+            ],
         )
-        helpers.write(config.outputs.accum, accum_fields)
+        helpers.write(
+            config.outputs.accum.target,
+            accum_fields,
+            metadata=config.outputs.accum.metadata,
+        )
         fields += accum_fields
 
     assert len(fields) != 0, f"No fields retrieved for param {param}."
@@ -111,10 +122,9 @@ def process_step(
         + f"basetime {basetime.date().isoformat()}, time {time}"
     )
     logger.debug(f"Inputs \n {fields.ls(namespace='mars')}")
-    indices = ComputeIndices(config.outputs.indices.metadata)
-    params = fields.indices()["param"]
+    indices = ComputeIndices({**config.outputs.indices.metadata, **param.metadata})
 
-    indices_target = config.outputs.indices
+    indices_target = config.outputs.indices.target
     # Mean Radiant Temperature - shortName mrt - ECMWF product
     if is_target_param(param.out_params, {"mrt", 261002}):
         mrt = indices.calc_field("mrt", indices.calc_mrt, fields)
@@ -180,7 +190,11 @@ def process_step(
     for field in ["10si", "cossza", "dsrp"]:
         sel = indices.results.sel(param=field)
         if len(sel) != 0:
-            helpers.write(config.outputs.intermediate, sel)
+            helpers.write(
+                config.outputs.intermediate.target,
+                sel,
+                metadata=config.outputs.intermediate.metadata,
+            )
 
     for name in config.outputs.names:
         getattr(config.outputs, name).target.flush()
@@ -205,9 +219,7 @@ def main():
 
     with create_executor(cfg.parallelisation) as executor:
         for param in cfg.parameters:
-            accum_manager = AccumulationManager.create(
-                param.accumulations, {**cfg.outputs.default.metadata, **param.metadata}
-            )
+            accum_manager = AccumulationManager.create(param.accumulations)
             checkpointed_windows = [
                 x["window"] for x in recovery.computed(param=param.name)
             ]

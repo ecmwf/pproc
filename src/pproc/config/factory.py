@@ -28,6 +28,14 @@ class ConfigFactory:
         "pproc-accumulate": types.AccumConfig,
         "pproc-ensms": types.EnsmsConfig,
         "pproc-monthly-stats": types.MonthlyStatsConfig,
+        "pproc-quantiles": types.QuantilesConfig,
+        "pproc-probabilities": types.ProbConfig,
+        "pproc-extreme": types.ExtremeConfig,
+        "pproc-thermal-indices": types.ThermoConfig,
+        "pproc-anomaly": types.AnomalyConfig,
+        "pproc-histogram": types.HistogramConfig,
+        "pproc-significance": types.SigniConfig,
+        "pproc-ecpoint": types.ECPointConfig,
     }
 
     @classmethod
@@ -54,8 +62,9 @@ class ConfigFactory:
     ) -> BaseConfig:
         entrypoint = None
         config = None
-        expanded = list(expand(output_requests))
-        reqs = squeeze(expanded, ["levelist", "number", "quantile"])
+        reqs = list(
+            expand(output_requests, exclude=["levelist", "number", "quantile", "hdate"])
+        )
         for req in reqs:
             schema_config = schema.config_from_output(req)
             req_entry = schema_config.pop("entrypoint")
@@ -67,7 +76,7 @@ class ConfigFactory:
             else:
                 if entrypoint != req_entry:
                     raise ValueError("All requests must have the same entrypoint")
-                config = config.merge(req_config)
+                config = config.merge(req_config, finalise=(req == reqs[-1]))
         assert (
             config is not None
         ), f"No config generated for requests: {output_requests}"
@@ -88,7 +97,10 @@ class ConfigFactory:
                 config = cls._from_schema(entrypoint, schema_config, **overrides)
             else:
                 config = config.merge(
-                    cls._from_schema(entrypoint, schema_config, **overrides)
+                    cls._from_schema(entrypoint, schema_config, **overrides),
+                    finalise=False,
                 )
         assert config is not None, f"No config generated for requests: {input_requests}"
+        # Call manually at the end as number of configs generated from inputs is unknown
+        config.finalise()
         return config

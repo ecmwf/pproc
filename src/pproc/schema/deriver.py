@@ -13,6 +13,7 @@ import bisect
 from pydantic import BaseModel, Field, model_validator, ConfigDict
 
 from earthkit.time import Sequence
+from earthkit.time.climatology import RelativeYear, date_range
 
 from pproc.common.stepseq import fcmonth_to_steprange
 
@@ -37,7 +38,9 @@ class DefaultStepDeriver(BaseModel):
         if self.precomputed:
             in_steps = [f"{start}-{end}"]
         elif self.deaccumulation:
-            in_steps = [start, end]
+            self.by = self.by or 0
+            end = max(end, self.by)
+            in_steps = [min(end - self.by, start), end]
         else:
             if self.by:
                 fc_steps = [
@@ -77,8 +80,28 @@ class FcmonthStepDeriver(BaseModel):
         return fc_steps[fc_steps.index(start) : fc_steps.index(end) + 1]
 
 
+class SelectionStepDeriver(BaseModel):
+    type_: Literal["select"] = Field("select", alias="type")
+    index: int
+    by: Optional[int] = None
+
+    def derive(self, output_request: dict, fc_steps: list[int]) -> list[int]:
+        steps = list(map(int, str(output_request["step"]).split("-")))
+        if len(steps) == 1:
+            assert ValueError("SelectionStepDeriver can not be used for single steps")
+        start, end = steps
+        if self.by:
+            fc_steps = [
+                x
+                for x in fc_steps
+                if x in range(fc_steps[0], fc_steps[-1] + 1, self.by)
+            ]
+        selection_range = fc_steps[fc_steps.index(start) : fc_steps.index(end) + 1]
+        return [selection_range[self.index]]
+
+
 ForecastStepDeriver = Annotated[
-    Union[DefaultStepDeriver, FcmonthStepDeriver],
+    Union[DefaultStepDeriver, FcmonthStepDeriver, SelectionStepDeriver],
     Field(default_factory=DefaultStepDeriver, discriminator="type_"),
 ]
 
@@ -95,7 +118,7 @@ class ClimStepDeriver(BaseModel):
 
     @staticmethod
     def _range(fc_request: dict, clim_steps: list[int]) -> str:
-        time = int(fc_request["time"])
+        time = int(fc_request["time"]) // 100
         req_steps = fc_request["step"]
 
         if len(req_steps) == 1:
@@ -118,11 +141,11 @@ class ClimStepDeriver(BaseModel):
             ):
                 clim_start = clim_start_steps[nearest]
             return f"{clim_start}-{clim_start + (end - start)}"
-        return fc_request["step"]
+        return f"{start}-{end}"
 
     @staticmethod
     def _instantaneous(fc_request: dict, clim_steps: list[int]) -> list[int]:
-        time = int(fc_request["time"])
+        time = int(fc_request["time"]) // 100
         steps = fc_request["step"]
         if time in [12, 18]:
             return [
@@ -135,13 +158,34 @@ class ClimStepDeriver(BaseModel):
 
 
 class ClimDateDeriver(BaseModel):
-    model_config = ConfigDict(allow_extra=True)
+    model_config = ConfigDict(extra="allow")
 
     option: str
 
-    def derive(self, fc_request: dict, scheme: str) -> str:
-        date = datetime.datetime.strptime(fc_request["date"], "%Y%m%d")
+    def derive(self, fc_request: dict, scheme: str) -> str | list[str]:
+        date = datetime.datetime.strptime(str(fc_request["date"]), "%Y%m%d")
         clim_seq = Sequence.from_resource(scheme)
         kwargs = self.model_dump(exclude={"option"})
         clim_date = getattr(clim_seq, self.option)(date.date(), **kwargs)
-        return datetime.datetime.strftime(clim_date, "%Y%m%d")
+        if isinstance(clim_date, datetime.date):
+            return datetime.datetime.strftime(clim_date, "%Y%m%d")
+        return [datetime.datetime.strftime(x, "%Y%m%d") for x in clim_date]
+
+
+class HindcastDatesDeriver(BaseModel):
+    rstart: int
+    rend: int
+    recurrence: str = "yearly"
+    include_endpoint: bool = False
+
+    def derive(self, fc_request: dict) -> list[str]:
+        date = datetime.datetime.strptime(str(fc_request["date"]), "%Y%m%d").date()
+        kwargs = self.model_dump()
+        start = RelativeYear(self.rstart).relative_to(date)
+        end = RelativeYear(self.rend).relative_to(date)
+        return [
+            datetime.datetime.strftime(x, "%Y%m%d")
+            for x in date_range(
+                date, start, end, self.recurrence, self.include_endpoint
+            )
+        ]

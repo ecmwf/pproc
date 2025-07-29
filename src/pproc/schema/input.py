@@ -7,13 +7,13 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-from typing import Optional, Union, Iterator
+from typing import Optional, Union, Iterator, Any
 from typing_extensions import Self
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, model_validator, field_validator
 import copy
 import pandas as pd
+import numpy as np
 import logging
-import os
 
 from pproc.schema.base import BaseSchema
 from pproc.schema.deriver import (
@@ -21,19 +21,27 @@ from pproc.schema.deriver import (
     DefaultStepDeriver,
     ClimDateDeriver,
     ClimStepDeriver,
+    HindcastDatesDeriver,
 )
+from pproc.schema.filters import _steplength, _steptype, _selection, _number
 from pproc.schema.step import StepSchema
 from pproc.config.utils import update_request, expand, squeeze, deep_update
 
 logger = logging.getLogger(__name__)
 
 
-def format_request(request: dict) -> dict:
-    for key, value in request.items():
-        if isinstance(value, list) and len(value) == 1:
-            request[key] = value[0]
+def format_request(request: dict, pop: Optional[list[str]] = None) -> dict:
+    for key in list(request.keys()):
+        if pop and key in pop:
+            request.pop(key, None)
+            continue
+        value = request[key]
         if key == "number":
+            if np.ndim(value) == 0:
+                value = [value]
             request[key] = list(map(int, value))
+        elif isinstance(value, list) and len(value) == 1:
+            request[key] = value[0]
     return request
 
 
@@ -41,27 +49,50 @@ class ForecastInput(BaseModel):
     members: Optional[dict] = None
     request: dict
     derive_step: ForecastStepDeriver
+    derive_date: Optional[list[ClimDateDeriver]] = None
+    derive_hdate: Optional[HindcastDatesDeriver] = None
+
+    @field_validator("derive_date", mode="before")
+    @classmethod
+    def format_derive_date(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            return [data]
+        return data
 
     @model_validator(mode="after")
     def populate_request(self) -> Self:
         if self.members:
-            self.request.setdefault(
-                "number", list(range(self.members["start"], self.members["end"] + 1))
-            )
+            if "number" in self.request:
+                number = np.asarray(self.request["number"])
+                number = list(
+                    number[
+                        (number >= self.members["start"])
+                        & (number <= self.members["end"])
+                    ]
+                )
+            else:
+                number = list(range(self.members["start"], self.members["end"] + 1))
+            self.request["number"] = number
         else:
             self.request.pop("number", None)
         return self
 
-    def populate_derived(self, output_request, fc_steps: list[int]):
+    def populate_derived(
+        self, base_request: dict, steps: list[int], scheme: Optional[str] = None
+    ):
         for k, v in self.request.items():
-            self.request[k] = v if v != f"{{{k}}}" else output_request[k]
-        self.request["step"] = self.derive_step.derive(output_request, fc_steps)
+            self.request[k] = v if v != f"{{{k}}}" else base_request[k]
+        self.request["step"] = self.derive_step.derive(base_request, steps)
+        if self.derive_date:
+            request = base_request.copy()
+            for deriver in self.derive_date:
+                request["date"] = deriver.derive(request, scheme)
+            self.request["date"] = request["date"]
+        if self.derive_hdate:
+            self.request["hdate"] = self.derive_hdate.derive(base_request)
 
 
 class ClimatologyInput(ForecastInput):
-    members: Optional[dict] = None
-    request: dict
-    derive_date: Optional[ClimDateDeriver] = None
     derive_step: Optional[ClimStepDeriver] = None
 
     @model_validator(mode="after")
@@ -71,20 +102,39 @@ class ClimatologyInput(ForecastInput):
             self.request["quantile"] = [f"{x}:100" for x in range(0, 101)]
         return self
 
-    def populate_derived(
-        self, fc_request: dict, clim_steps: list[int | str], scheme: str
-    ):
+    def populate_derived(self, base_request: dict, steps: list[int | str], scheme: str):
         assert (
             self.derive_step and self.derive_date
         ), "Both step and date derivers required"
-        for k, v in self.request.items():
-            self.request[k] = v if v != f"{{{k}}}" else fc_request[k]
-        self.request["step"] = self.derive_step.derive(fc_request, clim_steps)
-        self.request["date"] = self.derive_date.derive(fc_request, scheme)
+        super().populate_derived(base_request, steps, scheme)
 
 
 class ForecastConfig(BaseModel):
     inputs: list[ForecastInput]
+    scheme: Optional[str] = None
+
+    @model_validator(mode="after")
+    def simplify_requests(self) -> Self:
+        if len(self.inputs) == 1:
+            return self
+        base_input = self.inputs[0].model_dump(exclude="members")
+        number = set(base_input["request"].pop("number", []))
+        for input in self.inputs[1:]:
+            input_dict = input.model_dump(exclude="members")
+            input_number = input_dict["request"].pop("number", [])
+            if base_input != input_dict:
+                return self
+            number = number.union(input_number)
+        number = sorted(list(number))
+        diff = set(np.diff(number))
+        if len(diff) != 0 and diff != {1}:
+            return self
+        members = None
+        if len(number) != 0:
+            base_input["request"]["number"] = number
+            members = {"start": number[0], "end": number[-1]}
+        self.inputs = [ForecastInput(**base_input, members=members)]
+        return self
 
     def steps(self) -> list[int]:
         out = set()
@@ -166,22 +216,24 @@ class InputConfig(BaseModel):
         clim_steps: Optional[list[int | str]] = None,
     ):
         for input in self.forecast.inputs:
-            input.populate_derived(output_request, fc_steps)
+            input.populate_derived(output_request, fc_steps, self.forecast.scheme)
 
         if self.climatology.required:
             for input in self.climatology.inputs:
                 input.populate_derived(
-                    fc_request=self.forecast.base_request(),
-                    clim_steps=clim_steps,
-                    scheme=self.climatology.scheme,
+                    self.forecast.base_request(),
+                    clim_steps,
+                    self.climatology.scheme,
                 )
 
     def inputs(self) -> Iterator[dict]:
         for input in self.forecast.inputs:
-            yield format_request(input.request)
+            yield format_request(input.request, pop=["selection"])
         if self.climatology.required:
             for input in self.climatology.inputs:
-                yield format_request(input.request)
+                yield format_request(
+                    {**input.request, "climatology": True}, pop=["selection"]
+                )
 
     def match(self, input_requests: list[dict]) -> Iterator[Self]:
         fc_inputs = list(self.forecast.match(input_requests))
@@ -193,7 +245,10 @@ class InputConfig(BaseModel):
 
             fc_config = fc_inputs[0]
             for clim_inp in self.climatology.inputs:
-                clim_inp.request["date"] = clim_inp.derive_date.derive(
+                assert (
+                    len(clim_inp.derive_date) == 1
+                ), "Climatology can only have a single date"
+                clim_inp.request["date"] = clim_inp.derive_date[0].derive(
                     fc_config.base_request(), self.climatology.scheme
                 )
             try:
@@ -215,19 +270,14 @@ class InputConfig(BaseModel):
                 )
 
 
-def _steptype(request: dict, key: str) -> str:
-    step = request.get("step", [])
-    steprange = str(step).split("-")
-    return "range" if len(steprange) == 2 else "instantaneous"
-
-
 def _update_config(config: dict, update: dict[str, dict]) -> dict:
     for fc_type, fc_update in update.items():
         fc_update = fc_update.copy()
         fc_config = config[fc_type].model_dump(exclude_none=True, by_alias=True)
         current_inputs = fc_config.pop("inputs")
         update_inputs = fc_update.pop("inputs", [])
-        inputs = update_request(current_inputs, update_inputs)
+        method = fc_update.get("update_request_method", "map")
+        inputs = update_request(current_inputs, update_inputs, method=method)
         config[fc_type] = type(config[fc_type])(
             **deep_update(fc_config, fc_update), inputs=inputs
         )
@@ -280,7 +330,12 @@ class InputSchema(BaseSchema):
         "forecast": _update_config,
         "climatology": _update_config,
     }
-    custom_filter = {"steptype": _steptype}
+    custom_filter = {
+        "steptype": _steptype,
+        "steplength": _steplength,
+        "selection": _selection,
+        "number": _number,
+    }
     custom_match = {"forecast": _match_forecast, "climatology": _match_forecast}
 
     @classmethod
@@ -298,21 +353,21 @@ class InputSchema(BaseSchema):
 
     def inputs(self, output_request: dict, step_schema: StepSchema) -> Iterator[dict]:
         initial = {
-            "forecast": ForecastConfig(
+            "forecast": ForecastConfig.model_construct(
                 inputs=[
-                    {
-                        "request": self._format_output_request(output_request),
-                        "derive_step": DefaultStepDeriver(),
-                    }
+                    ForecastInput.model_construct(
+                        request=self._format_output_request(output_request),
+                        derive_step=DefaultStepDeriver(),
+                    )
                 ],
             ),
-            "climatology": ClimatologyConfig(
+            "climatology": ClimatologyConfig.model_construct(
                 inputs=[
-                    {
-                        "request": self._format_output_request(
+                    ClimatologyInput.model_construct(
+                        request=self._format_output_request(
                             output_request, pop=["date"]
                         )
-                    }
+                    )
                 ],
             ),
         }
@@ -338,9 +393,11 @@ class InputSchema(BaseSchema):
             [
                 {
                     "recon_req": output_template or {},
-                    "forecast": ForecastConfig(inputs=[{"request": base_request}]),
-                    "climatology": ClimatologyConfig(
-                        inputs=[{"request": base_request}]
+                    "forecast": ForecastConfig.model_construct(
+                        inputs=[ForecastInput.model_construct(request=base_request)]
+                    ),
+                    "climatology": ClimatologyConfig.model_construct(
+                        inputs=[ClimatologyInput.model_construct(request=base_request)]
                     ),
                 }
             ],

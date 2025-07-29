@@ -38,20 +38,20 @@ DEFAULT_REQUEST = {
     "domain": "g",
     "param": "130",
     "date": "20241001",
-    "time": "0",
+    "time": "0000",
 }
 
 
 def default_config(name: str, param: str):
     return {
         "total_fields": 51,
-        "sources": {"fc": {"type": "fdb"}},
+        "inputs": {"fc": {"source": {"type": "fdb"}}},
         "outputs": {
             "default": {"target": {"type": "fdb"}},
         },
         "parameters": {
             name: {
-                "sources": {
+                "inputs": {
                     "fc": {
                         "request": [
                             {
@@ -62,7 +62,7 @@ def default_config(name: str, param: str):
                                 "domain": "g",
                                 "param": param,
                                 "date": "20241001",
-                                "time": "0",
+                                "time": "0000",
                                 "type": "cf",
                             },
                             {
@@ -73,7 +73,7 @@ def default_config(name: str, param: str):
                                 "domain": "g",
                                 "param": param,
                                 "date": "20241001",
-                                "time": "0",
+                                "time": "0000",
                                 "type": "pf",
                                 "number": list(range(1, 51)),
                             },
@@ -156,7 +156,11 @@ TEST_CASES = {
             "parameters": {
                 "130_pl": {
                     "dtype": "float64",
-                    "metadata": {"bitsPerValue": 16, "perturbationNumber": 0},
+                    "metadata": {
+                        "bitsPerValue": 16,
+                        "numberOfForecastsInEnsemble": "{num_fields}:int",
+                        "perturbationNumber": 0,
+                    },
                     "accumulations": {
                         "levelist": {"coords": [[250], [500]]},
                         "step": {"coords": [[x] for x in range(0, 169, 6)]},
@@ -183,7 +187,7 @@ TEST_CASES = {
                         }
                     ],
                     "vmin": 0.0,
-                    "sources": {
+                    "inputs": {
                         "fc": {
                             "request": {
                                 **DEFAULT_REQUEST,
@@ -249,7 +253,7 @@ TEST_CASES = {
             "parallelisation": {"n_par_compute": 2},
             "outputs": {"default": {"metadata": {"expver": "9999"}}},
             "parameters": {
-                "default": {"sources": {"fc": {"request": {"expver": "9998"}}}}
+                "default": {"inputs": {"fc": {"request": {"expver": "9998"}}}}
             },
         },
         types.AccumConfig,
@@ -264,7 +268,7 @@ TEST_CASES = {
             "parallelisation": {"n_par_compute": 2},
             "parameters": {
                 "130_pl": {
-                    "sources": {
+                    "inputs": {
                         "fc": {
                             "request": [
                                 {**DEFAULT_REQUEST, "expver": "9998", "type": "cf"},
@@ -403,7 +407,7 @@ def test_from_outputs(request, output_request, input_param):
 
 
 @pytest.mark.parametrize(
-    "entrypoint, input_request, step_accum, stepby",
+    "entrypoint, input_request, step_accum, include_start, stepby",
     [
         [
             "pproc-accumulate",
@@ -459,6 +463,7 @@ def test_from_outputs(request, output_request, input_param):
                     },
                 ],
             },
+            False,
             12,
         ],
         [
@@ -481,6 +486,7 @@ def test_from_outputs(request, output_request, input_param):
             {
                 "coords": [[x] for x in range(0, 193, 6)],
             },
+            True,
             6,
         ],
         [
@@ -534,12 +540,15 @@ def test_from_outputs(request, output_request, input_param):
                     },
                 ],
             },
+            True,
             24,
         ],
     ],
     ids=["accumulate", "ensms", "monthly-stats"],
 )
-def test_from_inputs(request, entrypoint, input_request, step_accum, stepby):
+def test_from_inputs(
+    request, entrypoint, input_request, step_accum, include_start, stepby
+):
     test_schema = Schema(**schema())
 
     overrides, cfg_type, updates = TEST_CASES[request.node.callspec.id]
@@ -561,7 +570,13 @@ def test_from_inputs(request, entrypoint, input_request, step_accum, stepby):
             {
                 "source": "fdb",
                 **req,
-                "step": list(range(req["step"][0], req["step"][-1] + 1, stepby)),
+                "step": list(
+                    range(
+                        req["step"][0] if include_start else req["step"][0] + stepby,
+                        req["step"][-1] + 1,
+                        stepby,
+                    )
+                ),
             }
             for req in input_request
         ],

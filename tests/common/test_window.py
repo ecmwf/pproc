@@ -123,7 +123,11 @@ def test_windows(operation, include_init, steps, step_increment, values):
             [1], "aggregation", None, {"step": "1", "timeRangeIndicator": 0}, id="inst"
         ),
         pytest.param(
-            [0], "aggregation", None, {"step": "0", "timeRangeIndicator": 1}, id="inst-0"
+            [0],
+            "aggregation",
+            None,
+            {"step": "0", "timeRangeIndicator": 1},
+            id="inst-0",
         ),
         pytest.param(
             [260],
@@ -875,23 +879,24 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                     {
                         "operation": "mean",
                         "deaccumulate": True,
-                        "coords": [[120], [123]],
+                        "include_start": True,
+                        "coords": [[120, 123], [123, 126]],
                     }
                 ]
             },
             {},
             {
-                f"{s}_0": {
+                f"{s}-{e}_0": {
                     "operation": "mean",
-                    "coords": [s],
+                    "coords": [s, e],
                     "sequential": True,
                     "metadata": {
-                        "timeRangeIndicator": 0,
-                        "step": str(s),
+                        "stepRange": f"{s}-{e}",
+                        "stepType": "max",
                     },
                     "deaccumulate": True,
                 }
-                for s in [120, 123]
+                for s, e in [[120, 123], [123, 126]]
             },
             id="deaccumulation",
         ),

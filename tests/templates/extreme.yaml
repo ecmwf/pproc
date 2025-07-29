@@ -8,7 +8,7 @@ parameters:
     sot:
       - 10
       - 90
-    sources:
+    inputs:
       fc:
         request:
           param: '167'
@@ -34,7 +34,7 @@ parameters:
             to: 36
             by: 6
           operation: mean
-sources:
+inputs:
   fc:
     request:
       - class: od
@@ -54,7 +54,8 @@ sources:
         time: 12
         type: pf 
         number: [1, 2, 3, 4, 5]
-    type: fdb   
+    source:
+      type: fdb   
   clim:
     request:
       class: od
@@ -65,7 +66,8 @@ sources:
       levtype: sfc
       stream: efhs
       type: cd
-    type: fdb
+    source:
+      type: fdb
 outputs:
   default:
     target:

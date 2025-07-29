@@ -21,6 +21,12 @@ UpdateFunc = Callable[[dict, dict], dict]
 FilterFunc = Callable[[dict, str], Any]
 MatchFunc = Callable[[dict, Any, Any], bool]
 
+
+def dict_update(base: dict, update: dict) -> dict:
+    base.update(update)
+    return base
+
+
 DEFAULT_UPDATE: UpdateFunc = deep_update
 DEFAULT_FILTER: FilterFunc = dict.__getitem__
 DEFAULT_MATCH: MatchFunc = lambda _, value, expected: value == expected
@@ -32,8 +38,8 @@ class BaseSchema:
     custom_match: dict[str, MatchFunc] = {}
 
     def __init__(self, schema: dict):
-        self.filters, self.schema = self.expand(schema)
-        self.filters = self.filters.difference(set(self.custom_filter.keys()))
+        self.all_filters, self.schema = self.expand(schema)
+        self.filters = self.all_filters.difference(set(self.custom_filter.keys()))
 
     @classmethod
     def from_file(cls, schema_path: str) -> Self:

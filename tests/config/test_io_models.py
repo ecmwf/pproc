@@ -22,42 +22,47 @@ from pproc.config import io
     [
         [
             {"fc": {"request": {"class": "ai", "type": ["cf", "pf"]}}},
-            ["--set", "fc=temp.grib"],
-            {"fc": {"type": "file", "path": "temp.grib"}},
+            ["--set", "fc.source=temp.grib"],
+            {
+                "fc": {
+                    "source": {"type": "file", "path": "temp.grib"},
+                    "request": {"class": "ai", "type": ["cf", "pf"]},
+                }
+            },
         ],
         [
             {"fc": {"request": {"class": "ai", "type": ["cf", "pf"]}}},
-            ["--set", "fc=temp.grib", "--override-input", "class=od"],
+            ["--set", "fc.source=temp.grib", "--override-input", "class=od"],
             {
-                "fc": {"type": "file", "path": "temp.grib"},
+                "fc": {
+                    "source": {"type": "file", "path": "temp.grib"},
+                    "request": {"class": "ai", "type": ["cf", "pf"]},
+                },
                 "overrides": {"class": "od"},
             },
         ],
         [
             {
                 "fc": {"request": {"class": "ai", "type": ["cf", "pf"]}},
-                "default": {"type": "fdb"},
+                "default": {"source": {"type": "fdb"}},
             },
             [],
-            {"fc": {"type": "fdb", "request": {"class": "ai", "type": ["cf", "pf"]}}},
-        ],
-        [
             {
-                "fc": {"request": {"class": "ai", "type": ["cf", "pf"]}},
-                "default": {"type": "fdb"},
+                "fc": {
+                    "source": {"type": "fdb"},
+                    "request": {"class": "ai", "type": ["cf", "pf"]},
+                }
             },
-            ["--in-fc", "fileset:temp.grib"],
-            {"fc": {"type": "fileset", "path": "temp.grib"}},
         ],
     ],
-    ids=["with-set", "with-overrides", "with-default", "with-source-override"],
+    ids=["with-set", "with-overrides", "with-default"],
 )
-def test_sources(tmpdir, config, cli, expected):
+def test_inputs(tmpdir, config, cli, expected):
     with open(f"{tmpdir}/config.yaml", "w") as file:
         file.write(yaml.dump(config))
-    source_model = io.create_source_model("test", ["fc"])
+    input_model = io.create_input_model("test", ["fc"])
     with patch("sys.argv", ["", "-f", f"{tmpdir}/config.yaml"] + cli):
-        cfg = Conflator(app_name="sources", model=source_model).load()
+        cfg = Conflator(app_name="inputs", model=input_model).load()
         assert cfg.model_dump(by_alias=True, exclude_defaults=True) == expected
 
 
@@ -96,9 +101,7 @@ def test_sources(tmpdir, config, cli, expected):
             {"test": {"target": {"type": "fdb"}, "metadata": {"class": "od"}}},
             [
                 "--set",
-                "test.target.type=fileset",
-                "--set",
-                "test.target.path=temp.grib",
+                "test.target=fileset:temp.grib",
                 "--override-output",
                 "class=ai",
                 "--override-output",
@@ -117,27 +120,11 @@ def test_sources(tmpdir, config, cli, expected):
             },
             io.OverrideTargetWrapper,
         ],
-        [
-            {
-                "default": {"target": {"type": "fdb"}, "metadata": {"class": "od"}},
-            },
-            ["--out-test", "fileset:temp.grib"],
-            {
-                "default": {"target": {"type": "fdb"}, "metadata": {"class": "od"}},
-                "test": {
-                    "target": {"type": "fileset", "path": "temp.grib"},
-                    "metadata": {"class": "od"},
-                },
-                "overrides": {},
-            },
-            io.FileSetTarget,
-        ],
     ],
     ids=[
         "config-defaults-only",
         "config-overrides",
         "with-set",
-        "with-target-override",
     ],
 )
 def test_targets(tmpdir, config, cli, expected, target_type):
@@ -197,7 +184,7 @@ def test_target_metadata(tmpdir, config, expected):
 
 def test_model_serialisation():
     output_models = [
-        io.BaseSourceModel,
+        io.BaseInputModel,
         io.BaseOutputModel,
         io.EnsmsOutputModel,
         io.AccumOutputModel,

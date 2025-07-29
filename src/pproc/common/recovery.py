@@ -99,7 +99,9 @@ class Recovery(BaseRecovery):
         ret = []
         for x in self.checkpoints:
             x_id = self.checkpoint_identifiers(x)
-            if len(matching) == 0 or (all(x_id[k] == str(v) for k, v in matching.items())):
+            if len(matching) == 0 or (
+                all(x_id[k] == str(v) for k, v in matching.items())
+            ):
                 ret.append(x_id)
         return ret
 

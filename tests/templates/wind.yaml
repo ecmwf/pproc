@@ -1,5 +1,5 @@
 parallelisation: 1
-sources:
+inputs:
   fc:
     request:
       - class: od
@@ -19,10 +19,11 @@ sources:
         date: 20240507
         time: 12
         number: [1, 2, 3, 4, 5]
-    type: fdb
+    source:
+      type: fdb
 parameters:
   wind:
-    sources:
+    inputs:
       fc:
         request:
           param: [138, 155]

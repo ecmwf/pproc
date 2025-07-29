@@ -11,8 +11,11 @@ from typing import Any, Optional, Iterator
 import copy
 import numpy as np
 import pandas as pd
+import itertools
 
 from pproc.common.utils import dict_product
+
+METADATA_KEYS = {"param": "paramId", "date": "dataDate"}
 
 
 def parse_vars(items):
@@ -67,7 +70,9 @@ def deep_update(original: dict, update: dict) -> dict:
     return original
 
 
-def update_request(base: dict | list[dict], update: dict | list[dict], **kwargs):
+def update_request(
+    base: dict | list[dict], update: dict | list[dict], method: str = "map", **kwargs
+):
     if isinstance(base, dict):
         base = [base]
     if isinstance(update, dict):
@@ -75,15 +80,30 @@ def update_request(base: dict | list[dict], update: dict | list[dict], **kwargs)
 
     if len(update) == 0:
         return copy.deepcopy(base)
-    if len(base) != len(update):
-        broadcast_len = max(len(base), len(update))
-        if len(base) == 0:
-            return [copy.deepcopy(up) for up in update]
-        if len(base) == 1:
-            base = [copy.deepcopy(base[0]) for _ in range(broadcast_len)]
-        if len(update) == 1:
-            update = update * broadcast_len
-    return [deep_update(breq, {**ureq, **kwargs}) for breq, ureq in zip(base, update)]
+    if len(base) == 0:
+        return copy.deepcopy(update)
+    if method == "map":
+        if len(base) == len(update):
+            combinations = zip(base, update)
+        else:
+            assert len(base) == 1 or len(update) == 1
+            combinations = itertools.product(base, update)
+    elif method == "product":
+        combinations = itertools.product(base, update)
+    else:
+        raise ValueError(
+            f"Unknown method for combining requests: {method}. Supported methods are 'map' and 'product'"
+        )
+    new_requests = [
+        deep_update(copy.deepcopy(breq), {**ureq, **kwargs})
+        for breq, ureq in combinations
+    ]
+    # Remove duplicates
+    deduplicated = []
+    for inp in new_requests:
+        if inp not in deduplicated:
+            deduplicated.append(inp)
+    return deduplicated
 
 
 def expand(
@@ -131,9 +151,11 @@ def squeeze(reqs: list[dict], dims: list[str]) -> Iterator[dict]:
         yield req
 
 
-def extract_mars(keys: dict) -> dict:
-    if "paramId" in keys:
-        keys["param"] = keys.pop("paramId")
+def extract_mars(keys: dict, additional: list[str] = None) -> dict:
+    additional = additional or []
+    for key, metadata_key in METADATA_KEYS.items():
+        if metadata_key in keys:
+            keys[key] = keys.pop(metadata_key)
     mars_namespace = [
         "class",
         "type",
@@ -158,4 +180,4 @@ def extract_mars(keys: dict) -> dict:
         "origin",
         "system",
     ]
-    return {k: v for k, v in keys.items() if k in mars_namespace}
+    return {k: v for k, v in keys.items() if (k in mars_namespace) or (k in additional)}

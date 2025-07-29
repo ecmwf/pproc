@@ -20,7 +20,7 @@ from typing_extensions import Self
 
 from pproc.config import io
 from pproc.config.log import LoggingConfig
-from pproc.config.param import ParamConfig
+from pproc.config.param import ParamConfig, partial_equality
 from pproc.config.utils import deep_update, extract_mars, update_request, _get, _set
 
 
@@ -68,13 +68,14 @@ class BaseConfig(ConfigModel):
     total_fields: Annotated[int, Field(validate_default=True)] = 0
     parallelisation: int | Parallelisation = 1
     recovery: Recovery = Recovery()
-    sources: io.BaseSourceModel
+    inputs: io.BaseInputModel
     outputs: io.BaseOutputModel = io.BaseOutputModel()
     parameters: list[ParamConfig]
     _init: bool = False
+    _merge_exclude: tuple[str] = ("parameters",)
 
     def print(self):
-        print(yaml.dump(self.model_dump(by_alias=True)))
+        print(yaml.dump(self.model_dump(by_alias=True), sort_keys=False))
 
     @model_validator(mode="after")
     def _init_targets(self) -> Self:
@@ -97,8 +98,8 @@ class BaseConfig(ConfigModel):
         out = 0
         for param in self.parameters:
             total_fields = 0
-            source = param.in_sources(self.sources, src_name)
-            reqs = source[0].request
+            inputs = param.input_list(self.inputs, src_name)
+            reqs = inputs[0].request
             if isinstance(reqs, dict):
                 reqs = [reqs]
             for req in reqs:
@@ -120,7 +121,7 @@ class BaseConfig(ConfigModel):
     @model_validator(mode="after")
     def validate_totalfields(self) -> Self:
         if self.total_fields == 0 and len(self.parameters) > 0:
-            total_fields = self.compute_totalfields(self.sources.names[0])
+            total_fields = self.compute_totalfields(self.inputs.names[0])
             self.total_fields = total_fields
         return self
 
@@ -137,7 +138,41 @@ class BaseConfig(ConfigModel):
                 return param
         return None
 
-    def merge(self, other: Self) -> Self:
+    @classmethod
+    def from_schema(cls, schema_config: dict, **overrides) -> Self:
+        schema_config = copy.deepcopy(schema_config)
+        outputs = schema_config.pop("outputs", {})
+        overrides = copy.deepcopy(overrides)
+
+        # Construct parameter config
+        inputs = copy.deepcopy(schema_config.pop("inputs"))
+        interp_keys = schema_config.pop("interp_keys", {})
+        for req in inputs:
+            if grid := req.pop("target_grid", None):
+                req["interpolate"] = {
+                    "grid": grid,
+                    **interp_keys,
+                }
+
+        param_name = schema_config.pop("name", str(inputs[0]["param"]))
+        all_param_overrides = overrides.pop("parameters", {})
+        param_overrides = all_param_overrides.get(
+            param_name, all_param_overrides.get("default", {})
+        )
+        param_config = cls._populate_param(schema_config, inputs, **param_overrides)
+
+        config = {
+            "inputs": {
+                src: {"source": {"type": "fdb"}}
+                for src in param_config["inputs"].keys()
+            },
+            "outputs": deep_update({"default": {"target": {"type": "fdb"}}}, outputs),
+            "parameters": {param_name: param_config},
+        }
+        deep_update(config, overrides)
+        return cls(**config)
+
+    def merge(self, other: Self, finalise: bool = True) -> Self:
         """
         Merge two configs, where all elements except for parameters must be the same.
         Duplicate parameters with the same name are not allowed.
@@ -145,152 +180,67 @@ class BaseConfig(ConfigModel):
         if not isinstance(other, type(self)):
             raise ValueError("Can only merge configs of the same type")
 
-        current = self.model_dump(by_alias=True)
-        current_params = {
-            cparam["name"]: cparam for cparam in current.pop("parameters")
-        }
-        other_model = other.model_dump(by_alias=True)
-        other_params = {
-            oparam["name"]: oparam for oparam in other_model.pop("parameters")
-        }
-
-        if current != other_model:
+        if not partial_equality(self, other, exclude=self._merge_exclude):
             raise ValueError(
-                f"Configs must be the same except for parameters: {current} vs {other_model}"
+                f"Can only merge configs that are equal except for {self._merge_exclude}"
             )
 
-        merged_params = []
-        for name in list(current_params.keys()) + [
-            x for x in other_params.keys() if x not in current_params
-        ]:
-            current_param = self.param(name)
-            other_param = other.param(name)
-            if current_param and other_param:
-                merged_params.append(current_param.merge(other_param))
+        merged = self.model_dump(by_alias=True, exclude=self._merge_exclude)
+        for attr in self._merge_exclude:
+            if merge_func := getattr(self, f"_merge_{attr}", None):
+                merged[attr] = merge_func(other)
+            elif isinstance(getattr(self, attr), list):
+                self_attr = getattr(self, attr)
+                merged[attr] = self_attr + [
+                    x for x in getattr(other, attr) if x not in self_attr
+                ]
             else:
-                merged_params.append(current_param or other_param)
-        return type(self)(**current, parameters=merged_params)
-
-    @classmethod
-    def from_schema(cls, schema_config: dict, **overrides) -> Self:
-        schema_config = copy.deepcopy(schema_config)
-        overrides = copy.deepcopy(overrides)
-        config = {
-            "sources": {"default": {"type": "fdb"}},
-            "outputs": {"default": {"target": {"type": "fdb"}}},
-        }
-
-        # Construct parameter config
-        inputs = copy.deepcopy(schema_config.pop("inputs"))
-        accums = cls._populate_accumulations(
-            inputs, schema_config.pop("accumulations", {})
-        )
-        interp_keys = schema_config.pop("interp_keys", {})
-        param_name = schema_config.pop("name", str(inputs[0]["param"]))
-
-        all_param_overrides = overrides.pop("parameters", {})
-        param_overrides = all_param_overrides.get(
-            param_name, all_param_overrides.get("default", {})
-        )
-        for req in inputs:
-            if grid := req.pop("interp_grid", None):
-                req["interpolate"] = {
-                    "grid": grid,
-                    **interp_keys,
-                }
-            [req.pop(dim, None) for dim in accums.keys()]
-        param_config = {
-            "sources": cls._populate_sources(
-                inputs, **param_overrides.pop("sources", {})
-            ),
-            "accumulations": accums,
-            **schema_config,
-        }
-        deep_update(param_config, param_overrides)
-        config["parameters"] = {param_name: param_config}
-        deep_update(config, overrides)
-        return cls(**config)
-
-    @classmethod
-    def _populate_accumulations(cls, inputs: list[dict], base_accum: dict) -> dict:
-        req = inputs[0]
-        accums = base_accum
-        if levelist := req.get("levelist", None):
-            levelist = [levelist] if np.ndim(levelist) == 0 else levelist
-            accums.setdefault("levelist", {"coords": [[level] for level in levelist]})
-
-        steps = req.get("step", None)
-        if steps is not None:
-            step_accum = accums.setdefault("step", {})
-            if isinstance(steps, (int, str)):
-                steps = [steps]
-
-            if len(steps) > 2:
-                diff = np.diff(steps)
-                if len(set(diff)) == 1:
-                    steps = {"from": steps[0], "to": steps[-1], "by": int(diff[0])}
-            step_accum["coords"] = [steps]
-
-            if step_accum.get("type") == "legacywindow":
-                accums["step"] = {
-                    "type": step_accum.pop("type"),
-                    "windows": [step_accum],
-                }
-        return accums
-
-    @classmethod
-    def _populate_sources(cls, inputs: list[dict], **overrides) -> dict:
-        src_name = "fc"
-        src_overrides = overrides.get(src_name, {})
-        request_overrides = src_overrides.pop("request", {})
-        updated_inputs = update_request(inputs, request_overrides)
-        return {
-            src_name: {
-                "request": updated_inputs
-                if len(updated_inputs) > 1
-                else updated_inputs[0],
-                **src_overrides,
-            }
-        }
-
-    def in_mars(self, sources: Optional[list[str]] = None) -> Iterator:
-        seen = set()
-        for param, name in itertools.product(self.parameters, self.sources.names):
-            for psource in param.in_sources(self.sources, name):
-                if sources and psource.type not in sources:
-                    continue
-                reqs = (
-                    psource.request
-                    if isinstance(psource.request, list)
-                    else [psource.request]
+                raise ValueError(
+                    f"No merge protocol defined for {attr} in {type(self)}"
                 )
-                for req in reqs:
-                    req["source"] = (
-                        psource.path if psource.path is not None else psource.type
-                    )
-                    accum_updates = (
-                        getattr(param, name).accumulations
-                        if hasattr(param, name)
-                        else {}
-                    )
-                    accumulations = deep_update(
-                        param.accumulations.copy(), accum_updates
-                    )
-                    req.update(
-                        {
-                            key: accum.unique_coords()
-                            for key, accum in accumulations.items()
-                        }
-                    )
-                    req.pop("interpolate", None)
-                    if str(req) not in seen:
-                        seen.add(str(req))
-                        yield req
+        result = type(self)(**merged)
+        if finalise:
+            result.finalise()
+        return result
+
+    def finalise(self):
+        # Check parameter names are unique
+        seen = set()
+        for param in self.parameters:
+            assert param.name not in seen, "Parameter names should be unique"
+            seen.add(param.name)
 
     def _format_out(self, param: ParamConfig, req: dict) -> dict:
         out = req.copy()
         out.pop("number", None)
         return out
+
+    def _append_number(self, param: ParamConfig, req: dict):
+        src_name = self.inputs.names[0]
+        inputs = param.input_list(self.inputs, src_name)
+        src_reqs = inputs[0].request
+        if isinstance(src_reqs, dict):
+            src_reqs = [src_reqs]
+
+        number = None
+        num_members = self.compute_totalfields(src_name)
+        for src_req in src_reqs:
+            if len(src_req) == 0:
+                continue
+            number = src_req.get("number", number)
+
+        if len(number) == num_members - 1:
+            number = [0] + number
+        req["number"] = number
+
+    def in_mars(self, sources: Optional[list[str]] = None) -> Iterator:
+        seen = set()
+        for param in self.parameters:
+            for req in param.in_keys(self.inputs, sources):
+                req.pop("interpolate", None)
+                if str(req) not in seen:
+                    seen.add(str(req))
+                    yield req
 
     def out_mars(self, targets: Optional[list[str]] = None) -> Iterator:
         outputs = []
@@ -305,16 +255,141 @@ class BaseConfig(ConfigModel):
 
         seen = []
         for param, output in itertools.product(self.parameters, outputs):
-            for req in param.out_keys(self.sources):
+            for req in param.out_keys(self.inputs, output.metadata):
                 req["target"] = (
                     output.target.path
                     if hasattr(output.target, "path")
                     else output.target.type_
                 )
-                req.update(extract_mars(output.metadata))
                 req.update(extract_mars(self.outputs.overrides))
                 req = self._format_out(param, req)
                 req.pop("interpolate", None)
                 if req not in seen:
                     seen.append(req)
                     yield req
+
+    @classmethod
+    def _populate_param(
+        cls,
+        config: dict,
+        input_config: list[dict],
+        src_name: Optional[str] = None,
+        nested: bool = False,
+        **overrides,
+    ):
+        if src_name is not None:
+            sorted_inputs = cls.sort_inputs(input_config)
+            input_config = sorted_inputs[src_name]
+        accums = cls._populate_accumulations(
+            input_config, config.pop("accumulations", {})
+        )
+        param_config = {
+            "accumulations": accums,
+            **config,
+        }
+        updated_inputs = cls._populate_inputs(
+            input_config, list(accums.keys()), **overrides.pop("inputs", {})
+        )
+        if not nested:
+            param_config["inputs"] = updated_inputs
+        deep_update(param_config, overrides)
+        return param_config
+
+    @classmethod
+    def _populate_accumulations(cls, inputs: list[dict], base_accum: dict) -> dict:
+        req = inputs[0]
+
+        # Most entrypoints don't handle array with level dimension, so put this into accumulations to
+        # separate different levels
+        accums = {}
+        if (levelist := req.get("levelist", None)) and np.ndim(req["levelist"]) > 0:
+            accums["levelist"] = {"coords": [[level] for level in levelist]}
+        accums.update(base_accum)
+
+        # Populate coords in accumulations from inputs
+        for dim, acc_config in accums.items():
+            if dim == "step":
+                # Handled separately below
+                continue
+            values = req[dim]
+            if not isinstance(values, list):
+                values = [values]
+            acc_config["coords"] = (
+                [values] if acc_config.get("operation", None) else [[x] for x in values]
+            )
+
+        steps = req.get("step", None)
+        if steps is not None:
+            step_accum = accums.setdefault("step", {})
+            if isinstance(steps, (int, str)):
+                steps = [steps]
+
+            if len(steps) > 2:
+                diff = np.diff(steps)
+                if len(set(diff)) == 1:
+                    steps = {"from": steps[0], "to": steps[-1], "by": int(diff[0])}
+            step_accum["coords"] = [steps]
+
+            if step_accum.get("type") == "legacywindow":
+                window_list = (
+                    "std_anomaly_windows"
+                    if step_accum.get("std_anomaly")
+                    else "windows"
+                )
+                accums["step"] = {
+                    "type": step_accum.pop("type"),
+                    window_list: [step_accum],
+                }
+        return accums
+
+    @classmethod
+    def sort_inputs(cls, inputs: list[dict]) -> dict:
+        return {"fc": inputs}
+
+    @classmethod
+    def _input_request(
+        cls, src_name: str, requests: list[dict], accum_dims: list[str], **overrides
+    ) -> dict | list[dict]:
+        [req.pop(dim, None) for req in requests for dim in accum_dims]
+        updated_inputs = [
+            extract_mars(x, additional=["interpolate"])
+            for x in update_request(requests, overrides)
+        ]
+        return updated_inputs if len(updated_inputs) > 1 else updated_inputs[0]
+
+    @classmethod
+    def _populate_inputs(
+        cls, inputs: list[dict], accum_dims: list[str], **overrides
+    ) -> dict:
+        sorted_requests = cls.sort_inputs(inputs)
+
+        ret = {}
+        for src_name, requests in sorted_requests.items():
+            src_overrides = overrides.get(src_name, {}).copy()
+            ret[src_name] = {
+                "request": cls._input_request(
+                    src_name, requests, accum_dims, **src_overrides.pop("request", {})
+                ),
+                **src_overrides,
+            }
+        return ret
+
+    def _merge_parameters(self, other: Self) -> list[ParamConfig]:
+        current_params = {
+            cparam.name: cparam.model_dump(by_alias=True) for cparam in self.parameters
+        }
+
+        other_params = {
+            oparam.name: oparam.model_dump(by_alias=True) for oparam in other.parameters
+        }
+        merged_params = []
+        for name in list(current_params.keys()) + [
+            x for x in other_params.keys() if x not in current_params
+        ]:
+            current_param = self.param(name)
+            other_param = other.param(name)
+            if current_param and other_param:
+                merged_params.append(current_param.merge(other_param))
+            else:
+                merged_params.append(current_param or other_param)
+        return merged_params

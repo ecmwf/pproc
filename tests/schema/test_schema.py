@@ -16,7 +16,7 @@ from conftest import schema
 
 
 @pytest.mark.parametrize(
-    "req, config",
+    "req, config, num_generated",
     [
         [
             {
@@ -49,7 +49,7 @@ from conftest import schema
                         "domain": "g",
                         "param": "167",
                         "date": "20241001",
-                        "time": "0",
+                        "time": "0000",
                         "type": "fc",
                         "step": list(range(0, 745, 6)),
                         "number": list(range(0, 51)),
@@ -67,6 +67,7 @@ from conftest import schema
                     "stream": "msmm",
                 },
             },
+            1,
         ],
         [
             {
@@ -80,6 +81,7 @@ from conftest import schema
                 "time": "00",
                 "step": "0-168",
                 "type": "fcmean",
+                "number": [0, 1, 2, 3],
             },
             {
                 "entrypoint": "pproc-accumulate",
@@ -96,7 +98,10 @@ from conftest import schema
                         "operation": "mean",
                         "deaccumulate": True,
                         "include_start": True,
-                        "metadata": {"type": "fcmean"},
+                        "metadata": {
+                            "type": "fcmean",
+                            "numberIncludedInAverage": "{num_coords}:int",
+                        },
                     }
                 },
                 "vmin": 0.0,
@@ -115,7 +120,7 @@ from conftest import schema
                         "domain": "g",
                         "param": "228",
                         "date": "20241001",
-                        "time": "00",
+                        "time": "0000",
                         "type": "cf",
                         "step": list(range(0, 169, 24)),
                     },
@@ -127,16 +132,22 @@ from conftest import schema
                         "domain": "g",
                         "param": "228",
                         "date": "20241001",
-                        "time": "00",
+                        "time": "0000",
                         "type": "pf",
                         "step": list(range(0, 169, 24)),
-                        "number": list(range(1, 101)),
+                        "number": list(range(1, 4)),
                     },
                 ],
                 "metadata": {
+                    "bitsPerValue": 16,
+                    "legBaseDate": 0,
+                    "legNumber": 0,
                     "paramId": 172228,
+                    "timeRangeIndicator": 3,
+                    "stepType": "avg",
                 },
             },
+            2,
         ],
         [
             {
@@ -151,7 +162,7 @@ from conftest import schema
                 "time": "00",
                 "step": 12,
                 "type": "em",
-                "interp_grid": "O640",
+                "target_grid": "O640",
             },
             {
                 "entrypoint": "pproc-ensms",
@@ -171,11 +182,11 @@ from conftest import schema
                         "domain": "g",
                         "param": "130",
                         "date": "20241001",
-                        "time": "00",
+                        "time": "0000",
                         "type": "cf",
                         "levelist": [250, 850],
                         "step": 12,
-                        "interp_grid": "O640",
+                        "target_grid": "O640",
                     },
                     {
                         "class": "od",
@@ -185,31 +196,33 @@ from conftest import schema
                         "domain": "g",
                         "param": "130",
                         "date": "20241001",
-                        "time": "00",
+                        "time": "0000",
                         "type": "pf",
                         "levelist": [250, 850],
                         "step": 12,
                         "number": list(range(1, 51)),
-                        "interp_grid": "O640",
+                        "target_grid": "O640",
                     },
                 ],
                 "metadata": {
                     "bitsPerValue": 16,
+                    "numberOfForecastsInEnsemble": "{num_fields}:int",
                     "perturbationNumber": 0,
                 },
             },
+            1,
         ],
     ],
     ids=["2t", "tp", "T"],
 )
-def test_schema_from_output(req, config):
+def test_schema_from_output(req, config, num_generated):
     test_schema = Schema(**schema())
     assert config == test_schema.config_from_output(req)
 
     generated = test_schema.config_from_input(
         config["inputs"], {k: req[k] for k in ["stream", "type", "param"]}
     )
-    assert len(list(generated)) == 1
+    assert len(list(generated)) == num_generated
 
 
 @pytest.mark.parametrize(
@@ -244,7 +257,7 @@ def test_schema_from_output(req, config):
                     "type": "cf",
                 },
             ],
-            4,
+            8,
             {
                 "entrypoint": "pproc-accumulate",
                 "name": "167_sfc",
@@ -257,23 +270,10 @@ def test_schema_from_output(req, config):
                         "domain": "g",
                         "param": "167",
                         "date": "20241001",
-                        "time": "0",
+                        "time": "0000",
                         "type": "cf",
                         "step": list(range(0, 169, 6)),
-                    },
-                    {
-                        "class": "od",
-                        "stream": "enfo",
-                        "expver": "0001",
-                        "levtype": "sfc",
-                        "domain": "g",
-                        "param": "167",
-                        "date": "20241001",
-                        "time": "0",
-                        "type": "pf",
-                        "step": list(range(0, 169, 6)),
-                        "number": list(range(1, 11)),
-                    },
+                    }
                 ],
                 "accumulations": {
                     "step": {
@@ -338,7 +338,7 @@ def test_schema_from_output(req, config):
                         "domain": "g",
                         "param": "228",
                         "date": "20241001",
-                        "time": "00",
+                        "time": "0000",
                         "type": "fc",
                         "step": list(range(0, 745, 24)),
                         "number": list(range(1, 21)),
@@ -401,7 +401,7 @@ def test_schema_from_output(req, config):
                         "domain": "g",
                         "param": "130",
                         "date": "20241001",
-                        "time": "0",
+                        "time": "0000",
                         "type": "cf",
                         "step": 0,
                     },
@@ -414,7 +414,7 @@ def test_schema_from_output(req, config):
                         "domain": "g",
                         "param": "130",
                         "date": "20241001",
-                        "time": "0",
+                        "time": "0000",
                         "type": "pf",
                         "step": 0,
                         "number": list(range(1, 51)),
@@ -428,6 +428,7 @@ def test_schema_from_output(req, config):
                 "dtype": "float64",
                 "metadata": {
                     "bitsPerValue": 16,
+                    "numberOfForecastsInEnsemble": "{num_fields}:int",
                     "perturbationNumber": 0,
                 },
             },

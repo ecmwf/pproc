@@ -8,6 +8,7 @@
 # nor does it submit to any jurisdiction.
 
 from typing import Dict
+import re
 
 
 def construct_message(template_grib, window_grib_headers: Dict):
@@ -24,6 +25,8 @@ def construct_message(template_grib, window_grib_headers: Dict):
         key_values.pop(missing_key)
 
     template_edition = out_grib.get("edition")
+    if key_values.get("edition", template_edition) == 2:
+        key_values.setdefault("packingType", "grid_ccsds")
     if key_values.get("edition", template_edition) != template_edition:
         # Set grib 1 and grib 2 keys separately as value check can fail when
         # grib 1 keys are removed in the switch to grib 2, or vice versa
@@ -43,3 +46,29 @@ def construct_message(template_grib, window_grib_headers: Dict):
     for missing_key in set_missing:
         out_grib.set_missing(missing_key)
     return out_grib
+
+
+_TEMPLATE_RE = re.compile("^{([a-z_]*)}:?([a-z]*)$", re.I)
+_TYPES = {
+    "int": int,
+    "str": str,
+    "float": float,
+}
+
+
+def fill_template_values(metadata: dict, template_map: dict) -> dict:
+    updates = {}
+    for key, val in metadata.items():
+        if isinstance(val, str):
+            m = _TEMPLATE_RE.fullmatch(val)
+            if m is None:
+                continue
+            value, tp = m.groups()
+            if value not in template_map:
+                continue
+
+            updates[key] = (
+                template_map[value] if len(tp) == 0 else _TYPES[tp](template_map[value])
+            )
+    metadata.update(updates)
+    return metadata

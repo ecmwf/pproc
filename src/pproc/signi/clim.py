@@ -17,12 +17,12 @@ from pproc.common.accumulation import Accumulator
 from pproc.common.accumulation_manager import AccumulationManager
 from pproc.common.parallel import parallel_data_retrieval
 from pproc.config.param import ParamConfig
-from pproc.config.io import SourceCollection
+from pproc.config.io import InputsCollection
 
 
 def retrieve_clim(
     param: ParamConfig,
-    sources: SourceCollection,
+    inputs: InputsCollection,
     src: str,
     total: int = 1,
     index_func: Optional[IndexFunc] = None,
@@ -34,7 +34,7 @@ def retrieve_clim(
         accums[dim] = {"operation": "aggregation", "coords": [[value]]}
     accum_manager = AccumulationManager.create(accums, param.metadata)
 
-    requester = ParamRequester(param, sources, total, src, index_func)
+    requester = ParamRequester(param, inputs, total, src, index_func)
     res_accum: Optional[Accumulator] = None
     res_template: Optional[eccodes.GRIBMessage] = None
     for keys, data in parallel_data_retrieval(1, accum_manager.dims, [requester]):

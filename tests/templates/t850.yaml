@@ -1,6 +1,6 @@
 parameters:
   t850:
-    sources:
+    inputs:
       fc:
         request:
           param: 130
@@ -70,7 +70,7 @@ parameters:
             packingType: grid_ccsds
             scaleFactorOfUpperLimit: MISSING
             scaledValueOfUpperLimit: MISSING
-sources:
+inputs:
   fc:
     request:
       - class: od
@@ -92,7 +92,8 @@ sources:
         date: 20240507
         time: 12
         number: [1, 2, 3, 4, 5]
-    type: fdb
+    source:
+      type: fdb
   clim:
     request:
       - class: od
@@ -114,7 +115,8 @@ sources:
         date: 20240506
         domain: g
         time: 00
-    type: fdb
+    source:
+      type: fdb
 outputs:
   default:
     metadata:
