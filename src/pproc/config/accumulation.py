@@ -70,6 +70,24 @@ class LegacyWindowConfig(BaseModel):
         list[Union[List[int | str], dict]], BeforeValidator(_to_coords)
     ] = []
 
+    def merge(self, other: Self) -> bool:
+        w1_config = self.model_dump(by_alias=True, exclude={"coords"})
+        w2_config = other.model_dump(by_alias=True, exclude={"coords"})
+        w1_thresholds = w1_config.pop("thresholds", None)
+        w2_thresholds = w2_config.pop("thresholds", None)
+        if w1_thresholds != w2_thresholds:
+            if w1_config == w2_config and self.coords == other.coords:
+                self.thresholds += [
+                    x for x in other.thresholds if x not in self.thresholds
+                ]
+                return True
+            return False
+
+        if w1_config == w2_config:
+            self.coords += [x for x in other.coords if x not in self.coords]
+            return True
+        return False
+
     def unique_coords(self):
         coords = set()
         for coord in self.coords:
@@ -348,17 +366,12 @@ class LegacyStepAccumulation(BaseModel):
                 continue
 
             for w2 in other_windows:
-                matched = False
+                merged = False
                 for w1 in current_windows:
-                    w1_config = w1.model_dump(by_alias=True, exclude={"coords"})
-                    w2_config = w2.model_dump(by_alias=True, exclude={"coords"})
-                    if w1_config == w2_config:
-                        w1.coords = w1.coords + [
-                            x for x in w2.coords if x not in w1.coords
-                        ]
-                        matched = True
+                    if w1.merge(w2):
+                        merged = True
                         break
-                if not matched:
+                if not merged:
                     current_windows.append(w2)
         return current.model_validate(current)
 
