@@ -256,7 +256,10 @@ class ClimParamConfig(ParamConfig):
                         pinput.path if pinput.path is not None else pinput.type
                     )
                     if isinstance(req.get("step", []), dict):
-                        req["step"] = list(req["step"].values())
+                        req["step"] = list(set(req["step"].values()))
+                        req["step"].sort(
+                            key=lambda x: x if isinstance(x, int) else x.split("-")[-1]
+                        )
 
                     accum_updates = (
                         getattr(self, input).accumulations
