@@ -11,6 +11,7 @@ from typing import Literal, Any, Optional, Annotated, Union
 import datetime
 import bisect
 from pydantic import BaseModel, Field, model_validator, ConfigDict
+import numpy as np
 
 from earthkit.time import Sequence
 from earthkit.time.climatology import RelativeYear, date_range
@@ -125,6 +126,10 @@ class ClimStepDeriver(BaseModel):
             assert isinstance(req_steps[0], str)
             req_steps = list(map(int, req_steps[0].split("-")))
         start, end = req_steps[0], req_steps[-1]
+        width = end - start
+        filtered_clim_steps = [
+            x for x in clim_steps if np.diff(list(map(int, x.split("-"))))[0] == width
+        ]
 
         # Find nearest clim window range to real forecast time
         relative_time = start + int(time)
@@ -132,7 +137,7 @@ class ClimStepDeriver(BaseModel):
             relative_time = start - int(time)
 
         if end < 240:
-            clim_start_steps = [int(x.split("-")[0]) for x in clim_steps]
+            clim_start_steps = [int(x.split("-")[0]) for x in filtered_clim_steps]
             nearest = bisect.bisect_right(clim_start_steps, relative_time)
             clim_start = clim_start_steps[nearest - 1]
             if (nearest <= (len(clim_start_steps) - 1)) and (
@@ -140,7 +145,7 @@ class ClimStepDeriver(BaseModel):
                 < (relative_time - clim_start)
             ):
                 clim_start = clim_start_steps[nearest]
-            return f"{clim_start}-{clim_start + (end - start)}"
+            return f"{clim_start}-{clim_start + width}"
         return f"{start}-{end}"
 
     @staticmethod
