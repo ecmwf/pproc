@@ -355,6 +355,7 @@ def write_grib(target, template, data, missing=-9999):
         data[np.isnan(data)] = missing
         message.set("missingValue", missing)
         message.set("bitmapPresent", 1)
+        message.set("bitsPerValue", template.get("bitsPerValue"))
 
     message.set_array("values", data)
 
