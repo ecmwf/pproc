@@ -483,7 +483,7 @@ class ProbParamConfig(ClimParamConfig):
         return self.name
 
     def can_merge(self, other: Self) -> bool:
-        return self.inputs == other.inputs
+        return self.name == other.name or self.inputs == other.inputs
 
 
 class ProbConfig(BaseConfig):
