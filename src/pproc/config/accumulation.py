@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, BeforeValidator, ConfigDict, Tag, Discrim
 from typing import Literal, Union, Annotated, Tuple, Iterator, Optional, List, Any
 from typing_extensions import Self
 import datetime
+import copy
 
 from earthkit.time.calendar import parse_date
 from earthkit.time.sequence import Sequence
@@ -69,6 +70,24 @@ class LegacyWindowConfig(BaseModel):
     coords: Annotated[
         list[Union[List[int | str], dict]], BeforeValidator(_to_coords)
     ] = []
+
+    def merge(self, other: Self) -> bool:
+        w1_config = self.model_dump(by_alias=True, exclude={"coords"})
+        w2_config = other.model_dump(by_alias=True, exclude={"coords"})
+        w1_thresholds = w1_config.pop("thresholds", None)
+        w2_thresholds = w2_config.pop("thresholds", None)
+        if w1_thresholds != w2_thresholds:
+            if w1_config == w2_config and self.coords == other.coords:
+                self.thresholds += [
+                    x for x in other.thresholds if x not in self.thresholds
+                ]
+                return True
+            return False
+
+        if w1_config == w2_config:
+            self.coords += [x for x in other.coords if x not in self.coords]
+            return True
+        return False
 
     def unique_coords(self):
         coords = set()
@@ -334,6 +353,27 @@ class LegacyStepAccumulation(BaseModel):
     def out_mars(self, dim: str) -> list[dict]:
         return [window.out_mars(dim) for window in self.windows]
 
+    @classmethod
+    def merge_windows(
+        cls, windows1: list[LegacyWindowConfig], windows2: list[LegacyWindowConfig]
+    ) -> list[LegacyWindowConfig]:
+        new_windows = []
+        try_merge = copy.deepcopy(windows2)
+        for w1 in windows1:
+            if w1 in windows2 and w1 not in try_merge:
+                # window has already been merged
+                continue
+            merged_windows = []
+            for w2 in try_merge:
+                if w1.merge(w2):
+                    merged_windows.append(w2)
+            new_windows.append(w1)
+            [try_merge.remove(x) for x in merged_windows]
+
+        # Append any remaining unmerged windows
+        new_windows.extend([x for x in try_merge if x not in new_windows])
+        return new_windows
+
     def merge(self, other: Self) -> Self:
         if not isinstance(other, LegacyStepAccumulation):
             raise ValueError("Merge only possible with other LegacyStepAccumulation")
@@ -347,19 +387,13 @@ class LegacyStepAccumulation(BaseModel):
                     setattr(current, wtype, other_windows)
                 continue
 
-            for w2 in other_windows:
-                matched = False
-                for w1 in current_windows:
-                    w1_config = w1.model_dump(by_alias=True, exclude={"coords"})
-                    w2_config = w2.model_dump(by_alias=True, exclude={"coords"})
-                    if w1_config == w2_config:
-                        w1.coords = w1.coords + [
-                            x for x in w2.coords if x not in w1.coords
-                        ]
-                        matched = True
-                        break
-                if not matched:
-                    current_windows.append(w2)
+            current_windows = self.merge_windows(current_windows, other_windows)
+            # Recursively merge windows internally
+            self_merge = self.merge_windows(current_windows, current_windows)
+            while self_merge != current_windows:
+                current_windows = self_merge
+                self_merge = self.merge_windows(current_windows, current_windows)
+            setattr(current, wtype, current_windows)
         return current.model_validate(current)
 
 

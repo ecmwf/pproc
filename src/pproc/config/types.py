@@ -256,7 +256,10 @@ class ClimParamConfig(ParamConfig):
                         pinput.path if pinput.path is not None else pinput.type
                     )
                     if isinstance(req.get("step", []), dict):
-                        req["step"] = list(req["step"].values())
+                        req["step"] = list(set(req["step"].values()))
+                        req["step"].sort(
+                            key=lambda x: x if isinstance(x, int) else x.split("-")[-1]
+                        )
 
                     accum_updates = (
                         getattr(self, input).accumulations
@@ -456,6 +459,7 @@ def anom_discriminator(config: Any) -> str:
 
 class ProbParamConfig(ClimParamConfig):
     clim: Optional[ParamConfig] = None
+    _merge_exclude = ("name", "accumulations", "inputs", "clim")
 
     @model_validator(mode="before")
     @classmethod
@@ -474,6 +478,12 @@ class ProbParamConfig(ClimParamConfig):
 
     def _merge_clim(self, other: Self) -> None:
         return None
+    
+    def _merge_name(self, other: Self) -> str:
+        return self.name
+
+    def can_merge(self, other: Self) -> bool:
+        return self.name == other.name or self.inputs == other.inputs
 
 
 class ProbConfig(BaseConfig):
@@ -544,6 +554,22 @@ class ProbConfig(BaseConfig):
                     fc_step[x]: clim_step[x] for x in range(len(fc_step))
                 }
         return sorted_requests
+    
+    def _merge_parameters(self, other: Self = None) -> list[ProbParamConfig]:
+        merged_params = [self.parameters[0]]
+        other_params = self.parameters[1:]
+        if other is not None:
+            other_params.extend(other.parameters)
+        for in_param in other_params:
+            merged = False
+            for index, out_param in enumerate(merged_params):
+                if out_param.can_merge(in_param):
+                    merged_params[index] = out_param.merge(in_param)
+                    merged = True
+                    break
+            if not merged:
+                merged_params.append(in_param)
+        return merged_params
 
 
 class ExtremeParamConfig(ClimParamConfig):
