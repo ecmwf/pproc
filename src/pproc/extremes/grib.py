@@ -42,10 +42,10 @@ def extreme_template(accum, template_fc, template_clim, allow_grib1_to_grib2=Fal
         fc_keys = [
             "date",
             "subCentre",
-            "totalNumber",
         ]
         for key in fc_keys:
             grib_keys[key] = template_fc[key]
+        grib_keys["totalNumber"] = template_fc.get("totalNumber", len(accum), int)
     elif edition == 2 and clim_edition == 2:
         clim_keys = [
             "typeOfReferenceDataset",
