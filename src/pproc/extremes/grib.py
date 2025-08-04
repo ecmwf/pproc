@@ -45,7 +45,8 @@ def extreme_template(accum, template_fc, template_clim, allow_grib1_to_grib2=Fal
         ]
         for key in fc_keys:
             grib_keys[key] = template_fc[key]
-        grib_keys["totalNumber"] = template_fc.get("totalNumber", len(accum), int)
+        total_number = template_fc.get("totalNumber", len(accum.values), int)
+        grib_keys["totalNumber"] = len(accum.values) if total_number == 0 else total_number
     elif edition == 2 and clim_edition == 2:
         clim_keys = [
             "typeOfReferenceDataset",
