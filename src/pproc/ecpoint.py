@@ -271,6 +271,11 @@ def ecpoint_iteration(
             config.parallelisation.ens_batch_size,
         )
 
+    # Scale outputs, needed for grib 2 rainfall in metres
+    if config.scale_outputs:
+        pt_bc_allens_allwt *= config.scale_outputs
+        grid_bc_allens_allwt *= config.scale_outputs
+
     # Save the grid-scale outputs and weather types for each member
     out_bs = config.outputs.bs
     out_wt = config.outputs.wt

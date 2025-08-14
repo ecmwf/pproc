@@ -478,7 +478,7 @@ class ProbParamConfig(ClimParamConfig):
 
     def _merge_clim(self, other: Self) -> None:
         return None
-    
+
     def _merge_name(self, other: Self) -> str:
         return self.name
 
@@ -554,7 +554,7 @@ class ProbConfig(BaseConfig):
                     fc_step[x]: clim_step[x] for x in range(len(fc_step))
                 }
         return sorted_requests
-    
+
     def _merge_parameters(self, other: Self = None) -> list[ProbParamConfig]:
         merged_params = [self.parameters[0]]
         other_params = self.parameters[1:]
@@ -954,6 +954,7 @@ class ECPointConfig(QuantilesConfig):
     ]
     predictors: list[str] = ["cpr", "tp", "ws", "mxcape6", "cdir"]
     min_predictand: float = 0.04
+    scale_outputs: Optional[float] = None
 
     @classmethod
     def from_schema(cls, schema_config: dict, **overrides) -> Self:
