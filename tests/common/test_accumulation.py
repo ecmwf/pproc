@@ -297,6 +297,17 @@ def test_accumulations(config, acc_cls, used_coords, exp_values):
     np.testing.assert_almost_equal(acc.get_values(), exp_values)
 
 
+def test_std_zero():
+    acc = create_accumulation(
+        {"operation": "standard_deviation", "coords": {"to": 4, "by": 2}}
+    )
+
+    data = np.ones((2, 3)) * 0.1
+    for c in [0, 2, 4]:
+        acc.feed(c, data)
+    np.testing.assert_almost_equal(acc.get_values(), np.zeros((2, 3)))
+
+
 def test_convert_dim():
     acc = Mean(range(25, 6))
     assert convert_dim(("step", acc)) == Dimension("step", acc)
