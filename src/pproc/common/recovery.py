@@ -103,6 +103,8 @@ class Recovery(BaseRecovery):
                 all(x_id[k] == str(v) for k, v in matching.items())
             ):
                 ret.append(x_id)
+        if len(ret) > 0:
+            logger.info(f"Last recorded checkpoint matching {matching}: {ret[-1]}")
         return ret
 
     def existing_checkpoint(self, **checkpoint_identifiers) -> bool:
