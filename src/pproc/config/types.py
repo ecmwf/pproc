@@ -1027,9 +1027,3 @@ class ECPointConfig(QuantilesConfig):
         req.pop("quantile")
         self._append_number(param, req)
         return req
-
-    def in_mars(self, sources: Optional[list[str]] = None) -> Iterator:
-        for req in super().in_mars(sources):
-            if req.get("model", None) == "ecPoint":
-                req.pop("model")
-            yield req
