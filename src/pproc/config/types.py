@@ -959,7 +959,13 @@ class ECPointConfig(QuantilesConfig):
     @classmethod
     def from_schema(cls, schema_config: dict, **overrides) -> Self:
         overrides = overrides.copy()
-        for var in ["bp_location", "fer_location", "predictors", "min_predictant", "scale_outputs"]:
+        for var in [
+            "bp_location",
+            "fer_location",
+            "predictors",
+            "min_predictant",
+            "scale_outputs",
+        ]:
             if var in schema_config:
                 overrides.setdefault(var, schema_config.pop(var))
         return super().from_schema(schema_config, **overrides)
