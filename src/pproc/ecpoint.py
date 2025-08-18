@@ -272,7 +272,7 @@ def ecpoint_iteration(
         )
 
     # Scale outputs, needed for grib 2 rainfall in metres
-    if config.scale_outputs:
+    if config.scale_outputs is not None:
         pt_bc_allens_allwt *= config.scale_outputs
         grid_bc_allens_allwt *= config.scale_outputs
 
