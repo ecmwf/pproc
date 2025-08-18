@@ -443,7 +443,7 @@ class StandardDeviation(Mean):
         mean = super().get_values()
         if mean is None:
             return None
-        return np.sqrt(np.clip(self.sumsq / self.count - mean**2, 0.0, None))
+        return np.sqrt(np.maximum(self.sumsq / self.count - mean**2, 0.0))
 
 
 class DeaccumulationWrapper(Accumulation):
