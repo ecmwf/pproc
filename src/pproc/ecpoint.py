@@ -236,7 +236,11 @@ def compute_weather_types(
                 )
             )
 
-    return pt_bc_allens_allwt, grid_bc_allens_allwt, wt_allens_allwt
+    return (
+        np.asarray(pt_bc_allens_allwt),
+        np.asarray(grid_bc_allens_allwt),
+        np.asarray(wt_allens_allwt),
+    )
 
 
 def ecpoint_iteration(
