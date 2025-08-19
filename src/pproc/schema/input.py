@@ -343,12 +343,19 @@ class InputSchema(BaseSchema):
         cls, request: dict, pop: Optional[list[str]] = []
     ) -> dict:
         out = copy.deepcopy(request)
-        # Remove number from output types e.g. sot where number is not
-        # associated with ensemble number
-        if request["type"] not in ["pf", "fcmean", "fcmax", "fcstdev", "fcmin", "fc"]:
-            out.pop("number", None)
-        for key in pop + ["step", "fcmonth", "quantile"]:
-            out.pop(key, None)
+        ignore_inheritance = {
+            "number": lambda req: (
+                req["type"] not in ["pf", "fcmean", "fcmax", "fcstdev", "fcmin", "fc"]
+            ),
+            "model": lambda req: req.get("model", None) == "ecPoint",
+            "step": None,
+            "fcmonth": None,
+            "quantile": None,
+        }
+        ignore_inheritance.update({x: None for x in pop})
+        for key, condition in ignore_inheritance.items():
+            if condition is None or condition(request):
+                out.pop(key, None)
         return format_request(out)
 
     def inputs(self, output_request: dict, step_schema: StepSchema) -> Iterator[dict]:

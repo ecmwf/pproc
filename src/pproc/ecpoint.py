@@ -236,7 +236,11 @@ def compute_weather_types(
                 )
             )
 
-    return pt_bc_allens_allwt, grid_bc_allens_allwt, wt_allens_allwt
+    return (
+        np.asarray(pt_bc_allens_allwt),
+        np.asarray(grid_bc_allens_allwt),
+        np.asarray(wt_allens_allwt),
+    )
 
 
 def ecpoint_iteration(
@@ -270,6 +274,11 @@ def ecpoint_iteration(
             config.parallelisation.wt_batch_size,
             config.parallelisation.ens_batch_size,
         )
+
+    # Scale outputs, needed for grib 2 rainfall in metres
+    if config.scale_outputs is not None:
+        pt_bc_allens_allwt *= config.scale_outputs
+        grid_bc_allens_allwt *= config.scale_outputs
 
     # Save the grid-scale outputs and weather types for each member
     out_bs = config.outputs.bs
