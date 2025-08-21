@@ -1130,7 +1130,7 @@ class ClusterClusterConfig(ClusterBaseConfig):
     ] = None
     deterministic_is_control: Annotated[
         bool,
-        CLIArg("--deterministic-is-control", action="store_true"),
+        CLIArg("--deterministic-is-control", action="store_true", default=None),
     ] = False
 
 
@@ -1278,7 +1278,7 @@ class ClusterFullConfig(
 
     compute_spread: Annotated[
         bool,
-        CLIArg("--compute-spread", action="store_true"),
+        CLIArg("--compute-spread", action="store_true", default=None),
         Field(description="Compute spread from the given source"),
     ] = False
 
