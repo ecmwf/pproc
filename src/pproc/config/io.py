@@ -90,7 +90,7 @@ class Input(ConfigModel):
 
     def legacy_config(self) -> dict:
         cfg = {self.type: {"req": self.request}}
-        if self.type == "fileset":
+        if self.type in ["fileset", "fdbmars"]:
             cfg[self.type]["req"] = utils.update_request(
                 cfg[self.type]["req"], {"location": self.path}
             )
