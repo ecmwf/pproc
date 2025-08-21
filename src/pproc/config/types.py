@@ -1133,6 +1133,14 @@ class ClusterClusterConfig(ClusterBaseConfig):
         CLIArg("--deterministic-is-control", action="store_true", default=None),
     ] = False
 
+    @field_validator("npc", mode="before")
+    @classmethod
+    def npc_from_file(cls, value: Any):
+        if isinstance(value, str) and os.path.isfile(value):
+            with open(value, "r") as f:
+                value = int(f.read().strip())
+        return value
+
 
 class ClusterClusterStandaloneConfig(ClusterClusterConfig):
     pca: Annotated[
