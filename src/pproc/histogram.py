@@ -161,7 +161,7 @@ class HistParamRequester(ParamRequester):
                 ind[ind >= nbins] = 0
             for i in range(nbins):
                 hist[i, ind == i] += 1
-        return [GribMetadata(template)], hist
+        return [GribMetadata(template._handle)], hist
 
 
 def write_iteration(
