@@ -126,7 +126,7 @@ def expand(
 
         expansion = {}
         for d in dims:
-            coords = request.pop(d, [])
+            coords = request.pop(d, None)
             if coords is None:
                 continue
             if np.ndim(coords) == 0:

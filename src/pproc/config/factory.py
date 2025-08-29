@@ -36,6 +36,7 @@ class ConfigFactory:
         "pproc-histogram": types.HistogramConfig,
         "pproc-significance": types.SigniConfig,
         "pproc-ecpoint": types.ECPointConfig,
+        "pproc-clustereps": types.ClusterFullConfig,
     }
 
     @classmethod

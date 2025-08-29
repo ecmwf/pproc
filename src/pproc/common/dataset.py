@@ -86,7 +86,7 @@ def _mars_retrieve_interp(
     tmpdir=None,
 ) -> eccodes.reader.ReaderBase:
     cache_path = request.pop("cache", None)
-    cache = None if cache_path is None else FileTarget(cache_path.format_map(request))
+    cache = None if cache_path is None else FileTarget(path=cache_path.format_map(request))
     mars_reader = mars_retrieve(request, mars_cmd=mars_cmd, tmpdir=tmpdir)
     if mir_options:
         with mars_reader:
@@ -158,6 +158,50 @@ def _open_dataset_fileset(
         yield FilteredReader(eccodes.FileReader(path), **req)
 
 
+def _open_dataset_fdbmars(
+    reqs: Union[dict, Iterable[dict]], **kwargs: Any
+) -> Iterator[eccodes.reader.ReaderBase]:
+    if not isinstance(reqs, list):
+        reqs = [reqs]
+    reqs_fdb = []
+    reqs_fset = []
+    reqs_mars = []
+    for req in reqs:
+        req_fdb = req.copy()
+        loc = req_fdb.pop("location", None)
+        req_mars = req_fdb.copy()
+        reqs_fdb.append(req_fdb)
+        if loc is not None:
+            reqs_fset.append(req)
+            req_mars["cache"] = loc
+        reqs_mars.append(req_mars)
+
+    candidates = []
+    candidates.append((reqs_fdb, "FDB", _open_dataset_fdb))
+    if reqs_fset:
+        candidates.append(
+            (reqs_fset, "file cache", _open_dataset_fileset)
+        )
+    candidates.append((reqs_mars, "MARS", _open_dataset_mars))
+
+    for reqs, tp, open_func in candidates:
+        print(f"Trying {tp}")
+        try:
+            readers = open_func(reqs, **kwargs)
+            for reader in readers:
+                message = reader.peek()
+                if message is None:
+                    raise EOFError
+                yield reader
+        except (EOFError, eccodes.IOProblemError, FileNotFoundError, RuntimeError):
+            import traceback
+
+            traceback.print_exc()
+            continue
+        return
+    raise ValueError("No suitable source found")
+
+
 def open_dataset(config: dict, loc: str, **kwargs) -> eccodes.reader.ReaderBase:
     """Open a GRIB dataset
 
@@ -185,6 +229,7 @@ _DATASET_BACKENDS = {
     "fdb": _open_dataset_fdb,
     "mars": _open_dataset_mars,
     "fileset": _open_dataset_fileset,
+    "fdbmars": _open_dataset_fdbmars,
 }
 
 

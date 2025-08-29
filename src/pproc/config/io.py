@@ -90,7 +90,7 @@ class Input(ConfigModel):
 
     def legacy_config(self) -> dict:
         cfg = {self.type: {"req": self.request}}
-        if self.type == "fileset":
+        if self.type in ["fileset", "fdbmars"]:
             cfg[self.type]["req"] = utils.update_request(
                 cfg[self.type]["req"], {"location": self.path}
             )
@@ -270,3 +270,21 @@ WindOutputModel = create_output_model(
 ThermoInputModel = create_input_model("Thermo", ["inst"], optional=["accum"])
 ThermoOutputModel = create_output_model("Thermo", ["indices", "accum", "intermediate"])
 ECPointOutputModel = create_output_model("ECPoint", ["bs", "wt", "perc"])
+ClusterInputModel = create_input_model(
+    "Cluster", ["fc", "spread"], optional=["deterministic"]
+)
+ClusterOutputModel = create_output_model(
+    "Cluster",
+    {
+        "centroids": {"type": "cm"},
+        "representative": {"type": "cr"},
+        "cen_anomalies": {"type": "cm"},
+        "rep_anomalies": {"type": "cr"},
+    },
+)
+ClusterClusterOutputModel = create_output_model(
+    "ClusterCluster", {"centroids": {"type": "cm"}, "representative": {"type": "cr"}}
+)
+ClusterAttributionInputModel = create_input_model(
+    "ClusterAttribution", ["centroids", "representative"]
+)

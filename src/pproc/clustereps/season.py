@@ -72,20 +72,3 @@ class Season:
 
     def __repr__(self) -> str:
         return f"Season ({self.name}) - {self.start:%d/%m/%Y}: {self.end:%d/%m/%Y} ({self.ndays} days)"
-
-
-class SeasonConfig:
-    def __init__(self, months: List[Tuple[int]]):
-        self.months = months
-
-    def get_season(self, date: datetime) -> Season:
-        month = date.month
-        for start, end in self.months:
-            if start <= month <= end:
-                return Season(start, end, date.year)
-            if end < start:
-                if month <= end:
-                    return Season(start, end, date.year)
-                if start <= month:
-                    return Season(start, end, date.year + 1)
-        raise ValueError(f"No season containing month {month}")

@@ -7,18 +7,16 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-
-import argparse
 from typing import Optional
 import sys
 
+from conflator import Conflator
 import numpy as np
-import eccodes
 
-from pproc.common import default_parser
-from pproc.clustereps.config import PCAConfig
 from pproc.clustereps.io import read_ensemble_grib
 from pproc.clustereps.utils import normalise_angles, lat_weights, region_weights
+from pproc.common.dataset import open_dataset
+from pproc.config.types import ClusterPCAConfig, ClusterPCAStandaloneConfig
 
 
 def mean_spread(stddev, weights=None):
@@ -40,7 +38,7 @@ def mean_spread(stddev, weights=None):
         Mean ensemble spread
     """
     if weights is None:
-        weights = 1. / stddev.size
+        weights = 1.0 / stddev.size
     else:
         weights = np.asarray(weights)
         assert weights.shape == stddev.shape
@@ -122,7 +120,7 @@ def ensemble_pca(ens_anom, ncomp, weights=None):
     if weights is None:
         ens_cov = np.tensordot(ens, ens, axes=((-1, -2), (-1, -2)))
     else:
-        ens_cov = np.einsum('l,ikl,jkl->ij', weights, ens, ens)
+        ens_cov = np.einsum("l,ikl,jkl->ij", weights, ens, ens)
 
     if nstep > 1:
         ens_cov /= nstep
@@ -135,7 +133,7 @@ def ensemble_pca(ens_anom, ncomp, weights=None):
 
     pcens = np.empty((ncomp, nfld))
     for i in range(ncomp):
-        pcens[i, :] = evecs[:, -i-1]
+        pcens[i, :] = evecs[:, -i - 1]
     pcens *= np.sqrt(nfld)
 
     eof = np.tensordot(pcens, ens, axes=1)
@@ -144,12 +142,19 @@ def ensemble_pca(ens_anom, ncomp, weights=None):
     return eof, pcens.reshape((ncomp,) + orig_sh), comp_ev, sum_ev
 
 
-def do_pca(config: PCAConfig, lat: np.ndarray, lon: np.ndarray, ens: np.ndarray, spread: np.ndarray, mask: Optional[np.ndarray] = None) -> dict:
+def do_pca(
+    config: ClusterPCAConfig,
+    lat: np.ndarray,
+    lon: np.ndarray,
+    ens: np.ndarray,
+    spread: np.ndarray,
+    mask: Optional[np.ndarray] = None,
+) -> dict:
     """Run the ensemble PCA
 
     Parameters
     ----------
-    config: PCAConfig
+    config: ClusterPCAConfig
         PCA configuration
     lat: numpy array (npoints)
         Latitudes
@@ -193,7 +198,7 @@ def do_pca(config: PCAConfig, lat: np.ndarray, lon: np.ndarray, ens: np.ndarray,
     """
     # Mask off region
     if config.bbox is not None:
-        lat_n, lat_s, lon_w, lon_e = normalise_angles(config.bbox)
+        lat_n, lat_s, lon_w, lon_e = normalise_angles(config.bbox.to_tuple())
         mask = region_weights(lat_n, lat_s, lon_w, lon_e, lat, lon, mask)
 
     # Weight by latitude
@@ -214,80 +219,57 @@ def do_pca(config: PCAConfig, lat: np.ndarray, lon: np.ndarray, ens: np.ndarray,
     del ens
 
     # Compute EOF
-    eof, pc, var, tot_var = ensemble_pca(ens_anom, config.ncomp, weights)
+    eof, pc, var, tot_var = ensemble_pca(ens_anom, config.num_components, weights)
 
     # Compute principal component info
     nfld = np.prod(pc.shape[1:])
     eof_sd = np.sqrt(var / nfld)
-    var_pct = 100. * var / tot_var
+    var_pct = 100.0 * var / tot_var
     var_cum = np.cumsum(var_pct)
 
     return {
-        'lat': lat,
-        'lon': lon,
-        'mask': mask,              # EOF
-        'ens_mean': ens_mean,      # EM, per ensemble then step
-        'ens_anom': ens_anom,      # AN, per ensemble then member then step
-        'eof': eof,                # EOF, per component then step
-        'pc': pc,                  # PC, per ensemble then member then component
-        'eof_sd': eof_sd,          # SD
-        'var_pct': var_pct,        # SD
-        'var_cum': var_cum,        # SD
-        'ens_spread': ens_spread,  # SD
-        'weights': weights,        # EOF
+        "lat": lat,
+        "lon": lon,
+        "mask": mask,  # EOF
+        "ens_mean": ens_mean,  # EM, per ensemble then step
+        "ens_anom": ens_anom,  # AN, per ensemble then member then step
+        "eof": eof,  # EOF, per component then step
+        "pc": pc,  # PC, per ensemble then member then component
+        "eof_sd": eof_sd,  # SD
+        "var_pct": var_pct,  # SD
+        "var_cum": var_cum,  # SD
+        "ens_spread": ens_spread,  # SD
+        "weights": weights,  # EOF
     }
 
 
-def get_parser() -> argparse.ArgumentParser:
-    """initialize command line application argument parser.
-
-    Returns
-    -------
-    argparse.ArgumentParser
-        
-    """
-
-    _description='PCA for ensemble data'
-    parser = default_parser(description=_description)
-
-    group = parser.add_argument_group('Principal components analysis arguments')
-
-    group.add_argument('-m', '--mask', default=None, help="Mask file")
-    group.add_argument('--spread', required=True, help="Ensemble spread (GRIB)")
-    group.add_argument('-e', '--ensemble', required=True, help="Ensemble data (GRIB)")
-    group.add_argument('-o', '--output', required=True, help="Output file (NPZ)")
-   
-    return parser
-
-
-def main(cmdArgs=sys.argv[1:]):
+def main():
     sys.stdout.reconfigure(line_buffering=True)
 
-    parser = get_parser()
-    args = parser.parse_args(cmdArgs)
-    config = PCAConfig(args)
-
-    # Read mask
-    if args.mask is not None:
-        # format?
-        raise NotImplementedError()
+    cfg: ClusterPCAStandaloneConfig = Conflator(
+        app_name="pproc-clustereps-pca", model=ClusterPCAStandaloneConfig
+    ).load()
+    cfg.print()
 
     # Read ensemble
-    nexp = config.num_members
-    lat, lon, ens, template = read_ensemble_grib(config.sources, args.ensemble, config.steps, nexp, **config.override_input)
+    nexp = cfg.num_members
+    lat, lon, ens, _ = read_ensemble_grib(cfg.inputs, "fc", cfg.steps, nexp)
 
     # Read ensemble stddev
-    with eccodes.FileReader(args.spread) as reader:
+    spread_source = cfg.inputs.spread
+    with open_dataset(
+        spread_source.legacy_config(), spread_source.location()
+    ) as reader:
         message = next(reader)
         # TODO: check param and level
-        spread = message.get_array('values')
+        spread = message.get_array("values")
 
-    data = do_pca(config, lat, lon, ens, spread, args.mask)
+    data = do_pca(cfg, lat, lon, ens, spread)
 
-    np.savez_compressed(args.output, **data)
+    np.savez_compressed(cfg.output, **data)
 
     return 0
 
 
-if __name__ == '__main__':
-    sys.exit(main(sys.argv[1:]))
+if __name__ == "__main__":
+    sys.exit(main())

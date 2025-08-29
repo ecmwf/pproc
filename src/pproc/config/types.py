@@ -8,19 +8,29 @@
 # nor does it submit to any jurisdiction.
 
 import copy
-from typing import Optional, List, Any, Annotated, ClassVar, Iterator
+import os
+from typing import Literal, Optional, List, Any, Annotated, ClassVar, Iterator
 from typing_extensions import Self, Union
-from pydantic import model_validator, BaseModel, Field, Tag, Discriminator
+from pydantic import (
+    field_validator,
+    model_serializer,
+    model_validator,
+    BaseModel,
+    Field,
+    Tag,
+    Discriminator,
+)
 import numpy as np
 import datetime
 
-from conflator import CLIArg
+from conflator import CLIArg, ConfigModel
+from earthkit.time import DailySequence
 
-
+from pproc.clustereps.season import MONTH_DAYS, Season
 from pproc.config.base import BaseConfig, Parallelisation
 from pproc.config import io
 from pproc.config.param import ParamConfig, partial_equality
-from pproc.config.utils import _set, _get, update_request, deep_update
+from pproc.config.utils import _set, _get, extract_mars, update_request, deep_update
 from pproc.common.stepseq import steprange_to_fcmonth
 from pproc.extremes.indices import Index, SUPPORTED_INDICES, create_indices
 
@@ -1033,3 +1043,431 @@ class ECPointConfig(QuantilesConfig):
         req.pop("quantile")
         self._append_number(param, req)
         return req
+
+
+class BoundingBox(ConfigModel):
+    lat_n: float
+    lat_s: float
+    lon_w: float
+    lon_e: float
+
+    def to_tuple(self) -> tuple[float, float, float, float]:
+        return (self.lat_n, self.lat_s, self.lon_w, self.lon_e)
+
+
+class ClusterBaseConfig(BaseConfig):
+    # TODO: replace with window {
+    step_start: int
+    step_end: int
+    step_del: int
+    # }
+    bbox: BoundingBox
+    # TODO: wrap in param config {
+    num_members: int
+    max_anom: float = 10000.0
+    metadata: dict[str, Any] = {}
+    # }
+    parameters: list = Field(default_factory=list)
+
+    @property
+    def steps(self) -> list[int]:
+        return list(range(self.step_start, self.step_end + 1, self.step_del))
+
+    @property
+    def clip(self) -> float:  # FIXME: remove eventually
+        return self.max_anom
+
+
+class ClusterPCAConfig(ClusterBaseConfig):
+    num_components: int
+    pca_factor: float | None = None
+
+
+class ClusterPCAStandaloneConfig(ClusterPCAConfig):
+    inputs: io.ClusterInputModel
+    output: Annotated[
+        str,
+        CLIArg("-o", "--output", required=True),
+        Field(description="Ouptut file (NPZ)"),
+    ]
+
+
+class ClusterClusterConfig(ClusterBaseConfig):
+    # Variance threshold
+    var_th: float
+    # Number of PCs to use, optional
+    npc: int = -1
+    # Normalisation factor (2/5)
+    cluster_factor: float = 0.4
+    # Max number of clusters
+    ncl_max: int
+    # Number of clustering passes
+    npass: int
+    # Number of red-noise samples for significance computation
+    nrsamples: int
+    # Maximum significance threshold
+    max_sig: float
+    # Medium significance threshold
+    med_sig: float
+    # Minimum significance threshold
+    min_sig: float
+    # Significance tolerance
+    sig_tol: float
+    # Parallel red-noise sampling
+    n_par: int = 1
+    # Initialisation method (k-means++ or sector)
+    init: Literal["k-means++", "sector"]
+
+    indexes: Annotated[
+        Optional[str],
+        CLIArg("-I", "--indexes"),
+        Field(description="Cluster indexes output (NPZ)"),
+    ] = None
+    ncomp_file: Annotated[
+        Optional[str],
+        CLIArg("-N", "--ncomp-file"),
+        Field(description="Number of components output (text)"),
+    ] = None
+    deterministic_is_control: Annotated[
+        bool,
+        CLIArg("--deterministic-is-control", action="store_true", default=None),
+    ] = False
+
+    @field_validator("npc", mode="before")
+    @classmethod
+    def npc_from_file(cls, value: Any):
+        if isinstance(value, str) and os.path.isfile(value):
+            with open(value, "r") as f:
+                value = int(f.read().strip())
+        return value
+
+
+class ClusterClusterStandaloneConfig(ClusterClusterConfig):
+    pca: Annotated[
+        str,
+        CLIArg("-p", "--pca", required=True),
+        Field(description="PCA data (NPZ)"),
+    ]
+    template: Annotated[
+        str,
+        CLIArg("-t", "--template", required=True),
+        Field(description="Field to extract keys from (GRIB)"),
+    ]
+
+    outputs: io.ClusterClusterOutputModel = io.ClusterClusterOutputModel()
+
+
+class SeasonConfig(ConfigModel):
+    months: list[tuple[int, int]]
+
+    @model_validator(mode="before")
+    @classmethod
+    def from_months(cls, data: Any) -> Any:
+        if isinstance(data, list):
+            return {"months": data}
+        return data
+
+    @model_serializer
+    def serialise_model(self):
+        return [[start, end] for start, end in self.months]
+
+    def get_season(self, date: datetime.datetime) -> Season:
+        month = date.month
+        for start, end in self.months:
+            if start <= month <= end:
+                return Season(start, end, date.year)
+            if end < start:
+                if month <= end:
+                    return Season(start, end, date.year)
+                if start <= month:
+                    return Season(start, end, date.year + 1)
+        raise ValueError(f"No season containing month {month}")
+
+
+class ClusterAttributionConfig(ClusterBaseConfig):
+    ncl_clim: int = 6
+    clim_means_: str = Field(alias="clim_means")
+    clim_pcs_: str = Field(alias="clim_pcs")
+    clim_sdv_: str = Field(alias="clim_sdv")
+    clim_eof_: str = Field(alias="clim_eof")
+    clim_cluster_index_: str = Field(alias="clim_cluster_index")
+    clim_cluster_centroids_eof_: str = Field(alias="clim_cluster_centroids_eof")
+    seasons: SeasonConfig = Field(
+        default_factory=(lambda: SeasonConfig(months=[(1, 12)]))
+    )
+
+    date: Annotated[
+        datetime.datetime,
+        CLIArg("--date", metavar="YYYYMMDD"),
+        Field(description="Forecast date (YYYYMMDD)"),
+    ]
+    clim_dir: Annotated[
+        str,
+        CLIArg("--clim-dir", metavar="DIR"),
+        Field(description="Climatological data root directory"),
+    ]
+    output_root: Annotated[
+        str,
+        CLIArg("-o", "--output-root", metavar="DIR"),
+        Field(description="Output directory for reports", default_factory=os.getcwd),
+    ]
+
+    @field_validator("date", mode="before")
+    @classmethod
+    def validate_date(cls, value: Any) -> datetime.datetime:
+        if isinstance(value, datetime.datetime):
+            return value
+        elif isinstance(value, datetime.date):
+            return datetime.datetime.combine(value, datetime.time())
+        elif isinstance(value, str):
+            return datetime.datetime.strptime(value, "%Y%m%d")
+        else:
+            raise ValueError(f"Cannot parse date from {value!r}")
+
+    @property
+    def step_date(self) -> datetime.datetime:  # FIXME: remove eventually?
+        return self.date + datetime.timedelta(hours=self.step_start)
+
+    @property
+    def this_season(self) -> Season:  # FIXME: remove eventually?
+        return self.seasons.get_season(self.date)
+
+    @property
+    def month_start_dos(self) -> int:  # FIXME: remove eventually?
+        return self.this_season.dos(self.date.replace(day=1))
+
+    @property
+    def month_end_dos(self) -> int:  # FIXME: remove eventually?
+        return self.this_season.dos(
+            self.date.replace(day=MONTH_DAYS[self.date.month] - 1)
+        )
+
+    @property
+    def clim_means(self) -> str:
+        return os.path.join(self.clim_dir, self.clim_means_)
+
+    @property
+    def clim_pcs(self) -> str:
+        val = os.path.join(self.clim_dir, self.clim_pcs_)
+        return val.format(season=self.this_season.name)
+
+    @property
+    def clim_sdv(self) -> str:
+        val = os.path.join(self.clim_dir, self.clim_sdv_)
+        return val.format(season=self.this_season.name)
+
+    @property
+    def clim_eof(self) -> str:
+        val = os.path.join(self.clim_dir, self.clim_eof_)
+        return val.format(season=self.this_season.name)
+
+    @property
+    def clim_cluster_index(self) -> str:
+        val = os.path.join(self.clim_dir, self.clim_cluster_index_)
+        return val.format(season=self.this_season.name)
+
+    @property
+    def clim_cluster_centroids_eof(self) -> str:
+        val = os.path.join(self.clim_dir, self.clim_cluster_centroids_eof_)
+        return val.format(season=self.this_season.name)
+
+
+class ClusterAttributionStandaloneConfig(ClusterAttributionConfig):
+    inputs: io.ClusterAttributionInputModel
+    outputs: io.ClusterOutputModel = io.ClusterOutputModel()
+
+
+class ClusterFullConfig(
+    ClusterAttributionConfig, ClusterClusterConfig, ClusterPCAConfig
+):
+    generate_dummy: bool = False
+    inputs: io.ClusterInputModel
+    outputs: io.ClusterOutputModel = io.ClusterOutputModel()
+
+    compute_spread: Annotated[
+        bool,
+        CLIArg("--compute-spread", action="store_true", default=None),
+        Field(description="Compute spread from the given source"),
+    ] = False
+
+    pca_output: Annotated[
+        Optional[str],
+        CLIArg("-P", "--pca"),
+        Field(description="PCA outputs (NPZ)"),
+    ] = None
+
+    _merge_exclude = ("inputs",)
+
+    @property
+    def ncl_dummy(self) -> int | None:
+        if self.generate_dummy:
+            return self.ncl_max
+        return None
+
+    @staticmethod
+    def _derive_num_members(inputs: list[dict[str, object]]) -> int:
+        num = 0
+        for input in inputs:
+            numbers = input.get("number", 0)
+            num_loc = 0
+            if isinstance(numbers, (list, range)):
+                num_loc = len(numbers)
+            elif isinstance(numbers, str):
+                num_loc = numbers.count("/") + 1
+            else:
+                num_loc = 1
+            num += num_loc
+        return num
+
+    @staticmethod
+    def _derive_steps(inputs: list[dict[str, object]]) -> tuple[int, int]:
+        starts = set()
+        ends = set()
+        for input in inputs:
+            if "step" not in input:
+                continue
+            steps = input["step"]
+            if isinstance(steps, str):
+                steps = [int(s) for s in steps.split("/")]
+            starts.add(min(steps))
+            ends.add(max(steps))
+        assert len(starts) == 1, "Inconsistent start steps"
+        assert len(ends) == 1, "Inconsistent end steps"
+        return starts.pop(), ends.pop()
+
+    @staticmethod
+    def _derive_date(inputs: list[dict[str, object]]) -> str:
+        dates = set(input["date"] for input in inputs if "date" in input)
+        assert len(dates) == 1, "Inconsistent input dates"
+        date = dates.pop()
+        return date
+
+    @staticmethod
+    def _derive_spread_req(
+        inputs: list[dict[str, object]], ref_type: str = "pf", spread_type: str = "es"
+    ) -> list[dict[str, object]]:
+        reqs = []
+        for req in inputs:
+            if req.get("type", "") != ref_type:
+                continue
+            new_req = {**req, "type": spread_type}
+            new_req.pop("number", None)
+            reqs.append(new_req)
+        return reqs
+
+    @classmethod
+    def from_schema(cls, schema_config: dict, **overrides) -> Self:
+        import yaml
+
+        with open("_schema_config.yaml", "w") as f:
+            yaml.safe_dump(schema_config, f)
+        schema_config = copy.deepcopy(schema_config)
+        outputs = schema_config.pop("outputs", {})
+        overrides = copy.deepcopy(overrides)
+        overrides.pop("parameters")
+
+        # Construct parameter config
+        schema_inputs = copy.deepcopy(schema_config.pop("inputs"))
+        interp_keys = schema_config.pop("interp_keys", {})
+        for req in schema_inputs:
+            if grid := req.pop("target_grid", None):
+                req["interpolate"] = {
+                    "grid": grid,
+                    **interp_keys,
+                }
+
+        num_members = cls._derive_num_members(schema_inputs)
+        step_start, step_end = cls._derive_steps(schema_inputs)
+        date = cls._derive_date(schema_inputs)
+
+        inputs = {
+            "fc": {"source": {"type": "fdb"}, "request": schema_inputs},
+            "spread": {
+                "source": {"type": "fdb"},
+                "request": cls._derive_spread_req(schema_inputs),
+            },
+        }
+
+        config = {
+            **schema_config,
+            "num_members": num_members,
+            "step_start": step_start,
+            "step_end": step_end,
+            "date": date,
+            "inputs": inputs,
+            "outputs": deep_update({"default": {"target": {"type": "fdb"}}}, outputs),
+            "parameters": {},
+        }
+        deep_update(config, overrides)
+        with open("_gen_config.yaml", "w") as f:
+            yaml.safe_dump(config, f)
+        return cls(**config)
+
+    def _merge_inputs(self, other: Self) -> io.ClusterInputModel:
+        if self.inputs != other.inputs:
+            raise ValueError("Cannot merge different input configurations")
+        return self.inputs
+
+    def in_mars(self, sources: Optional[list[str]] = None) -> Iterator:
+        steps = list(range(self.step_start, self.step_end + 1, self.step_del))
+        spread_dates = [
+            date.strftime("%Y%m%d")
+            for date in DailySequence().range(
+                self.date - datetime.timedelta(days=31), self.date, include_end=False
+            )
+        ]
+        acc_keys = {
+            "fc": {"step": steps},
+            "spread": {"date": spread_dates, "step": steps},
+            "deterministic": {"step": steps},
+        }
+        seen = set()
+        for input in self.inputs.names:
+            pinput = getattr(self.inputs, input)
+
+            if sources and pinput.type not in sources:
+                continue
+            if pinput.type == "null":
+                continue
+
+            reqs = copy.deepcopy(
+                pinput.request if isinstance(pinput.request, list) else [pinput.request]
+            )
+            for req in reqs:
+                req["source"] = pinput.path if pinput.path is not None else pinput.type
+                req.update(acc_keys[input])
+                req.pop("interpolate", None)
+                if str(req) not in seen:
+                    seen.add(str(req))
+                    yield req
+
+    def out_mars(self, targets: Optional[list[str]] = None) -> Iterator:
+        outputs = []
+        for name in self.outputs.names:
+            if name == "default":
+                continue
+            output = getattr(self.outputs, name)
+            out_type = output.target.type_
+            if out_type == "null" or (targets and out_type not in targets):
+                continue
+            outputs.append(output)
+
+        seen = []
+        for output in outputs:
+            fc_reqs = self.inputs.fc.request
+            reqs = copy.deepcopy(fc_reqs if isinstance(fc_reqs, list) else [fc_reqs])
+            for req in reqs:
+                req.update(output.metadata)
+                req["target"] = (
+                    output.target.path
+                    if hasattr(output.target, "path")
+                    else output.target.type_
+                )
+                req.update(extract_mars(self.outputs.overrides))
+                req["step"] = range(self.step_start, self.step_end + 1, self.step_del)
+                req["number"] = range(1, self.ncl_max + 1)
+                req["domain"] = "h"
+                req.pop("interpolate", None)
+                if req not in seen:
+                    seen.append(req)
+                    yield req
