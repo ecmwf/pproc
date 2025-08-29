@@ -25,6 +25,7 @@ from pproc.schema.deriver import (
 )
 from pproc.schema.filters import _steplength, _steptype, _selection, _number
 from pproc.schema.step import StepSchema
+from pproc.schema.utils import create_steps
 from pproc.config.utils import update_request, expand, squeeze, deep_update
 
 logger = logging.getLogger(__name__)
@@ -77,12 +78,12 @@ class ForecastInput(BaseModel):
             self.request.pop("number", None)
         return self
 
-    def populate_derived(
-        self, base_request: dict, steps: list[int], scheme: Optional[str] = None
-    ):
+    def populate_derived(self, base_request: dict, scheme: Optional[str] = None):
         for k, v in self.request.items():
             self.request[k] = v if v != f"{{{k}}}" else base_request[k]
-        self.request["step"] = self.derive_step.derive(base_request, steps)
+        self.request["step"] = self.derive_step.derive(
+            base_request, self.request["step"]
+        )
         if self.derive_date:
             request = base_request.copy()
             for deriver in self.derive_date:
@@ -102,11 +103,11 @@ class ClimatologyInput(ForecastInput):
             self.request["quantile"] = [f"{x}:100" for x in range(0, 101)]
         return self
 
-    def populate_derived(self, base_request: dict, steps: list[int | str], scheme: str):
+    def populate_derived(self, base_request: dict, scheme: str):
         assert (
             self.derive_step and self.derive_date
         ), "Both step and date derivers required"
-        super().populate_derived(base_request, steps, scheme)
+        super().populate_derived(base_request, scheme)
 
 
 class ForecastConfig(BaseModel):
@@ -179,6 +180,7 @@ class ForecastConfig(BaseModel):
                 assert (
                     len(reqs) == 1
                 ), f"Expected single request, got {reqs} for {inp.request}"
+                reqs[0].setdefault("step", inp.request["step"])
                 updated_reqs.append(reqs[0])
             if len(updated_reqs) == 0:
                 continue
@@ -212,27 +214,29 @@ class InputConfig(BaseModel):
     def populate_derived(
         self,
         output_request: dict,
-        fc_steps: list[int],
-        clim_steps: Optional[list[int | str]] = None,
+        step_schema: Optional[StepSchema] = None,
     ):
-        for input in self.forecast.inputs:
-            input.populate_derived(output_request, fc_steps, self.forecast.scheme)
+        for inp in self.forecast.inputs:
+            inp.populate_derived(output_request, self.forecast.scheme)
 
         if self.climatology.required:
-            for input in self.climatology.inputs:
-                input.populate_derived(
+            for inp in self.climatology.inputs:
+                if step_schema is not None:
+                    inp.request["step"] = step_schema.out_steps(
+                        inp.request, inp.request.pop("step")
+                    )[1]
+                inp.populate_derived(
                     self.forecast.base_request(),
-                    clim_steps,
                     self.climatology.scheme,
                 )
 
     def inputs(self) -> Iterator[dict]:
-        for input in self.forecast.inputs:
-            yield format_request(input.request, pop=["selection"])
+        for inp in self.forecast.inputs:
+            yield format_request(inp.request, pop=["selection"])
         if self.climatology.required:
-            for input in self.climatology.inputs:
+            for inp in self.climatology.inputs:
                 yield format_request(
-                    {**input.request, "climatology": True}, pop=["selection"]
+                    {**inp.request, "climatology": True}, pop=["selection"]
                 )
 
     def match(self, input_requests: list[dict]) -> Iterator[Self]:
@@ -269,6 +273,21 @@ class InputConfig(BaseModel):
                     from_inputs=self.from_inputs,
                 )
 
+    def finalise(self, remove_templates: bool = False):
+        inputs = (
+            self.forecast.inputs + self.climatology.inputs
+            if self.climatology.required
+            else self.forecast.inputs
+        )
+        for inp in inputs:
+            req = inp.request
+            if isinstance(req["step"][0], dict):
+                req["step"] = create_steps(req["step"])
+            if remove_templates:
+                for key in list(req.keys()):
+                    if req[key] == f"{{{key}}}":
+                        req.pop(key)
+
 
 def _update_config(config: dict, update: dict[str, dict]) -> dict:
     for fc_type, fc_update in update.items():
@@ -276,6 +295,22 @@ def _update_config(config: dict, update: dict[str, dict]) -> dict:
         fc_config = config[fc_type].model_dump(exclude_none=True, by_alias=True)
         current_inputs = fc_config.pop("inputs")
         update_inputs = fc_update.pop("inputs", [])
+        if isinstance(update_inputs, dict):
+            update_inputs = [update_inputs]
+        for index, update in enumerate(update_inputs):
+            if "fc" in update:
+                # Use forecast definition as base request 
+                fc_stream = config["fc_stream"]
+                def_mappings = config.get("fc_mappings", {})
+                def_name = update.pop("fc")
+                def_name = def_mappings.get(def_name, def_name)
+                fc_def = config["forecast_definitions"][def_name].copy()
+                if def_type := update.pop("fc_type", None):
+                    fc_def.update(fc_def.pop("types")[def_type])
+                fc_def["request"]["step"] = fc_def.pop("steps")
+                fc_def["request"]["stream"] = fc_def["streams"][fc_stream]
+                fc_config.setdefault("scheme", fc_def.pop("scheme", None))
+                update_inputs[index] = deep_update(fc_def, update)
         method = fc_update.get("update_request_method", "map")
         inputs = update_request(current_inputs, update_inputs, method=method)
         config[fc_type] = type(config[fc_type])(
@@ -288,7 +323,7 @@ def _intersect(
     lista: list[dict], listb: list[dict], how: str = "inner"
 ) -> pd.DataFrame:
     dfa = pd.DataFrame(lista)
-    dfa.drop(columns="number", errors="ignore", inplace=True)
+    dfa.drop(columns=["number", "step"], errors="ignore", inplace=True)
     dfa.drop_duplicates(inplace=True)
     dfb = pd.DataFrame(listb)
     merged = dfa.merge(dfb, how=how, on=dfa.columns.tolist())
@@ -317,6 +352,8 @@ def _match_forecast(
                             return True
                         inp.request[key] = out[key]
                 require.extend(expand(inp.request))
+            if pd.DataFrame(require).empty:
+                return True
             merged = _intersect(require, value)
             if len(merged) == 0:
                 return False
@@ -379,13 +416,8 @@ class InputSchema(BaseSchema):
             ),
         }
         config = InputConfig(**self.traverse(output_request, initial))
-        fc_steps = step_schema.in_steps(output_request)
-        clim_steps = (
-            None
-            if not config.climatology.required
-            else step_schema.out_steps(config.climatology.inputs[0].request)[1]
-        )
-        config.populate_derived(output_request, fc_steps, clim_steps)
+        config.finalise()
+        config.populate_derived(output_request, step_schema)
         yield from config.inputs()
 
     def reconstruct(
@@ -411,10 +443,7 @@ class InputSchema(BaseSchema):
             **matching,
         ):
             out, input_config = cfg.pop("recon_req"), InputConfig(**cfg)
-            for req in input_config.inputs():
-                for key in list(req.keys()):
-                    if req[key] == f"{{{key}}}":
-                        req.pop(key)
+            input_config.finalise(remove_templates=True)
             logger.info("Reconstructed output %s, with config %s", out, input_config)
             yield out, input_config
 
@@ -461,16 +490,11 @@ class InputSchema(BaseSchema):
                 step_dim, out_steps = step_schema.out_steps(
                     mout, mconfig.forecast.steps()
                 )
-                clim_steps = (
-                    None
-                    if not mconfig.climatology.required
-                    else mconfig.climatology.steps()
-                )
 
                 for step in out_steps:
                     out = {**mout, step_dim: step}
                     sconfig = mconfig.model_copy(deep=True)
-                    sconfig.populate_derived(out, sconfig.forecast.steps(), clim_steps)
+                    sconfig.populate_derived(out)
                     out, inputs = out, list(sconfig.inputs())
                     logger.info("Output %s, requiring inputs %s", out, inputs)
                     yield self._set_defaults(out, inputs), inputs

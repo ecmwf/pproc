@@ -83,25 +83,8 @@ StepType = RootModel[
 
 
 class StepSchema(BaseSchema):
-    @classmethod
-    def _create_steps(cls, step_config: list[dict]) -> list[int]:
-        steps = set(
-            sum(
-                [
-                    list(range(x["from"], x["to"] + 1, x.get("by", 1)))
-                    for x in step_config
-                ],
-                [],
-            )
-        )
-        return sorted(steps)
-
-    def in_steps(self, request: dict) -> list[int]:
-        config = self.traverse(request)
-        return self._create_steps(config.get("in_steps", []))
-
     def out_steps(
-        self, request_or_name: dict | str, steps: Optional[list[int]] = None
+        self, request_or_name: dict | str, steps: list[int]
     ) -> tuple[str, list[int | str]]:
         if isinstance(request_or_name, str):
             step_configs = self.schema.get("defs", {}).get(request_or_name, [])
@@ -111,7 +94,6 @@ class StepSchema(BaseSchema):
                     return dim, [request_or_name[dim]]
 
             config = self.traverse(request_or_name, {})
-            steps = steps or self._create_steps(config.get("in_steps", []))
             step_configs = config.get("out_steps", None)
             if step_configs is None:
                 raise ValueError(f"No output steps defined {request_or_name}")

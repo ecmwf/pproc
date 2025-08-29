@@ -171,6 +171,17 @@ INPUTS = {
             "time": "0000",
         },
     ],
+    "wave": [
+        {
+            "stream": "waef",
+            "levtype": "sfc",
+            "param": "140229",
+            "step": 12,
+            "type": "pf",
+            "number": list(range(1, 51)),
+            "time": "0000",
+        },
+    ],
 }
 
 
@@ -290,6 +301,7 @@ def test_forecast_config(inputs, expected_num_inputs):
             "step": 3,
             "levtype": "sfc",
             "time": "0000",
+            "selection": "from_components",
         },
         {
             "stream": "enfo",
@@ -299,6 +311,7 @@ def test_forecast_config(inputs, expected_num_inputs):
             "levtype": "sfc",
             "time": "0000",
             "number": [1, 2, 3],
+            "selection": "from_components",
         },
         {
             "stream": "enfo",
@@ -328,6 +341,7 @@ def test_forecast_config(inputs, expected_num_inputs):
             "date": "20241001",
             "number": list(range(0, 51)),
             "time": "0000",
+            "selection": "from_components",
         },
         {
             "stream": "enfo",
@@ -337,8 +351,16 @@ def test_forecast_config(inputs, expected_num_inputs):
             "step": "0-24",
             "time": "0000",
         },
+        {
+            "stream": "waef",
+            "levtype": "sfc",
+            "type": "ep",
+            "param": "131074",
+            "step": 12,
+            "time": "0000",
+        },
     ],
-    ids=["ensms", "thermofeel", "thermo_pf", "t850", "efi", "monthly", "prob"],
+    ids=["ensms", "thermofeel", "thermo_pf", "t850", "efi", "monthly", "prob", "wave"],
 )
 def test_inputs(request, output):
     expected_inputs = INPUTS[request.node.callspec.id]
@@ -358,8 +380,16 @@ def test_inputs(request, output):
 
 @pytest.mark.parametrize(
     "out_type, num_outputs",
-    [["em", 1], ["cf", 11], ["ep", 52], ["efi", 1], ["fcmean", 3], ["ep", 7]],
-    ids=["ensms", "thermofeel", "t850", "efi", "monthly", "prob"],
+    [
+        ["em", 1],
+        ["cf", 11],
+        ["ep", 52],
+        ["efi", 1],
+        ["fcmean", 3],
+        ["ep", 7],
+        ["ep", 4],
+    ],
+    ids=["ensms", "thermofeel", "t850", "efi", "monthly", "prob", "wave"],
 )
 def test_outputs(request, out_type, num_outputs):
     expanded_inputs = sum(
@@ -399,10 +429,10 @@ def test_outputs(request, out_type, num_outputs):
                     "step": [2, 3],
                     "type": "fc",
                     "levtype": "sfc",
-                    "time": "00",
+                    "time": "0000",
                 }
             ],
-            {"type": "fc"},
+            {"type": "fc", "selection": "from_components"},
             18,
         ],
         [
@@ -412,7 +442,7 @@ def test_outputs(request, out_type, num_outputs):
                     "param": ["228246", "228247"],
                     "type": "cf",
                     "levtype": "sfc",
-                    "time": "00",
+                    "time": "0000",
                 }
             ],
             {"type": "cf"},
@@ -426,7 +456,7 @@ def test_outputs(request, out_type, num_outputs):
                     "type": "cf",
                     "levtype": "sfc",
                     "step": 3,
-                    "time": "00",
+                    "time": "0000",
                 },
                 {
                     "stream": "enfo",
@@ -435,7 +465,7 @@ def test_outputs(request, out_type, num_outputs):
                     "levtype": "sfc",
                     "number": list(range(1, 51)),
                     "step": 3,
-                    "time": "00",
+                    "time": "0000",
                 },
                 {
                     "stream": "enfo",
@@ -444,7 +474,7 @@ def test_outputs(request, out_type, num_outputs):
                     "levtype": "pl",
                     "levelist": [50, 100],
                     "step": 3,
-                    "time": "00",
+                    "time": "0000",
                 },
                 {
                     "stream": "enfo",
@@ -454,7 +484,7 @@ def test_outputs(request, out_type, num_outputs):
                     "number": list(range(1, 51)),
                     "levelist": [50, 100],
                     "step": 3,
-                    "time": "00",
+                    "time": "0000",
                 },
             ],
             {"levtype": "pl", "levelist": 50, "type": "em"},
@@ -472,20 +502,25 @@ def test_redundant_inputs(inputs, template, num_outputs):
     )
     assert len(generated) == num_outputs
 
-@pytest.mark.parametrize("number, updates", [
-    [0, {"type": "cf"}], 
-    [[0, 1], [{"type": "cf"}, {"type": "pf", "number": [1]}]], 
-    [1, {"type": "pf", "number": [1]}],
-], ids=["cf", "cf-and-pf", "pf"])
+
+@pytest.mark.parametrize(
+    "number, updates",
+    [
+        [0, {"type": "cf"}],
+        [[0, 1], [{"type": "cf"}, {"type": "pf", "number": [1]}]],
+        [1, {"type": "pf", "number": [1]}],
+    ],
+    ids=["cf", "cf-and-pf", "pf"],
+)
 def test_fcstat_inputs(number, updates):
     input_schema = InputSchema(schema("inputs"))
     step_schema = StepSchema(schema("windows"))
     output = {
-        "stream": "eefo", 
+        "stream": "eefo",
         "type": "fcmean",
-        "number": number, 
-        "param": "167", 
-        "step": "0-168", 
+        "number": number,
+        "param": "167",
+        "step": "0-168",
         "time": "0000",
     }
     inputs = input_schema.inputs(output, step_schema)

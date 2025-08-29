@@ -103,7 +103,10 @@ TEST_CASES = {
                             "windows": [
                                 {
                                     "operation": "mean",
-                                    "metadata": {"type": "fcmean"},
+                                    "metadata": {
+                                        "numberIncludedInAverage": "{num_coords}:int",
+                                        "type": "fcmean",
+                                    },
                                     "coords": [
                                         {"from": 0, "to": 168, "by": 12},
                                         {"from": 24, "to": 192, "by": 12},
@@ -111,7 +114,10 @@ TEST_CASES = {
                                 },
                                 {
                                     "operation": "standard_deviation",
-                                    "metadata": {"type": "fcstdev"},
+                                    "metadata": {
+                                        "numberIncludedInAverage": "{num_coords}:int",
+                                        "type": "fcstdev",
+                                    },
                                     "coords": [
                                         {"from": 0, "to": 168, "by": 12},
                                         {"from": 24, "to": 192, "by": 12},
@@ -119,7 +125,10 @@ TEST_CASES = {
                                 },
                                 {
                                     "operation": "minimum",
-                                    "metadata": {"type": "fcmin"},
+                                    "metadata": {
+                                        "numberIncludedInAverage": "{num_coords}:int",
+                                        "type": "fcmin",
+                                    },
                                     "coords": [
                                         {"from": 0, "to": 168, "by": 12},
                                         {"from": 24, "to": 192, "by": 12},
@@ -127,7 +136,10 @@ TEST_CASES = {
                                 },
                                 {
                                     "operation": "maximum",
-                                    "metadata": {"type": "fcmax"},
+                                    "metadata": {
+                                        "numberIncludedInAverage": "{num_coords}:int",
+                                        "type": "fcmax",
+                                    },
                                     "coords": [
                                         {"from": 0, "to": 168, "by": 12},
                                         {"from": 24, "to": 192, "by": 12},
@@ -202,7 +214,6 @@ TEST_CASES = {
                     "metadata": {
                         "paramId": 172228,
                         "stream": "msmm",
-                        "bitsPerValue": 16,
                     },
                     "accumulations": {
                         "step": {
@@ -210,7 +221,7 @@ TEST_CASES = {
                             "windows": [
                                 {
                                     "operation": "mean",
-                                    "metadata": {"type": "fcmean"},
+                                    "metadata": {"bitsPerValue": 16, "type": "fcmean"},
                                     "include_start": True,
                                     "deaccumulate": True,
                                     "coords": [
@@ -221,7 +232,7 @@ TEST_CASES = {
                                 },
                                 {
                                     "operation": "standard_deviation",
-                                    "metadata": {"type": "fcstdev"},
+                                    "metadata": {"bitsPerValue": 16, "type": "fcstdev"},
                                     "include_start": True,
                                     "deaccumulate": True,
                                     "coords": [
@@ -232,7 +243,7 @@ TEST_CASES = {
                                 },
                                 {
                                     "operation": "maximum",
-                                    "metadata": {"type": "fcmax"},
+                                    "metadata": {"bitsPerValue": 16, "type": "fcmax"},
                                     "include_start": True,
                                     "deaccumulate": True,
                                     "coords": [
@@ -289,7 +300,10 @@ TEST_CASES = {
                             "windows": [
                                 {
                                     "operation": "mean",
-                                    "metadata": {"type": "fcmean"},
+                                    "metadata": {
+                                        "numberIncludedInAverage": "{num_coords}:int",
+                                        "type": "fcmean",
+                                    },
                                     "coords": [
                                         {"from": 0, "to": 168, "by": 12},
                                         {"from": 24, "to": 192, "by": 12},
@@ -297,7 +311,10 @@ TEST_CASES = {
                                 },
                                 {
                                     "operation": "standard_deviation",
-                                    "metadata": {"type": "fcstdev"},
+                                    "metadata": {
+                                        "numberIncludedInAverage": "{num_coords}:int",
+                                        "type": "fcstdev",
+                                    },
                                     "coords": [
                                         {"from": 0, "to": 168, "by": 12},
                                         {"from": 24, "to": 192, "by": 12},
@@ -305,7 +322,10 @@ TEST_CASES = {
                                 },
                                 {
                                     "operation": "minimum",
-                                    "metadata": {"type": "fcmin"},
+                                    "metadata": {
+                                        "numberIncludedInAverage": "{num_coords}:int",
+                                        "type": "fcmin",
+                                    },
                                     "coords": [
                                         {"from": 0, "to": 168, "by": 12},
                                         {"from": 24, "to": 192, "by": 12},
@@ -313,7 +333,10 @@ TEST_CASES = {
                                 },
                                 {
                                     "operation": "maximum",
-                                    "metadata": {"type": "fcmax"},
+                                    "metadata": {
+                                        "numberIncludedInAverage": "{num_coords}:int",
+                                        "type": "fcmax",
+                                    },
                                     "coords": [
                                         {"from": 0, "to": 168, "by": 12},
                                         {"from": 24, "to": 192, "by": 12},
@@ -431,7 +454,10 @@ def test_from_outputs(request, output_request, input_param):
                 "windows": [
                     {
                         "operation": "mean",
-                        "metadata": {"type": "fcmean"},
+                        "metadata": {
+                            "numberIncludedInAverage": "{num_coords}:int",
+                            "type": "fcmean",
+                        },
                         "coords": [
                             {"from": 0, "to": 168, "by": 12},
                             {"from": 24, "to": 192, "by": 12},
@@ -439,7 +465,10 @@ def test_from_outputs(request, output_request, input_param):
                     },
                     {
                         "operation": "standard_deviation",
-                        "metadata": {"type": "fcstdev"},
+                        "metadata": {
+                            "numberIncludedInAverage": "{num_coords}:int",
+                            "type": "fcstdev",
+                        },
                         "coords": [
                             {"from": 0, "to": 168, "by": 12},
                             {"from": 24, "to": 192, "by": 12},
@@ -447,7 +476,10 @@ def test_from_outputs(request, output_request, input_param):
                     },
                     {
                         "operation": "minimum",
-                        "metadata": {"type": "fcmin"},
+                        "metadata": {
+                            "numberIncludedInAverage": "{num_coords}:int",
+                            "type": "fcmin",
+                        },
                         "coords": [
                             {"from": 0, "to": 168, "by": 12},
                             {"from": 24, "to": 192, "by": 12},
@@ -455,7 +487,10 @@ def test_from_outputs(request, output_request, input_param):
                     },
                     {
                         "operation": "maximum",
-                        "metadata": {"type": "fcmax"},
+                        "metadata": {
+                            "numberIncludedInAverage": "{num_coords}:int",
+                            "type": "fcmax",
+                        },
                         "coords": [
                             {"from": 0, "to": 168, "by": 12},
                             {"from": 24, "to": 192, "by": 12},
@@ -507,7 +542,7 @@ def test_from_outputs(request, output_request, input_param):
                 "windows": [
                     {
                         "operation": "mean",
-                        "metadata": {"type": "fcmean"},
+                        "metadata": {"bitsPerValue": 16, "type": "fcmean"},
                         "deaccumulate": True,
                         "include_start": True,
                         "coords": [
@@ -518,7 +553,7 @@ def test_from_outputs(request, output_request, input_param):
                     },
                     {
                         "operation": "standard_deviation",
-                        "metadata": {"type": "fcstdev"},
+                        "metadata": {"bitsPerValue": 16, "type": "fcstdev"},
                         "deaccumulate": True,
                         "include_start": True,
                         "coords": [
@@ -529,7 +564,7 @@ def test_from_outputs(request, output_request, input_param):
                     },
                     {
                         "operation": "maximum",
-                        "metadata": {"type": "fcmax"},
+                        "metadata": {"bitsPerValue": 16, "type": "fcmax"},
                         "deaccumulate": True,
                         "include_start": True,
                         "coords": [

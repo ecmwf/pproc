@@ -99,8 +99,8 @@ from conftest import schema
                         "deaccumulate": True,
                         "include_start": True,
                         "metadata": {
-                            "type": "fcmean",
                             "numberIncludedInAverage": "{num_coords}:int",
+                            "type": "fcmean",
                         },
                     }
                 },
@@ -139,12 +139,7 @@ from conftest import schema
                     },
                 ],
                 "metadata": {
-                    "bitsPerValue": 16,
-                    "legBaseDate": 0,
-                    "legNumber": 0,
                     "paramId": 172228,
-                    "timeRangeIndicator": 3,
-                    "stepType": "avg",
                 },
             },
             2,
@@ -279,7 +274,10 @@ def test_schema_from_output(req, config, num_generated):
                     "step": {
                         "type": "legacywindow",
                         "operation": "mean",
-                        "metadata": {"type": "fcmean"},
+                        "metadata": {
+                            "numberIncludedInAverage": "{num_coords}:int",
+                            "type": "fcmean",
+                        },
                     }
                 },
                 "interp_keys": {

@@ -14,23 +14,13 @@ from pproc.schema.step import StepSchema
 from conftest import schema
 
 
-def test_in_steps():
-    test_schema = StepSchema(schema("windows"))
-    in_steps = test_schema.in_steps(
-        {"stream": "enfo", "type": "em", "param": "167", "time": "00"}
-    )
-    assert in_steps == (
-        list(range(0, 91)) + list(range(93, 145, 3)) + list(range(150, 361, 6))
-    )
-
-
 @pytest.mark.parametrize(
     "out, expected, in_steps",
     [
         [
             {"stream": "enfo", "type": "em", "param": "167", "time": "00"},
             list(range(0, 145, 3)) + list(range(150, 361, 6)),
-            None,
+            list(range(0, 91)) + list(range(93, 145, 3)) + list(range(150, 361, 6)),
         ],
         [
             {"stream": "enfo", "type": "em", "param": "167", "time": "00"},
@@ -40,12 +30,12 @@ def test_in_steps():
         [
             {"stream": "enfo", "type": "cf", "param": "261001", "time": "00"},
             list(range(1, 91)) + list(range(93, 145, 3)) + list(range(150, 361, 6)),
-            None,
+            list(range(0, 91)) + list(range(93, 145, 3)) + list(range(150, 361, 6)),
         ],
         [
             {"stream": "eefo", "type": "fcmean", "param": "167", "time": "00"},
             [f"{x}-{x+168}" for x in list(range(0, 1104 - 168 + 1, 24))],
-            None,
+            list(range(0, 1105, 6)),
         ],
         [
             {
@@ -56,12 +46,12 @@ def test_in_steps():
                 "time": "00",
             },
             list(range(1, 8)),
-            None,
+            list(range(0, 5160, 6)),
         ],
         [
             {"stream": "enfo", "type": "ep", "param": "131064", "time": "00"},
             ["120-240", "240-360", "120-168", "168-240"],
-            None,
+            list(range(0, 91)) + list(range(93, 145, 3)) + list(range(150, 361, 6)),
         ],
         [
             {"stream": "oper", "type": "fc", "param": "207", "time": "00"},
