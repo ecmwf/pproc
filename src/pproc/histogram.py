@@ -174,9 +174,6 @@ def write_iteration(
 ):
     with ResourceMeter(f"{param.name}, window {window_id!s}: Write histogram"):
         hist = accum.values
-        out_keys = fill_template_values(
-            accum.grib_keys(), {"num_fields": np.prod(hist.shape[:-1])}
-        )
         assert hist is not None
         write_histogram(
             hist,
@@ -184,7 +181,7 @@ def write_iteration(
             target,
             param.normalise,
             param.scale_out,
-            out_keys=out_keys,
+            out_keys=accum.grib_keys(),
         )
     recovery.add_checkpoint(param=param.name, window=str(window_id))
 

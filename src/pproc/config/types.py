@@ -211,7 +211,7 @@ class MonthlyStatsConfig(BaseConfig):
 
 class HistParamConfig(ParamConfig):
     bins: List[float]
-    mod: Optional[int] = None
+    mod: Optional[Union[float | int]] = None
     normalise: bool = True
     scale_out: Optional[float] = None
 
