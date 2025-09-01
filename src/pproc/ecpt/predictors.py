@@ -22,18 +22,6 @@ def to_ekmetadata(metadata: list[GribMetadata]) -> list[StandAloneGribMetadata]:
     ]
 
 
-def _retrieve_sr24(
-    config: ECPointConfig, param: ParamConfig, step: int
-) -> earthkit.data.FieldList:
-    requester = ParamRequester(param, config.inputs, config.total_fields, "fc")
-    end_step = max(step, 24)
-    _, start_data = requester.retrieve_data(end_step - 24)
-    metadata, end_data = requester.retrieve_data(end_step)
-    return earthkit.data.FieldList.from_array(
-        end_data - start_data, to_ekmetadata(metadata)
-    )
-
-
 def _local_solar_time(hour: int, longitudes: np.ndarray) -> np.ndarray:
     lst_pos = np.where(longitudes >= 0, hour + (longitudes / 15), 0)
     temp_pos = np.where(lst_pos >= 24, lst_pos - 24, lst_pos)
@@ -82,23 +70,11 @@ def cpr(
     return _ratio(inputs.sel(param="cp").values, inputs.sel(param="tp").values)
 
 
-def cdir(
-    config: ECPointConfig, param: ParamConfig, window: str, inputs: FieldList
-) -> np.ndarray:
-    if len(inputs.sel(param="cdir")) == 0:
-        # Fetch solar radiation if not present. This is to handle the special case of step ranges where
-        # the end step is < 24 (e.g. 0-12) but uses solar radiation over 24hr window and therefore the end
-        # step of the solar radiation window does not match the end step of the tp step interval
-        inputs += _retrieve_sr24(config, param, int(window.split("-")[1]))
-    return inputs.sel(param="cdir").values
-
-
 PREDICTORS = {
     "sdfor": sdfor,
     "lst": lst,
     "ws": ws,
     "cpr": cpr,
-    "cdir": cdir,
 }
 
 
