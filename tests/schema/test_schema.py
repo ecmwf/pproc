@@ -59,11 +59,10 @@ from conftest import schema
                     "step": {
                         "type": "legacywindow",
                         "operation": "mean",
-                        "metadata": {"type": "fcmean"},
+                        "metadata": {"bitsPerValue": 16, "type": "fcmean"},
                     }
                 },
                 "metadata": {
-                    "bitsPerValue": 16,
                     "stream": "msmm",
                 },
             },
@@ -316,7 +315,7 @@ def test_schema_from_output(req, config, num_generated):
                         "operation": "mean",
                         "deaccumulate": True,
                         "include_start": True,
-                        "metadata": {"type": "fcmean"},
+                        "metadata": {"bitsPerValue": 16, "type": "fcmean"},
                     }
                 },
                 "vmin": 0.0,
@@ -348,7 +347,6 @@ def test_schema_from_output(req, config, num_generated):
                     "matrix-loader": "file-io",
                 },
                 "metadata": {
-                    "bitsPerValue": 16,
                     "paramId": 172228,
                     "stream": "msmm",
                 },
