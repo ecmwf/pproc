@@ -22,6 +22,7 @@ from pproc.config.preprocessing import (
     PreprocessingConfig,
     Scaling,
     Reshape,
+    Expression,
 )
 
 
@@ -222,6 +223,33 @@ def test_reshape_apply(
         new_metadata, new_data = reshape.apply(metadata, inp)
         assert new_metadata == metadata
         assert new_data.shape == exp
+
+
+@pytest.mark.parametrize(
+    "expr, expr_data, inp, exp",
+    [
+        [
+            "x * 2",
+            {"x": {"param": 0}},
+            [np.array([1.0, 2.5, 3.0])],
+            [np.array([2, 5, 6])],
+        ],
+        [
+            "x + y",
+            {"x": {"param": 0}, "y": {"param": 1}},
+            [np.array([1, 2, 3]), np.array([0, 2, 5])],
+            [np.array([1, 4, 8])],
+        ],
+    ],
+)
+def test_expression_apply(
+    expr: str, expr_data: dict, inp: np.ndarray, exp: Optional[tuple[int]]
+):
+    reshape = Expression(expr=expr, expr_data=expr_data, dtype="int64")
+    metadata = [{"param": x} for x in range(len(inp))]
+    new_metadata, new_data = reshape.apply(metadata, inp)
+    assert new_metadata == metadata[:1]
+    np.testing.assert_array_equal(new_data, exp)
 
 
 @pytest.mark.parametrize(

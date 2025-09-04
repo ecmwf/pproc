@@ -59,7 +59,7 @@ class FilteredParamRequester(ParamRequester):
     ) -> Tuple[List[GribMetadata], np.ndarray]:
         if step not in self.steps:
             return ([], None)
-        return super().retrieve_data(step, **kwargs)
+        return super().retrieve_data(step=step, **kwargs)
 
 
 def grid_bc_template(
@@ -136,7 +136,7 @@ def point_scale_template(
 
 
 def compute_single_ens(
-    predictand: np.ndarray,
+    predictant: np.ndarray,
     predictors: np.ndarray,
     thr_inf: np.ndarray,
     thr_sup: np.ndarray,
@@ -166,7 +166,7 @@ def compute_single_ens(
         temp_wts = np.where(np.any(np.isnan(predictors), axis=0), np.nan, temp_wts)
 
         wt_allwt += np.einsum("i,i...", codes_wt[index:end_index], temp_wts)
-        wt_rain = np.reshape(predictand, (1, num_gp)) * temp_wts
+        wt_rain = np.reshape(predictant, (1, num_gp)) * temp_wts
         cdf_wt = numexpr.evaluate(
             "sum(wt_rain * (fer + 1), axis=0)",
             local_dict={
@@ -183,7 +183,7 @@ def compute_weather_types(
     predictors: np.ndarray,
     bp_loc: str,
     fer_loc: str,
-    min_predictand: float = 0.04,
+    min_predictant: float = 0.04,
     wt_batch_size: int = 1,
     ens_batch_size: int = 1,
 ) -> Tuple[list[np.ndarray], list[np.ndarray], list[np.ndarray]]:
@@ -196,7 +196,7 @@ def compute_weather_types(
     thr_inf = bp[:, 0:-1:2]
     thr_sup = bp[:, 1::2]
 
-    predictand = np.where(tp < min_predictand, 0, tp)
+    predictant = np.where(tp < min_predictant, 0, tp)
     ens_partial = functools.partial(
         compute_single_ens,
         thr_inf=thr_inf,
@@ -221,7 +221,7 @@ def compute_weather_types(
         initargs=(signal.SIGTERM, signal.SIG_DFL),
     ) as executor:
         for ind_em, result in enumerate(
-            executor.map(ens_partial, predictand, predictors.transpose(1, 0, 2))
+            executor.map(ens_partial, predictant, predictors.transpose(1, 0, 2))
         ):
             logger.info(f"Ensemble member: {ind_em}")
             pt_bc_allwt, wt_allwt = result
@@ -229,7 +229,7 @@ def compute_weather_types(
             pt_bc_allens_allwt.extend(list(pt_bc_allwt))
             wt_allens_allwt.append(
                 np.where(
-                    (predictand[ind_em] < min_predictand)
+                    (predictant[ind_em] < min_predictant)
                     & (np.invert(np.isnan(wt_allwt))),
                     99999,
                     wt_allwt,
@@ -255,7 +255,7 @@ def ecpoint_iteration(
         f"Processing {window_id}, fields: \n {input_params.ls(namespace='mars')}"
     )
     with ResourceMeter(f"Compute predictant and predictors: {window_id}"):
-        tp = input_params.sel(param="tp").values
+        predictant = input_params.sel(param=config.predictant).values
         predictors = compute_predictors(
             config, param, window_id.lstrip("step_"), input_params
         )
@@ -266,11 +266,11 @@ def ecpoint_iteration(
             grid_bc_allens_allwt,
             wt_allens_allwt,
         ) = compute_weather_types(
-            tp,
+            predictant,
             predictors,
             config.bp_location,
             config.fer_location,
-            config.min_predictand,
+            config.min_predictant,
             config.parallelisation.wt_batch_size,
             config.parallelisation.ens_batch_size,
         )
@@ -283,7 +283,7 @@ def ecpoint_iteration(
     # Save the grid-scale outputs and weather types for each member
     out_bs = config.outputs.bs
     out_wt = config.outputs.wt
-    for index, field in enumerate(input_params.sel(param="tp")):
+    for index, field in enumerate(input_params.sel(param=config.predictant)):
         template = field.metadata()._handle
         bs_message = grid_bc_template(
             template,
@@ -310,7 +310,7 @@ def ecpoint_iteration(
 
     with ResourceMeter(f"Compute the percentiles: {window_id}"):
         out_perc = config.outputs.perc
-        template = input_params.sel(param="tp")[0].metadata()._handle
+        template = input_params.sel(param=config.predictant)[0].metadata()._handle
         for i, quantile in enumerate(
             iter_quantiles(
                 np.asarray(pt_bc_allens_allwt), config.quantiles, method="sort"
@@ -361,31 +361,40 @@ def main():
         ]
         num_inputs = requesters[0].total
         dims = {k: set(val) for k, val in managers[0].dims.items()}
+        static_data = earthkit.data.FieldList()
         for input_param in param.dependencies.values():
-            managers.append(
-                AccumulationManager.create(
-                    input_param.accumulations,
-                    {
-                        **cfg.outputs.default.metadata,
-                        **input_param.metadata,
-                    },
-                )
+            new_manager = AccumulationManager.create(
+                input_param.accumulations,
+                {
+                    **cfg.outputs.default.metadata,
+                    **input_param.metadata,
+                },
             )
-            for dim, vals in managers[-1].dims.items():
-                min_val = min(managers[0].dims[dim])
-                max_val = max(managers[0].dims[dim])
-                dims[dim].update([x for x in vals if x > min_val and x < max_val])
-            requesters.append(
-                FilteredParamRequester(
+            if len(new_manager.dims) == 0:
+                # Static data, requiring no accumulation
+                requester = ParamRequester(
+                    input_param, cfg.inputs, total=cfg.total_fields
+                )
+                metadata, data = requester.retrieve_data()
+                static_data += earthkit.data.FieldList.from_array(
+                    data, to_ekmetadata(metadata)
+                )
+            else:
+                for dim, vals in new_manager.dims.items():
+                    min_val = min(managers[0].dims[dim])
+                    max_val = max(managers[0].dims[dim])
+                    dims[dim].update([x for x in vals if x > min_val and x < max_val])
+                new_requester = FilteredParamRequester(
                     input_param,
                     cfg.inputs,
-                    steps=managers[-1].dims["step"],
+                    steps=new_manager.dims["step"],
                     total=cfg.total_fields,
                 )
-            )
-            num_inputs += requesters[-1].total
-            for k, val in managers[-1].dims.items():
-                dims[k] |= set(val)
+                managers.append(new_manager)
+                requesters.append(new_requester)
+                for k, val in new_manager.dims.items():
+                    dims[k] |= set(val)
+            num_inputs += new_requester.total
         logger.debug(f"Expected number of inputs: {num_inputs}")
         logger.debug(f"Dims: {dims}")
         ecpoint_partial = functools.partial(ecpoint_iteration, cfg, param, recover)
@@ -406,7 +415,7 @@ def main():
                                 {
                                     "window_id": wid,
                                     "out_keys": completed_window.grib_keys(),
-                                    "input_params": None,
+                                    "input_params": static_data,
                                 }
                             )
                         new_field = earthkit.data.FieldList.from_array(
@@ -414,10 +423,9 @@ def main():
                         )
                         field_name = param_metadata[0]["shortName"]
                         for input_set in input_sets:
-                            if input_set["input_params"] is None:
-                                input_set["input_params"] = new_field
-                            elif (
-                                len(input_set["input_params"].sel(param=field_name))
+                            if (
+                                len(input_set["input_params"]) == 0
+                                or len(input_set["input_params"].sel(param=field_name))
                                 == 0
                             ):
                                 input_set["input_params"] += new_field

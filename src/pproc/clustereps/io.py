@@ -60,7 +60,7 @@ def read_ensemble_grib(
     ens = None
     template = None
     for i, step in enumerate(steps):
-        templates, data = requester.retrieve_data(step, **kwargs)
+        templates, data = requester.retrieve_data(step=step, **kwargs)
         if ens is None:
             template = templates[0]
             npoints = template.get("numberOfDataPoints")
@@ -99,7 +99,7 @@ def read_steps_grib(
 
     data = None
     for i, step in enumerate(steps):
-        templates, step_data = requester.retrieve_data(step, **kwargs)
+        templates, step_data = requester.retrieve_data(step=step, **kwargs)
         if data is None:
             data = np.empty((nstep, templates[0].get("numberOfDataPoints")))
         data[i, :] = step_data[0, :]
@@ -154,7 +154,7 @@ def read_grib_cluster(
     vals = None
     refs = None
     for jstep, step in enumerate(steps):
-        templates, data = requester.retrieve_data(step)
+        templates, data = requester.retrieve_data(step=step)
 
         if vals is None:
             nclusters = templates[0].get("totalNumberOfClusters")

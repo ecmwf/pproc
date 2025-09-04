@@ -963,7 +963,8 @@ class ECPointConfig(QuantilesConfig):
         str, CLIArg("--fer-loc"), Field(description="Location of FER CSV file")
     ]
     predictors: list[str] = ["cpr", "tp", "ws", "mxcape6", "cdir"]
-    min_predictand: float = 0.04
+    predictant: str = "tp"
+    min_predictant: float = 0.04
     scale_outputs: Optional[float] = None
 
     @classmethod
@@ -973,6 +974,7 @@ class ECPointConfig(QuantilesConfig):
             "bp_location",
             "fer_location",
             "predictors",
+            "predictant",
             "min_predictant",
             "scale_outputs",
         ]:

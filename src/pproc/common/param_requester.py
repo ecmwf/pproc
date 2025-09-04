@@ -103,16 +103,15 @@ class ParamRequester:
         self.total = total * param.total_fields
         self.index_func = index_func
 
-    def retrieve_data(
-        self, step: AnyStep, **kwargs
-    ) -> Tuple[List[GribMetadata], np.ndarray]:
+    def retrieve_data(self, **kwargs) -> Tuple[List[GribMetadata], np.ndarray]:
         metadata = []
         data_list = []
         templates = None
+        if "step" in kwargs:
+            kwargs["step"] = str(kwargs["step"])
         inputs = self.param.input_list(
             self.inputs,
             self.src_name,
-            step=str(step),
             **kwargs,
         )
         for pinput in inputs:
@@ -131,7 +130,9 @@ class ParamRequester:
 
         new_metadata, data_list = self.param.preprocessing.apply(metadata, data_list)
         assert len(data_list) == 1, "More than one output of preprocessing"
-        metadata_set = {k: v for k, v in new_metadata[0].items() if v != metadata[0][k]}
+        metadata_set = {
+            k: v for k, v in new_metadata[0].items() if v != metadata[0].get(k, None)
+        }
         [x.set(metadata_set) for x in templates]
         return (templates, data_list[0])
 
