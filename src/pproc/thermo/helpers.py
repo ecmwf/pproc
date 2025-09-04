@@ -37,7 +37,7 @@ units = {
     "hmdx": "K",
     "nefft": "K",
     "wbgt": "K",
-    "wbpt": "K",
+    "wbt": "K",
     "gt": "K",
     "2r": "%",
     "10si": "m/s",

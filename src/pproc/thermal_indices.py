@@ -176,10 +176,10 @@ def process_step(
         gt = indices.calc_field("gt", indices.calc_gt, fields)
         helpers.write(indices_target, gt)
 
-    # Wet-bulb potential temperature - shortName wbpt
-    if is_target_param(param.out_params, {"wbpt", 261022}):
-        wbpt = indices.calc_field("wbpt", indices.calc_wbpt, fields)
-        helpers.write(indices_target, wbpt)
+    # Wet-bulb temperature - shortName wbt
+    if is_target_param(param.out_params, {"wbt", 261023}):
+        wbt = indices.calc_field("wbt", indices.calc_wbt, fields)
+        helpers.write(indices_target, wbt)
 
     # Wet Bulb Globe Temperature - shortName wbgt
     if is_target_param(param.out_params, {"wbgt", 261014}):  #
