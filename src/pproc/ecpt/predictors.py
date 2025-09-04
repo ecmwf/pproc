@@ -31,10 +31,10 @@ def _local_solar_time(hour: int, longitudes: np.ndarray) -> np.ndarray:
 
 
 def lst(
-    config: ECPointConfig, param: ParamConfig, window: str, inputs: FieldList
+    config: ECPointConfig, param: ParamConfig, step_range: str, inputs: FieldList
 ) -> np.ndarray:
     tp = inputs.sel(param=config.predictant)
-    start, end = map(int, window.split("-"))
+    start, end = map(int, step_range.split("-"))
     date_end = datetime.datetime.fromisoformat(tp[0].metadata("valid_datetime"))
     date_mid = date_end - datetime.timedelta(hours=(end - start) / 2)
     hour = date_mid.hour
@@ -43,7 +43,7 @@ def lst(
 
 
 def ws(
-    config: ECPointConfig, param: ParamConfig, window: str, inputs: FieldList
+    config: ECPointConfig, param: ParamConfig, step_range: str, inputs: FieldList
 ) -> np.ndarray:
     ws = inputs.sel(param="ws")
     if len(ws) != 0:
@@ -60,7 +60,7 @@ def _ratio(var_num, var_den):
 
 
 def cpr(
-    config: ECPointConfig, param: ParamConfig, window: str, inputs: FieldList
+    config: ECPointConfig, param: ParamConfig, step_range: str, inputs: FieldList
 ) -> np.ndarray:
     return _ratio(inputs.sel(param="cp").values, inputs.sel(param="tp").values)
 
@@ -73,14 +73,14 @@ PREDICTORS = {
 
 
 def compute_predictors(
-    config: ECPointConfig, param: ParamConfig, window: str, inputs: FieldList
+    config: ECPointConfig, param: ParamConfig, step_range: str, inputs: FieldList
 ):
     pred = []
     expected_shape = inputs.sel(param=config.predictant).values.shape
     for predictor in config.predictors:
         if predictor in PREDICTORS:
             pred_values = PREDICTORS[predictor](
-                config, param.dependencies.get(predictor, param), window, inputs
+                config, param.dependencies.get(predictor, param), step_range, inputs
             )
         else:
             selected = inputs.sel(param=predictor)
