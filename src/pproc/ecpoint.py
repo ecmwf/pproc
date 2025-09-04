@@ -364,7 +364,7 @@ def main():
         ]
         num_inputs = requesters[0].total
         dims = {k: set(val) for k, val in managers[0].dims.items()}
-        static_data = earthkit.data.FieldList()
+        static_data = earthkit.data.SimpleFieldList()
         for input_param in param.dependencies.values():
             new_manager = AccumulationManager.create(
                 input_param.accumulations,
