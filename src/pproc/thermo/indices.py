@@ -240,16 +240,16 @@ class ComputeIndices:
             gt, metadata_intensity(fields), paramId="261015"
         )
 
-    @metered("wbpt", out=logger.debug)
-    def calc_wbpt(self, fields):
+    @metered("wbt", out=logger.debug)
+    def calc_wbt(self, fields):
         t2m = field_values(fields, "2t")  # Kelvin
 
         rhp = self.calc_field("2r", self.calc_rhp, fields).to_array()  # %
 
-        wbpt = thermofeel.calculate_wbt(t2_k=t2m, rh=rhp)  # Kelvin
+        wbt = thermofeel.calculate_wbt(t2_k=t2m, rh=rhp)  # Kelvin
 
         return self.create_surface_output(
-            wbpt, metadata_intensity(fields), paramId="261022"
+            wbt, metadata_intensity(fields), paramId="261023"
         )
 
     @metered("nefft", out=logger.debug)

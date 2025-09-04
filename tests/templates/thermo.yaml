@@ -50,7 +50,7 @@ parameters:
       - hmdx
       - nefft
       - gt
-      - wbpt
+      - wbt
       - wbgt
       - 2r
 inputs:     
