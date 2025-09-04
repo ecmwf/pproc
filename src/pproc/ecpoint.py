@@ -260,7 +260,7 @@ def ecpoint_iteration(
     with ResourceMeter(f"Compute predictant and predictors: {window_id}"):
         predictant = input_params.sel(param=config.predictant).values
         predictors = compute_predictors(
-            config, param, window_id.lstrip("step_"), input_params
+            config, param, out_keys["stepRange"], input_params
         )
 
     with ResourceMeter(f"Compute realisations: {window_id}"):
