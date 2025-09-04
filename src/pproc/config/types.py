@@ -1037,6 +1037,12 @@ class ECPointConfig(QuantilesConfig):
         param_config["dependencies"] = dependencies
         return param_config
 
+    @classmethod
+    def _populate_accumulations(cls, inputs: list[dict], base_accum: dict) -> dict:
+        if base_accum is None:
+            return {}
+        return super()._populate_accumulations(inputs, base_accum)
+
     def _format_out(self, param: ParamConfig, req) -> dict:
         req = super()._format_out(param, req)
         if req["type"] == "pfc":
