@@ -130,6 +130,7 @@ def point_scale_template(
                 "type": "pfc",
                 "inputProcessIdentifier": template.get("generatingProcessIdentifier"),
                 "inputOriginatingCentre": template.get("originatingCentre"),
+                "typeOfGeneratingProcess": 13,
                 "typeOfPostProcessing": 206,
                 "indicatorOfUnitForTimeIncrement": 1,
                 "timeIncrement": 1,
