@@ -27,6 +27,10 @@ def construct_message(template_grib, window_grib_headers: Dict):
     template_edition = out_grib.get("edition")
     if key_values.get("edition", template_edition) == 2:
         key_values.setdefault("packingType", "grid_ccsds")
+        # Get latest tables version
+        edition2_template = template_grib.copy()
+        edition2_template.set("edition", 2)
+        key_values.setdefault("tablesVersion", edition2_template["tablesVersionLatest"])
     if key_values.get("edition", template_edition) != template_edition:
         # Set grib 1 and grib 2 keys separately as value check can fail when
         # grib 1 keys are removed in the switch to grib 2, or vice versa
