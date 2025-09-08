@@ -102,7 +102,7 @@ class SelectionStepDeriver(BaseModel):
 
 
 class StaticStepDeriver(BaseModel):
-    type_: Literal["static"] = Field("select", alias="type")
+    type_: Literal["static"] = Field("static", alias="type")
     values: Union[int, list[int]]
 
     def derive(self, output_request: dict, fc_steps: list[int]) -> list[int]:
