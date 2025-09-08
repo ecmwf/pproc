@@ -56,7 +56,8 @@ def ws(
 def _ratio(var_num, var_den):
     den_zero = var_den == 0
     ratio_mapped = var_num / np.where(den_zero, -9999, var_den)
-    return np.where(den_zero, 0, ratio_mapped)
+    ratio = np.where(den_zero, 0, ratio_mapped)
+    return np.where(ratio <= 1, ratio, 0)
 
 
 def cpr(
