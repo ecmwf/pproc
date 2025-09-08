@@ -108,7 +108,7 @@ class StaticStepDeriver(BaseModel):
     def derive(self, output_request: dict, fc_steps: list[int]) -> list[int]:
         steps = [self.values] if isinstance(self.values, int) else self.values
         if not all([x in fc_steps for x in steps]):
-            raise ValueError(f"Values {values}, must be contained in forecast steps")
+            raise ValueError(f"Values {steps}, must be contained in forecast steps")
         return steps
 
 
