@@ -359,6 +359,7 @@ def main():
                 total=cfg.total_fields,
             )
         ]
+        num_inputs = requesters[0].total
         dims = {k: set(val) for k, val in managers[0].dims.items()}
         for input_param in param.dependencies.values():
             managers.append(
@@ -382,30 +383,52 @@ def main():
                     total=cfg.total_fields,
                 )
             )
+            num_inputs += requesters[-1].total
+            for k, val in managers[-1].dims.items():
+                dims[k] |= set(val)
+        logger.debug(f"Expected number of inputs: {num_inputs}")
+        logger.debug(f"Dims: {dims}")
         ecpoint_partial = functools.partial(ecpoint_iteration, cfg, param, recover)
+        input_sets = []
         for keys, retrieved_data in parallel_data_retrieval(
             cfg.parallelisation.n_par_read,
             {k: sorted(list(val)) for k, val in dims.items()},
             requesters,
         ):
             ids = ", ".join(f"{k}={v}" for k, v in keys.items())
-            window_id = None
-            fields = None
-            out_keys = {}
             with ResourceMeter(f"{ids}: Compute accumulation"):
                 for index, param_data in enumerate(retrieved_data):
                     param_metadata, ens = param_data
                     for wid, completed_window in managers[index].feed(keys, ens):
                         if index == 0:
-                            window_id = wid
-                            out_keys = completed_window.grib_keys()
-                            fields = earthkit.data.FieldList()
-                        fields += earthkit.data.FieldList.from_array(
+                            logger.debug(f"Creating input set for {wid}")
+                            input_sets.append(
+                                {
+                                    "window_id": wid,
+                                    "out_keys": completed_window.grib_keys(),
+                                    "input_params": None,
+                                }
+                            )
+                        new_field = earthkit.data.FieldList.from_array(
                             completed_window.values, to_ekmetadata(param_metadata)
                         )
+                        field_name = param_metadata[0]["shortName"]
+                        for input_set in input_sets:
+                            if input_set["input_params"] is None:
+                                input_set["input_params"] = new_field
+                            elif (
+                                len(input_set["input_params"].sel(param=field_name))
+                                == 0
+                            ):
+                                input_set["input_params"] += new_field
                     del ens
-                if fields is not None:
-                    ecpoint_partial(window_id, fields, out_keys)
+                checked = 0
+                while checked < len(input_sets):
+                    if len(input_sets[checked]["input_params"]) == num_inputs:
+                        ecpoint_partial(**input_sets[checked])
+                        del input_sets[checked]
+                    else:
+                        checked += 1
 
     recover.clean_file()
 
