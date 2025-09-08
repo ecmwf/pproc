@@ -983,7 +983,7 @@ class ECPointConfig(QuantilesConfig):
         return super().from_schema(schema_config, **overrides)
 
     @model_validator(mode="after")
-    def compute_totalfields(self) -> Self:
+    def check_totalfields(self) -> Self:
         for param in self.parameters:
             for input_config in [param] + list(param.dependencies.keys()):
                 if isinstance(input_config, str):
