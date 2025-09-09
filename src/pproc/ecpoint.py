@@ -428,8 +428,7 @@ def main():
                         field_name = param_metadata[0]["shortName"]
                         for input_set in input_sets:
                             if (
-                                len(input_set["input_params"]) == 0
-                                or len(input_set["input_params"].sel(param=field_name))
+                                len(input_set["input_params"].sel(param=field_name))
                                 == 0
                             ):
                                 input_set["input_params"] += new_field
