@@ -90,6 +90,26 @@ class Reshape(Preprocessing):
         )
 
 
+class Expression(Preprocessing):
+    operation: Literal["expression"] = "expression"
+    expr: str
+    expr_data: dict
+    dtype: Optional[str] = None
+
+    def apply(
+        self, metadata: List[dict], data: List[np.ndarray]
+    ) -> Tuple[List[dict], List[np.ndarray]]:
+        expr_data = {}
+        for key, selection in self.expr_data.items():
+            index = find_matching(selection, metadata)
+            expr_data[key] = data[index]
+        output = numexpr.evaluate(self.expr, local_dict=expr_data)
+        if self.dtype:
+            output = np.array(output, dtype=np.dtype(self.dtype).type)
+        new_metadata = self._update_metadata(metadata[0])
+        return [new_metadata], [output]
+
+
 def find_matching(select: dict, candidates: List[dict]) -> int:
     no_match = object
     for i, c in enumerate(candidates):
@@ -160,7 +180,7 @@ class PreprocessingConfig(BaseModel):
     #     value: 3600
     actions: List[
         Annotated[
-            Union[Scaling, Combination, Masking, Reshape],
+            Union[Scaling, Combination, Masking, Reshape, Expression],
             Field(discriminator="operation"),
         ]
     ] = Field(default_factory=list)

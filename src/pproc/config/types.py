@@ -963,7 +963,8 @@ class ECPointConfig(QuantilesConfig):
         str, CLIArg("--fer-loc"), Field(description="Location of FER CSV file")
     ]
     predictors: list[str] = ["cpr", "tp", "ws", "mxcape6", "cdir"]
-    min_predictand: float = 0.04
+    predictant: str = "tp"
+    min_predictant: float = 0.04
     scale_outputs: Optional[float] = None
 
     @classmethod
@@ -973,6 +974,7 @@ class ECPointConfig(QuantilesConfig):
             "bp_location",
             "fer_location",
             "predictors",
+            "predictant",
             "min_predictant",
             "scale_outputs",
         ]:
@@ -981,7 +983,7 @@ class ECPointConfig(QuantilesConfig):
         return super().from_schema(schema_config, **overrides)
 
     @model_validator(mode="after")
-    def compute_totalfields(self) -> Self:
+    def check_totalfields(self) -> Self:
         for param in self.parameters:
             for input_config in [param] + list(param.dependencies.keys()):
                 if isinstance(input_config, str):
@@ -1034,6 +1036,12 @@ class ECPointConfig(QuantilesConfig):
         param_config = super()._populate_param(config, paired_requests[0], **overrides)
         param_config["dependencies"] = dependencies
         return param_config
+
+    @classmethod
+    def _populate_accumulations(cls, inputs: list[dict], base_accum: dict) -> dict:
+        if base_accum is None:
+            return {}
+        return super()._populate_accumulations(inputs, base_accum)
 
     def _format_out(self, param: ParamConfig, req) -> dict:
         req = super()._format_out(param, req)

@@ -31,28 +31,23 @@ def _local_solar_time(hour: int, longitudes: np.ndarray) -> np.ndarray:
 
 
 def lst(
-    config: ECPointConfig, param: ParamConfig, window: str, inputs: FieldList
+    config: ECPointConfig, param: ParamConfig, step_range: str, inputs: FieldList
 ) -> np.ndarray:
-    tp = inputs.sel(param="tp")
-    start, end = map(int, window.split("-"))
+    tp = inputs.sel(param=config.predictant)
+    start, end = map(int, step_range.split("-"))
     date_end = datetime.datetime.fromisoformat(tp[0].metadata("valid_datetime"))
     date_mid = date_end - datetime.timedelta(hours=(end - start) / 2)
     hour = date_mid.hour
     lon = tp[0].metadata().geography.longitudes()
-    return np.broadcast_to(_local_solar_time(hour, lon), tp.values.shape)
-
-
-def sdfor(
-    config: ECPointConfig, param: ParamConfig, window: str, inputs: FieldList
-) -> np.ndarray:
-    shape = inputs.sel(param="tp").values.shape
-    sdfor = inputs.sel(param="sdfor").values
-    return np.broadcast_to(sdfor, shape)
+    return _local_solar_time(hour, lon)
 
 
 def ws(
-    config: ECPointConfig, param: ParamConfig, window: str, inputs: FieldList
+    config: ECPointConfig, param: ParamConfig, step_range: str, inputs: FieldList
 ) -> np.ndarray:
+    ws = inputs.sel(param="ws")
+    if len(ws) != 0:
+        return ws.values
     return np.sqrt(
         inputs.sel(param="u").values ** 2 + inputs.sel(param="v").values ** 2
     )
@@ -61,17 +56,17 @@ def ws(
 def _ratio(var_num, var_den):
     den_zero = var_den == 0
     ratio_mapped = var_num / np.where(den_zero, -9999, var_den)
-    return np.where(den_zero, 0, ratio_mapped)
+    ratio = np.where(den_zero, 0, ratio_mapped)
+    return np.where(ratio <= 1, ratio, 0)
 
 
 def cpr(
-    config: ECPointConfig, param: ParamConfig, window: str, inputs: FieldList
+    config: ECPointConfig, param: ParamConfig, step_range: str, inputs: FieldList
 ) -> np.ndarray:
     return _ratio(inputs.sel(param="cp").values, inputs.sel(param="tp").values)
 
 
 PREDICTORS = {
-    "sdfor": sdfor,
     "lst": lst,
     "ws": ws,
     "cpr": cpr,
@@ -79,23 +74,21 @@ PREDICTORS = {
 
 
 def compute_predictors(
-    config: ECPointConfig, param: ParamConfig, window: str, inputs: FieldList
+    config: ECPointConfig, param: ParamConfig, step_range: str, inputs: FieldList
 ):
     pred = []
+    expected_shape = inputs.sel(param=config.predictant).values.shape
     for predictor in config.predictors:
         if predictor in PREDICTORS:
-            pred.append(
-                PREDICTORS[predictor](
-                    config, param.dependencies.get(predictor, param), window, inputs
-                )
+            pred_values = PREDICTORS[predictor](
+                config, param.dependencies.get(predictor, param), step_range, inputs
             )
         else:
             selected = inputs.sel(param=predictor)
             if len(selected) == 0:
                 raise ValueError(f"No data found for predictor {predictor}")
-            pred.append(selected.values)
-    if not np.all([x.shape == pred[0].shape for x in pred]):
-        raise ValueError(
-            f"Shapes of all predictors should be the same. Got {[x.shape for x in pred]}"
-        )
+            pred_values = selected.values
+        if pred_values.shape != expected_shape:
+            pred_values = np.broadcast_to(pred_values, expected_shape)
+        pred.append(pred_values)
     return np.asarray(pred)
