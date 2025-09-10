@@ -97,7 +97,10 @@ def compute_predictors(
     expected_shape = inputs.sel(param=config.predictant).values.shape
     for predictor in config.predictors:
         if isinstance(predictor, Expression):
-            pred_values = predictor.apply(inputs.metadata(), inputs.values)
+            _, output = predictor.apply(
+                [x.as_namespace("mars") for x in inputs.metadata()], inputs.values
+            )
+            pred_values = output[0]
         else:
             selected = inputs.sel(param=predictor)
             if len(selected) != 0:

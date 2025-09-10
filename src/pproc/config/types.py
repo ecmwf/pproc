@@ -919,6 +919,7 @@ class ThermoConfig(BaseConfig):
 
 class ECPointParamConfig(ParamConfig):
     dependencies: dict[str, ParamConfig]
+    num_inputs: int
     _merge_exclude = ("accumulations", "dependencies")
 
     @model_validator(mode="before")

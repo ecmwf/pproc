@@ -363,7 +363,6 @@ def main():
                 total=cfg.total_fields,
             )
         ]
-        num_inputs = requesters[0].total
         dims = {k: set(val) for k, val in managers[0].dims.items()}
         static_data = earthkit.data.SimpleFieldList()
         for input_param in param.dependencies.values():
@@ -398,8 +397,7 @@ def main():
                 requesters.append(new_requester)
                 for k, val in new_manager.dims.items():
                     dims[k] |= set(val)
-            num_inputs += new_requester.total
-        logger.debug(f"Expected number of inputs: {num_inputs}")
+        logger.debug(f"Expected number of inputs: {param.num_inputs}")
         logger.debug(f"Dims: {dims}")
         ecpoint_partial = functools.partial(ecpoint_iteration, cfg, param, recover)
         input_sets = []
@@ -422,24 +420,31 @@ def main():
                                     "input_params": static_data,
                                 }
                             )
-                        new_field = earthkit.data.FieldList.from_array(
+                        new_fields = earthkit.data.FieldList.from_array(
                             completed_window.values, to_ekmetadata(param_metadata)
                         )
                         field_name = param_metadata[0]["shortName"]
-                        for input_set in input_sets:
-                            for metadata in param_metadata:
-                                field_name = metadata["shortName"]
+                        for field in new_fields:
+                            field_name = field.metadata()["shortName"]
+                            for input_set in input_sets:
                                 if (
                                     len(input_set["input_params"].sel(param=field_name))
                                     == 0
                                 ):
-                                    input_set["input_params"] += new_field
+                                    input_set[
+                                        "input_params"
+                                    ] += earthkit.data.FieldList.from_fields([field])
                     del ens
                 checked = 0
                 while checked < len(input_sets):
-                    if len(input_sets[checked]["input_params"]) == num_inputs:
+                    num_inputs = len(input_sets[checked]["input_params"])
+                    if num_inputs == param.num_inputs:
                         ecpoint_partial(**input_sets[checked])
                         del input_sets[checked]
+                    elif num_inputs >= param.num_inputs:
+                        raise ValueError(
+                            f"Retrieved {num_inputs} inputs, expected {param.num_inputs}"
+                        )
                     else:
                         checked += 1
 
