@@ -106,7 +106,7 @@ class ParamRequester:
     def retrieve_data(self, **kwargs) -> Tuple[List[GribMetadata], np.ndarray]:
         metadata = []
         data_list = []
-        templates = None
+        templates = []
         if "step" in kwargs:
             kwargs["step"] = str(kwargs["step"])
         inputs = self.param.input_list(
@@ -123,13 +123,13 @@ class ParamRequester:
             )
             metadata.append(pinput.base_request())
             data_list.append(data)
-            if templates is None:
-                templates = new_templates
+            templates.append(new_templates)
 
         assert templates is not None, "No data fetched"
 
         new_metadata, data_list = self.param.preprocessing.apply(metadata, data_list)
         assert len(data_list) == 1, "More than one output of preprocessing"
+        templates = sum(templates[: len(data_list[0])], [])
         metadata_set = {
             k: v for k, v in new_metadata[0].items() if v != metadata[0].get(k, None)
         }

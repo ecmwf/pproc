@@ -31,6 +31,7 @@ from pproc.config.base import BaseConfig, Parallelisation
 from pproc.config import io
 from pproc.config.param import ParamConfig, partial_equality
 from pproc.config.utils import _set, _get, extract_mars, update_request, deep_update
+from pproc.config.preprocessing import Expression
 from pproc.common.stepseq import steprange_to_fcmonth
 from pproc.extremes.indices import Index, SUPPORTED_INDICES, create_indices
 
@@ -962,7 +963,7 @@ class ECPointConfig(QuantilesConfig):
     fer_location: Annotated[
         str, CLIArg("--fer-loc"), Field(description="Location of FER CSV file")
     ]
-    predictors: list[str] = ["cpr", "tp", "ws", "mxcape6", "cdir"]
+    predictors: list[Union[str, Expression]] = ["cpr", "tp", "ws", "mxcape6", "cdir"]
     predictant: str = "tp"
     min_predictant: float = 0.04
     scale_outputs: Optional[float] = None
