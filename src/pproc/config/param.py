@@ -96,7 +96,7 @@ class ParamConfig(BaseModel):
                     },
                     request=[row.dropna().to_dict() for _, row in items.iterrows()],
                 )
-                for _, items in df.groupby("param")
+                for _, items in df.groupby("param", sort=False)
             ]
         return [
             Input(

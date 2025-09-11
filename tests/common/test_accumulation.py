@@ -308,6 +308,75 @@ def test_std_zero():
     np.testing.assert_almost_equal(acc.get_values(), np.zeros((2, 3)))
 
 
+@pytest.mark.parametrize(
+    "config, exp_values",
+    [
+        pytest.param(
+            {
+                "operation": "filter",
+                "filter_op": "max",
+                "filter_index": 0,
+                "coords": {"from": 1, "to": 3},
+                "sequential": True,
+            },
+            [
+                [[5.0, 9.0, 9.0], [3.0, 8.0, 18.0]],
+                [[1.0, 8.0, 27.0], [6.0, 24.0, 27.0]],
+            ],
+            id="filter-neighbours-0",
+        ),
+        pytest.param(
+            {
+                "operation": "filter",
+                "filter_op": "max",
+                "filter_index": 0,
+                "neighbours": [-1],
+                "neighbours_op": "mean",
+                "coords": {"from": 1, "to": 3},
+                "sequential": True,
+            },
+            [[[3.5, 5.0, 7.0], [2.5, 5.0, 11.5]], [[1.5, 6.0, 22.5], [5, 20.0, 40.5]]],
+            id="filter-neighbours-neg1",
+        ),
+        pytest.param(
+            {
+                "operation": "filter",
+                "filter_op": "min",
+                "filter_index": 0,
+                "neighbours": [1],
+                "neighbours_op": "mean",
+                "coords": {"from": 1, "to": 3},
+                "sequential": True,
+            },
+            [[[1.5, 5.0, 3.0], [1.5, 5.0, 3]], [[2.5, 6.0, 13.5], [3, 20.0, 67.5]]],
+            id="filter-neighbours-pos1",
+        ),
+    ],
+)
+def test_filter_accum(config, exp_values):
+    acc = create_accumulation(config)
+
+    step1 = np.array(
+        [[[5.0, 1.0, 1.0], [1.0, 4.0, 18.0]], [[1.0, 4.0, 9.0], [2.0, 8.0, 27.0]]]
+    )
+    step2 = np.array(
+        [[[2.0, 9.0, 5.0], [2.0, 2.0, 5.0]], [[2.0, 8.0, 18.0], [4.0, 16.0, 54.0]]]
+    )
+    step3 = np.array(
+        [[[1.0, 4.0, 9.0], [3.0, 8.0, 1.0]], [[3.0, 12.0, 27.0], [6.0, 24.0, 81.0]]]
+    )
+    for index, data in enumerate([step1, step2, step3]):
+        acc.feed(index + 1, data)
+    assert acc.is_complete()
+    np.testing.assert_almost_equal(acc.get_values(), exp_values)
+
+    acc.reset()
+    for index, data in enumerate([step1, step2, step3]):
+        acc.feed(index + 1, data)
+    assert acc.is_complete()
+    np.testing.assert_almost_equal(acc.get_values(), exp_values)
+
+
 def test_convert_dim():
     acc = Mean(range(25, 6))
     assert convert_dim(("step", acc)) == Dimension("step", acc)

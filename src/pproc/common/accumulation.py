@@ -467,16 +467,25 @@ class Filter(Aggregation):
         self.filter_index = filter_index
         self.neighbours = neighbours + [0]
         self.neighbours.sort()
+        if len(neighbours) > 1 and neighbours_op is None:
+            raise ValueError(
+                "Must specify neighbours_op in Filter accumulation in neighbours is not empty"
+            )
         self.neighbours_op = getattr(np, neighbours_op or "squeeze")
 
     def get_values(self) -> Optional[np.ndarray]:
         aggregated_values = super().get_values()
-        op_indices = self.filter_op(
-            aggregated_values[
-                self.neighbours[0] * -1 :, self.filter_index : self.filter_index + 1
-            ],
-            axis=0,
-            keepdims=True,
+        lshift = max(self.neighbours[0] * -1, 0)
+        rshift = len(aggregated_values) - self.neighbours[-1]
+        op_indices = (
+            self.filter_op(
+                aggregated_values[
+                    lshift:rshift, self.filter_index : self.filter_index + 1
+                ],
+                axis=0,
+                keepdims=True,
+            )
+            + lshift
         )
         indices = np.concatenate([op_indices + n for n in self.neighbours], axis=0)
         selected_values = np.take_along_axis(aggregated_values, indices, axis=0)
