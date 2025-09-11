@@ -28,6 +28,7 @@ from pproc.prob.accumulation_manager import (
                 "type": "legacywindow",
                 "windows": [
                     {
+                        "operation": "minimum",
                         "thresholds": [
                             {"comparison": "<=", "value": 273.15},
                         ],
@@ -55,6 +56,7 @@ from pproc.prob.accumulation_manager import (
                 "type": "legacywindow",
                 "windows": [
                     {
+                        "operation": "maximum",
                         "thresholds": [
                             {"comparison": ">=", "value": 15},
                             {"comparison": ">=", "value": 20},
@@ -88,6 +90,7 @@ from pproc.prob.accumulation_manager import (
                 "windows": [
                     {
                         "operation": "difference",
+                        "include_start": True,
                         "thresholds": [
                             {"comparison": ">=", "value": 0.001},
                             {"comparison": ">=", "value": 0.005},
@@ -98,6 +101,7 @@ from pproc.prob.accumulation_manager import (
                     },
                     {
                         "operation": "difference",
+                        "include_start": True,
                         "thresholds": [
                             {"comparison": ">=", "value": 0.025},
                             {"comparison": ">=", "value": 0.05},
@@ -107,6 +111,7 @@ from pproc.prob.accumulation_manager import (
                     },
                     {
                         "operation": "difference_rate",
+                        "include_start": True,
                         "factor": 1.0 / 24.0,
                         "thresholds": [
                             {"comparison": "<", "value": 0.001},
@@ -200,9 +205,16 @@ def test_create_threshold(config, expected, exp_coords):
                 "type": "legacywindow",
                 "windows": [
                     {
+                        "operation": "minimum",
                         "thresholds": [
                             {"comparison": "<", "value": -8},
                             {"comparison": "<", "value": -4},
+                        ],
+                        "coords": [[0], [12], [360]],
+                    },
+                    {
+                        "operation": "maximum",
+                        "thresholds": [
                             {"comparison": ">", "value": 4},
                             {"comparison": ">", "value": 8},
                         ],
@@ -223,28 +235,37 @@ def test_create_threshold(config, expected, exp_coords):
                 ],
                 "std_anomaly_windows": [
                     {
+                        "operation": "maximum",
                         "thresholds": [
                             {"comparison": ">", "value": 1},
+                        ],
+                        "coords": [[0], [12], [300]],
+                    },
+                    {
+                        "operation": "minimum",
+                        "thresholds": [
                             {"comparison": "<", "value": -1.5},
                         ],
                         "coords": [[0], [12], [300]],
-                    }
+                    },
                 ],
             },
             {
                 **{
-                    f"step_{s}_{op}_0": (
+                    f"step_{s}_{index}": (
                         SimpleAccumulation,
                         [{"comparison": cmp, "value": val} for val in vals],
                     )
-                    for cmp, op, vals in [
-                        ("<", "minimum", [-8, -4]),
-                        (">", "maximum", [4, 8]),
-                    ]
+                    for index, (cmp, op, vals) in enumerate(
+                        [
+                            ("<", "minimum", [-8, -4]),
+                            (">", "maximum", [4, 8]),
+                        ]
+                    )
                     for s in [0, 12, 360]
                 },
                 **{
-                    f"step_{a}-{b}_1": (
+                    f"step_{a}-{b}_2": (
                         Mean,
                         [
                             {"comparison": "<", "value": -4},
@@ -254,14 +275,16 @@ def test_create_threshold(config, expected, exp_coords):
                     for a, b in [(120, 240), (336, 360)]
                 },
                 **{
-                    f"step_std_{s}_{op}_0": (
+                    f"step_std_{s}_{index}": (
                         SimpleAccumulation,
                         [{"comparison": cmp, "value": val}],
                     )
-                    for cmp, op, val in [
-                        (">", "maximum", 1),
-                        ("<", "minimum", -1.5),
-                    ]
+                    for index, (cmp, op, val) in enumerate(
+                        [
+                            (">", "maximum", 1),
+                            ("<", "minimum", -1.5),
+                        ]
+                    )
                     for s in [0, 12, 300]
                 },
             },

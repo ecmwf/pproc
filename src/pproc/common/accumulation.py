@@ -477,11 +477,14 @@ class Filter(Aggregation):
         aggregated_values = super().get_values()
         lshift = max(self.neighbours[0] * -1, 0)
         rshift = len(aggregated_values) - self.neighbours[-1]
+        filter_index = (
+            self.filter_index
+            if self.filter_index >= 0
+            else self.filter_index + len(aggregated_values[0])
+        )
         op_indices = (
             self.filter_op(
-                aggregated_values[
-                    lshift:rshift, self.filter_index : self.filter_index + 1
-                ],
+                aggregated_values[lshift:rshift, filter_index : filter_index + 1],
                 axis=0,
                 keepdims=True,
             )

@@ -1028,6 +1028,8 @@ class ECPointConfig(QuantilesConfig):
         dependencies = {}
         config_dep = config.pop("dependencies")
         for index, (name, param_config) in enumerate(config_dep.items()):
+            if "dtype" in config:
+                param_config.setdefault("dtype", config["dtype"])
             dependencies[name] = super()._populate_param(
                 param_config,
                 paired_requests[index + 1],

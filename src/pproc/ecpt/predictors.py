@@ -23,8 +23,15 @@ def to_ekmetadata(metadata: list[GribMetadata]) -> list[StandAloneGribMetadata]:
         for x in metadata
     ]
 
+def _local_solar_time(hour: int, longitudes: np.ndarray) -> np.ndarray:
+    lst_pos = np.where(longitudes >= 0, hour + (longitudes / 15), 0)
+    temp_pos = np.where(lst_pos >= 24, lst_pos - 24, lst_pos)
+    lst_neg = np.where(longitudes < 0, hour - abs((longitudes / 15)), 0)
+    temp_neg = np.where(lst_neg < 0, lst_neg + 24, lst_neg)
+    return temp_pos + temp_neg
 
-def local_solar_time(
+
+def lst(
     config: ECPointConfig, param: ParamConfig, step_range: str, inputs: FieldList
 ) -> np.ndarray:
     tp = inputs.sel(param=config.predictant)
@@ -32,13 +39,8 @@ def local_solar_time(
     date_end = datetime.datetime.fromisoformat(tp[0].metadata("valid_datetime"))
     date_mid = date_end - datetime.timedelta(hours=(end - start) / 2)
     hour = date_mid.hour
-    longitudes = tp[0].metadata().geography.longitudes()
-
-    lst_pos = np.where(longitudes >= 0, hour + (longitudes / 15), 0)
-    temp_pos = np.where(lst_pos >= 24, lst_pos - 24, lst_pos)
-    lst_neg = np.where(longitudes < 0, hour - abs((longitudes / 15)), 0)
-    temp_neg = np.where(lst_neg < 0, lst_neg + 24, lst_neg)
-    return temp_pos + temp_neg
+    lon = tp[0].metadata().geography.longitudes()
+    return _local_solar_time(hour, lon)
 
 
 def wind_speed(
@@ -80,7 +82,7 @@ def leaf_area_index(
 
 
 PREDICTORS = {
-    "local_solar_time": local_solar_time,
+    "local_solar_time": lst,
     "ws": functools.partial(wind_speed, "ws"),
     "10si": functools.partial(wind_speed, "10si"),
     "100si": functools.partial(wind_speed, "100si"),

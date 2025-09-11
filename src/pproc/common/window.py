@@ -12,55 +12,19 @@ from typing import Dict, Iterator, Optional, Tuple, Union, Any
 from pproc.common.grib_helpers import fill_template_values
 
 
-def window_operation_from_config(window_config: dict) -> Dict[str, list]:
-    """
-    Derives window operation from config. If no window operation is explicitly
-    specified then attempts to derive it from the thresholds.
-
-    :param window_config: window configuration dictionary
-    :return: dict mapping window operations to associated thresholds, if any
-    """
-    # Get window operation, or if not provided in config, derive from threshold
-    window_operations = {}
-    if "operation" in window_config:
-        thresholds = window_config.get("thresholds", [])
-        for threshold in thresholds:
-            if isinstance(threshold["value"], str):
-                threshold["value"] = float(threshold["value"])
-        window_operations[window_config["operation"]] = thresholds
-    elif "thresholds" in window_config:
-        # Derive from threshold comparison parameter
-        for threshold in window_config["thresholds"]:
-            if isinstance(threshold["value"], str):
-                threshold["value"] = float(threshold["value"])
-            comparison = threshold["comparison"]
-            if "<" in comparison:
-                operation = "minimum"
-            elif ">" in comparison:
-                operation = "maximum"
-            else:
-                raise RuntimeError(f"Unknown threshold comparison {comparison}")
-            window_operations.setdefault(operation, []).append(threshold)
-    else:
-        window_operations["aggregation"] = []
-
-    return window_operations
-
-
 def translate_window_config(
     coords: Union[list[Any], dict],
-    window_operation: str,
-    include_start: bool,
-    grib_keys: Optional[dict] = None,
+    include_start: bool = False,
+    metadata: Optional[dict] = None,
     deaccumulate: bool = False,
-    **window_options,
+    **extra,
 ) -> Tuple[str, dict]:
     """
     Create window configuration for the given operation
 
     :param coords: step range specification
-    :param window operation: operation supported by accumulation
-    :param grib_keys: additional grib keys to tie to the window
+    :param include_start: if True, include first coord
+    :param metadata: additional grib keys to tie to the window
     :param deaccumulate: if True, deaccumulate steps before performed window operation
     :return: Window name, Accumulation configuration dict
     :raises: ValueError for unsupported window operation string
@@ -86,23 +50,10 @@ def translate_window_config(
         if len(coords) < 2:
             raise ValueError("De-accumulation can not be performed on single coord")
 
-    operation = None
-    extra = {}
-    operation = window_operation
-    if operation in [
-        "sum",
-        "minimum",
-        "maximum",
-        "mean",
-        "aggregation",
-        "standard_deviation",
-    ]:
-        if not include_init:
-            coords = coords[1:]
-    elif operation == "difference_rate":
-        extra["factor"] = window_options.get("factor", 1.0)
+    if not include_init:
+        coords = coords[1:]
 
-    grib_header = {} if grib_keys is None else grib_keys.copy()
+    grib_header = {} if metadata is None else metadata.copy()
     grib_header = fill_template_values(
         grib_header,
         {
@@ -132,7 +83,6 @@ def translate_window_config(
         grib_header["stepRange"] = name
 
     acc_config = {
-        "operation": operation,
         "coords": coords,
         "sequential": True,
         "metadata": grib_header,
@@ -149,29 +99,16 @@ def _iter_legacy_windows(
     prefix: str = "",
 ) -> Iterator[Tuple[str, dict]]:
     for window_index, window_config in enumerate(windows):
-        window_operations = window_operation_from_config(window_config)
-        for operation, thresholds in window_operations.items():
-            coords = window_config["coords"]
-            for coord in coords:
-                include_start = bool(window_config.get("include_start", False))
-                acc_grib_keys = grib_keys.copy()
-                acc_grib_keys.update(window_config.get("metadata", {}))
-                window_name, acc_config = translate_window_config(
-                    coord,
-                    operation,
-                    include_start,
-                    acc_grib_keys,
-                    window_config.get("deaccumulate", False),
-                    factor=float(window_config.get("factor", 1.0)),
-                )
-                window_id = (
-                    f"{prefix}{window_name}_{operation}_{window_index}"
-                    if len(window_operations) > 1
-                    else f"{prefix}{window_name}_{window_index}"
-                )
-                if thresholds:
-                    acc_config["thresholds"] = thresholds
-                yield window_id, acc_config
+        window_config = window_config.copy()
+        for coord in window_config.pop("coords"):
+            coord_config = window_config.copy()
+            acc_grib_keys = grib_keys.copy()
+            acc_grib_keys.update(coord_config.pop("metadata", {}))
+            window_name, acc_config = translate_window_config(
+                coords=coord, metadata=acc_grib_keys, **coord_config
+            )
+            window_id = f"{prefix}{window_name}_{window_index}"
+            yield window_id, acc_config
 
 
 def legacy_window_factory(config: dict, grib_keys: dict) -> Iterator[Tuple[str, dict]]:
