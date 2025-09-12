@@ -70,6 +70,9 @@ def postprocess(
             template = metadata[0]
         else:
             template = metadata[i]
+        print("CONSTRUCT MESSAGE")
         message = construct_message(template, grib_keys)
+        print("SET ARRAY")
         message.set_array("values", nan_to_missing(message, field))
+        print("TARGET WRITE")
         target.write(message)
