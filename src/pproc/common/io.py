@@ -398,12 +398,14 @@ class GribMetadata(eccodes.Message):
     def __init__(self, handle, headers_only: bool = False):
         new_handle = eccodes.codes_clone(handle, headers_only=headers_only)
         super().__init__(new_handle)
-        self.set("packingType", "grid_ccsds")
+        self.set({"edition": 2, "bitsPerValue": 24, "packingType": "grid_ccsds"})
 
     def __getstate__(self) -> dict:
         ret = {"_handle": self.get_buffer()}
+        print("GET STATE")
         return ret
 
     def __setstate__(self, state: dict):
         state["_handle"] = eccodes.MemoryReader(state["_handle"])._next_handle()
         self.__dict__.update(state)
+        print("SET STATE")
