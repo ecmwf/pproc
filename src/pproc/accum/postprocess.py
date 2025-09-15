@@ -69,4 +69,4 @@ def postprocess(
             template = metadata[0]
         else:
             template = metadata[i]
-        write_grib(target, message, field, grib_keys)
+        write_grib(target, template, field, grib_keys)
