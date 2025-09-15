@@ -16,9 +16,7 @@ def construct_message(template_grib, metadata: dict):
     out_grib = template_grib.copy()
     key_values = metadata.copy()
     arr_grib_keys = {
-        key: value
-        for key, value in metadata.items()
-        if np.ndim(value) > 0
+        key: value for key, value in metadata.items() if np.ndim(value) > 0
     }
     for arr_key in arr_grib_keys.keys():
         key_values.pop(arr_key)

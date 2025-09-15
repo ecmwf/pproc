@@ -348,11 +348,12 @@ def target_factory(target_option, out_file=None, fdb=None, overrides=None):
 
 
 def write_grib(target, template, data, metadata: dict, missing=None):
-    metadata = metadata.copy()
+    out_keys = {}
     if hasattr(template, "extra"):
-        metadata.update(template.extra)
-    bits_per_value = metadata.pop("bitsPerValue")
-    message = construct_message(template, metadata)
+        out_keys.update(template.extra)
+    out_keys.update(metadata)
+    bits_per_value = out_keys.pop("bitsPerValue")
+    message = construct_message(template, out_keys)
     
     data = nan_to_missing(message, data, missing)
     message.set_array("values", data)
