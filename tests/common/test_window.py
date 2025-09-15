@@ -17,7 +17,6 @@ from pproc.common.window import legacy_window_factory, translate_window_config
 
 def create_window(
     coords: Union[list[Any], dict],
-    window_operation: str,
     include_start: bool,
     grib_keys: Optional[dict] = None,
     deaccumulate: bool = False,
@@ -25,7 +24,7 @@ def create_window(
     **extra,
 ) -> Union[Accumulation, Tuple[Accumulation, str]]:
     name, config = translate_window_config(
-        coords, window_operation, include_start, grib_keys, deaccumulate, **extra
+        coords, include_start, grib_keys, deaccumulate, **extra
     )
     acc = create_accumulation(config)
     if return_name:
@@ -34,7 +33,7 @@ def create_window(
 
 
 def test_instantaneous_window():
-    accum = create_window([1], "aggregation", True)
+    accum = create_window([1], include_start=True, operation="aggregation")
     step_values = np.array([[1, 1, 1], [2, 2, 2]])
     accum.feed(0, step_values)
     assert accum.get_values() is None
@@ -53,7 +52,7 @@ def test_instantaneous_window():
     ],
 )
 def test_simple_op(window_operation, values):
-    accum = create_window([0, 1, 2], window_operation, False)
+    accum = create_window([0, 1, 2], False, operation=window_operation)
     step_values = np.array([[1, 2, 3], [2, 4, 6]])
     accum.feed(0, step_values)
     accum.feed(1, step_values)
@@ -64,8 +63,8 @@ def test_simple_op(window_operation, values):
 
 
 def test_multi_windows():
-    accum = create_window([0, 1, 2], "sum", False)
-    accum2 = create_window([0, 1, 2], "sum", False)
+    accum = create_window([0, 1, 2], False, operation="sum")
+    accum2 = create_window([0, 1, 2], False, operation="sum")
     step_values = np.array([[1, 2, 3], [2, 4, 6]])
     accum.feed(1, step_values)
     accum2.feed(1, step_values)
@@ -86,7 +85,7 @@ def test_multi_windows():
         pytest.param("difference", True, [0, 2], 1, [[1, 2, 3], [2, 4, 6]], id="diff"),
         pytest.param(
             "weighted_mean",
-            False,
+            True,
             [0, 1, 2],
             1,
             [[1.5, 3, 4.5], [3, 6, 9]],
@@ -106,7 +105,7 @@ def test_multi_windows():
     ],
 )
 def test_windows(operation, include_init, steps, step_increment, values):
-    accum = create_window(steps, operation, include_init)
+    accum = create_window(steps, include_init, operation=operation)
     step_values = np.array([[1, 2, 3], [2, 4, 6]])
     accum.feed(0, step_values)
     accum.feed(step_increment, step_values)
@@ -156,7 +155,7 @@ def test_windows(operation, include_init, steps, step_increment, values):
     ],
 )
 def test_grib_header(steps, operation, extra_keys, grib_key_values):
-    accum = create_window(steps, operation, True, extra_keys)
+    accum = create_window(steps, True, extra_keys, operation=operation)
     header = accum.grib_keys()
     assert header == grib_key_values
 
@@ -169,7 +168,6 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
             {"mars.expver": "0001"},
             {
                 f"{s}_0": {
-                    "operation": "aggregation",
                     "coords": [s],
                     "sequential": True,
                     "metadata": {
@@ -188,14 +186,12 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
             {"timeRangeIndicator": 2},
             {
                 "0_0": {
-                    "operation": "aggregation",
                     "coords": [0],
                     "sequential": True,
                     "metadata": {"timeRangeIndicator": 2, "step": "0"},
                     "deaccumulate": False,
                 },
                 "0-3_0": {
-                    "operation": "aggregation",
                     "coords": [3],
                     "sequential": True,
                     "metadata": {
@@ -206,7 +202,6 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                     "deaccumulate": False,
                 },
                 "3-6_0": {
-                    "operation": "aggregation",
                     "coords": [6],
                     "sequential": True,
                     "metadata": {
@@ -217,7 +212,6 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                     "deaccumulate": False,
                 },
                 "300-306_0": {
-                    "operation": "aggregation",
                     "coords": [306],
                     "sequential": True,
                     "metadata": {
@@ -236,6 +230,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                 "windows": [
                     {
                         "operation": "difference",
+                        "include_start": True,
                         "coords": [
                             [a, b]
                             for a, b in [(90, 96), (93, 99), (96, 102), (270, 276)]
@@ -244,6 +239,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                     },
                     {
                         "operation": "difference",
+                        "include_start": True,
                         "coords": [
                             [a, b]
                             for a, b in [
@@ -509,6 +505,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
             {
                 "windows": [
                     {
+                        "operation": "minimum",
                         "thresholds": [
                             {"comparison": "<=", "value": 273.15},
                         ],
@@ -553,6 +550,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
             {
                 "windows": [
                     {
+                        "operation": "maximum",
                         "thresholds": [
                             {"comparison": ">=", "value": 15},
                             {"comparison": ">=", "value": 20},
@@ -602,6 +600,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                 "windows": [
                     {
                         "operation": "difference",
+                        "include_start": True,
                         "thresholds": [
                             {"comparison": ">=", "value": 0.001},
                             {"comparison": ">=", "value": 0.005},
@@ -620,6 +619,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                     },
                     {
                         "operation": "difference",
+                        "include_start": True,
                         "thresholds": [
                             {"comparison": ">=", "value": 0.025},
                             {"comparison": ">=", "value": 0.05},
@@ -637,6 +637,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                     },
                     {
                         "operation": "difference_rate",
+                        "include_start": True,
                         "factor": 1.0 / 24.0,
                         "thresholds": [
                             {"comparison": "<", "value": 0.001},
@@ -763,9 +764,17 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
             {
                 "windows": [
                     {
+                        "operation": "minimum",
                         "thresholds": [
                             {"comparison": "<", "value": -8},
                             {"comparison": "<", "value": -4},
+                        ],
+                        "coords": [[0], [12], [360]],
+                        "metadata": {"bitsPerValue": 24},
+                    },
+                    {
+                        "operation": "maximum",
+                        "thresholds": [
                             {"comparison": ">", "value": 4},
                             {"comparison": ">", "value": 8},
                         ],
@@ -788,8 +797,19 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                 ],
                 "std_anomaly_windows": [
                     {
+                        "operation": "maximum",
                         "thresholds": [
                             {"comparison": ">", "value": 1},
+                        ],
+                        "coords": [[0], [12], [300]],
+                        "metadata": {
+                            "localDefinitionNumber": 30,
+                            "bitsPerValue": 24,
+                        },
+                    },
+                    {
+                        "operation": "minimum",
+                        "thresholds": [
                             {"comparison": "<", "value": -1.5},
                         ],
                         "coords": [[0], [12], [300]],
@@ -797,13 +817,13 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                             "localDefinitionNumber": 30,
                             "bitsPerValue": 24,
                         },
-                    }
+                    },
                 ],
             },
             {"type": "ep", "localDefinitionNumber": 5, "bitsPerValue": 8},
             {
                 **{
-                    f"{s}_{op}_0": {
+                    f"{s}_{index}": {
                         "operation": op,
                         "coords": [s],
                         "sequential": True,
@@ -819,14 +839,16 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                         },
                         "deaccumulate": False,
                     }
-                    for cmp, op, vals in [
-                        ("<", "minimum", [-8, -4]),
-                        (">", "maximum", [4, 8]),
-                    ]
+                    for index, (cmp, op, vals) in enumerate(
+                        [
+                            ("<", "minimum", [-8, -4]),
+                            (">", "maximum", [4, 8]),
+                        ]
+                    )
                     for s, tri in [(0, 1), (12, 0), (360, 10)]
                 },
                 **{
-                    f"{a}-{b}_1": {
+                    f"{a}-{b}_2": {
                         "operation": "mean",
                         "coords": list(range(a, b + 1, s)),
                         "sequential": True,
@@ -850,7 +872,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                     ]
                 },
                 **{
-                    f"std_{s}_{op}_0": {
+                    f"std_{s}_{index}": {
                         "operation": op,
                         "coords": [s],
                         "sequential": True,
@@ -864,10 +886,12 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                         },
                         "deaccumulate": False,
                     }
-                    for cmp, op, val in [
-                        (">", "maximum", 1),
-                        ("<", "minimum", -1.5),
-                    ]
+                    for index, (cmp, op, val) in enumerate(
+                        [
+                            (">", "maximum", 1),
+                            ("<", "minimum", -1.5),
+                        ]
+                    )
                     for s, tri in [(0, 1), (12, 0), (300, 10)]
                 },
             },

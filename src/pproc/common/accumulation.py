@@ -446,6 +446,74 @@ class StandardDeviation(Mean):
         return np.sqrt(np.maximum(self.sumsq / self.count - mean**2, 0.0))
 
 
+class Filter(Aggregation):
+    def __init__(
+        self,
+        coords: Coords,
+        filter_op: str,
+        filter_index: int,
+        neighbours: list[int],
+        neighbours_op: Optional[str] = None,
+        sequential: bool = False,
+        metadata: Optional[dict] = None,
+    ):
+        super().__init__(coords, sequential, metadata)
+        if filter_op == "max":
+            self.filter_op = np.argmax
+        elif filter_op == "min":
+            self.filter_op = np.argmin
+        else:
+            raise ValueError(f"Unknown filter op: {filter_op}")
+        self.filter_index = filter_index
+        self.neighbours = neighbours + [0]
+        self.neighbours.sort()
+        if len(neighbours) > 1 and neighbours_op is None:
+            raise ValueError(
+                "Must specify neighbours_op in Filter accumulation in neighbours is not empty"
+            )
+        self.neighbours_op = getattr(np, neighbours_op or "squeeze")
+
+    def get_values(self) -> Optional[np.ndarray]:
+        aggregated_values = super().get_values()
+        lshift = max(self.neighbours[0] * -1, 0)
+        rshift = len(aggregated_values) - self.neighbours[-1]
+        filter_index = (
+            self.filter_index
+            if self.filter_index >= 0
+            else self.filter_index + len(aggregated_values[0])
+        )
+        op_indices = (
+            self.filter_op(
+                aggregated_values[lshift:rshift, filter_index : filter_index + 1],
+                axis=0,
+                keepdims=True,
+            )
+            + lshift
+        )
+        indices = np.concatenate([op_indices + n for n in self.neighbours], axis=0)
+        selected_values = np.take_along_axis(aggregated_values, indices, axis=0)
+        return self.neighbours_op(selected_values, axis=0)
+
+    @classmethod
+    def create(
+        cls,
+        operation: str,
+        coords: Coords,
+        config: dict,
+        sequential: bool = False,
+        metadata: Optional[dict] = None,
+    ) -> Accumulation:
+        return cls(
+            coords,
+            filter_op=config["filter_op"],
+            filter_index=config.get("filter_index", 0),
+            neighbours=config.get("neighbours", []),
+            neighbours_op=config.get("neighbours_op", None),
+            sequential=sequential,
+            metadata=metadata,
+        )
+
+
 class DeaccumulationWrapper(Accumulation):
     def __init__(self, accumulation: Accumulation):
         if len(accumulation.coords) < 2:
@@ -540,6 +608,7 @@ def create_accumulation(config: dict) -> Accumulation:
         "histogram": Histogram,
         "aggregation": Aggregation,
         "standard_deviation": StandardDeviation,
+        "filter": Filter,
     }
     cls = known.get(op)
     if cls is None:

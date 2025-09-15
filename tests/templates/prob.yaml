@@ -13,6 +13,7 @@ parameters:
         type: legacywindow
         windows:
         - coords: [[12], [12, 24, 36]]
+          operation: minimum
           thresholds:
           - comparison: <=
             local_scale_factor: 2

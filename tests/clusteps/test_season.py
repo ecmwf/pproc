@@ -80,7 +80,7 @@ def test_season_dos(year):
     ids=id_tests,
 )
 def test_get_season(date, seasons, eseason):
-    config = SeasonConfig(seasons)
+    config = SeasonConfig(months=seasons)
     season = config.get_season(date)
     assert date in season
     assert season.name == eseason.name
@@ -116,7 +116,7 @@ def test_get_season(date, seasons, eseason):
     ids=id_tests,
 )
 def test_dos(date, seasons, edos):
-    config = SeasonConfig(seasons)
+    config = SeasonConfig(months=seasons)
     season = config.get_season(date)
     assert date in season
     assert season.dos(date) == edos

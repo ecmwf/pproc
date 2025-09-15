@@ -26,18 +26,24 @@ parameters:
         type: legacywindow
         windows:
         - coords: [[0], [12]]
+          operation: minimum
           thresholds:
           - out_paramid: 131022
             comparison: <
             value: -8
+          metadata:
+            bitsPerValue: 24
+        - coords: [[0], [12]]
+          operation: maximum
+          thresholds:
           - out_paramid: 131025
             comparison: '>'
             value: 8
           metadata:
             bitsPerValue: 24
         - coords: [[0, 12, 24]]
-          window_operation: mean
-          include_start_step: true
+          operation: mean
+          include_start: true
           thresholds:
           - out_paramid: 131020
             comparison: <
@@ -49,10 +55,27 @@ parameters:
             bitsPerValue: 24
         std_anomaly_windows:
         - coords: [[0], [12]]
+          operation: maximum
           thresholds:
           - out_paramid: 133093
             comparison: '>'
             value: 1
+          metadata:
+            localDefinitionNumber: 30
+            bitsPerValue: 24
+            edition: 2
+            tablesVersion: 30
+            typeOfGeneratingProcess: 5
+            paramId: 0
+            timeIncrement: 12
+            # indicatorOfUnitForTimeIncrement: 1 ** Must be omitted when run with pytest **
+            typeOfStatisticalProcessing: 10
+            packingType: grid_ccsds
+            scaleFactorOfUpperLimit: MISSING
+            scaledValueOfUpperLimit: MISSING
+        - coords: [[0], [12]]
+          operation: minimum
+          thresholds:
           - out_paramid: 133096
             comparison: <
             value: -1

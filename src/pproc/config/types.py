@@ -31,6 +31,7 @@ from pproc.config.base import BaseConfig, Parallelisation
 from pproc.config import io
 from pproc.config.param import ParamConfig, partial_equality
 from pproc.config.utils import _set, _get, extract_mars, update_request, deep_update
+from pproc.config.preprocessing import Expression
 from pproc.common.stepseq import steprange_to_fcmonth
 from pproc.extremes.indices import Index, SUPPORTED_INDICES, create_indices
 
@@ -918,6 +919,7 @@ class ThermoConfig(BaseConfig):
 
 class ECPointParamConfig(ParamConfig):
     dependencies: dict[str, ParamConfig]
+    num_inputs: int
     _merge_exclude = ("accumulations", "dependencies")
 
     @model_validator(mode="before")
@@ -962,7 +964,7 @@ class ECPointConfig(QuantilesConfig):
     fer_location: Annotated[
         str, CLIArg("--fer-loc"), Field(description="Location of FER CSV file")
     ]
-    predictors: list[str] = ["cpr", "tp", "ws", "mxcape6", "cdir"]
+    predictors: list[Union[str, Expression]] = ["cpr", "tp", "ws", "mxcape6", "cdir"]
     predictant: str = "tp"
     min_predictant: float = 0.04
     scale_outputs: Optional[float] = None
@@ -1026,6 +1028,8 @@ class ECPointConfig(QuantilesConfig):
         dependencies = {}
         config_dep = config.pop("dependencies")
         for index, (name, param_config) in enumerate(config_dep.items()):
+            if "dtype" in config:
+                param_config.setdefault("dtype", config["dtype"])
             dependencies[name] = super()._populate_param(
                 param_config,
                 paired_requests[index + 1],
