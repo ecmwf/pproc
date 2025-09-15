@@ -90,9 +90,11 @@ def compute_indices(
             np.clip(ens, param.vmin, param.vmax, out=ens)
 
         for name, index in param.indices.items():
-            target = getattr(cfg.outputs, name).target
-            index.compute(clim, ens, target, message_template, template_extreme)
-            target.flush()
+            output = getattr(cfg.outputs, name)
+            template = template_extreme.copy()
+            template.set(output.metadata)
+            index.compute(clim, ens, output.target, message_template, template)
+            output.target.flush()
 
         recovery.add_checkpoint(param=param.name, window=window_id)
 
