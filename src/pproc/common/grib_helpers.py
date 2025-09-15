@@ -8,6 +8,7 @@
 # nor does it submit to any jurisdiction.
 
 from typing import Dict
+import numpy as np
 import re
 
 
@@ -17,7 +18,7 @@ def construct_message(template_grib, metadata: dict):
     arr_grib_keys = {
         key: value
         for key, value in metadata.items()
-        if not isinstance(value, (int, str, float))
+        if np.ndim(value) > 0
     }
     for arr_key in arr_grib_keys.keys():
         key_values.pop(arr_key)
