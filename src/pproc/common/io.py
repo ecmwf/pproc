@@ -355,8 +355,8 @@ def write_grib(target, template, data, metadata: dict, missing=None):
     bits_per_value = out_keys.pop("bitsPerValue")
     message = construct_message(template, out_keys)
     
-    message.set("bitsPerValue", bits_per_value)
     data = nan_to_missing(message, data, missing)
+    message.set("bitsPerValue", bits_per_value)
     message.set_array("values", data)
 
     if np.isnan(data).any():
