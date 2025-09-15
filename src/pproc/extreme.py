@@ -92,7 +92,12 @@ def compute_indices(
         for name, index in param.indices.items():
             output = getattr(cfg.outputs, name)
             index.compute(
-                clim, ens, target, message_template, template_extreme, {metadata, **output.metadata}
+                clim,
+                ens,
+                target,
+                message_template,
+                template_extreme,
+                {**metadata, **output.metadata},
             )
             output.target.flush()
 
