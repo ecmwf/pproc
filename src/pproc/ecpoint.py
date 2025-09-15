@@ -116,7 +116,7 @@ def weather_types_template(
 
 def point_scale_template(
     template: eccodes.GRIBMessage, pert_number: int, total_number: int, out_keys: dict
-) -> tuple[eccodes.GRIBMessage, dict]:
+) -> dict:
     edition = out_keys.get("edition", template.get("edition"))
     if edition not in (1, 2):
         raise ValueError(f"Unsupported GRIB edition {edition}")
@@ -320,10 +320,10 @@ def ecpoint_iteration(
                 **out_perc.metadata,
             }
             pert_number, total_number = config.quantile_indices(i)
-            message, metadata = point_scale_template(
+            metadata = point_scale_template(
                 template, pert_number, total_number, grib_keys
             )
-            write_grib(out_perc.target, message, quantile, metadata)
+            write_grib(out_perc.target, template, quantile, metadata)
         out_perc.target.flush()
 
     recovery.add_checkpoint(param=param.name, window=window_id)
