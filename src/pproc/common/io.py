@@ -352,9 +352,11 @@ def write_grib(target, template, data, metadata: dict, missing=None):
     if hasattr(template, "extra"):
         out_keys.update(template.extra)
     out_keys.update(metadata)
-    bits_per_value = out_keys.pop("bitsPerValue", template["bitsPerValue"])
-    if bits_per_value == 0:
-        raise ValueError("Can not set bitsPerValue to 0")
+    bits_per_value = (
+        out_keys.pop("bitsPerValue")
+        if template["bitsPerValue"] == 0
+        else template["bitsPerValue"]
+    )
     message = construct_message(template, out_keys)
     
     data = nan_to_missing(message, data, missing)
