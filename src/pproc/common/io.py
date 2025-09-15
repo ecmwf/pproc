@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from io import BytesIO
 import os
 from typing import Optional, Union, List, Dict, Any
+from typing_extensions import Self
 
 import numpy as np
 import xarray as xr
@@ -28,6 +29,7 @@ from pproc.config.targets import (
     OverrideTargetWrapper,
 )
 from pproc.config.io import split_location
+from pproc.common.grib_helpers import construct_message
 
 
 @dataclass
@@ -345,21 +347,19 @@ def target_factory(target_option, out_file=None, fdb=None, overrides=None):
     return target
 
 
-def write_grib(target, template, data, missing=-9999):
-
-    message = template.copy()
-
-    # replace missing values if any
-    is_missing = np.isnan(data).any()
-    if is_missing:
-        data[np.isnan(data)] = missing
-        message.set("missingValue", missing)
-        message.set("bitmapPresent", 1)
-        message.set("bitsPerValue", template.get("bitsPerValue"))
-
+def write_grib(target, template, data, metadata: dict, missing=None):
+    metadata = metadata.copy()
+    if hasattr(template, "extra"):
+        metadata.update(template.extra)
+    bits_per_value = metadata.pop("bitsPerValue")
+    message = construct_message(template, metadata)
+    
     message.set_array("values", data)
+    nan_to_missing(message, data, missing)
+    if bits_per_value is not None:
+        message.set("bitsPerValue", bits_per_value)
 
-    if is_missing:
+    if np.isnan(data).any():
         n_missing1 = len(data[data == missing])
         n_missing2 = message.get("numberOfMissing")
         if n_missing1 != n_missing2:
@@ -397,15 +397,19 @@ def target_from_location(
 class GribMetadata(eccodes.Message):
     def __init__(self, handle, headers_only: bool = False):
         new_handle = eccodes.codes_clone(handle, headers_only=headers_only)
+        self.extra = {"bitsPerValue": eccodes.codes_get(handle, "bitsPerValue", int)}
         super().__init__(new_handle)
-        self.set({"edition": 2, "bitsPerValue": 24, "packingType": "grid_ccsds"})
 
     def __getstate__(self) -> dict:
-        ret = {"_handle": self.get_buffer()}
-        print("GET STATE")
+        ret = {"_handle": self.get_buffer(), "extra": self.extra}
         return ret
 
     def __setstate__(self, state: dict):
         state["_handle"] = eccodes.MemoryReader(state["_handle"])._next_handle()
         self.__dict__.update(state)
-        print("SET STATE")
+
+    def copy(self) -> Self:
+        """Create a copy of the current message"""
+        clone = self.__class__(eccodes.codes_clone(self._handle))
+        clone.extra = self.extra
+        return clone

@@ -21,8 +21,7 @@ from conflator import Conflator
 
 from pproc.common.accumulation import Accumulator
 from pproc.common.accumulation_manager import AccumulationManager
-from pproc.common.grib_helpers import construct_message
-from pproc.common.io import nan_to_missing
+from pproc.common.io import write_grib
 from pproc.common.parallel import (
     create_executor,
     parallel_data_retrieval,
@@ -109,9 +108,7 @@ def signi(
 
     clim_keys = {key: clim_template.get(key) for key in []}
     grib_keys.update(clim_keys)
-    message = construct_message(template, grib_keys)
-    message.set_array("values", nan_to_missing(message, pvalue))
-    target.write(message)
+    write_grib(target, template, pvalue, grib_keys)
 
 
 def signi_iteration(

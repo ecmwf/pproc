@@ -14,12 +14,11 @@ import numexpr
 
 import eccodes
 
-from pproc import common
 from pproc.config.param import ParamConfig
 from pproc.config.io import Output
 from pproc.common.recovery import BaseRecovery
 from pproc.common.accumulation import Accumulator
-from pproc.common.grib_helpers import construct_message
+from pproc.common.io import write_grib
 
 
 def threshold_grib_headers(
@@ -132,14 +131,7 @@ def prob_iteration(
                 )
             )
             grib_set.update(threshold.get("metadata", {}))
-            common.io.write_grib(
-                out_prob.target,
-                construct_message(
-                    template,
-                    grib_set,
-                ),
-                window_probability,
-            )
+            write_grib(out_prob.target, template, window_probability, grib_set)
 
         out_prob.target.flush()
         recovery.add_checkpoint(param=param.name, window=window_id)

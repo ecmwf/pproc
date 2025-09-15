@@ -76,7 +76,7 @@ def compute_indices(
         clim, template_clim = read_clim(cfg, param.clim, accum)
         print(f"Climatology array: {clim.shape}")
 
-        template_extreme = extreme_template(
+        template_extreme, metadata = extreme_template(
             accum,
             message_template,
             template_clim,
@@ -91,9 +91,9 @@ def compute_indices(
 
         for name, index in param.indices.items():
             output = getattr(cfg.outputs, name)
-            template = template_extreme.copy()
-            template.set(output.metadata)
-            index.compute(clim, ens, output.target, message_template, template)
+            index.compute(
+                clim, ens, target, message_template, template_extreme, {metadata, **output.metadata}
+            )
             output.target.flush()
 
         recovery.add_checkpoint(param=param.name, window=window_id)

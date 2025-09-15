@@ -32,9 +32,8 @@ from pproc.common.parallel import (
     parallel_data_retrieval,
     sigterm_handler,
 )
-from pproc.common.io import nan_to_missing, GribMetadata
+from pproc.common.io import write_grib, GribMetadata
 from pproc.common.accumulation_manager import AccumulationManager
-from pproc.common.grib_helpers import construct_message
 from pproc.quantile.grib import quantiles_template
 from pproc.ecpt.predictors import compute_predictors, to_ekmetadata
 
@@ -64,7 +63,7 @@ class FilteredParamRequester(ParamRequester):
 
 def grid_bc_template(
     template: eccodes.GRIBMessage, out_keys: dict
-) -> eccodes.GRIBMessage:
+) -> tuple[eccodes.GRIBMessage, dict]:
     edition = out_keys.get("edition", template.get("edition"))
     if edition not in (1, 2):
         raise ValueError(f"Unsupported GRIB edition {edition}")
@@ -83,12 +82,12 @@ def grid_bc_template(
                 "timeIncrement": 1,
             }
         )
-    return construct_message(template, grib_keys)
+    return template, grib_keys
 
 
 def weather_types_template(
     template: eccodes.GRIBMessage, out_keys: dict
-) -> eccodes.GRIBMessage:
+) -> tuple[eccodes.GRIBMessage, dict]:
     edition = out_keys.get("edition", template.get("edition"))
     if edition not in (1, 2):
         raise ValueError(f"Unsupported GRIB edition {edition}")
@@ -112,12 +111,12 @@ def weather_types_template(
                 "timeIncrement": 1,
             }
         )
-    return construct_message(template, grib_keys)
+    return template, grib_keys
 
 
 def point_scale_template(
     template: eccodes.GRIBMessage, pert_number: int, total_number: int, out_keys: dict
-) -> eccodes.GRIBMessage:
+) -> tuple[eccodes.GRIBMessage, dict]:
     edition = out_keys.get("edition", template.get("edition"))
     if edition not in (1, 2):
         raise ValueError(f"Unsupported GRIB edition {edition}")
@@ -289,24 +288,20 @@ def ecpoint_iteration(
     out_wt = config.outputs.wt
     for index, field in enumerate(input_params.sel(param=config.predictant)):
         template = field.metadata()._handle
-        bs_message = grid_bc_template(
+        bs_message, metadata = grid_bc_template(
             template,
             {
                 **out_keys,
                 **out_bs.metadata,
             },
         )
-        bs_message.set_array(
-            "values", nan_to_missing(bs_message, grid_bc_allens_allwt[index])
-        )
-        out_bs.target.write(bs_message)
+        write_grib(out_bs.target, bs_message, grid_bc_allens_allwt[index], metadata)
         out_bs.target.flush()
 
-        wt_message = weather_types_template(template, {**out_keys, **out_wt.metadata})
-        wt_message.set_array(
-            "values", nan_to_missing(wt_message, wt_allens_allwt[index])
+        wt_message, metadata = weather_types_template(
+            template, {**out_keys, **out_wt.metadata}
         )
-        out_wt.target.write(wt_message)
+        write_grib(out_wt.target, wt_message, wt_allens_allwt[index], metadata)
         out_wt.target.flush()
 
     del grid_bc_allens_allwt
@@ -325,11 +320,10 @@ def ecpoint_iteration(
                 **out_perc.metadata,
             }
             pert_number, total_number = config.quantile_indices(i)
-            message = point_scale_template(
+            message, metadata = point_scale_template(
                 template, pert_number, total_number, grib_keys
             )
-            message.set_array("values", nan_to_missing(message, quantile))
-            out_perc.target.write(message)
+            write_grib(out_perc.target, message, quantile, metadata)
         out_perc.target.flush()
 
     recovery.add_checkpoint(param=param.name, window=window_id)

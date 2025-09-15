@@ -11,18 +11,16 @@ from typing import Dict
 import re
 
 
-def construct_message(template_grib, window_grib_headers: Dict):
-    """
-    Sets grib headers into template message using headers specified in
-    config, from the threshold and climatology date period
-    """
+def construct_message(template_grib, metadata: dict):
     out_grib = template_grib.copy()
-    key_values = window_grib_headers.copy()
-    set_missing = [
-        key for key, value in window_grib_headers.items() if value == "MISSING"
-    ]
-    for missing_key in set_missing:
-        key_values.pop(missing_key)
+    key_values = metadata.copy()
+    arr_grib_keys = {
+        key: value
+        for key, value in metadata.items()
+        if not isinstance(value, (int, str, float))
+    }
+    for arr_key in arr_grib_keys.keys():
+        key_values.pop(arr_key)
 
     template_edition = out_grib.get("edition")
     if key_values.get("edition", template_edition) == 2:
@@ -43,8 +41,8 @@ def construct_message(template_grib, window_grib_headers: Dict):
     else:
         out_grib.set(key_values, check_values=True)
 
-    for missing_key in set_missing:
-        out_grib.set_missing(missing_key)
+    for key, value in arr_grib_keys.items():
+        out_grib.set_array(key, value)
     return out_grib
 
 

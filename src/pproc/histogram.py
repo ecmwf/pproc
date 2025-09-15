@@ -21,10 +21,9 @@ from conflator import Conflator
 from pproc.common.accumulation import Accumulator
 from pproc.common.accumulation_manager import AccumulationManager
 from pproc.common.dataset import open_multi_dataset
-from pproc.common.grib_helpers import construct_message, fill_template_values
 from pproc.common.io import (
     missing_to_nan,
-    nan_to_missing,
+    write_grib,
     GribMetadata,
 )
 from pproc.common.parallel import (
@@ -78,9 +77,7 @@ def write_histogram(
             "totalNumber": nbins,
             "perturbationNumber": i + 1,
         }
-        message = construct_message(template, grib_keys)
-        message.set_array("values", nan_to_missing(message, hist_bin))
-        target.write(message)
+        write_grib(target, template, hist_bin, grib_keys)
 
 
 def iter_ensemble(
