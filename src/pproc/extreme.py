@@ -94,7 +94,7 @@ def compute_indices(
             index.compute(
                 clim,
                 ens,
-                target,
+                output.target,
                 message_template,
                 template_extreme,
                 {**metadata, **output.metadata},
