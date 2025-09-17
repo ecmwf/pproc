@@ -23,6 +23,7 @@ def to_ekmetadata(metadata: list[GribMetadata]) -> list[StandAloneGribMetadata]:
         for x in metadata
     ]
 
+
 def _local_solar_time(hour: int, longitudes: np.ndarray) -> np.ndarray:
     lst_pos = np.where(longitudes >= 0, hour + (longitudes / 15), 0)
     temp_pos = np.where(lst_pos >= 24, lst_pos - 24, lst_pos)
@@ -70,7 +71,7 @@ def cp_ratio(
     config: ECPointConfig, param: ParamConfig, step_range: str, inputs: FieldList
 ) -> np.ndarray:
     ratio = _ratio(inputs.sel(param="cp").values, inputs.sel(param="tp").values)
-    return np.where(ratio <= 1, ratio, 0)
+    return np.where(ratio > 1, 1, ratio)
 
 
 def leaf_area_index(

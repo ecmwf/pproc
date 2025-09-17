@@ -423,21 +423,22 @@ def main():
                         new_fields = earthkit.data.FieldList.from_array(
                             completed_window.values, to_ekmetadata(param_metadata)
                         )
-                        field_name = param_metadata[0]["shortName"]
-                        for field in new_fields:
-                            field_name = field.metadata()["shortName"]
+                        for fields in new_fields.group_by("param"):
+                            field_name = fields.metadata()[0]["param"]
                             for input_set in input_sets:
                                 if (
                                     len(input_set["input_params"].sel(param=field_name))
                                     == 0
                                 ):
-                                    input_set[
-                                        "input_params"
-                                    ] += earthkit.data.FieldList.from_fields([field])
+                                    input_set["input_params"] += fields
                     del ens
                 checked = 0
                 while checked < len(input_sets):
-                    num_inputs = len(input_sets[checked]["input_params"])
+                    num_inputs = len(
+                        input_sets[checked]["input_params"]
+                        .ls(keys=["param"])["param"]
+                        .unique()
+                    )
                     if num_inputs == param.num_inputs:
                         ecpoint_partial(**input_sets[checked])
                         del input_sets[checked]
