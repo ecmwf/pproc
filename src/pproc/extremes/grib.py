@@ -122,11 +122,17 @@ def extreme_template(accum, template_fc, template_clim, allow_grib1_to_grib2=Fal
                 "secondOfStartOfReferencePeriod": 0,
                 "sampleSizeOfReferencePeriod": clim_size,
                 "numberOfReferencePeriodTimeRanges": 2,
-                "typeOfStatisticalProcessingForTimeRangeForReferencePeriod": [20, 20],
-                "indicatorOfUnitForTimeRangeForReferencePeriod": [4, 2],
-                "lengthOfTimeRangeForReferencePeriod": [clim_nyears, clim_window],
             }
         )
+        template_ext.set(grib_keys)
+        arr_grib_keys = {
+            "typeOfStatisticalProcessingForTimeRangeForReferencePeriod": [20, 20],
+            "indicatorOfUnitForTimeRangeForReferencePeriod": [4, 2],
+            "lengthOfTimeRangeForReferencePeriod": [clim_nyears, clim_window],
+        }
+        for key, value in arr_grib_keys.items():
+            template_ext.set_array(key, value)
+        grib_keys = {}
     else:
         raise Exception(
             f"Unsupported GRIB edition {edition} and clim edition {clim_edition}"
