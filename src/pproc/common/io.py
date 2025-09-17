@@ -352,11 +352,7 @@ def write_grib(target, template, data, metadata: dict, missing=None):
     if hasattr(template, "extra"):
         out_keys.update(template.extra)
     out_keys.update(metadata)
-    bits_per_value = (
-        out_keys.pop("bitsPerValue")
-        if template["bitsPerValue"] == 0
-        else template["bitsPerValue"]
-    )
+    bits_per_value = out_keys.pop("bitsPerValue")
     message = construct_message(template, out_keys)
     
     data = nan_to_missing(message, data, missing)
@@ -412,6 +408,15 @@ class GribMetadata(eccodes.Message):
         state["_handle"] = eccodes.MemoryReader(state["_handle"])._next_handle()
         self.__dict__.update(state)
 
+    def set(self, *args, check_values: bool = True):
+        super().set(*args, check_values=check_values)
+        if isinstance(args[0], dict):
+            for key in self.extra.keys():
+                if key in args[0]:
+                    self.extra[key] = args[0][key]
+        elif args[0] in self.extra:
+            self.extra[args[0]] = args[1]
+        
     def copy(self) -> Self:
         """Create a copy of the current message"""
         clone = self.__class__(eccodes.codes_clone(self._handle))
