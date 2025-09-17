@@ -964,9 +964,9 @@ class ECPointConfig(QuantilesConfig):
     fer_location: Annotated[
         str, CLIArg("--fer-loc"), Field(description="Location of FER CSV file")
     ]
-    predictors: list[Union[str, Expression]] = ["cpr", "tp", "ws", "mxcape6", "cdir"]
-    predictant: str = "tp"
-    min_predictant: float = 0.04
+    predictors: list[Union[str, Expression]]
+    predictant: str
+    min_predictant: Optional[float] = None
     scale_outputs: Optional[float] = None
 
     @classmethod
