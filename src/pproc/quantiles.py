@@ -31,7 +31,7 @@ from pproc.common.parallel import (
 from pproc.common.param_requester import ParamConfig, ParamRequester
 from pproc.common.recovery import create_recovery, BaseRecovery
 from pproc.config.types import QuantilesConfig
-from pproc.quantile.grib import quantiles_template
+from pproc.quantile.grib import quantiles_metadata
 
 
 def do_quantiles(
@@ -65,7 +65,7 @@ def do_quantiles(
         grib_keys = fill_template_values(
             out_keys.copy(), {"num_fields": np.prod(ens.shape[:-1])}
         )
-        metadata = quantiles_template(template, pert_number, total_number, grib_keys)
+        metadata = quantiles_metadata(template, pert_number, total_number, grib_keys)
         write_grib(config.outputs.quantiles.target, template, quantile, metadata)
 
 

@@ -34,7 +34,7 @@ from pproc.common.parallel import (
 )
 from pproc.common.io import write_grib, GribMetadata
 from pproc.common.accumulation_manager import AccumulationManager
-from pproc.quantile.grib import quantiles_template
+from pproc.quantile.grib import quantiles_metadata
 from pproc.ecpt.predictors import compute_predictors, to_ekmetadata
 
 logger = logging.getLogger(__name__)
@@ -61,7 +61,7 @@ class FilteredParamRequester(ParamRequester):
         return super().retrieve_data(step=step, **kwargs)
 
 
-def grid_bc_template(
+def grid_bc_metadata(
     template: eccodes.GRIBMessage, out_keys: dict
 ) -> tuple[eccodes.GRIBMessage, dict]:
     edition = out_keys.get("edition", template.get("edition"))
@@ -85,7 +85,7 @@ def grid_bc_template(
     return template, grib_keys
 
 
-def weather_types_template(
+def weather_types_metadata(
     template: eccodes.GRIBMessage, out_keys: dict
 ) -> tuple[eccodes.GRIBMessage, dict]:
     edition = out_keys.get("edition", template.get("edition"))
@@ -114,7 +114,7 @@ def weather_types_template(
     return template, grib_keys
 
 
-def point_scale_template(
+def point_scale_metadata(
     template: eccodes.GRIBMessage, pert_number: int, total_number: int, out_keys: dict
 ) -> dict:
     edition = out_keys.get("edition", template.get("edition"))
@@ -135,7 +135,7 @@ def point_scale_template(
                 "timeIncrement": 1,
             }
         )
-    return quantiles_template(template, pert_number, total_number, grib_keys)
+    return quantiles_metadata(template, pert_number, total_number, grib_keys)
 
 
 def compute_single_ens(
@@ -288,7 +288,7 @@ def ecpoint_iteration(
     out_wt = config.outputs.wt
     for index, field in enumerate(input_params.sel(param=config.predictant)):
         template = field.metadata()._handle
-        bs_message, metadata = grid_bc_template(
+        bs_message, metadata = grid_bc_metadata(
             template,
             {
                 **out_keys,
@@ -298,7 +298,7 @@ def ecpoint_iteration(
         write_grib(out_bs.target, bs_message, grid_bc_allens_allwt[index], metadata)
         out_bs.target.flush()
 
-        wt_message, metadata = weather_types_template(
+        wt_message, metadata = weather_types_metadata(
             template, {**out_keys, **out_wt.metadata}
         )
         write_grib(out_wt.target, wt_message, wt_allens_allwt[index], metadata)
@@ -320,7 +320,7 @@ def ecpoint_iteration(
                 **out_perc.metadata,
             }
             pert_number, total_number = config.quantile_indices(i)
-            metadata = point_scale_template(
+            metadata = point_scale_metadata(
                 template, pert_number, total_number, grib_keys
             )
             write_grib(out_perc.target, template, quantile, metadata)

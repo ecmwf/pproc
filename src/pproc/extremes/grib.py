@@ -135,7 +135,7 @@ def extreme_template(accum, template_fc, template_clim, allow_grib1_to_grib2=Fal
     return template_ext, grib_keys
 
 
-def efi_template(template, metadata) -> dict:
+def efi_metadata(template, metadata) -> dict:
     metadata = metadata.copy()
     metadata["marsType"] = 27
 
@@ -152,7 +152,7 @@ def efi_template(template, metadata) -> dict:
     return metadata
 
 
-def efi_template_control(template, metadata) -> dict:
+def efi_metadata_control(template, metadata) -> dict:
     metadata = metadata.copy()
     metadata["marsType"] = 28
 
@@ -170,7 +170,7 @@ def efi_template_control(template, metadata) -> dict:
     return metadata
 
 
-def sot_template(template, sot, metadata) -> dict:
+def sot_metadata(template, sot, metadata) -> dict:
     metadata = metadata.copy()
     metadata["marsType"] = 38
 
@@ -201,7 +201,7 @@ def sot_template(template, sot, metadata) -> dict:
     return metadata
 
 
-def cpf_template(template, metadata) -> dict:
+def cpf_metadata(template, metadata) -> dict:
     metadata = metadata.copy()
     metadata[
         "marsType"

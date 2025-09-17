@@ -37,7 +37,7 @@ from pproc.config.types import WindConfig
 from pproc.config.targets import NullTarget
 
 
-def wind_template(step: int, **out_keys) -> dict:
+def wind_metadata(step: int, **out_keys) -> dict:
     grib_sets = {
         "bitsPerValue": 24,
         "step": step,
@@ -78,7 +78,7 @@ def wind_iteration(
                     if number > 0 and template.get("type") in ["cf", "fc"]
                     else template.get("type")
                 )
-                metadata = wind_template(
+                metadata = wind_metadata(
                     **dims,
                     number=number,
                     type=marstype,
@@ -89,7 +89,7 @@ def wind_iteration(
                     config.outputs.ws.target, template, ens[number], metadata
                 )
 
-        mean_keys = wind_template(
+        mean_keys = wind_metadata(
             **dims,
             **config.outputs.mean.metadata,
             **param.metadata,
@@ -98,7 +98,7 @@ def wind_iteration(
             config.outputs.mean.target, template, np.mean(ens, axis=0), mean_keys
         )
 
-        std_keys = wind_template(
+        std_keys = wind_metadata(
             **dims,
             **config.outputs.std.metadata,
             **param.metadata,

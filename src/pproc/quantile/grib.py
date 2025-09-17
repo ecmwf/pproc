@@ -10,7 +10,7 @@
 import eccodes
 
 
-def quantiles_template(
+def quantiles_metadata(
     template: eccodes.GRIBMessage,
     pert_number: int,
     total_number: int,

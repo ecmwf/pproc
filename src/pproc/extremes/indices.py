@@ -17,10 +17,10 @@ import numpy as np
 from pproc import common
 from pproc.config.targets import Target
 from pproc.extremes.grib import (
-    cpf_template,
-    efi_template,
-    efi_template_control,
-    sot_template,
+    cpf_metadata,
+    efi_metadata,
+    efi_metadata_control,
+    sot_metadata,
 )
 
 
@@ -57,12 +57,12 @@ class EFI(Index):
     ):
         if in_template.get("type") in ["cf", "fc"]:
             efi_control = extreme.efi(clim, ens[:1, :], self.eps)
-            control_metadata = efi_template_control(out_template, metadata)
-            common.io.write_grib(target, out_template, efi_control, control_metadata)
+            control_keys = efi_metadata_control(out_template, metadata)
+            common.io.write_grib(target, out_template, efi_control, control_keys)
 
         efi = extreme.efi(clim, ens, self.eps)
-        efi_metadata = efi_template(out_template, metadata)
-        common.io.write_grib(target, out_template, efi, efi_metadata)
+        efi_keys = efi_metadata(out_template, metadata)
+        common.io.write_grib(target, out_template, efi, efi_keys)
 
 
 class SOT(Index):
@@ -82,8 +82,8 @@ class SOT(Index):
     ):
         for perc in self.sot:
             sot = extreme.sot(clim, ens, perc, self.eps)
-            sot_metadata = sot_template(out_template, perc, metadata)
-            common.io.write_grib(target, out_template, sot, sot_metadata)
+            sot_keys = sot_metadata(out_template, perc, metadata)
+            common.io.write_grib(target, out_template, sot, sot_keys)
 
 
 class CPF(Index):
@@ -113,8 +113,8 @@ class CPF(Index):
             epsilon=self.eps,
             symmetric=self.symmetric,
         )
-        cpf_metadata = cpf_template(out_template, metadata)
-        common.io.write_grib(target, out_template, cpf, cpf_metadata)
+        cpf_keys = cpf_metadata(out_template, metadata)
+        common.io.write_grib(target, out_template, cpf, cpf_keys)
 
 
 _INDICES = {"efi": EFI, "sot": SOT, "cpf": CPF}
