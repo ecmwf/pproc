@@ -183,11 +183,11 @@ def compute_single_ens(
 
 
 def compute_weather_types(
-    tp: np.ndarray,
+    predictant: np.ndarray,
     predictors: np.ndarray,
     bp_loc: str,
     fer_loc: str,
-    min_predictant: float = 0.04,
+    min_predictant: Optional[float] = None,
     wt_batch_size: int = 1,
     ens_batch_size: int = 1,
 ) -> Tuple[list[np.ndarray], list[np.ndarray], list[np.ndarray]]:
@@ -200,7 +200,8 @@ def compute_weather_types(
     thr_inf = bp[:, 0:-1:2]
     thr_sup = bp[:, 1::2]
 
-    predictant = np.where(tp < min_predictant, 0, tp)
+    if min_predictant is not None:
+        predictant = np.where(predictant < min_predictant, 0, predictant)
     ens_partial = functools.partial(
         compute_single_ens,
         thr_inf=thr_inf,
@@ -231,14 +232,14 @@ def compute_weather_types(
             pt_bc_allwt, wt_allwt = result
             grid_bc_allens_allwt.append(np.mean(pt_bc_allwt, axis=0))
             pt_bc_allens_allwt.extend(list(pt_bc_allwt))
-            wt_allens_allwt.append(
-                np.where(
+            if min_predictant is not None:
+                wt_allwt = np.where(
                     (predictant[ind_em] < min_predictant)
                     & (np.invert(np.isnan(wt_allwt))),
                     99999,
                     wt_allwt,
                 )
-            )
+            wt_allens_allwt.append(wt_allwt)
 
     return (
         np.asarray(pt_bc_allens_allwt),
@@ -423,21 +424,22 @@ def main():
                         new_fields = earthkit.data.FieldList.from_array(
                             completed_window.values, to_ekmetadata(param_metadata)
                         )
-                        field_name = param_metadata[0]["shortName"]
-                        for field in new_fields:
-                            field_name = field.metadata()["shortName"]
+                        for fields in new_fields.group_by("param"):
+                            field_name = fields.metadata()[0]["param"]
                             for input_set in input_sets:
                                 if (
                                     len(input_set["input_params"].sel(param=field_name))
                                     == 0
                                 ):
-                                    input_set[
-                                        "input_params"
-                                    ] += earthkit.data.FieldList.from_fields([field])
+                                    input_set["input_params"] += fields
                     del ens
                 checked = 0
                 while checked < len(input_sets):
-                    num_inputs = len(input_sets[checked]["input_params"])
+                    num_inputs = len(
+                        input_sets[checked]["input_params"]
+                        .ls(keys=["param"])["param"]
+                        .unique()
+                    )
                     if num_inputs == param.num_inputs:
                         ecpoint_partial(**input_sets[checked])
                         del input_sets[checked]
