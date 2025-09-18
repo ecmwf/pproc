@@ -420,5 +420,5 @@ class GribMetadata(eccodes.Message):
     def copy(self) -> Self:
         """Create a copy of the current message"""
         clone = self.__class__(eccodes.codes_clone(self._handle))
-        clone.extra = self.extra
+        clone.extra = self.extra.copy()
         return clone
