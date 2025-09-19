@@ -86,7 +86,7 @@ class Schema:
             config["name"] = f"{valid_out['param']}_{valid_out['levtype']}"
         config.setdefault("name", f"{base_request['param']}_{valid_out['levtype']}")
         for key in config.pop("metadata_from_output"):
-            if base_request[key] != valid_out[key]:
+            if base_request.get(key, None) != valid_out[key]:
                 metadata_key = METADATA_KEYS.get(key, key)
                 metadata[metadata_key] = VALUE_TYPES.get(metadata_key, str)(
                     valid_out[key]
