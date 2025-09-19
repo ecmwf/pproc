@@ -18,8 +18,7 @@ from conflator import Conflator
 
 from pproc.common.accumulation import Accumulator
 from pproc.common.accumulation_manager import AccumulationManager
-from pproc.common.grib_helpers import construct_message
-from pproc.common.io import nan_to_missing
+from pproc.common.io import write_grib
 from pproc.common.parallel import (
     create_executor,
     parallel_data_retrieval,
@@ -65,29 +64,29 @@ def anomaly_iteration(
 
         # Anomaly for each ensemble member
         for index, member in enumerate(ens):
-            message = construct_message(
+            anom = member - clim[0]
+            write_grib(
+                config.outputs.ens.target,
                 template,
+                anom,
                 {
                     **accum.grib_keys(),
                     **config.outputs.ens.metadata,
                     "number": index,
                 },
             )
-            anom = member - clim[0]
-            message.set_array("values", nan_to_missing(message, anom))
-            config.outputs.ens.target.write(message)
 
         # Anomaly for ensemble mean
         ensm_anom = np.mean(ens, axis=0) - clim[0]
-        message = construct_message(
+        write_grib(
+            config.outputs.ensm.target,
             template,
+            ensm_anom,
             {
                 **accum.grib_keys(),
                 **config.outputs.ensm.metadata,
             },
         )
-        message.set_array("values", nan_to_missing(message, ensm_anom))
-        config.outputs.ensm.target.write(message)
 
     config.outputs.ens.target.flush()
     config.outputs.ensm.target.flush()

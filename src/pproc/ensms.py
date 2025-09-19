@@ -26,7 +26,7 @@ import numpy as np
 from conflator import Conflator
 from meters import ResourceMeter
 
-from pproc import common
+from pproc.common.io import write_grib
 from pproc.common.accumulation import Accumulator
 from pproc.common.accumulation_manager import AccumulationManager
 from pproc.common.parallel import (
@@ -40,20 +40,16 @@ from pproc.common.grib_helpers import fill_template_values
 from pproc.config.types import EnsmsConfig
 
 
-def template_ensemble(
-    template: eccodes.GRIBMessage,
+def ensms_metadata(
     accum: Accumulator,
     out_keys: dict,
 ):
-    template_ens = template.copy()
-
     grib_sets = accum.grib_keys().copy()
     grib_sets.update(out_keys)
     grib_sets = fill_template_values(
         grib_sets, {"num_fields": np.prod(accum.values.shape[:-1])}
     )
-    template_ens.set(grib_sets)
-    return template_ens
+    return grib_sets
 
 
 def ensms_iteration(
@@ -73,16 +69,19 @@ def ensms_iteration(
     with ResourceMeter(f"Window {window_id}: write mean output"):
         mean = np.mean(ens, axis=axes)
         out_mean = config.outputs.mean
-        template_mean = template_ensemble(template_ens, accum, out_mean.metadata)
-        template_mean.set_array("values", common.io.nan_to_missing(template_mean, mean))
-        out_mean.target.write(template_mean)
+        write_grib(
+            out_mean.target,
+            template_ens,
+            mean,
+            ensms_metadata(accum, out_mean.metadata),
+        )
 
     with ResourceMeter(f"Window {window_id}: write std output"):
         std = np.std(ens, axis=axes)
         out_std = config.outputs.std
-        template_std = template_ensemble(template_ens, accum, out_std.metadata)
-        template_std.set_array("values", common.io.nan_to_missing(template_std, std))
-        out_std.target.write(template_std)
+        write_grib(
+            out_std.target, template_ens, std, ensms_metadata(accum, out_std.metadata)
+        )
 
     out_mean.target.flush()
     out_std.target.flush()

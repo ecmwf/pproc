@@ -13,8 +13,7 @@ import numpy as np
 import eccodes
 
 from pproc.config.targets import Target
-from pproc.common.io import nan_to_missing
-from pproc.common.grib_helpers import construct_message
+from pproc.common.io import write_grib
 
 
 def postprocess(
@@ -70,6 +69,4 @@ def postprocess(
             template = metadata[0]
         else:
             template = metadata[i]
-        message = construct_message(template, grib_keys)
-        message.set_array("values", nan_to_missing(message, field))
-        target.write(message)
+        write_grib(target, template, field, grib_keys)

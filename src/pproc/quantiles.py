@@ -21,8 +21,8 @@ from conflator import Conflator
 
 from pproc.common.accumulation import Accumulator
 from pproc.common.accumulation_manager import AccumulationManager
-from pproc.common.grib_helpers import construct_message, fill_template_values
-from pproc.common.io import nan_to_missing
+from pproc.common.grib_helpers import fill_template_values
+from pproc.common.io import write_grib
 from pproc.common.parallel import (
     create_executor,
     parallel_data_retrieval,
@@ -31,7 +31,7 @@ from pproc.common.parallel import (
 from pproc.common.param_requester import ParamConfig, ParamRequester
 from pproc.common.recovery import create_recovery, BaseRecovery
 from pproc.config.types import QuantilesConfig
-from pproc.quantile.grib import quantiles_template
+from pproc.quantile.grib import quantiles_metadata
 
 
 def do_quantiles(
@@ -65,9 +65,8 @@ def do_quantiles(
         grib_keys = fill_template_values(
             out_keys.copy(), {"num_fields": np.prod(ens.shape[:-1])}
         )
-        message = quantiles_template(template, pert_number, total_number, grib_keys)
-        message.set_array("values", nan_to_missing(message, quantile))
-        config.outputs.quantiles.target.write(message)
+        metadata = quantiles_metadata(template, pert_number, total_number, grib_keys)
+        write_grib(config.outputs.quantiles.target, template, quantile, metadata)
 
 
 def quantiles_iteration(

@@ -46,7 +46,9 @@ def extreme_template(accum, template_fc, template_clim, allow_grib1_to_grib2=Fal
         for key in fc_keys:
             grib_keys[key] = template_fc[key]
         total_number = template_fc.get("totalNumber", len(accum.values), int)
-        grib_keys["totalNumber"] = len(accum.values) if total_number == 0 else total_number
+        grib_keys["totalNumber"] = (
+            len(accum.values) if total_number == 0 else total_number
+        )
     elif edition == 2 and clim_edition == 2:
         clim_keys = [
             "typeOfReferenceDataset",
@@ -136,46 +138,47 @@ def extreme_template(accum, template_fc, template_clim, allow_grib1_to_grib2=Fal
             f"Unsupported GRIB edition {edition} and clim edition {clim_edition}"
         )
 
-    template_ext.set(grib_keys)
-    return template_ext
+    return template_ext, grib_keys
 
 
-def efi_template(template):
-    template_efi = template.copy()
-    template_efi["marsType"] = 27
+def efi_metadata(template, metadata) -> dict:
+    metadata = metadata.copy()
+    metadata["marsType"] = 27
 
-    edition = template_efi["edition"]
+    edition = metadata.get("edition", template["edition"])
     if edition == 1:
-        template_efi["efiOrder"] = 0
-        template_efi["number"] = 0
+        metadata["efiOrder"] = 0
+        metadata["number"] = 0
     elif edition == 2:
-        grib_set = {"typeOfRelationToReferenceDataset": 20, "typeOfProcessedData": 5}
-        template_efi.set(grib_set)
+        metadata.update(
+            {"typeOfRelationToReferenceDataset": 20, "typeOfProcessedData": 5}
+        )
     else:
         raise Exception(f"Unsupported GRIB edition {edition}")
-    return template_efi
+    return metadata
 
 
-def efi_template_control(template):
-    template_efi = template.copy()
-    template_efi["marsType"] = 28
+def efi_metadata_control(template, metadata) -> dict:
+    metadata = metadata.copy()
+    metadata["marsType"] = 28
 
-    edition = template_efi["edition"]
+    edition = metadata.get("edition", template["edition"])
     if edition == 1:
-        template_efi["efiOrder"] = 0
-        template_efi["totalNumber"] = 1
-        template_efi["number"] = 0
+        metadata["efiOrder"] = 0
+        metadata["totalNumber"] = 1
+        metadata["number"] = 0
     elif edition == 2:
-        grib_set = {"typeOfRelationToReferenceDataset": 20, "typeOfProcessedData": 3}
-        template_efi.set(grib_set)
+        metadata.update(
+            {"typeOfRelationToReferenceDataset": 20, "typeOfProcessedData": 3}
+        )
     else:
         raise Exception(f"Unsupported GRIB edition {edition}")
-    return template_efi
+    return metadata
 
 
-def sot_template(template, sot):
-    template_sot = template.copy()
-    template_sot["marsType"] = 38
+def sot_metadata(template, sot, metadata) -> dict:
+    metadata = metadata.copy()
+    metadata["marsType"] = 38
 
     if sot == 90:
         efi_order = 99
@@ -185,37 +188,39 @@ def sot_template(template, sot):
         raise Exception(
             f"SOT value '{sot}' not supported in template! Only accepting 10 and 90"
         )
-    edition = template_sot["edition"]
+    edition = metadata.get("edition", template["edition"])
     if edition == 1:
-        template_sot["number"] = sot
-        template_sot["efiOrder"] = efi_order
+        metadata["number"] = sot
+        metadata["efiOrder"] = efi_order
     elif edition == 2:
-        grib_set = {
-            "typeOfRelationToReferenceDataset": 21,
-            "typeOfProcessedData": 5,
-            "numberOfAdditionalParametersForReferencePeriod": 2,
-            "scaleFactorOfAdditionalParameterForReferencePeriod": [0, 0],
-            "scaledValueOfAdditionalParameterForReferencePeriod": [sot, efi_order],
-        }
-        template_sot.set(grib_set)
+        metadata.update(
+            {
+                "typeOfRelationToReferenceDataset": 21,
+                "typeOfProcessedData": 5,
+                "numberOfAdditionalParametersForReferencePeriod": 2,
+                "scaleFactorOfAdditionalParameterForReferencePeriod": [0, 0],
+                "scaledValueOfAdditionalParameterForReferencePeriod": [sot, efi_order],
+            }
+        )
     else:
         raise Exception(f"Unsupported GRIB edition {edition}")
-    return template_sot
+    return metadata
 
 
-def cpf_template(template):
-    template_cpf = template.copy()
-    template_cpf[
+def cpf_metadata(template, metadata) -> dict:
+    metadata = metadata.copy()
+    metadata[
         "marsType"
     ] = 27  # FIXME: this corresponds to efi, should be a new value for cpf
-    template_cpf["bitsPerValue"] = 24
+    metadata["bitsPerValue"] = 24
 
-    edition = template_cpf["edition"]
+    edition = metadata.get("edition", template["edition"])
     if edition == 1:
-        template_cpf["number"] = 0
+        metadata["number"] = 0
     elif edition == 2:
-        grib_set = {"typeOfRelationToReferenceDataset": 24, "typeOfProcessedData": 5}
-        template_cpf.set(grib_set)
+        metadata.update(
+            {"typeOfRelationToReferenceDataset": 24, "typeOfProcessedData": 5}
+        )
     else:
         raise Exception(f"Unsupported GRIB edition {edition}")
-    return template_cpf
+    return metadata

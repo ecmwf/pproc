@@ -15,7 +15,7 @@ import thermofeel
 from meters import metered
 from typing import Optional
 
-from pproc import common
+from pproc.common.io import write_grib
 from pproc.config.targets import Target
 
 logger = logging.getLogger(__name__)
@@ -190,6 +190,5 @@ def write(
         # Handle wrapped metadata
         if hasattr(field_metadata, "extra"):
             updates.update(field_metadata.extra)
-        message = f.metadata()._handle.copy()
-        message.set(updates)
-        common.io.write_grib(target, message, f.values)
+        message = f.metadata()._handle
+        write_grib(target, message, f.values, updates)

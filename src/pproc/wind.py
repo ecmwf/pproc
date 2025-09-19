@@ -37,10 +37,7 @@ from pproc.config.types import WindConfig
 from pproc.config.targets import NullTarget
 
 
-def wind_template(
-    template: eccodes.GRIBMessage, step: int, **out_keys
-) -> eccodes.GRIBMessage:
-    new_template = template.copy()
+def wind_metadata(step: int, **out_keys) -> dict:
     grib_sets = {
         "bitsPerValue": 24,
         "step": step,
@@ -53,8 +50,7 @@ def wind_template(
     else:
         grib_sets["timeRangeIndicator"] = 0
 
-    new_template.set(grib_sets)
-    return new_template
+    return grib_sets
 
 
 def wind_iteration(
@@ -82,34 +78,33 @@ def wind_iteration(
                     if number > 0 and template.get("type") in ["cf", "fc"]
                     else template.get("type")
                 )
-                template = wind_template(
-                    template,
+                metadata = wind_metadata(
                     **dims,
                     number=number,
                     type=marstype,
                     **config.outputs.ws.metadata,
                     **param.metadata,
                 )
-                common.io.write_grib(config.outputs.ws.target, template, ens[number])
+                common.io.write_grib(
+                    config.outputs.ws.target, template, ens[number], metadata
+                )
 
-        template_mean = wind_template(
-            template,
+        mean_keys = wind_metadata(
             **dims,
             **config.outputs.mean.metadata,
             **param.metadata,
         )
         common.io.write_grib(
-            config.outputs.mean.target, template_mean, np.mean(ens, axis=0)
+            config.outputs.mean.target, template, np.mean(ens, axis=0), mean_keys
         )
 
-        template_std = wind_template(
-            template,
+        std_keys = wind_metadata(
             **dims,
             **config.outputs.std.metadata,
             **param.metadata,
         )
         common.io.write_grib(
-            config.outputs.std.target, template_std, np.std(ens, axis=0)
+            config.outputs.std.target, template, np.std(ens, axis=0), std_keys
         )
 
     for name in config.outputs.names:

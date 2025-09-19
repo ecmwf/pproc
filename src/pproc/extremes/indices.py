@@ -17,10 +17,10 @@ import numpy as np
 from pproc import common
 from pproc.config.targets import Target
 from pproc.extremes.grib import (
-    cpf_template,
-    efi_template,
-    efi_template_control,
-    sot_template,
+    cpf_metadata,
+    efi_metadata,
+    efi_metadata_control,
+    sot_metadata,
 )
 
 
@@ -36,6 +36,7 @@ class Index(metaclass=ABCMeta):
         target: Target,
         in_template: GRIBMessage,
         out_template: GRIBMessage,
+        metadata: dict,
     ):
         raise NotImplementedError
 
@@ -52,15 +53,16 @@ class EFI(Index):
         target: Target,
         in_template: GRIBMessage,
         out_template: GRIBMessage,
+        metadata: dict,
     ):
         if in_template.get("type") in ["cf", "fc"]:
             efi_control = extreme.efi(clim, ens[:1, :], self.eps)
-            template_efi = efi_template_control(out_template)
-            common.io.write_grib(target, template_efi, efi_control)
+            control_keys = efi_metadata_control(out_template, metadata)
+            common.io.write_grib(target, out_template, efi_control, control_keys)
 
         efi = extreme.efi(clim, ens, self.eps)
-        template_efi = efi_template(out_template)
-        common.io.write_grib(target, template_efi, efi)
+        efi_keys = efi_metadata(out_template, metadata)
+        common.io.write_grib(target, out_template, efi, efi_keys)
 
 
 class SOT(Index):
@@ -76,17 +78,22 @@ class SOT(Index):
         target: Target,
         in_template: GRIBMessage,
         out_template: GRIBMessage,
+        metadata: dict,
     ):
         for perc in self.sot:
             sot = extreme.sot(clim, ens, perc, self.eps)
-            template_sot = sot_template(out_template, perc)
-            common.io.write_grib(target, template_sot, sot)
+            sot_keys = sot_metadata(out_template, perc, metadata)
+            common.io.write_grib(target, out_template, sot, sot_keys)
 
 
 class CPF(Index):
     def __init__(self, options):
         super().__init__(options)
-        self.eps = float(options["cpf_eps"]) if options.get("cpf_eps", None) is not None else None
+        self.eps = (
+            float(options["cpf_eps"])
+            if options.get("cpf_eps", None) is not None
+            else None
+        )
         self.symmetric = options.get("cpf_symmetric", False)
 
     def compute(
@@ -96,6 +103,7 @@ class CPF(Index):
         target: Target,
         in_template: GRIBMessage,
         out_template: GRIBMessage,
+        metadata: dict,
     ):
         cpf = extreme.cpf(
             clim.astype(np.float32),
@@ -105,8 +113,8 @@ class CPF(Index):
             epsilon=self.eps,
             symmetric=self.symmetric,
         )
-        template_cpf = cpf_template(out_template)
-        common.io.write_grib(target, template_cpf, cpf)
+        cpf_keys = cpf_metadata(out_template, metadata)
+        common.io.write_grib(target, out_template, cpf, cpf_keys)
 
 
 _INDICES = {"efi": EFI, "sot": SOT, "cpf": CPF}

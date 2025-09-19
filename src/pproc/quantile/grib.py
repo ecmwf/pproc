@@ -9,16 +9,13 @@
 
 import eccodes
 
-from pproc.common.grib_helpers import construct_message
 
-
-def quantiles_template(
+def quantiles_metadata(
     template: eccodes.GRIBMessage,
     pert_number: int,
     total_number: int,
     out_keys: dict,
-) -> eccodes.GRIBMessage:
-
+) -> dict:
     edition = out_keys.get("edition", template.get("edition"))
     if edition not in (1, 2):
         raise ValueError(f"Unsupported GRIB edition {edition}")
@@ -38,5 +35,4 @@ def quantiles_template(
                 "quantileValue": pert_number,
             }
         )
-    message = construct_message(template, grib_keys)
-    return message
+    return grib_keys
