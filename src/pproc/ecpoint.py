@@ -102,13 +102,13 @@ def weather_types_metadata(
         template.set(
             {
                 "edition": 2,
-                "productDefinitionTemplateNumber": 73,
                 "typeOfOriginalFieldValues": 1,
             },
             check_values=False,
         )
         grib_keys.update(
             {
+                "productDefinitionTemplateNumber": 73,
                 "type": "gwt",
                 "packingType": "grid_ieee",
                 "inputProcessIdentifier": template.get("generatingProcessIdentifier"),
