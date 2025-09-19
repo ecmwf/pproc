@@ -99,7 +99,14 @@ def weather_types_metadata(
         # `typeOfOriginalFieldValues` needs to be set separately as it is a helper key for
         # the packing, which doesn't exist any more after the packingType has been set
         template = template.copy()
-        template.set({"edition": 2, "productDefinitionTemplateNumber": 73, "typeOfOriginalFieldValues": 1}, check_values=False)
+        template.set(
+            {
+                "edition": 2,
+                "productDefinitionTemplateNumber": 73,
+                "typeOfOriginalFieldValues": 1,
+            },
+            check_values=False,
+        )
         grib_keys.update(
             {
                 "type": "gwt",
