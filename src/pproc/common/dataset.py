@@ -90,6 +90,9 @@ def _mars_retrieve_interp(
     mars_reader = mars_retrieve(request, mars_cmd=mars_cmd, tmpdir=tmpdir)
     if mir_options:
         with mars_reader:
+            if mir_options.get("vod2uv", False):
+                mir_options = mir_options.copy()
+                mir_options["vod2uv"] = "1"
             job = mir.Job(**mir_options)
             stream = BytesIO()
             job.execute(mars_reader, stream)
