@@ -103,9 +103,11 @@ class Schema:
             expand([self.validate_request(req) for req in input_requests])
         )
         reconstructed = self.config_schema.reconstruct(
-            output_template=None
-            if output_template is None
-            else self.validate_request(output_template),
+            output_template=(
+                None
+                if output_template is None
+                else self.validate_request(output_template)
+            ),
             **({} if entrypoint is None else {"entrypoint": entrypoint}),
         )
         matching_types = pd.DataFrame([x for x, _ in reconstructed])

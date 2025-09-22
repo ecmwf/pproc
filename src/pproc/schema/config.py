@@ -11,7 +11,8 @@ import numpy as np
 
 from pproc.schema.base import BaseSchema, dict_update
 from pproc.schema.filters import _steplength, _selection, _steptype
-from pproc.common.grib_helpers import fill_template_values
+from pproc.common.grib_helpers import fill_template_value
+from pproc.common.utils import dict_apply
 
 
 class ConfigSchema(BaseSchema):
@@ -45,12 +46,16 @@ class ConfigSchema(BaseSchema):
 
         out_vals = output_request.copy()
         date = str(output_request["date"])
-        out_vals.update(
+        out_vals.update
+        (
             {
                 "year": date[0:4],
                 "month": date[4:6],
                 "day": date[6:8],
             }
         )
-        config["metadata"] = fill_template_values(config.get("metadata", {}), out_vals)
+        config = dict_apply(
+            config,
+            lambda v: fill_template_value(v, out_vals) if isinstance(v, str) else v,
+        )
         return config
