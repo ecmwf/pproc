@@ -68,10 +68,11 @@ def grid_bc_metadata(
     if edition not in (1, 2):
         raise ValueError(f"Unsupported GRIB edition {edition}")
 
-    grib_keys = out_keys.copy()
+    grib_keys = {}
     if edition == 2:
         grib_keys.update(
             {
+                "edition": 2,
                 "productDefinitionTemplateNumber": 73,
                 "type": "gbf",
                 "inputProcessIdentifier": template.get("generatingProcessIdentifier"),
@@ -82,6 +83,7 @@ def grid_bc_metadata(
                 "timeIncrement": 1,
             }
         )
+    grib_keys.update(out_keys)
     return template, grib_keys
 
 
@@ -92,12 +94,18 @@ def weather_types_metadata(
     if edition not in (1, 2):
         raise ValueError(f"Unsupported GRIB edition {edition}")
 
-    grib_keys = out_keys.copy()
+    grib_keys = {}
     if edition == 2:
         # `typeOfOriginalFieldValues` needs to be set separately as it is a helper key for
         # the packing, which doesn't exist any more after the packingType has been set
         template = template.copy()
-        template.set({"edition": 2, "typeOfOriginalFieldValues": 1}, check_values=False)
+        template.set(
+            {
+                "edition": 2,
+                "typeOfOriginalFieldValues": 1,
+            },
+            check_values=False,
+        )
         grib_keys.update(
             {
                 "productDefinitionTemplateNumber": 73,
@@ -111,6 +119,7 @@ def weather_types_metadata(
                 "timeIncrement": 1,
             }
         )
+    grib_keys.update(out_keys)
     return template, grib_keys
 
 
@@ -121,10 +130,11 @@ def point_scale_metadata(
     if edition not in (1, 2):
         raise ValueError(f"Unsupported GRIB edition {edition}")
 
-    grib_keys = out_keys.copy()
+    grib_keys = {}
     if edition == 2:
         grib_keys.update(
             {
+                "edition": 2,
                 "productDefinitionTemplateNumber": 90,
                 "type": "pfc",
                 "inputProcessIdentifier": template.get("generatingProcessIdentifier"),
@@ -135,6 +145,7 @@ def point_scale_metadata(
                 "timeIncrement": 1,
             }
         )
+    grib_keys.update(out_keys)
     return quantiles_metadata(template, pert_number, total_number, grib_keys)
 
 

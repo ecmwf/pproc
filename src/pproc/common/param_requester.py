@@ -123,13 +123,17 @@ class ParamRequester:
             )
             metadata.append(pinput.base_request())
             data_list.append(data)
-            templates.append(new_templates)
+            templates.extend(new_templates)
 
         assert templates is not None, "No data fetched"
 
         new_metadata, data_list = self.param.preprocessing.apply(metadata, data_list)
         assert len(data_list) == 1, "More than one output of preprocessing"
-        templates = sum(templates[: len(data_list[0])], [])
+        templates = templates[: len(data_list[0])]
+        assert len(templates) == len(
+            data_list[0]
+        ), "Number of templates should match number of fields"
+
         metadata_set = {
             k: v for k, v in new_metadata[0].items() if v != metadata[0].get(k, None)
         }
