@@ -378,19 +378,13 @@ class LegacyStepAccumulation(BaseModel):
             raise ValueError("Merge only possible with other LegacyStepAccumulation")
         current = self.model_copy(deep=True)
 
-        current_windows = getattr(current, "windows", None)
-        other_windows = getattr(other, "windows", None)
-        if current_windows is None:
-            if other_windows is not None:
-                setattr(current, "windows", other_windows)
-        else:
-            current_windows = self.merge_windows(current_windows, other_windows)
-            # Recursively merge windows internally
+        current_windows = self.merge_windows(current.windows, other.windows)
+        # Recursively merge windows internally
+        self_merge = self.merge_windows(current_windows, current_windows)
+        while self_merge != current_windows:
+            current_windows = self_merge
             self_merge = self.merge_windows(current_windows, current_windows)
-            while self_merge != current_windows:
-                current_windows = self_merge
-                self_merge = self.merge_windows(current_windows, current_windows)
-            setattr(current, "windows", current_windows)
+        current.windows = current_windows
         return current.model_validate(current)
 
 
