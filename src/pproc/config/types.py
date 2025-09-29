@@ -174,7 +174,7 @@ class AccumConfig(BaseConfig):
 
     @classmethod
     def _populate_accumulations(cls, inputs: list[dict], base_accum: dict) -> dict:
-        accums = super()._populate_accumulations([req], base_accum)
+        accums = super()._populate_accumulations(inputs, base_accum)
         # Allow batching levels
         accums.pop("levelist", None)
         return accums
@@ -201,7 +201,7 @@ class AccumConfig(BaseConfig):
         return 1
 
 
-class MonthlyStatsConfig(BaseConfig):
+class MonthlyStatsConfig(AccumConfig):
     parallelisation: Parallelisation = Parallelisation()
     outputs: io.MonthlyStatsOutputModel = io.MonthlyStatsOutputModel()
     parameters: list[AccumParamConfig]
