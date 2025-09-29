@@ -96,10 +96,10 @@ def translate_window_config(
 def _iter_legacy_windows(
     windows: list,
     grib_keys: dict,
-    prefix: str = "",
 ) -> Iterator[Tuple[str, dict]]:
     for window_index, window_config in enumerate(windows):
         window_config = window_config.copy()
+        prefix = "STDANOM_" if window_config.get("std_anomaly", False) else ""
         for coord in window_config.pop("coords"):
             coord_config = window_config.copy()
             acc_grib_keys = grib_keys.copy()
@@ -113,6 +113,3 @@ def _iter_legacy_windows(
 
 def legacy_window_factory(config: dict, grib_keys: dict) -> Iterator[Tuple[str, dict]]:
     yield from _iter_legacy_windows(config["windows"], grib_keys)
-    yield from _iter_legacy_windows(
-        config.get("std_anomaly_windows", []), grib_keys, prefix="std_"
-    )

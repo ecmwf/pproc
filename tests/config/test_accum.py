@@ -144,11 +144,10 @@ def test_legacy_merge(config1, config2, merged, expected):
                         "operation": "minimum",
                         "coords": [[0]],
                         "thresholds": [{"out_paramid": 1}],
-                    }
-                ],
-                "std_anomaly_windows": [
+                    },
                     {
                         "operation": "minimum",
+                        "std_anomaly": True,
                         "coords": [[0]],
                         "thresholds": [{"out_paramid": 2}],
                     },

@@ -232,10 +232,9 @@ def test_create_threshold(config, expected, exp_coords):
                             {"from": 336, "to": 360, "by": 12},
                         ],
                     },
-                ],
-                "std_anomaly_windows": [
                     {
                         "operation": "maximum",
+                        "std_anomaly": True,
                         "thresholds": [
                             {"comparison": ">", "value": 1},
                         ],
@@ -243,6 +242,7 @@ def test_create_threshold(config, expected, exp_coords):
                     },
                     {
                         "operation": "minimum",
+                        "std_anomaly": True,
                         "thresholds": [
                             {"comparison": "<", "value": -1.5},
                         ],
@@ -275,7 +275,7 @@ def test_create_threshold(config, expected, exp_coords):
                     for a, b in [(120, 240), (336, 360)]
                 },
                 **{
-                    f"step_std_{s}_{index}": (
+                    f"step_STDANOM_{s}_{index + 3}": (
                         SimpleAccumulation,
                         [{"comparison": cmp, "value": val}],
                     )

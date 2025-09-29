@@ -77,7 +77,7 @@ class ThresholdAccumulationManager(AccumulationManager):
         anomaly = data - clim_mean
         std_anomaly = anomaly / clim_std
         for identifier, accum in list(self.accumulations.items()):
-            if identifier.split("_")[0] == "std":
+            if "STDANOM" in identifier.split("_"):
                 processed = accum.feed(keys, std_anomaly)
             else:
                 processed = accum.feed(keys, anomaly)

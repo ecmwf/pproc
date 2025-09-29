@@ -53,9 +53,9 @@ parameters:
             value: 2
           metadata:
             bitsPerValue: 24
-        std_anomaly_windows:
         - coords: [[0], [12]]
           operation: maximum
+          std_anomaly: true 
           thresholds:
           - out_paramid: 133093
             comparison: '>'
@@ -75,6 +75,7 @@ parameters:
             scaledValueOfUpperLimit: MISSING
         - coords: [[0], [12]]
           operation: minimum
+          std_anomaly: true 
           thresholds:
           - out_paramid: 133096
             comparison: <

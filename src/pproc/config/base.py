@@ -331,14 +331,9 @@ class BaseConfig(ConfigModel):
             step_accum["coords"] = [steps]
 
             if step_accum.get("type") == "legacywindow":
-                window_list = (
-                    "std_anomaly_windows"
-                    if step_accum.get("std_anomaly")
-                    else "windows"
-                )
                 accums["step"] = {
                     "type": step_accum.pop("type"),
-                    window_list: [step_accum],
+                    "windows": [step_accum],
                 }
         return accums
 

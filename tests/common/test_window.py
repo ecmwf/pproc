@@ -794,10 +794,9 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                         ],
                         "metadata": {"bitsPerValue": 24},
                     },
-                ],
-                "std_anomaly_windows": [
                     {
                         "operation": "maximum",
+                        "std_anomaly": True,
                         "thresholds": [
                             {"comparison": ">", "value": 1},
                         ],
@@ -809,6 +808,7 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                     },
                     {
                         "operation": "minimum",
+                        "std_anomaly": True,
                         "thresholds": [
                             {"comparison": "<", "value": -1.5},
                         ],
@@ -872,8 +872,9 @@ def test_grib_header(steps, operation, extra_keys, grib_key_values):
                     ]
                 },
                 **{
-                    f"std_{s}_{index}": {
+                    f"STDANOM_{s}_{index + 3}": {
                         "operation": op,
+                        "std_anomaly": True,
                         "coords": [s],
                         "sequential": True,
                         "thresholds": [{"comparison": cmp, "value": val}],
