@@ -131,7 +131,7 @@ class LegacyWindowConfig(BaseModel):
 
 
 def _to_date(
-    arg: Union[str, Tuple[int, int, int], datetime.date, datetime.datetime]
+    arg: Union[str, Tuple[int, int, int], datetime.date, datetime.datetime],
 ) -> datetime.date:
     if isinstance(arg, datetime.datetime):
         return arg.date()
@@ -351,8 +351,8 @@ class LegacyStepAccumulation(BaseModel):
         return coords
 
     def out_mars(self, dim: str) -> list[dict]:
-        out_accum = [window.out_mars(dim) for window in self.windows] 
-        if std_anomaly_windows is not None:
+        out_accum = [window.out_mars(dim) for window in self.windows]
+        if self.std_anomaly_windows is not None:
             out_accum += [window.out_mars(dim) for window in self.std_anomaly_windows]
         return out_accum
 
