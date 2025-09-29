@@ -1,6 +1,6 @@
 import pytest
 
-from pproc.config.accumulation import LegacyWindowConfig
+from pproc.config.accumulation import LegacyWindowConfig, LegacyStepAccumulation
 
 
 @pytest.mark.parametrize(
@@ -67,3 +67,107 @@ def test_legacy_merge(config1, config2, merged, expected):
     assert accum1.merge(accum2) == merged
     if merged:
         assert accum1 == LegacyWindowConfig(**expected)
+
+
+@pytest.mark.parametrize(
+    "config, expected",
+    [
+        [
+            {
+                "windows": [
+                    {
+                        "operation": "minimum",
+                        "coords": [[0]],
+                        "thresholds": [{"out_paramid": 1}],
+                    }
+                ]
+            },
+            [{"param": [1], "step": [0]}],
+        ],
+        [
+            {
+                "windows": [
+                    {
+                        "operation": "minimum",
+                        "coords": [[0, 6]],
+                        "thresholds": [{"out_paramid": 1}],
+                    }
+                ]
+            },
+            [{"param": [1], "step": ["0-6"]}],
+        ],
+        [
+            {
+                "windows": [
+                    {
+                        "operation": "minimum",
+                        "coords": [[0]],
+                        "thresholds": [{"out_paramid": 1}],
+                    },
+                    {
+                        "operation": "minimum",
+                        "coords": [[6]],
+                        "thresholds": [{"out_paramid": 1}],
+                    },
+                ]
+            },
+            [{"param": [1], "step": [0]}, {"param": [1], "step": [6]}],
+        ],
+        [
+            {
+                "windows": [
+                    {
+                        "operation": "minimum",
+                        "coords": [[0], [6]],
+                        "thresholds": [{"out_paramid": 1}],
+                    },
+                ]
+            },
+            [{"param": [1], "step": [0, 6]}],
+        ],
+        [
+            {
+                "windows": [
+                    {
+                        "operation": "minimum",
+                        "coords": [[0]],
+                        "thresholds": [{"out_paramid": 1}, {"out_paramid": 2}],
+                    }
+                ]
+            },
+            [{"param": [1, 2], "step": [0]}],
+        ],
+        [
+            {
+                "windows": [
+                    {
+                        "operation": "minimum",
+                        "coords": [[0]],
+                        "thresholds": [{"out_paramid": 1}],
+                    }
+                ],
+                "std_anomaly_windows": [
+                    {
+                        "operation": "minimum",
+                        "coords": [[0]],
+                        "thresholds": [{"out_paramid": 2}],
+                    },
+                    {
+                        "operation": "minimum",
+                        "coords": [[6]],
+                        "thresholds": [{"out_paramid": 2}],
+                    },
+                ],
+            },
+            [
+                {"param": [1], "step": [0]},
+                {"param": [2], "step": [0]},
+                {"param": [2], "step": [6]},
+            ],
+        ],
+    ],
+    ids=["simple", "range", "windows", "multi-step", "multi-threshold", "anomaly"],
+)
+def test_legacy_out_mars(config, expected):
+    config = LegacyStepAccumulation(**config)
+    assert config.out_mars(dim="step") == expected
