@@ -351,7 +351,10 @@ class LegacyStepAccumulation(BaseModel):
         return coords
 
     def out_mars(self, dim: str) -> list[dict]:
-        return [window.out_mars(dim) for window in self.windows]
+        out_accum = [window.out_mars(dim) for window in self.windows] 
+        if std_anomaly_windows is not None:
+            out_accum += [window.out_mars(dim) for window in self.std_anomaly_windows]
+        return out_accum
 
     @classmethod
     def merge_windows(
