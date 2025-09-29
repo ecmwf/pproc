@@ -55,25 +55,13 @@ def default_config(name: str, param: str):
                     "fc": {
                         "request": [
                             {
-                                "class": "od",
-                                "stream": "enfo",
-                                "expver": "0001",
-                                "levtype": "pl",
-                                "domain": "g",
+                                **DEFAULT_REQUEST,
                                 "param": param,
-                                "date": "20241001",
-                                "time": "0000",
                                 "type": "cf",
                             },
                             {
-                                "class": "od",
-                                "stream": "enfo",
-                                "expver": "0001",
-                                "levtype": "pl",
-                                "domain": "g",
+                                **DEFAULT_REQUEST,
                                 "param": param,
-                                "date": "20241001",
-                                "time": "0000",
                                 "type": "pf",
                                 "number": list(range(1, 51)),
                             },
@@ -96,8 +84,24 @@ TEST_CASES = {
             "parameters": {
                 "130_pl": {
                     "dtype": "float64",
+                    "inputs": {
+                        "fc": {
+                            "request": [
+                                {
+                                    **DEFAULT_REQUEST,
+                                    "type": "cf",
+                                    "levelist": [250, 500],
+                                },
+                                {
+                                    **DEFAULT_REQUEST,
+                                    "type": "pf",
+                                    "number": list(range(1, 51)),
+                                    "levelist": [250, 500],
+                                },
+                            ],
+                        }
+                    },
                     "accumulations": {
-                        "levelist": {"coords": [[250], [500]]},
                         "step": {
                             "type": "legacywindow",
                             "windows": [
@@ -271,19 +275,24 @@ TEST_CASES = {
                     "inputs": {
                         "fc": {
                             "request": [
-                                {**DEFAULT_REQUEST, "expver": "9998", "type": "cf"},
+                                {
+                                    **DEFAULT_REQUEST,
+                                    "expver": "9998",
+                                    "type": "cf",
+                                    "levelist": [250, 500],
+                                },
                                 {
                                     **DEFAULT_REQUEST,
                                     "expver": "9998",
                                     "type": "pf",
                                     "number": list(range(1, 51)),
+                                    "levelist": [250, 500],
                                 },
                             ]
                         }
                     },
                     "dtype": "float64",
                     "accumulations": {
-                        "levelist": {"coords": [[250], [500]]},
                         "step": {
                             "type": "legacywindow",
                             "windows": [
