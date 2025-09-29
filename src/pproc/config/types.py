@@ -172,6 +172,13 @@ class AccumConfig(BaseConfig):
         self._append_number(param, req)
         return req
 
+    @classmethod
+    def _populate_accumulations(cls, inputs: list[dict], base_accum: dict) -> dict:
+        accums = super()._populate_accumulations([req], base_accum)
+        # Allow batching levels
+        accums.pop("levelist", None)
+        return accums
+
     def _merge_parameters(self, other: Self = None) -> list[AccumParamConfig]:
         merged_params = [self.parameters[0]]
         other_params = self.parameters[1:]
