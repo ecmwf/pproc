@@ -131,7 +131,7 @@ class LegacyWindowConfig(BaseModel):
 
 
 def _to_date(
-    arg: Union[str, Tuple[int, int, int], datetime.date, datetime.datetime]
+    arg: Union[str, Tuple[int, int, int], datetime.date, datetime.datetime],
 ) -> datetime.date:
     if isinstance(arg, datetime.datetime):
         return arg.date()
@@ -333,7 +333,6 @@ class DateSeqAccumulation(BaseAccumulation):
 class LegacyStepAccumulation(BaseModel):
     type_: Literal["legacywindow"] = Field("legacywindow", alias="type")
     windows: list[LegacyWindowConfig] = []
-    std_anomaly_windows: Optional[list[LegacyWindowConfig]] = None
 
     def make_configs(self, metadata: dict) -> Iterator[Tuple[str, dict]]:
         return legacy_window_factory(
@@ -343,7 +342,7 @@ class LegacyStepAccumulation(BaseModel):
 
     def unique_coords(self):
         coords = set()
-        for window in self.windows + (self.std_anomaly_windows or []):
+        for window in self.windows:
             coords.update(window.unique_coords())
 
         coords = list(coords)
@@ -379,21 +378,13 @@ class LegacyStepAccumulation(BaseModel):
             raise ValueError("Merge only possible with other LegacyStepAccumulation")
         current = self.model_copy(deep=True)
 
-        for wtype in ["windows", "std_anomaly_windows"]:
-            current_windows = getattr(current, wtype, None)
-            other_windows = getattr(other, wtype, None)
-            if current_windows is None:
-                if other_windows is not None:
-                    setattr(current, wtype, other_windows)
-                continue
-
-            current_windows = self.merge_windows(current_windows, other_windows)
-            # Recursively merge windows internally
+        current_windows = self.merge_windows(current.windows, other.windows)
+        # Recursively merge windows internally
+        self_merge = self.merge_windows(current_windows, current_windows)
+        while self_merge != current_windows:
+            current_windows = self_merge
             self_merge = self.merge_windows(current_windows, current_windows)
-            while self_merge != current_windows:
-                current_windows = self_merge
-                self_merge = self.merge_windows(current_windows, current_windows)
-            setattr(current, wtype, current_windows)
+        current.windows = current_windows
         return current.model_validate(current)
 
 

@@ -472,20 +472,25 @@ def test_redundant_inputs(inputs, template, num_outputs):
     )
     assert len(generated) == num_outputs
 
-@pytest.mark.parametrize("number, updates", [
-    [0, {"type": "cf"}], 
-    [[0, 1], [{"type": "cf"}, {"type": "pf", "number": [1]}]], 
-    [1, {"type": "pf", "number": [1]}],
-], ids=["cf", "cf-and-pf", "pf"])
+
+@pytest.mark.parametrize(
+    "number, updates",
+    [
+        [0, {"type": "cf"}],
+        [[0, 1], [{"type": "cf"}, {"type": "pf", "number": [1]}]],
+        [1, {"type": "pf", "number": [1]}],
+    ],
+    ids=["cf", "cf-and-pf", "pf"],
+)
 def test_fcstat_inputs(number, updates):
     input_schema = InputSchema(schema("inputs"))
     step_schema = StepSchema(schema("windows"))
     output = {
-        "stream": "eefo", 
+        "stream": "eefo",
         "type": "fcmean",
-        "number": number, 
-        "param": "167", 
-        "step": "0-168", 
+        "number": number,
+        "param": "167",
+        "step": "0-168",
         "time": "0000",
     }
     inputs = input_schema.inputs(output, step_schema)
