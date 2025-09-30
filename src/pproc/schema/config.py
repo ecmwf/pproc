@@ -46,8 +46,7 @@ class ConfigSchema(BaseSchema):
 
         out_vals = output_request.copy()
         date = str(output_request["date"])
-        out_vals.update
-        (
+        out_vals.update(
             {
                 "year": date[0:4],
                 "month": date[4:6],
@@ -55,7 +54,7 @@ class ConfigSchema(BaseSchema):
             }
         )
         config = dict_apply(
-            config,
             lambda v: fill_template_value(v, out_vals) if isinstance(v, str) else v,
+            config,
         )
         return config
