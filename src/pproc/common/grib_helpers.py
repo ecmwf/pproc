@@ -53,19 +53,20 @@ _TYPES = {
 }
 
 
+def fill_template_value(val: str, template_map: dict):
+    m = _TEMPLATE_RE.fullmatch(val)
+    if m is None:
+        return val
+    value, tp = m.groups()
+    if value not in template_map:
+        return val
+
+    return template_map[value] if len(tp) == 0 else _TYPES[tp](template_map[value])
+
+
 def fill_template_values(metadata: dict, template_map: dict) -> dict:
-    updates = {}
+    metadata = metadata.copy()
     for key, val in metadata.items():
         if isinstance(val, str):
-            m = _TEMPLATE_RE.fullmatch(val)
-            if m is None:
-                continue
-            value, tp = m.groups()
-            if value not in template_map:
-                continue
-
-            updates[key] = (
-                template_map[value] if len(tp) == 0 else _TYPES[tp](template_map[value])
-            )
-    metadata.update(updates)
+            metadata[key] = fill_template_value(val, template_map)
     return metadata

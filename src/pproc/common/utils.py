@@ -9,12 +9,13 @@
 
 import collections
 import itertools
-from typing import Callable, Dict, Iterable, Iterator, TypeVar
+from typing import Callable, Dict, Iterable, Iterator, TypeVar, TypeAlias
 
 K = TypeVar("K")
 T = TypeVar("T")
 U = TypeVar("U")
 V = TypeVar("V")
+NestedDict: TypeAlias = Dict[K, V | "NestedDict"]
 
 
 def dict_product(dic: Dict[K, Iterable[V]]) -> Iterator[Dict[K, V]]:
@@ -33,3 +34,13 @@ def delayed_map(delay: int, func: Callable[[T], U], it: Iterable[T]) -> Iterator
         x = next(it, sentinel)
         if x is not sentinel:
             queue.append(func(x))
+
+
+def dict_apply(func: Callable[[V], V], dic: NestedDict) -> NestedDict:
+    modified_dic = dic.copy()
+    for k, v in modified_dic.items():
+        if isinstance(v, dict):
+            modified_dic[k] = dict_apply(func, v)
+        else:
+            modified_dic[k] = func(v)
+    return modified_dic

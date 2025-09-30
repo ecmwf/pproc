@@ -11,7 +11,8 @@ import numpy as np
 
 from pproc.schema.base import BaseSchema, dict_update
 from pproc.schema.filters import _steplength, _selection, _steptype
-from pproc.common.grib_helpers import fill_template_values
+from pproc.common.grib_helpers import fill_template_value
+from pproc.common.utils import dict_apply
 
 
 class ConfigSchema(BaseSchema):
@@ -52,5 +53,8 @@ class ConfigSchema(BaseSchema):
                 "day": date[6:8],
             }
         )
-        config["metadata"] = fill_template_values(config.get("metadata", {}), out_vals)
+        config = dict_apply(
+            lambda v: fill_template_value(v, out_vals) if isinstance(v, str) else v,
+            config,
+        )
         return config
