@@ -153,12 +153,13 @@ class FileSetTarget(Target):
 
 class FDBTarget(Target):
     type_: Literal["fdb"] = Field("fdb", alias="type")
+    config: Optional[str] = None
     _fdb: Optional[pyfdb.FDB] = None
 
     @property
     def fdb(self):
         if self._fdb is None:
-            self._fdb = pyfdb.FDB()
+            self._fdb = pyfdb.FDB(config=self.config)
         return self._fdb
 
     def write(self, message):
