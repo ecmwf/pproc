@@ -523,10 +523,19 @@ class ProbConfig(BaseConfig):
                 if not param.clim:
                     param.clim = ParamConfig(
                         **param.model_dump(
-                            exclude=("preprocessing", "accumulations", "metadata"),
+                            exclude=(
+                                "preprocessing",
+                                "accumulations",
+                                "metadata",
+                                "total_fields",
+                            ),
                             by_alias=True,
                         ),
                         accumulations={},
+                        total_fields=0,
+                    )
+                    param.clim.total_fields = param.compute_totalfields(
+                        self.inputs, "clim"
                     )
         return self
 
