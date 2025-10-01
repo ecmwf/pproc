@@ -18,7 +18,8 @@ def construct_message(template_grib, metadata: dict):
     arr_grib_keys = {
         key: value for key, value in metadata.items() if np.ndim(value) > 0
     }
-    for arr_key in arr_grib_keys.keys():
+    missing = [key for key, value in metadata.items() if value == "MISSING"]
+    for arr_key in missing + list(arr_grib_keys.keys()):
         key_values.pop(arr_key)
 
     template_edition = out_grib.get("edition")
@@ -40,6 +41,8 @@ def construct_message(template_grib, metadata: dict):
     else:
         out_grib.set(key_values, check_values=True)
 
+    for key in missing:
+        out_grib.set_missing(key)
     for key, value in arr_grib_keys.items():
         out_grib.set_array(key, value)
     return out_grib

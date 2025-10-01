@@ -126,7 +126,7 @@ def signi_iteration(
             param.clim,
             config.inputs,
             "clim",
-            config.clim_total_fields,
+            param.clim.total_fields,
             step=steprange,
         )
         clim = clim_accum.values
@@ -191,7 +191,7 @@ def main():
             requester = ParamRequester(
                 param,
                 cfg.inputs,
-                cfg.total_fields,
+                param.total_fields,
                 "fc",
             )
             signi_partial = functools.partial(signi_iteration, cfg, param, recovery)

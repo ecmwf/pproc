@@ -10,6 +10,7 @@
 import pytest
 
 from pproc.config.param import ParamConfig
+from pproc.config.io import BaseInputModel
 
 base_config = {
     "name": "2t",
@@ -87,3 +88,32 @@ def test_merge(config2, merged):
             param1.merge(param2)
     else:
         assert param1.merge(param2) == ParamConfig(**merged)
+
+
+@pytest.mark.parametrize(
+    "config, expected",
+    [
+        [{"inputs": {"fc": {"request": {"levelist": [1, 2]}}}}, 2],
+        [
+            {
+                "inputs": {
+                    "fc": {
+                        "request": {
+                            "levelist": [1, 2],
+                            "param": [138, 155],
+                            "interpolate": {"vod2uv": True},
+                        }
+                    }
+                }
+            },
+            4,
+        ],
+        [{"inputs": {"fc": {"request": {"levelist": [1, 2]}}}, "total_fields": 5}, 5],
+    ],
+    ids=["derived", "wind", "specified"],
+)
+def test_totalfields(config, expected):
+    param = ParamConfig(**{**base_config, **config})
+    inputs = BaseInputModel(fc={"source": {"type": "fdb"}})
+    param.validate_totalfields(inputs)
+    assert param.total_fields == expected

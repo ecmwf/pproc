@@ -100,7 +100,7 @@ class ParamRequester:
         if self.src_name is None:
             assert len(inputs.names) == 1, "Multiple inputs, must specify src_name"
             self.src_name = inputs.names[0]
-        self.total = total * param.total_fields
+        self.total = total
         self.index_func = index_func
 
     def retrieve_data(self, **kwargs) -> Tuple[List[GribMetadata], np.ndarray]:

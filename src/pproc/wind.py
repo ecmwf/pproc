@@ -63,13 +63,10 @@ def wind_iteration(
         param,
         config.inputs,
         src_name="fc",
-        total=config.total_fields,
+        total=param.total_fields,
     )
     metadata, ens = requester.retrieve_data(**dims)
     template = metadata[0]
-    assert (
-        ens.shape[0] == config.total_fields
-    ), f"Expected {config.total_fields}, got {ens.shape[0]}"
     with ResourceMeter(f"Param {param.name}, {dims}"):
         if not isinstance(config.outputs.ws.target, NullTarget):
             for number in range(ens.shape[0]):

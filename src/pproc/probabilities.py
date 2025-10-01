@@ -51,7 +51,7 @@ def main():
             accum_manager.delete(checkpointed_windows)
 
             requesters = [
-                ParamRequester(param, cfg.inputs, cfg.total_fields, "fc"),
+                ParamRequester(param, cfg.inputs, param.total_fields, "fc"),
                 create_clim(
                     param.clim,
                     cfg.inputs,

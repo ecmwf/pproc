@@ -44,13 +44,13 @@ DEFAULT_REQUEST = {
 
 def default_config(name: str, param: str):
     return {
-        "total_fields": 51,
         "inputs": {"fc": {"source": {"type": "fdb"}}},
         "outputs": {
             "default": {"target": {"type": "fdb"}},
         },
         "parameters": {
             name: {
+                "total_fields": 51,
                 "inputs": {
                     "fc": {
                         "request": [
@@ -83,6 +83,7 @@ TEST_CASES = {
             },
             "parameters": {
                 "130_pl": {
+                    "total_fields": 102,
                     "dtype": "float64",
                     "inputs": {
                         "fc": {
@@ -156,9 +157,9 @@ TEST_CASES = {
                 "mean": {"metadata": {"type": "em"}, "target": {"type": "fdb"}},
                 "std": {"metadata": {"type": "es"}, "target": {"type": "null"}},
             },
-            "total_fields": 51,
             "parameters": {
                 "130_pl": {
+                    "total_fields": 51,
                     "dtype": "float64",
                     "metadata": {
                         "bitsPerValue": 16,
@@ -180,9 +181,9 @@ TEST_CASES = {
             "outputs": {
                 "stats": {"target": {"type": "fdb"}},
             },
-            "total_fields": 51,
             "parameters": {
                 "228_sfc": {
+                    "total_fields": 51,
                     "dtype": "float64",
                     "preprocessing": [
                         {
@@ -272,6 +273,7 @@ TEST_CASES = {
             "parallelisation": {"n_par_compute": 2},
             "parameters": {
                 "130_pl": {
+                    "total_fields": 102,
                     "inputs": {
                         "fc": {
                             "request": [

@@ -173,9 +173,11 @@ def mir_wind_input(fdb_reader, request, cached_file=None):
         cached_file = (
             "_".join(
                 [
-                    f"{key}{len(value)}"
-                    if isinstance(value, (list, range))
-                    else f"{key}{value}"
+                    (
+                        f"{key}{len(value)}"
+                        if isinstance(value, (list, range))
+                        else f"{key}{value}"
+                    )
                     for key, value in request.items()
                 ]
             )
@@ -354,7 +356,7 @@ def write_grib(target, template, data, metadata: dict, missing=None):
     out_keys.update(metadata)
     bits_per_value = out_keys.pop("bitsPerValue")
     message = construct_message(template, out_keys)
-    
+
     data = nan_to_missing(message, data, missing)
     message.set("bitsPerValue", bits_per_value)
     message.set_array("values", data)
@@ -416,7 +418,7 @@ class GribMetadata(eccodes.Message):
                     self.extra[key] = args[0][key]
         elif args[0] in self.extra:
             self.extra[args[0]] = args[1]
-        
+
     def copy(self) -> Self:
         """Create a copy of the current message"""
         clone = self.__class__(eccodes.codes_clone(self._handle))

@@ -1,4 +1,3 @@
-total_fields: 6
 parallelisation:
   n_par_compute: 2
   n_par_read: 2

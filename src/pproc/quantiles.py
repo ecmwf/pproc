@@ -116,7 +116,7 @@ def main():
             requester = ParamRequester(
                 param,
                 cfg.inputs,
-                cfg.total_fields,
+                param.total_fields,
             )
             quantiles_partial = functools.partial(
                 quantiles_iteration, cfg, param, recovery

@@ -107,7 +107,7 @@ class AccumParamConfig(ParamConfig):
     vmax: Optional[float] = None
     out_accum_key: str = "perturbationNumber"
     out_accum_values: Optional[list[float]] = None
-    _merge_exclude = ("name", "inputs", "accumulations")
+    _merge_exclude = ("name", "inputs", "accumulations", "total_fields")
 
     def _merge_inputs(self, other: Self) -> dict:
         if self.inputs == other.inputs:
@@ -127,6 +127,9 @@ class AccumParamConfig(ParamConfig):
 
     def _merge_name(self, other: Self) -> str:
         return self.name
+
+    def _merge_total_fields(self, other: Self) -> int:
+        return 0
 
     def can_merge(self, other: Self) -> bool:
         if self.accumulations == other.accumulations:
@@ -153,7 +156,7 @@ class AccumConfig(BaseConfig):
     parallelisation: Parallelisation = Parallelisation()
     outputs: io.AccumOutputModel = io.AccumOutputModel()
     parameters: list[AccumParamConfig]
-    _merge_exclude = ("total_fields", "parameters")
+    _merge_exclude = ("parameters",)
 
     def finalise(self):
         # Continue merging until parameters can not be merged anymore
@@ -161,7 +164,6 @@ class AccumConfig(BaseConfig):
         while new_params != self.parameters:
             self.parameters = new_params
             new_params = self._merge_parameters()
-        self.total_fields = 0
         super().finalise()
 
     def _format_out(self, param: AccumParamConfig, req: dict) -> dict:
@@ -194,11 +196,6 @@ class AccumConfig(BaseConfig):
             if not merged:
                 merged_params.append(in_param)
         return merged_params
-
-    def _merge_total_fields(self, other: Self) -> int:
-        # Temporarily set to 1 to avoid validation failure, will be set properly
-        # when finalise is called
-        return 1
 
 
 class MonthlyStatsConfig(AccumConfig):
@@ -255,6 +252,11 @@ class ClimParamConfig(ParamConfig):
             clim_options = {**data, **clim}
             _set(data, "clim", ParamConfig(**clim_options))
         return data
+
+    def validate_totalfields(self, inputs: io.InputsCollection):
+        super().validate_totalfields(inputs)
+        if self.clim.total_fields == 0:
+            self.clim.total_fields = self.compute_totalfields(inputs, "clim")
 
     def in_keys(
         self, inputs: io.InputsCollection, filters: Optional[list[str]] = None
@@ -356,7 +358,6 @@ class SigniParamConfig(ClimParamConfig):
 
 
 class SigniConfig(BaseConfig):
-    clim_total_fields: Annotated[int, Field(validate_default=True)] = 0
     parallelisation: Parallelisation = Parallelisation()
     inputs: io.SignificanceInputModel
     outputs: io.SignificanceOutputModel = io.SignificanceOutputModel()
@@ -375,13 +376,6 @@ class SigniConfig(BaseConfig):
                 "use_clim_anomaly", schema_config.pop("use_clim_anomaly")
             )
         return super().from_schema(schema_config, **overrides)
-
-    @model_validator(mode="after")
-    def validate_totalfields(self) -> Self:
-        super().validate_totalfields()
-        if self.clim_total_fields == 0:
-            self.clim_total_fields = self.compute_totalfields("clim")
-        return self
 
     @classmethod
     def sort_inputs(cls, inputs: list[dict]) -> dict:
@@ -493,6 +487,12 @@ class ProbParamConfig(ClimParamConfig):
             }
             _set(data, "clim", ParamConfig(**clim_options))
         return data
+
+    def validate_totalfields(self, inputs: io.InputsCollection):
+        if self.total_fields == 0:
+            self.total_fields = self.compute_totalfields(inputs)
+        if self.clim is not None and self.clim.total_fields == 0:
+            self.clim.total_fields = self.compute_totalfields(inputs, "clim")
 
     def _merge_clim(self, other: Self) -> None:
         return None
@@ -953,6 +953,12 @@ class ECPointParamConfig(ParamConfig):
             new_deps[name] = config.merge(other.dependencies[name])
         return new_deps
 
+    def validate_totalfields(self, inputs: io.InputsCollection):
+        for input_config in [self] + list(self.dependencies.keys()):
+            if isinstance(input_config, str):
+                input_config = param.dependencies[input_config]
+            input_config.validate_totalfields(inputs)
+
 
 class ECPointParallelisation(BaseModel):
     n_par_read: int = 1
@@ -961,7 +967,6 @@ class ECPointParallelisation(BaseModel):
 
 
 class ECPointConfig(QuantilesConfig):
-    total_fields: int = 1
     parallelisation: ECPointParallelisation = ECPointParallelisation()
     outputs: io.ECPointOutputModel = io.ECPointOutputModel()
     parameters: list[ECPointParamConfig]
@@ -990,32 +995,6 @@ class ECPointConfig(QuantilesConfig):
             if var in schema_config:
                 overrides.setdefault(var, schema_config.pop(var))
         return super().from_schema(schema_config, **overrides)
-
-    @model_validator(mode="after")
-    def check_totalfields(self) -> Self:
-        for param in self.parameters:
-            for input_config in [param] + list(param.dependencies.keys()):
-                if isinstance(input_config, str):
-                    input_config = param.dependencies[input_config]
-                total_fields = 0
-                inputs = input_config.input_list(self.inputs, self.inputs.names[0])
-                reqs = inputs[0].request
-                if isinstance(reqs, dict):
-                    reqs = [reqs]
-                for req in reqs:
-                    if len(req) == 0:
-                        continue
-                    if isinstance(req.get("number", None), list):
-                        total_fields += len(req["number"])
-                    else:
-                        total_fields += 1
-                assert total_fields != 0, ValueError(
-                    "Could not derived total_fields from requests."
-                )
-                total_fields *= int(input_config.vod2uv) + 1
-                if input_config.total_fields != total_fields:
-                    input_config.total_fields = total_fields
-        return self
 
     @classmethod
     def _populate_param(

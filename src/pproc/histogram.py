@@ -206,7 +206,7 @@ def main():
             ]
             accum_manager.delete(checkpointed_windows)
 
-            requester = HistParamRequester(param, cfg.inputs, cfg.total_fields)
+            requester = HistParamRequester(param, cfg.inputs, param.total_fields)
             write_partial = functools.partial(
                 write_iteration, param, cfg.outputs.histogram.target, recovery
             )

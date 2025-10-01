@@ -40,7 +40,7 @@ class ParamConfig(BaseModel):
     accumulations: dict[str, AccumulationConfig] = Field(default_factory=dict)
     dtype_: str = Field(alias="dtype", default="float32")
     metadata: Dict[str, Any] = {}
-    total_fields: int = 1
+    total_fields: int = 0
     vod2uv: bool = False
     _merge_exclude: tuple[str] = ("accumulations",)
 
@@ -55,9 +55,37 @@ class ParamConfig(BaseModel):
                 if req_vod2uv or self.vod2uv:
                     self.vod2uv = True
                     req.setdefault("interpolate", {})["vod2uv"] = True
-        if self.vod2uv:
-            self.total_fields = 2
         return self
+
+    def compute_totalfields(
+        self, inputs: InputsCollection, src_name: str = None, keys: list[str] = None
+    ) -> int:
+        if src_name is None:
+            src_name = inputs.names[0]
+        inputs = self.input_list(inputs, src_name)
+        reqs = inputs[0].request
+        if isinstance(reqs, dict):
+            reqs = [reqs]
+
+        total_fields = 0
+        for req in reqs:
+            if len(req) == 0:
+                continue
+            fields = 1
+            for key, value in req.items():
+                if key == "param" and not self.vod2uv:
+                    continue
+                if keys is None or key in keys:
+                    fields *= np.size(value)
+            total_fields += fields
+        return total_fields
+
+    def compute_members(self, inputs: InputsCollection) -> int:
+        return self.compute_totalfields(inputs, keys=["number"])
+
+    def validate_totalfields(self, inputs: InputsCollection):
+        if self.total_fields == 0:
+            self.total_fields = self.compute_totalfields(inputs)
 
     @property
     def dtype(self) -> type[Any]:

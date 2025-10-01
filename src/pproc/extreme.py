@@ -128,7 +128,7 @@ def main():
             accum_manager.delete(checkpointed_windows)
 
             indices_partial = functools.partial(compute_indices, cfg, param, recovery)
-            requester = ParamRequester(param, cfg.inputs, cfg.total_fields, "fc")
+            requester = ParamRequester(param, cfg.inputs, param.total_fields, "fc")
             for keys, retrieved_data in parallel_data_retrieval(
                 cfg.parallelisation.n_par_read,
                 accum_manager.dims,
