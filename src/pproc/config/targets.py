@@ -11,6 +11,7 @@ import multiprocessing
 import os
 from typing import Any, Literal, Optional, Union
 from typing_extensions import Self
+import yaml
 
 import eccodes
 import pyfdb
@@ -159,7 +160,11 @@ class FDBTarget(Target):
     @property
     def fdb(self):
         if self._fdb is None:
-            self._fdb = pyfdb.FDB(config=self.config)
+            fdb_config = None
+            if self.config is not None:
+                with open(self.config, "r") as conf_file:
+                    fdb_config = yaml.safe_load(conf_file)
+            self._fdb = pyfdb.FDB(config=fdb_config)
         return self._fdb
 
     def write(self, message):
