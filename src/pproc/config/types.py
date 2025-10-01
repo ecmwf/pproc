@@ -963,9 +963,8 @@ class ECPointParamConfig(ParamConfig):
         return new_deps
 
     def validate_totalfields(self, inputs: io.InputsCollection):
-        for input_config in [self] + list(self.dependencies.keys()):
-            if isinstance(input_config, str):
-                input_config = param.dependencies[input_config]
+        super().validate_totalfields(inputs)
+        for input_config in self.dependencies.values():
             input_config.validate_totalfields(inputs)
 
 
