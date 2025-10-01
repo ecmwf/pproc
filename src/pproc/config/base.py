@@ -276,7 +276,7 @@ class BaseConfig(ConfigModel):
         # Most entrypoints don't handle array with level dimension, so put this into accumulations to
         # separate different levels
         accums = {}
-        if np.size(req.get("levelist", [])) > 0:
+        if np.size(req.get("levelist", [])) > 1:
             accums["levelist"] = {}
         accums.update(base_accum)
 
