@@ -356,6 +356,11 @@ class SigniParamConfig(ClimParamConfig):
             _set(data, "clim_em", ParamConfig(**clim_options))
         return data
 
+    def validate_totalfields(self, inputs: io.InputsCollection):
+        super().validate_totalfields(inputs)
+        if self.clim_em.total_fields == 0:
+            self.clim_em.total_fields = self.compute_totalfields(inputs, "clim_em")
+
 
 class SigniConfig(BaseConfig):
     parallelisation: Parallelisation = Parallelisation()
