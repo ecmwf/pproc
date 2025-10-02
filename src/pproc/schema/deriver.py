@@ -179,12 +179,16 @@ class ClimDateDeriver(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     option: str
+    sequence: Optional[str] = None
 
     def derive(self, fc_request: dict, scheme: str) -> str | list[str]:
         date = datetime.datetime.strptime(str(fc_request["date"]), "%Y%m%d")
-        clim_seq = Sequence.from_resource(scheme)
-        kwargs = self.model_dump(exclude={"option"})
-        clim_date = getattr(clim_seq, self.option)(date.date(), **kwargs)
+        if self.sequence is not None:
+            seq = Sequence.from_dict({"type": self.sequence})
+        else:
+            seq = Sequence.from_resource(scheme)
+        kwargs = self.model_dump(exclude={"option", "sequence"})
+        clim_date = getattr(seq, self.option)(date.date(), **kwargs)
         if isinstance(clim_date, datetime.date):
             return datetime.datetime.strftime(clim_date, "%Y%m%d")
         return [datetime.datetime.strftime(x, "%Y%m%d") for x in clim_date]
