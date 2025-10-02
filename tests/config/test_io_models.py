@@ -75,22 +75,34 @@ def test_inputs(tmpdir, config, cli, expected):
             },
             [],
             {
-                "default": {"target": {"type": "fdb"}, "metadata": {"class": "od"}},
-                "test": {"target": {"type": "fdb"}, "metadata": {"class": "od"}},
+                "default": {
+                    "target": {"type": "fdb", "config": None},
+                    "metadata": {"class": "od"},
+                },
+                "test": {
+                    "target": {"type": "fdb", "config": None},
+                    "metadata": {"class": "od"},
+                },
                 "overrides": {},
             },
             io.FDBTarget,
         ],
         [
             {
-                "default": {"target": {"type": "fdb"}, "metadata": {"class": "od"}},
+                "default": {
+                    "target": {"type": "fdb", "config": "/path/to/config"},
+                    "metadata": {"class": "od"},
+                },
                 "test": {"metadata": {"class": "ai", "type": "x"}},
             },
             [],
             {
-                "default": {"target": {"type": "fdb"}, "metadata": {"class": "od"}},
+                "default": {
+                    "target": {"type": "fdb", "config": "/path/to/config"},
+                    "metadata": {"class": "od"},
+                },
                 "test": {
-                    "target": {"type": "fdb"},
+                    "target": {"type": "fdb", "config": "/path/to/config"},
                     "metadata": {"class": "ai", "type": "x"},
                 },
                 "overrides": {},
@@ -151,9 +163,12 @@ def test_targets(tmpdir, config, cli, expected, target_type):
         [
             {"default": {"target": {"type": "fdb"}, "metadata": {"class": "od"}}},
             {
-                "default": {"target": {"type": "fdb"}, "metadata": {"class": "od"}},
+                "default": {
+                    "target": {"type": "fdb", "config": None},
+                    "metadata": {"class": "od"},
+                },
                 "test": {
-                    "target": {"type": "fdb"},
+                    "target": {"type": "fdb", "config": None},
                     "metadata": {"class": "od", "type": "fcmean"},
                 },
                 "overrides": {},
@@ -164,7 +179,7 @@ def test_targets(tmpdir, config, cli, expected, target_type):
             {
                 "default": {"target": {"type": "null"}, "metadata": {}},
                 "test": {
-                    "target": {"type": "fdb"},
+                    "target": {"type": "fdb", "config": None},
                     "metadata": {"class": "od", "type": "fcmean"},
                 },
                 "overrides": {},

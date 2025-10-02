@@ -116,7 +116,7 @@ def main():
             ]
             accum_manager.delete(checkpointed_windows)
 
-            requester = ParamRequester(param, cfg.inputs, cfg.total_fields, "fc")
+            requester = ParamRequester(param, cfg.inputs, param.total_fields, "fc")
             anom_partial = functools.partial(anomaly_iteration, cfg, param, recovery)
             for keys, data in parallel_data_retrieval(
                 cfg.parallelisation.n_par_read,

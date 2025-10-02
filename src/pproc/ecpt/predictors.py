@@ -9,7 +9,6 @@ from earthkit.data.readers.grib.metadata import StandAloneGribMetadata
 from earthkit.data.readers.grib.codes import GribCodesHandle
 
 from pproc.common.io import GribMetadata
-from pproc.common.param_requester import ParamRequester
 from pproc.config.param import ParamConfig
 from pproc.config.types import ECPointConfig
 from pproc.config.preprocessing import Expression

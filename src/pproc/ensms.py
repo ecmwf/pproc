@@ -114,7 +114,7 @@ def main():
             requester = ParamRequester(
                 param,
                 cfg.inputs,
-                cfg.total_fields,
+                param.total_fields,
             )
             iteration = functools.partial(ensms_iteration, cfg, param, recover)
             for keys, retrieved_data in parallel_data_retrieval(

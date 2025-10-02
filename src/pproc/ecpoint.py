@@ -366,7 +366,7 @@ def main():
                 param,
                 cfg.inputs,
                 steps=managers[-1].dims["step"],
-                total=cfg.total_fields,
+                total=param.total_fields,
             )
         ]
         dims = {k: set(val) for k, val in managers[0].dims.items()}
@@ -382,7 +382,7 @@ def main():
             if len(new_manager.dims) == 0:
                 # Static data, requiring no accumulation
                 requester = ParamRequester(
-                    input_param, cfg.inputs, total=cfg.total_fields
+                    input_param, cfg.inputs, total=input_param.total_fields
                 )
                 metadata, data = requester.retrieve_data()
                 static_data += earthkit.data.FieldList.from_array(
@@ -397,7 +397,7 @@ def main():
                     input_param,
                     cfg.inputs,
                     steps=new_manager.dims["step"],
-                    total=cfg.total_fields,
+                    total=input_param.total_fields,
                 )
                 managers.append(new_manager)
                 requesters.append(new_requester)

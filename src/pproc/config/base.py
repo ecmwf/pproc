@@ -65,7 +65,6 @@ class Recovery(ConfigModel):
 
 class BaseConfig(ConfigModel):
     log: LoggingConfig = LoggingConfig()
-    total_fields: Annotated[int, Field(validate_default=True)] = 0
     parallelisation: int | Parallelisation = 1
     recovery: Recovery = Recovery()
     inputs: io.BaseInputModel
@@ -94,35 +93,10 @@ class BaseConfig(ConfigModel):
         self._init = True
         return self
 
-    def compute_totalfields(self, src_name: str) -> int:
-        out = 0
-        for param in self.parameters:
-            total_fields = 0
-            inputs = param.input_list(self.inputs, src_name)
-            reqs = inputs[0].request
-            if isinstance(reqs, dict):
-                reqs = [reqs]
-            for req in reqs:
-                if len(req) == 0:
-                    continue
-                if isinstance(req.get("number", None), list):
-                    total_fields += len(req["number"])
-                else:
-                    total_fields += 1
-            if out == 0:
-                out = total_fields
-            elif out != total_fields:
-                raise ValueError(
-                    f"All parameters must request the same number of total fields. Expected {out}, got {total_fields}."
-                )
-        assert out != 0, ValueError("Could not derived total_fields from requests.")
-        return out
-
     @model_validator(mode="after")
     def validate_totalfields(self) -> Self:
-        if self.total_fields == 0 and len(self.parameters) > 0:
-            total_fields = self.compute_totalfields(self.inputs.names[0])
-            self.total_fields = total_fields
+        for param in self.parameters:
+            param.validate_totalfields(self.inputs)
         return self
 
     @field_validator("parameters", mode="before")
@@ -223,7 +197,7 @@ class BaseConfig(ConfigModel):
             src_reqs = [src_reqs]
 
         number = None
-        num_members = self.compute_totalfields(src_name)
+        num_members = param.compute_members(self.inputs)
         for src_req in src_reqs:
             if len(src_req) == 0:
                 continue
@@ -302,8 +276,8 @@ class BaseConfig(ConfigModel):
         # Most entrypoints don't handle array with level dimension, so put this into accumulations to
         # separate different levels
         accums = {}
-        if (levelist := req.get("levelist", None)) and np.ndim(req["levelist"]) > 0:
-            accums["levelist"] = {"coords": [[level] for level in levelist]}
+        if np.size(req.get("levelist", [])) > 1:
+            accums["levelist"] = {}
         accums.update(base_accum)
 
         # Populate coords in accumulations from inputs

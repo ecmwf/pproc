@@ -166,7 +166,7 @@ def test_recovery(config, overrides, checkpointing, from_checkpoint):
                 },
             },
         ],
-        [{**base_config, "total_fields": 10}, None],
+        [{**base_config, "parallelisation": {"n_par_read": 10}}, None],
         [base_config, base_config],
     ],
     ids=["compat_diff_params", "compat_diff_windows", "diff_base", "duplicate"],

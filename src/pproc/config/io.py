@@ -165,7 +165,10 @@ class Output(ConfigModel):
             type_, loc = split_location(data, default="file")
             config = {"type": type_}
             if loc:
-                config["path"] = loc
+                if type_ == "fdb":
+                    config["config"] = loc
+                else:
+                    config["path"] = loc
             return config
         return data
 
