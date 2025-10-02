@@ -488,6 +488,7 @@ class ProbParamConfig(ClimParamConfig):
                 "preprocessing": [],
                 "accumulations": {},
                 "metadata": {},
+                "total_fields": 0,
                 **clim,
             }
             _set(data, "clim", ParamConfig(**clim_options))
@@ -641,6 +642,7 @@ class ExtremeParamConfig(ClimParamConfig):
                 "preprocessing": [],
                 "accumulations": {},
                 "metadata": {},
+                "total_fields": 0,
                 **clim,
             }
             _set(data, "clim", ParamConfig(**clim_options))
