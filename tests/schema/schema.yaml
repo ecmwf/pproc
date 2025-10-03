@@ -3363,7 +3363,8 @@ inputs:
                 type: cd
               derive_date: 
                 - option: next
-                  sequence: daily
+                  sequence: 
+                    type: daily
                 - option: previous
                   strict: false
               derive_step: 

@@ -179,12 +179,12 @@ class ClimDateDeriver(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     option: str
-    sequence: Optional[str] = None
+    sequence: Optional[dict] = None
 
     def derive(self, fc_request: dict, scheme: str) -> str | list[str]:
         date = datetime.datetime.strptime(str(fc_request["date"]), "%Y%m%d")
         if self.sequence is not None:
-            seq = Sequence.from_dict({"type": self.sequence})
+            seq = Sequence.from_dict(self.sequence)
         else:
             seq = Sequence.from_resource(scheme)
         kwargs = self.model_dump(exclude={"option", "sequence"})

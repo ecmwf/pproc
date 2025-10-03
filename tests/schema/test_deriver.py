@@ -102,7 +102,7 @@ def test_clim_step_deriver(step_type, time, step, clim_steps, expected):
 @pytest.mark.parametrize(
     "config, date, expected",
     [
-        [{"option": "next", "sequence": "daily"}, "20250930", "20251001"],
+        [{"option": "next", "sequence": {"type": "daily"}}, "20250930", "20251001"],
         [{"option": "previous", "strict": False}, "20250930", "20250929"],
         [{"option": "previous"}, "20250929", "20250927"],
         [{"option": "nearest"}, "20250930", "20250929"],
