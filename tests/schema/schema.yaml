@@ -3342,20 +3342,33 @@ inputs:
                     type: monthly
                     by: 12
     efi/efic/sot:
-      climatology:
-        required: true
-        inputs:
-          request:
-            type: cd
-          derive_date: 
-            option: nearest
-          derive_step: 
-            type: range
       filter:stream:
         "eefo/weef": 
           filter:param:
-            132044/132049/132059/132144/132045/132165/132167/132201/132202/132216/132228: {}
-        "*":
+            132044/132049/132059/132144/132045/132165/132167/132201/132202/132216/132228: 
+              climatology:
+                required: true
+                inputs:
+                  request:
+                    type: cd
+                  derive_date: 
+                    option: nearest
+                  derive_step: 
+                    type: range
+        "enfo/waef":
+          climatology:
+            required: true
+            inputs:
+              request:
+                type: cd
+              derive_date: 
+                - option: next
+                  sequence: 
+                    type: daily
+                - option: previous
+                  strict: false
+              derive_step: 
+                type: range
           filter:param:
             "132044/132049/132059/132045/132165/132167/132201/132202/132216": 
               forecast:
