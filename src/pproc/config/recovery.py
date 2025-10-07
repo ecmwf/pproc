@@ -16,8 +16,6 @@ from typing import List
 import yaml
 from filelock import FileLock
 
-from pproc.config.base import Recovery as BaseConfig
-
 logger = logging.getLogger(__name__)
 
 
@@ -47,7 +45,7 @@ class BaseRecovery(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def clean_file(self):
+    def clean(self):
         pass
 
 
@@ -61,7 +59,7 @@ class NullRecovery(BaseRecovery):
     def add_checkpoint(self, **checkpoint_identifiers):
         pass
 
-    def clean_file(self):
+    def clean(self):
         pass
 
 
@@ -92,7 +90,7 @@ class Recovery(BaseRecovery):
                 self.checkpoints += [x.rstrip("\n") for x in past_checkpoints]
 
         else:
-            self.clean_file()
+            self.clean()
         self.lock = FileLock(self.filename + ".lock", thread_local=False)
 
     def computed(self, **matching) -> List[dict]:
@@ -137,7 +135,7 @@ class Recovery(BaseRecovery):
                 f.write(checkpoint + "\n")
             self.checkpoints.append(checkpoint)
 
-    def clean_file(self):
+    def clean(self):
         """
         Deletes existing recovery file if it exists
         """
@@ -147,12 +145,9 @@ class Recovery(BaseRecovery):
             os.remove(self.filename + ".lock")
 
 
-def create_recovery(config: BaseConfig) -> BaseRecovery:
-    if config.recovery.enable_checkpointing:
-        root_dir = config.recovery.root_dir or os.getcwd()
-        return Recovery(
-            root_dir,
-            config.model_dump(exclude_defaults=True),
-            config.recovery.from_checkpoint,
-        )
+def create_recovery(
+    enable: bool, root_dir: str, config: dict, recover: bool
+) -> BaseRecovery:
+    if enable:
+        return Recovery(root_dir, config, recover)
     return NullRecovery()

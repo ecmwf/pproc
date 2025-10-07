@@ -12,6 +12,7 @@ import yaml
 import itertools
 import numpy as np
 import copy
+import os
 
 from annotated_types import Annotated
 from conflator import CLIArg, ConfigModel
@@ -22,6 +23,7 @@ from pproc.config import io
 from pproc.config.log import LoggingConfig
 from pproc.config.param import ParamConfig, partial_equality
 from pproc.config.utils import deep_update, extract_mars, update_request, _get, _set
+from pproc.config.recovery import BaseRecovery, create_recovery
 
 
 class Parallelisation(ConfigModel):
@@ -37,8 +39,8 @@ class Parallelisation(ConfigModel):
         return data
 
 
-class Recovery(ConfigModel):
-    enable_checkpointing: bool = True
+class Checkpointing(ConfigModel):
+    enable: bool = True
     from_checkpoint: Annotated[
         bool,
         CLIArg("--recover", action="store_true", default=None),
@@ -50,13 +52,13 @@ class Recovery(ConfigModel):
     @classmethod
     def validate_source(cls, data: Any) -> Any:
         if isinstance(data, bool) and data:
-            return {"enable_checkpointing": True, "from_checkpoint": {True}}
+            return {"enable": True, "from_checkpoint": {True}}
         return data
 
     @model_validator(mode="after")
     def validate_config(self) -> Self:
         if self.from_checkpoint:
-            if not self.enable_checkpointing:
+            if not self.enable:
                 raise ValueError(
                     "Cannot recover from checkpoint without enabling checkpointing"
                 )
@@ -66,15 +68,37 @@ class Recovery(ConfigModel):
 class BaseConfig(ConfigModel):
     log: LoggingConfig = LoggingConfig()
     parallelisation: int | Parallelisation = 1
-    recovery: Recovery = Recovery()
+    checkpointing: Checkpointing = Checkpointing()
     inputs: io.BaseInputModel
     outputs: io.BaseOutputModel = io.BaseOutputModel()
     parameters: list[ParamConfig]
     _init: bool = False
     _merge_exclude: tuple[str] = ("parameters",)
+    _recovery: BaseRecovery = None
 
     def print(self):
         print(yaml.dump(self.model_dump(by_alias=True), sort_keys=False))
+
+    @property
+    def recovery(self):
+        if self._recovery is None:
+            root_dir = self.checkpointing.root_dir or os.getcwd()
+            self._recovery = create_recovery(
+                self.checkpointing.enable,
+                root_dir,
+                self.model_dump(
+                    exclude_defaults=True,
+                    exclude={"log", "parallelisation", "checkpointing"},
+                ),
+                self.checkpointing.from_checkpoint,
+            )
+        return self._recovery
+
+    def clean(self):
+        for name in self.outputs.names:
+            output = getattr(self.outputs, name)
+            output.target.clean()
+        self.recovery.clean()
 
     @model_validator(mode="after")
     def _init_targets(self) -> Self:
@@ -88,7 +112,7 @@ class BaseConfig(ConfigModel):
                 and self.parallelisation.n_par_compute > 1
             ):
                 target.enable_parallel()
-            if self.recovery.from_checkpoint:
+            if self.checkpointing.from_checkpoint:
                 target.enable_recovery()
         self._init = True
         return self

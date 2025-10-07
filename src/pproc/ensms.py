@@ -35,7 +35,6 @@ from pproc.common.parallel import (
     sigterm_handler,
 )
 from pproc.common.param_requester import ParamConfig, ParamRequester
-from pproc.common.recovery import create_recovery, BaseRecovery
 from pproc.common.grib_helpers import fill_template_values
 from pproc.config.types import EnsmsConfig
 
@@ -55,7 +54,6 @@ def ensms_metadata(
 def ensms_iteration(
     config: EnsmsConfig,
     param: ParamConfig,
-    recovery: BaseRecovery,
     window_id: str,
     accum: Accumulator,
     template_ens: eccodes.GRIBMessage,
@@ -85,7 +83,7 @@ def ensms_iteration(
 
     out_mean.target.flush()
     out_std.target.flush()
-    recovery.add_checkpoint(param=param.name, window=window_id)
+    config.recovery.add_checkpoint(param=param.name, window=window_id)
 
 
 def main():
@@ -94,7 +92,6 @@ def main():
 
     cfg = Conflator(app_name="pproc-ensms", model=EnsmsConfig).load()
     cfg.print()
-    recover = create_recovery(cfg)
 
     with create_executor(cfg.parallelisation) as executor:
         for param in cfg.parameters:
@@ -107,7 +104,7 @@ def main():
             )
 
             checkpointed_windows = [
-                x["window"] for x in recover.computed(param=param.name)
+                x["window"] for x in cfg.recovery.computed(param=param.name)
             ]
             accum_manager.delete(checkpointed_windows)
 
@@ -116,7 +113,7 @@ def main():
                 cfg.inputs,
                 param.total_fields,
             )
-            iteration = functools.partial(ensms_iteration, cfg, param, recover)
+            iteration = functools.partial(ensms_iteration, cfg, param)
             for keys, retrieved_data in parallel_data_retrieval(
                 cfg.parallelisation.n_par_read,
                 accum_manager.dims,
@@ -134,7 +131,7 @@ def main():
                         executor.submit(iteration, window_id, accum, metadata[0])
             executor.wait()
 
-    recover.clean_file()
+    cfg.clean()
 
 
 if __name__ == "__main__":

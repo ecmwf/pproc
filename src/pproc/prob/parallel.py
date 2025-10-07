@@ -16,7 +16,7 @@ import eccodes
 
 from pproc.config.param import ParamConfig
 from pproc.config.io import Output
-from pproc.common.recovery import BaseRecovery
+from pproc.config.recovery import BaseRecovery
 from pproc.common.accumulation import Accumulator
 from pproc.common.io import write_grib
 

@@ -20,14 +20,11 @@ from pproc.common.parallel import (
     sigterm_handler,
 )
 from pproc.common.param_requester import ParamRequester
-from pproc.common.recovery import create_recovery
 from pproc.common.accumulation_manager import AccumulationManager
 
 
 def main(cfg: Config, postproc_iteration: Any):
     signal.signal(signal.SIGTERM, sigterm_handler)
-
-    recover = create_recovery(cfg)
 
     with create_executor(cfg.parallelisation) as executor:
         for param in cfg.parameters:
@@ -40,7 +37,7 @@ def main(cfg: Config, postproc_iteration: Any):
             )
 
             checkpointed_windows = [
-                x["window"] for x in recover.computed(param=param.name)
+                x["window"] for x in cfg.recovery.computed(param=param.name)
             ]
             accum_manager.delete(checkpointed_windows)
 
@@ -50,7 +47,7 @@ def main(cfg: Config, postproc_iteration: Any):
                 param.total_fields,
             )
             postproc_partial = functools.partial(
-                postproc_iteration, param, cfg, recover
+                postproc_iteration, param, cfg
             )
             for keys, data in parallel_data_retrieval(
                 cfg.parallelisation.n_par_read,
@@ -66,4 +63,4 @@ def main(cfg: Config, postproc_iteration: Any):
                     executor.submit(postproc_partial, metadata, window_id, accum)
             executor.wait()
 
-    recover.clean_file()
+    cfg.clean()

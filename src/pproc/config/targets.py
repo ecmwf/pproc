@@ -77,6 +77,9 @@ class Target(BaseModel):
     def enable_parallel(self):
         pass
 
+    def clean(self):
+        pass
+
 
 class NullTarget(Target):
     type_: Literal["null"] = Field("null", alias="type")
@@ -88,6 +91,7 @@ class NullTarget(Target):
 class FileTarget(Target):
     type_: Literal["file"] = Field("file", alias="type")
     path: str
+    clean_locks: bool = True
 
     _mode: str = "wb"
     _lock: FileLock = None
@@ -121,10 +125,17 @@ class FileTarget(Target):
             with open(self.path, self.mode) as file:
                 message.write_to(file)
 
+    def clean(self):
+        if self.clean_locks:
+            if os.path.exists(self._lock.lock_file):
+                os.remove(self._lock.lock_file)
+
 
 class FileSetTarget(Target):
     type_: Literal["fileset"] = Field("fileset", alias="type")
     path: str
+    clean_locks: bool = True
+
     _mode: str = "wb"
     _file_locks: dict[str, FileLock] = {}
     _track_truncated: list[str] = []
@@ -150,6 +161,13 @@ class FileSetTarget(Target):
                 remove_duplicate(path, message)
             with open(path, self.mode(path)) as file:
                 message.write_to(file)
+
+    def clean(self):
+        if self.clean_locks:
+            for lock in self._file_locks.values():
+                lock_file = lock.lock_file
+                if os.path.exists(lock_file):
+                    os.remove(lock_file)
 
 
 class FDBTarget(Target):
@@ -213,3 +231,6 @@ class OverrideTargetWrapper(ConfigModel, Target):
     def write(self, message):
         message.set(self.overrides)
         self.wrapped.write(message)
+
+    def clean(self):
+        return self.wrapped.clean()

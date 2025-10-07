@@ -28,7 +28,6 @@ from pproc.common.parallel import (
     sigterm_handler,
 )
 from pproc.common.param_requester import ParamRequester
-from pproc.common.recovery import create_recovery, Recovery
 from pproc.config.types import SigniConfig, SigniParamConfig
 from pproc.config.targets import Target
 from pproc.signi.clim import retrieve_clim
@@ -114,7 +113,6 @@ def signi(
 def signi_iteration(
     config: SigniConfig,
     param: SigniParamConfig,
-    recovery: Recovery,
     template: eccodes.GRIBMessage,
     window_id: str,
     accum: Accumulator,
@@ -162,7 +160,7 @@ def signi_iteration(
             epsilon_is_abs=param.epsilon_is_abs,
         )
         config.outputs.signi.target.flush()
-    recovery.add_checkpoint(param=param.name, window=window_id)
+    config.recovery.add_checkpoint(param=param.name, window=window_id)
 
 
 def main():
@@ -171,7 +169,6 @@ def main():
 
     cfg = Conflator(app_name="pproc-significance", model=SigniConfig).load()
     cfg.print()
-    recovery = create_recovery(cfg)
 
     with create_executor(cfg.parallelisation) as executor:
         for param in cfg.parameters:
@@ -184,7 +181,7 @@ def main():
             )
 
             checkpointed_windows = [
-                x["window"] for x in recovery.computed(param=param.name)
+                x["window"] for x in cfg.recovery.computed(param=param.name)
             ]
             accum_manager.delete(checkpointed_windows)
 
@@ -194,7 +191,7 @@ def main():
                 param.total_fields,
                 "fc",
             )
-            signi_partial = functools.partial(signi_iteration, cfg, param, recovery)
+            signi_partial = functools.partial(signi_iteration, cfg, param)
             for keys, data in parallel_data_retrieval(
                 cfg.parallelisation.n_par_read,
                 accum_manager.dims,
@@ -209,7 +206,7 @@ def main():
                     executor.submit(signi_partial, metadata[0], window_id, accum)
             executor.wait()
 
-    recovery.clean_file()
+    cfg.clean()
 
 
 if __name__ == "__main__":
