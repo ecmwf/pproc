@@ -91,7 +91,7 @@ class NullTarget(Target):
 class FileTarget(Target):
     type_: Literal["file"] = Field("file", alias="type")
     path: str
-    clean_locks: bool = True
+    clean_lock: bool = True
 
     _mode: str = "wb"
     _lock: FileLock = None
@@ -126,7 +126,7 @@ class FileTarget(Target):
                 message.write_to(file)
 
     def clean(self):
-        if self.clean_locks:
+        if self.clean_lock:
             if os.path.exists(self._lock.lock_file):
                 os.remove(self._lock.lock_file)
 
