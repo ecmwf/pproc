@@ -156,7 +156,7 @@ class FileSetTarget(Target):
 
     def write(self, message):
         path = self.path.format_map(message)
-        with self._file_locks.get(path, FileLock(path + ".lock")):
+        with self._file_locks.setdefault(path, FileLock(path + ".lock")):
             if self._overwrite_existing:
                 remove_duplicate(path, message)
             with open(path, self.mode(path)) as file:
