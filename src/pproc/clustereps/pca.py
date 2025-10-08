@@ -268,6 +268,7 @@ def main():
 
     np.savez_compressed(cfg.output, **data)
 
+    cfg.clean()
     return 0
 
 

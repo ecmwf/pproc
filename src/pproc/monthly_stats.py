@@ -20,7 +20,6 @@ from pproc.config.types import MonthlyStatsConfig, AccumParamConfig
 from pproc.accum.main import main as accum_main
 from pproc.accum.postprocess import postprocess
 from pproc.common.accumulation import Accumulator
-from pproc.common.recovery import Recovery
 from pproc.common.stepseq import steprange_to_fcmonth
 
 
@@ -59,7 +58,6 @@ def mstat_keys(template, out_keys: dict, interval: int):
 def postproc_iteration(
     param: AccumParamConfig,
     cfg: MonthlyStatsConfig,
-    recovery: Optional[Recovery],
     metadata: list[eccodes.GRIBMessage],
     window_id: str,
     accum: Accumulator,
@@ -82,7 +80,7 @@ def postproc_iteration(
             out_keys=mstat_keys(metadata[0], out_keys, intervals[0]),
         )
         cfg.outputs.stats.target.flush()
-    recovery.add_checkpoint(param=param.name, window=window_id)
+    cfg.recovery.add_checkpoint(param=param.name, window=window_id)
 
 
 def main():

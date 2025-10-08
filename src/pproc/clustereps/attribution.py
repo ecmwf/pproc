@@ -289,7 +289,8 @@ def main() -> int:
             fmt="%-3d",
             delimiter=3 * " ",
         )
-
+    
+    cfg.clean()
     return 0
 
 

@@ -32,11 +32,11 @@ from pproc.common.parallel import (
     sigterm_handler,
 )
 from pproc.common.param_requester import ParamRequester
-from pproc.common.recovery import create_recovery, BaseRecovery
 from pproc.common.steps import AnyStep
 from pproc.config.types import HistogramConfig, HistParamConfig
 from pproc.config.targets import Target
 from pproc.config.io import InputsCollection, Input
+from pproc.config.recovery import BaseRecovery
 
 
 def write_histogram(
@@ -189,7 +189,6 @@ def main():
 
     cfg = Conflator(app_name="pproc-histogram", model=HistogramConfig).load()
     cfg.print()
-    recovery = create_recovery(cfg)
 
     with create_executor(cfg.parallelisation) as executor:
         for param in cfg.parameters:
@@ -202,13 +201,13 @@ def main():
                 },
             )
             checkpointed_windows = [
-                x["window"] for x in recovery.computed(param=param.name)
+                x["window"] for x in cfg.recovery.computed(param=param.name)
             ]
             accum_manager.delete(checkpointed_windows)
 
             requester = HistParamRequester(param, cfg.inputs, param.total_fields)
             write_partial = functools.partial(
-                write_iteration, param, cfg.outputs.histogram.target, recovery
+                write_iteration, param, cfg.outputs.histogram.target, cfg.recovery
             )
             for keys, data in parallel_data_retrieval(
                 cfg.parallelisation.n_par_read,
@@ -225,7 +224,7 @@ def main():
 
             executor.wait()
 
-    recovery.clean_file()
+    cfg.clean()
 
 
 if __name__ == "__main__":

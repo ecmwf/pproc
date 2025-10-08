@@ -36,7 +36,6 @@ from pproc.common.accumulation import Accumulator
 from pproc.common.accumulation_manager import AccumulationManager
 from pproc.common.parallel import create_executor, sigterm_handler
 from pproc.config.types import ThermoConfig, ThermoParamConfig
-from pproc.common.recovery import create_recovery, Recovery
 from pproc.thermo import helpers
 from pproc.thermo.indices import ComputeIndices
 
@@ -88,7 +87,6 @@ def process_step(
     window_id: str,
     accum: Accumulator,
     accum_metadata: list[GribFieldMetadata],
-    recovery: Recovery,
 ):
     fields = load_input(config, param, "inst", step)
     if len(accum["step"].coords) > 1:
@@ -198,7 +196,7 @@ def process_step(
 
     for name in config.outputs.names:
         getattr(config.outputs, name).target.flush()
-    recovery.add_checkpoint(param=param.name, window=window_id)
+    config.recovery.add_checkpoint(param=param.name, window=window_id)
 
 
 def main():
@@ -207,7 +205,6 @@ def main():
 
     cfg = Conflator(app_name="pproc-thermal-indices", model=ThermoConfig).load()
     cfg.print()
-    recovery = create_recovery(cfg)
 
     logger.info(f"thermofeel: {thermofeel.__version__}")
     logger.info(f"earthkit.data: {earthkit.data.__version__}")
@@ -221,12 +218,12 @@ def main():
         for param in cfg.parameters:
             accum_manager = AccumulationManager.create(param.accumulations)
             checkpointed_windows = [
-                x["window"] for x in recovery.computed(param=param.name)
+                x["window"] for x in cfg.recovery.computed(param=param.name)
             ]
             accum_manager.delete(checkpointed_windows)
 
             thermo_partial = functools.partial(
-                process_step, cfg, param, recovery=recovery
+                process_step, cfg, param
             )
             for step in accum_manager.dims["step"]:
                 accum_fields = load_input(cfg, param, "accum", step)
@@ -244,7 +241,7 @@ def main():
                     )
 
             executor.wait()
-    recovery.clean_file()
+    cfg.clean()
 
 
 if __name__ == "__main__":

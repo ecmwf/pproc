@@ -25,7 +25,6 @@ from pproc.common.parallel import (
     sigterm_handler,
 )
 from pproc.common.param_requester import ParamRequester
-from pproc.common.recovery import create_recovery, Recovery
 from pproc.config.types import AnomalyConfig, ClimParamConfig
 from pproc.signi.clim import retrieve_clim
 
@@ -33,7 +32,6 @@ from pproc.signi.clim import retrieve_clim
 def anomaly_iteration(
     config: AnomalyConfig,
     param: ClimParamConfig,
-    recovery: Recovery,
     template: eccodes.GRIBMessage,
     window_id: str,
     accum: Accumulator,
@@ -90,7 +88,7 @@ def anomaly_iteration(
 
     config.outputs.ens.target.flush()
     config.outputs.ensm.target.flush()
-    recovery.add_checkpoint(param=param.name, window=window_id)
+    config.recovery.add_checkpoint(param=param.name, window=window_id)
 
 
 def main():
@@ -99,7 +97,6 @@ def main():
 
     cfg = Conflator(app_name="pproc-anomaly", model=AnomalyConfig).load()
     cfg.print()
-    recovery = create_recovery(cfg)
 
     with create_executor(cfg.parallelisation) as executor:
         for param in cfg.parameters:
@@ -112,12 +109,12 @@ def main():
                 },
             )
             checkpointed_windows = [
-                x["window"] for x in recovery.computed(param=param.name)
+                x["window"] for x in cfg.recovery.computed(param=param.name)
             ]
             accum_manager.delete(checkpointed_windows)
 
             requester = ParamRequester(param, cfg.inputs, param.total_fields, "fc")
-            anom_partial = functools.partial(anomaly_iteration, cfg, param, recovery)
+            anom_partial = functools.partial(anomaly_iteration, cfg, param)
             for keys, data in parallel_data_retrieval(
                 cfg.parallelisation.n_par_read,
                 accum_manager.dims,
@@ -132,7 +129,7 @@ def main():
                     executor.submit(anom_partial, metadata[0], window_id, accum)
             executor.wait()
 
-    recovery.clean_file()
+    cfg.clean()
 
 
 if __name__ == "__main__":

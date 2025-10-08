@@ -19,7 +19,6 @@ from pproc.common.parallel import (
     parallel_data_retrieval,
     sigterm_handler,
 )
-from pproc.common.recovery import create_recovery
 from pproc.common.param_requester import ParamRequester
 from pproc.config.types import ProbConfig
 from pproc.prob.parallel import prob_iteration
@@ -33,7 +32,6 @@ def main():
 
     cfg = Conflator(app_name="pproc-probabilities", model=ProbConfig).load()
     cfg.print()
-    recovery = create_recovery(cfg)
 
     with create_executor(cfg.parallelisation) as executor:
         for param in cfg.parameters:
@@ -46,7 +44,7 @@ def main():
                 },
             )
             checkpointed_windows = [
-                x["window"] for x in recovery.computed(param=param.name)
+                x["window"] for x in cfg.recovery.computed(param=param.name)
             ]
             accum_manager.delete(checkpointed_windows)
 
@@ -59,7 +57,7 @@ def main():
                 ),
             ]
             prob_partial = functools.partial(
-                prob_iteration, param, recovery, cfg.outputs.prob
+                prob_iteration, param, cfg.recovery, cfg.outputs.prob
             )
             for keys, retrieved_data in parallel_data_retrieval(
                 cfg.parallelisation.n_par_read,
@@ -87,7 +85,7 @@ def main():
                     )
             executor.wait()
 
-    recovery.clean_file()
+    cfg.clean()
 
 
 if __name__ == "__main__":

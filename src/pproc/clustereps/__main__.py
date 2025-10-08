@@ -330,6 +330,7 @@ def main():
         fdb(create=False).flush()
     except FDBNotOpenError:
         pass
+    cfg.clean()
 
     return 0
 

@@ -30,7 +30,6 @@ from conflator import Conflator
 
 from pproc.common.accumulation import Accumulator
 from pproc.common.accumulation_manager import AccumulationManager
-from pproc.common.recovery import create_recovery, Recovery
 from pproc.common.parallel import (
     create_executor,
     parallel_data_retrieval,
@@ -67,7 +66,6 @@ def read_clim(
 def compute_indices(
     cfg: ExtremeConfig,
     param: ExtremeParamConfig,
-    recovery: Recovery,
     message_template: eccodes.GRIBMessage,
     window_id: str,
     accum: Accumulator,
@@ -101,7 +99,7 @@ def compute_indices(
             )
             output.target.flush()
 
-        recovery.add_checkpoint(param=param.name, window=window_id)
+        cfg.recovery.add_checkpoint(param=param.name, window=window_id)
 
 
 def main():
@@ -110,7 +108,6 @@ def main():
 
     cfg = Conflator(app_name="pproc-extreme", model=ExtremeConfig).load()
     cfg.print()
-    recovery = create_recovery(cfg)
 
     with create_executor(cfg.parallelisation) as executor:
         for param in cfg.parameters:
@@ -123,11 +120,11 @@ def main():
                 },
             )
             checkpointed_windows = [
-                x["window"] for x in recovery.computed(param=param.name)
+                x["window"] for x in cfg.recovery.computed(param=param.name)
             ]
             accum_manager.delete(checkpointed_windows)
 
-            indices_partial = functools.partial(compute_indices, cfg, param, recovery)
+            indices_partial = functools.partial(compute_indices, cfg, param)
             requester = ParamRequester(param, cfg.inputs, param.total_fields, "fc")
             for keys, retrieved_data in parallel_data_retrieval(
                 cfg.parallelisation.n_par_read,
@@ -144,7 +141,7 @@ def main():
                         executor.submit(indices_partial, metadata[0], window_id, accum)
 
             executor.wait()
-    recovery.clean_file()
+    cfg.clean()
 
 
 if __name__ == "__main__":

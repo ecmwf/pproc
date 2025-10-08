@@ -27,7 +27,6 @@ from pproc.config.types import ECPointConfig, ECPointParamConfig
 from pproc.config.io import InputsCollection
 from pproc.common.param_requester import ParamRequester, IndexFunc
 from pproc.common.steps import AnyStep
-from pproc.common.recovery import create_recovery, Recovery
 from pproc.common.parallel import (
     parallel_data_retrieval,
     sigterm_handler,
@@ -261,7 +260,6 @@ def compute_weather_types(
 def ecpoint_iteration(
     config: ECPointConfig,
     param: ECPointParamConfig,
-    recovery: Recovery,
     window_id: str,
     input_params: earthkit.data.FieldList,
     out_keys: dict,
@@ -338,7 +336,7 @@ def ecpoint_iteration(
             write_grib(out_perc.target, template, quantile, metadata)
         out_perc.target.flush()
 
-    recovery.add_checkpoint(param=param.name, window=window_id)
+    config.recovery.add_checkpoint(param=param.name, window=window_id)
 
 
 def main():
@@ -347,7 +345,6 @@ def main():
 
     cfg = Conflator(app_name="pproc-ecpoint", model=ECPointConfig).load()
     cfg.print()
-    recover = create_recovery(cfg)
 
     for param in cfg.parameters:
         managers = [
@@ -359,7 +356,7 @@ def main():
                 },
             )
         ]
-        checkpointed_windows = [x["window"] for x in recover.computed(param=param.name)]
+        checkpointed_windows = [x["window"] for x in cfg.recovery.computed(param=param.name)]
         managers[0].delete(checkpointed_windows)
         requesters = [
             FilteredParamRequester(
@@ -405,7 +402,7 @@ def main():
                     dims[k] |= set(val)
         logger.debug(f"Expected number of inputs: {param.num_inputs}")
         logger.debug(f"Dims: {dims}")
-        ecpoint_partial = functools.partial(ecpoint_iteration, cfg, param, recover)
+        ecpoint_partial = functools.partial(ecpoint_iteration, cfg, param)
         input_sets = []
         for keys, retrieved_data in parallel_data_retrieval(
             cfg.parallelisation.n_par_read,
@@ -455,7 +452,7 @@ def main():
                     else:
                         checked += 1
 
-    recover.clean_file()
+    cfg.clean()
 
 
 if __name__ == "__main__":

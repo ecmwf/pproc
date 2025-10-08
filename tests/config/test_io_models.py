@@ -122,7 +122,7 @@ def test_inputs(tmpdir, config, cli, expected):
             {
                 "test": {
                     "target": {
-                        "wrapped": {"type": "fileset", "path": "temp.grib"},
+                        "wrapped": {"type": "fileset", "path": "temp.grib", "clean_locks": True},
                         "overrides": {"class": "ai", "type": "x"},
                     },
                     "metadata": {"class": "od"},

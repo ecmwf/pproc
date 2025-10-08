@@ -29,7 +29,6 @@ from pproc.common.parallel import (
     sigterm_handler,
 )
 from pproc.common.param_requester import ParamConfig, ParamRequester
-from pproc.common.recovery import create_recovery, BaseRecovery
 from pproc.config.types import QuantilesConfig
 from pproc.quantile.grib import quantiles_metadata
 
@@ -72,7 +71,6 @@ def do_quantiles(
 def quantiles_iteration(
     config: QuantilesConfig,
     param: ParamConfig,
-    recovery: BaseRecovery,
     template: eccodes.GRIBMessage,
     window_id: str,
     accum: Accumulator,
@@ -87,7 +85,7 @@ def quantiles_iteration(
             out_keys=accum.grib_keys(),
         )
         config.outputs.quantiles.target.flush()
-    recovery.add_checkpoint(param=param.name, window=window_id)
+    config.recovery.add_checkpoint(param=param.name, window=window_id)
 
 
 def main():
@@ -96,7 +94,6 @@ def main():
 
     cfg = Conflator(app_name="pproc-quantiles", model=QuantilesConfig).load()
     cfg.print()
-    recovery = create_recovery(cfg)
 
     with create_executor(cfg.parallelisation) as executor:
         for param in cfg.parameters:
@@ -109,7 +106,7 @@ def main():
             )
 
             checkpointed_windows = [
-                x["window"] for x in recovery.computed(param=param.name)
+                x["window"] for x in cfg.recovery.computed(param=param.name)
             ]
             accum_manager.delete(checkpointed_windows)
 
@@ -119,7 +116,7 @@ def main():
                 param.total_fields,
             )
             quantiles_partial = functools.partial(
-                quantiles_iteration, cfg, param, recovery
+                quantiles_iteration, cfg, param
             )
             for keys, data in parallel_data_retrieval(
                 cfg.parallelisation.n_par_read,
@@ -135,7 +132,7 @@ def main():
                     executor.submit(quantiles_partial, metadata[0], window_id, accum)
             executor.wait()
 
-    recovery.clean_file()
+    cfg.clean()
 
 
 if __name__ == "__main__":

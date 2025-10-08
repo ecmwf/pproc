@@ -28,7 +28,6 @@ from conflator import Conflator
 
 from pproc import common
 from pproc.common.accumulation_manager import AccumulationManager
-from pproc.common.recovery import Recovery, create_recovery
 from pproc.common.parallel import parallel_processing, sigterm_handler
 from pproc.common.utils import dict_product
 from pproc.common.param_requester import ParamRequester
@@ -55,7 +54,6 @@ def wind_metadata(step: int, **out_keys) -> dict:
 
 def wind_iteration(
     config: WindConfig,
-    recovery: Recovery,
     param: ParamConfig,
     dims: dict,
 ):
@@ -106,7 +104,7 @@ def wind_iteration(
 
     for name in config.outputs.names:
         getattr(config.outputs, name).target.flush()
-    recovery.add_checkpoint(param=param.name, **dims)
+    config.recovery.add_checkpoint(param=param.name, **dims)
 
 
 def main():
@@ -115,25 +113,24 @@ def main():
 
     cfg = Conflator(app_name="pproc-wind", model=WindConfig).load()
     cfg.print()
-    recover = create_recovery(cfg)
 
     plan = []
     for param in cfg.parameters:
         accum_manager = AccumulationManager.create(param.accumulations)
         for dims in dict_product(accum_manager.dims):
-            if recover.existing_checkpoint(param=param.name, **dims):
+            if cfg.recovery.existing_checkpoint(param=param.name, **dims):
                 print(f"Recovery: skipping dims: {param.name} {dims}")
                 continue
             plan.append((param, dims))
 
-    iteration = functools.partial(wind_iteration, cfg, recover)
+    iteration = functools.partial(wind_iteration, cfg)
     parallel_processing(
         iteration,
         plan,
         cfg.parallelisation,
     )
 
-    recover.clean_file()
+    cfg.clean()
 
 
 if __name__ == "__main__":

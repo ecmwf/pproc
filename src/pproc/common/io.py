@@ -188,7 +188,7 @@ def mir_wind_input(fdb_reader, request, cached_file=None):
         outfile.write(data)
     if os.path.getsize(cached_file) == 0:
         raise RuntimeError(f"No data retrieved for request {request}")
-    return mir.MultiDimensionalGribFileInput(cached_file, 2)
+    return mir.MultiDimensionalGribFileInput(cached_file, 2), cached_file
 
 
 def fdb_retrieve(fdb, request, mir_options=None):
@@ -208,15 +208,18 @@ def fdb_retrieve(fdb, request, mir_options=None):
     """
     fdb_reader = fdb.retrieve(request)
     if mir_options:
+        cached_file = None
         if mir_options.get("vod2uv", False):
             mir_options = mir_options.copy()
             mir_options["vod2uv"] = "1"
-            fdb_reader = mir_wind_input(fdb_reader, request)
+            fdb_reader, cached_file = mir_wind_input(fdb_reader, request)
         job = mir.Job(**mir_options)
         stream = BytesIO()
         job.execute(fdb_reader, stream)
         stream.seek(0)
         fdb_reader = stream
+        if cached_file:
+            os.remove(cached_file)
     return fdb_reader
 
 

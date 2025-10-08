@@ -17,13 +17,11 @@ from pproc.config.types import AccumConfig, AccumParamConfig
 from pproc.accum.main import main as accum_main
 from pproc.accum.postprocess import postprocess
 from pproc.common.accumulation import Accumulator
-from pproc.common.recovery import Recovery
 
 
 def postproc_iteration(
     param: AccumParamConfig,
     cfg: AccumConfig,
-    recovery: Recovery,
     template: eccodes.GRIBMessage,
     window_id: str,
     accum: Accumulator,
@@ -45,7 +43,7 @@ def postproc_iteration(
             },
         )
         cfg.outputs.accum.target.flush()
-    recovery.add_checkpoint(param=param.name, window=window_id)
+    cfg.recovery.add_checkpoint(param=param.name, window=window_id)
 
 
 def main():

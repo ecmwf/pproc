@@ -1292,6 +1292,7 @@ def main():
         steps, ind_cl, rep_members, det_index, rep_members_gp, target, metadata
     )
 
+    cfg.clean()
     return 0
 
 

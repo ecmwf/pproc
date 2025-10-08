@@ -9,7 +9,7 @@
 
 import pytest
 
-from pproc.common.recovery import Recovery
+from pproc.config.recovery import Recovery
 
 
 def test_config_uniqueness(tmp_path):
