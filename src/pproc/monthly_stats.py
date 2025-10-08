@@ -88,7 +88,6 @@ def main():
     cfg = Conflator(app_name="pproc-monthly-stats", model=MonthlyStatsConfig).load()
     cfg.print()
     accum_main(cfg, postproc_iteration)
-    cfg.clean()
 
 
 if __name__ == "__main__":
