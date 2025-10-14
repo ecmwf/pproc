@@ -50,7 +50,7 @@ class DefaultStepDeriver(BaseModel):
             start_index = bisect.bisect_right(fc_steps, start)
         if end not in fc_steps:
             raise ValueError(f"Required step {end} not in forecast steps")
-        return fc_steps[start_index: fc_steps.index(end) + 1]
+        return fc_steps[start_index : fc_steps.index(end) + 1]
 
     def derive(self, output_request: dict, fc_steps: list[int]) -> list[int]:
         steps = list(map(int, str(output_request["step"]).split("-")))
@@ -65,15 +65,12 @@ class DeaccumulateStepDeriver(BaseModel):
     allow_missing_zero: bool = False
 
     def _inst_step(self, step: int, fc_steps: list[int]) -> list[int]:
-        in_steps = []
-        if step not in fc_steps:
-            raise ValueError(f"Required step {step} not in forecast steps")
         if step == 0:
             raise ValueError(f"Cannot perform de-accumulation for step 0")
-        if step != fc_steps[0]:
-            in_steps.append(fc_steps[fc_steps.index(step) - 1])
-        in_steps.append(step)
-        return in_steps
+        if step == fc_steps[0]:
+            return [step]
+        start = fc_steps[fc_steps.index(step) - 1]
+        return self._range(start, step, fc_steps)
 
     def _range(self, start: int, end: int, fc_steps: list[int]) -> list[int]:
         end = max(end, self.by)
@@ -82,7 +79,7 @@ class DeaccumulateStepDeriver(BaseModel):
             raise ValueError(f"Required step {end} not in forecast steps")
         if start not in fc_steps:
             if start == 0 and self.allow_missing_zero:
-                return end
+                return [end]
             raise ValueError(f"Required step {start} not in forecast steps")
         return [start, end]
 
@@ -144,7 +141,12 @@ class StaticStepDeriver(BaseModel):
 
 ForecastStepDeriver = Annotated[
     Union[
-        DefaultStepDeriver, DeaccumulateStepDeriver, PrecomputedStepDeriver, FcmonthStepDeriver, SelectionStepDeriver, StaticStepDeriver
+        DefaultStepDeriver,
+        DeaccumulateStepDeriver,
+        PrecomputedStepDeriver,
+        FcmonthStepDeriver,
+        SelectionStepDeriver,
+        StaticStepDeriver,
     ],
     Field(default_factory=DefaultStepDeriver, discriminator="type_"),
 ]

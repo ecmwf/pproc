@@ -61,9 +61,9 @@ from conftest import schema
                         "operation": "mean",
                         "metadata": {"type": "fcmean", "bitsPerValue": 16},
                         "name": {
-                            "type": "monthly", 
+                            "type": "monthly",
                             "date": "20241001",
-                        }
+                        },
                     }
                 },
                 "metadata": {
@@ -104,9 +104,9 @@ from conftest import schema
                             "type": "fcmean",
                         },
                         "name": {
-                            "type": "default", 
+                            "type": "default",
                             "length": 168,
-                        }
+                        },
                     }
                 },
                 "vmin": 0.0,
@@ -281,7 +281,7 @@ def test_schema_from_output(req, config, num_generated):
                         "operation": "mean",
                         "metadata": {"type": "fcmean"},
                         "name": {
-                            "type": "default", 
+                            "type": "default",
                             "length": 168,
                         },
                     }
@@ -321,9 +321,12 @@ def test_schema_from_output(req, config, num_generated):
                         "type": "legacywindow",
                         "operation": "mean",
                         "deaccumulate": True,
-                        "metadata": {"type": "fcmean", "bitsPerValue": 16,},
+                        "metadata": {
+                            "type": "fcmean",
+                            "bitsPerValue": 16,
+                        },
                         "name": {
-                            "type": "monthly", 
+                            "type": "monthly",
                             "date": "20241001",
                         },
                     }

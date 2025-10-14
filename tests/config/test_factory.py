@@ -114,7 +114,7 @@ TEST_CASES = {
                                         {"from": 36, "to": 192, "by": 12},
                                     ],
                                     "name": {
-                                        "type": "default", 
+                                        "type": "default",
                                         "length": 168,
                                     },
                                 },
@@ -126,19 +126,19 @@ TEST_CASES = {
                                         {"from": 36, "to": 192, "by": 12},
                                     ],
                                     "name": {
-                                        "type": "default", 
+                                        "type": "default",
                                         "length": 168,
                                     },
                                 },
                                 {
                                     "operation": "minimum",
                                     "metadata": {"type": "fcmin"},
-                                   "coords": [
+                                    "coords": [
                                         {"from": 12, "to": 168, "by": 12},
                                         {"from": 36, "to": 192, "by": 12},
                                     ],
                                     "name": {
-                                        "type": "default", 
+                                        "type": "default",
                                         "length": 168,
                                     },
                                 },
@@ -150,7 +150,7 @@ TEST_CASES = {
                                         {"from": 36, "to": 192, "by": 12},
                                     ],
                                     "name": {
-                                        "type": "default", 
+                                        "type": "default",
                                         "length": 168,
                                     },
                                 },
@@ -238,7 +238,7 @@ TEST_CASES = {
                                         {"from": 1464, "to": 2208, "by": 24},
                                     ],
                                     "name": {
-                                        "type": "monthly", 
+                                        "type": "monthly",
                                         "date": "20241001",
                                     },
                                 },
@@ -252,7 +252,7 @@ TEST_CASES = {
                                         {"from": 1464, "to": 2208, "by": 24},
                                     ],
                                     "name": {
-                                        "type": "monthly", 
+                                        "type": "monthly",
                                         "date": "20241001",
                                     },
                                 },
@@ -266,7 +266,7 @@ TEST_CASES = {
                                         {"from": 1464, "to": 2208, "by": 24},
                                     ],
                                     "name": {
-                                        "type": "monthly", 
+                                        "type": "monthly",
                                         "date": "20241001",
                                     },
                                 },
@@ -330,7 +330,7 @@ TEST_CASES = {
                                         {"from": 36, "to": 192, "by": 12},
                                     ],
                                     "name": {
-                                        "type": "default", 
+                                        "type": "default",
                                         "length": 168,
                                     },
                                 },
@@ -342,7 +342,7 @@ TEST_CASES = {
                                         {"from": 36, "to": 192, "by": 12},
                                     ],
                                     "name": {
-                                        "type": "default", 
+                                        "type": "default",
                                         "length": 168,
                                     },
                                 },
@@ -354,7 +354,7 @@ TEST_CASES = {
                                         {"from": 36, "to": 192, "by": 12},
                                     ],
                                     "name": {
-                                        "type": "default", 
+                                        "type": "default",
                                         "length": 168,
                                     },
                                 },
@@ -366,7 +366,7 @@ TEST_CASES = {
                                         {"from": 36, "to": 192, "by": 12},
                                     ],
                                     "name": {
-                                        "type": "default", 
+                                        "type": "default",
                                         "length": 168,
                                     },
                                 },
@@ -488,7 +488,7 @@ def test_from_outputs(request, output_request, input_param):
                             {"from": 36, "to": 192, "by": 12},
                         ],
                         "name": {
-                            "type": "default", 
+                            "type": "default",
                             "length": 168,
                         },
                     },
@@ -500,7 +500,7 @@ def test_from_outputs(request, output_request, input_param):
                             {"from": 36, "to": 192, "by": 12},
                         ],
                         "name": {
-                            "type": "default", 
+                            "type": "default",
                             "length": 168,
                         },
                     },
@@ -512,7 +512,7 @@ def test_from_outputs(request, output_request, input_param):
                             {"from": 36, "to": 192, "by": 12},
                         ],
                         "name": {
-                            "type": "default", 
+                            "type": "default",
                             "length": 168,
                         },
                     },
@@ -524,7 +524,7 @@ def test_from_outputs(request, output_request, input_param):
                             {"from": 36, "to": 192, "by": 12},
                         ],
                         "name": {
-                            "type": "default", 
+                            "type": "default",
                             "length": 168,
                         },
                     },
@@ -582,7 +582,7 @@ def test_from_outputs(request, output_request, input_param):
                             {"from": 1464, "to": 2208, "by": 24},
                         ],
                         "name": {
-                            "type": "monthly", 
+                            "type": "monthly",
                             "date": "20241001",
                         },
                     },
@@ -596,7 +596,7 @@ def test_from_outputs(request, output_request, input_param):
                             {"from": 1464, "to": 2208, "by": 24},
                         ],
                         "name": {
-                            "type": "monthly", 
+                            "type": "monthly",
                             "date": "20241001",
                         },
                     },
@@ -610,7 +610,7 @@ def test_from_outputs(request, output_request, input_param):
                             {"from": 1464, "to": 2208, "by": 24},
                         ],
                         "name": {
-                            "type": "monthly", 
+                            "type": "monthly",
                             "date": "20241001",
                         },
                     },

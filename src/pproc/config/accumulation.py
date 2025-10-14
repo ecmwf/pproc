@@ -104,7 +104,7 @@ class LegacyWindowConfig(BaseModel):
         base[dim] = []
         for coord in self.coords:
             name = coords_name(coord, self.name)
-            try: 
+            try:
                 name = int(name)
             except:
                 pass
@@ -223,7 +223,7 @@ class DefaultAccumulation(BaseAccumulation):
         base[dim] = []
         for coord in self.coords:
             name = coords_name(coord, self.name)
-            try: 
+            try:
                 name = int(name)
             except:
                 pass
@@ -329,14 +329,11 @@ class LegacyStepAccumulation(BaseModel):
                 coord_config.setdefault("name", {"type": "default"})
                 coord_config["name"]["prefix"] = prefix
                 coord_config["name"]["suffix"] = f"_{window_index}"
-                coord_config.update({
-                    "coords": coord, 
-                    "sequential": True, 
-                    "metadata": acc_grib_keys
-                })
+                coord_config.update(
+                    {"coords": coord, "sequential": True, "metadata": acc_grib_keys}
+                )
                 yield coord_config
 
-        
     def unique_coords(self):
         coords = set()
         for window in self.windows:

@@ -29,18 +29,19 @@ NumericCoords = Union[List[int], range]
 Coord = Union[str, NumericCoord]
 Coords = Union[List[str], NumericCoords]
 
+
 def coords_name(coords: Coords, name_config: Optional[dict] = None) -> str:
     coords = convert_coords(coords)
     name_config = name_config or {}
     name_type = name_config.get("type", "default")
     prefix = name_config.get("prefix", "")
     suffix = name_config.get("suffix", "")
-    
+
     if len(coords) == 0:
         return f"{prefix}{suffix}"
     if len(coords) == 1:
         return f"{prefix}{coords[0]}{suffix}"
-        
+
     end = coords[-1]
     if name_type == "default":
         length = name_config.get("length", None)
@@ -131,7 +132,9 @@ class Accumulation(metaclass=ABCMeta):
             if end == start and "step" not in grib_header:
                 grib_header["step"] = str(start)
             else:
-                grib_header.setdefault("stepType", "max")  # Don't override if set in config
+                grib_header.setdefault(
+                    "stepType", "max"
+                )  # Don't override if set in config
                 grib_header["stepRange"] = f"{start}-{end}"
         else:
             start = self.coords[0]
@@ -192,7 +195,9 @@ class SimpleAccumulation(Accumulation):
     ) -> Accumulation:
         if operation == "sum":
             operation = "add"
-        return cls(operation, coords, sequential=sequential, metadata=metadata, name=name)
+        return cls(
+            operation, coords, sequential=sequential, metadata=metadata, name=name
+        )
 
 
 class Integral(SimpleAccumulation):
@@ -383,7 +388,9 @@ class WeightedMean(SimpleAccumulation):
                 coords = coords.copy()
                 init = coords.pop(0)
             weights = list(diff / (coords[-1] - init))
-        return cls(coords, weights=weights, sequential=sequential, metadata=metadata, name=name)
+        return cls(
+            coords, weights=weights, sequential=sequential, metadata=metadata, name=name
+        )
 
 
 class Histogram(SimpleAccumulation):
@@ -703,7 +710,9 @@ def create_accumulation(config: dict) -> Accumulation:
     cls = known.get(op)
     if cls is None:
         raise ValueError(f"Unknown accumulation {op!r}")
-    acc = cls.create(op, coords, config, sequential=sequential, metadata=metadata, name=name)
+    acc = cls.create(
+        op, coords, config, sequential=sequential, metadata=metadata, name=name
+    )
     if config.get("deaccumulate", False):
         return DeaccumulationWrapper(acc)
     return acc
