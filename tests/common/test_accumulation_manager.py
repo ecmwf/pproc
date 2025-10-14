@@ -118,7 +118,6 @@ CONFIGS = {
                 "to": 5160,
                 "by": 6,
             },
-            "include_start_step": True,
         }
     },
 }

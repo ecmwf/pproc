@@ -151,7 +151,6 @@ from pproc.prob.accumulation_manager import (
                 "windows": [
                     {
                         "operation": "mean",
-                        "include_start": True,
                         "thresholds": [
                             {"comparison": "<", "value": -2},
                             {"comparison": ">=", "value": 2},
@@ -219,7 +218,6 @@ def test_create_threshold(config, expected, exp_coords):
                     },
                     {
                         "operation": "mean",
-                        "include_start": True,
                         "thresholds": [
                             {"comparison": "<", "value": -4},
                             {"comparison": ">=", "value": 2},
