@@ -175,7 +175,7 @@ def test_products(tmpdir, monkeypatch, fdb, product, main, custom_args, req, len
     with open(f"{tmpdir}/{product}.yaml", "r") as file:
         config = yaml.safe_load(file)
     config["root_dir"] = str(tmpdir)
-    yaml.dump(config, open(f"{tmpdir}/{product}.yaml", "w"))
+    yaml.dump(config, open(f"{tmpdir}/{product}.yaml", "w"), sort_keys=False)
     args = [product, "--config", f"{tmpdir}/{product}.yaml"] + [
         x.format_map(
             {

@@ -22,46 +22,90 @@ from pproc.common.stepseq import fcmonth_to_steprange
 class DefaultStepDeriver(BaseModel):
     type_: Literal["default"] = Field("default", alias="type")
     by: Optional[int] = None
-    precomputed: bool = False
-    deaccumulation: bool = False
+    include_start: bool = False
+    allow_missing_zero: bool = False
 
     def _inst_step(self, step: int, fc_steps: list[int]) -> list[int]:
-        in_steps = []
-        if self.deaccumulation:
-            if step == fc_steps[0]:
-                raise ValueError(f"Cannot perform de-accumulation for step {step}")
-            in_steps.append(fc_steps[fc_steps.index(step) - 1])
-        in_steps.append(step)
-        return in_steps
+        if step not in fc_steps:
+            raise ValueError(f"Required step {start} not in forecast steps")
+        return [step]
 
-    def _range(self, steps: list[int], fc_steps: list[int]) -> list[int]:
-        start, end = steps
-        if self.precomputed:
-            in_steps = [f"{start}-{end}"]
-        elif self.deaccumulation:
-            self.by = self.by or 0
-            end = max(end, self.by)
-            in_steps = [min(end - self.by, start), end]
+    def _range(self, start: int, end: int, fc_steps: list[int]) -> tuple[int]:
+        if self.by:
+            fc_steps = [
+                x
+                for x in fc_steps
+                if x
+                in range((fc_steps[0] // self.by) * self.by, fc_steps[-1] + 1, self.by)
+            ]
+        if self.include_start:
+            if start not in fc_steps:
+                if start == 0 and self.allow_missing_zero:
+                    start_index = 0
+                else:
+                    raise ValueError(f"Required step {start} not in forecast steps")
+            else:
+                start_index = fc_steps.index(start)
         else:
-            if self.by:
-                fc_steps = [
-                    x
-                    for x in fc_steps
-                    if x in range(fc_steps[0], fc_steps[-1] + 1, self.by)
-                ]
-            in_steps = fc_steps[fc_steps.index(start) : fc_steps.index(end) + 1]
-        return in_steps
+            start_index = bisect.bisect_right(fc_steps, start)
+        if end not in fc_steps:
+            raise ValueError(f"Required step {end} not in forecast steps")
+        return fc_steps[start_index: fc_steps.index(end) + 1]
 
     def derive(self, output_request: dict, fc_steps: list[int]) -> list[int]:
         steps = list(map(int, str(output_request["step"]).split("-")))
         if len(steps) == 1:
             return self._inst_step(int(steps[0]), fc_steps)
-        return self._range(steps, fc_steps)
+        return self._range(*steps, fc_steps)
 
 
-class FcmonthStepDeriver(BaseModel):
+class DeaccumulateStepDeriver(BaseModel):
+    type_: Literal["deaccumulate"] = Field("deaccumulate", alias="type")
+    by: int = 0
+    allow_missing_zero: bool = False
+
+    def _inst_step(self, step: int, fc_steps: list[int]) -> list[int]:
+        in_steps = []
+        if step not in fc_steps:
+            raise ValueError(f"Required step {step} not in forecast steps")
+        if step == 0:
+            raise ValueError(f"Cannot perform de-accumulation for step 0")
+        if step != fc_steps[0]:
+            in_steps.append(fc_steps[fc_steps.index(step) - 1])
+        in_steps.append(step)
+        return in_steps
+
+    def _range(self, start: int, end: int, fc_steps: list[int]) -> list[int]:
+        end = max(end, self.by)
+        start = min(end - self.by, start)
+        if end not in fc_steps:
+            raise ValueError(f"Required step {end} not in forecast steps")
+        if start not in fc_steps:
+            if start == 0 and self.allow_missing_zero:
+                return end
+            raise ValueError(f"Required step {start} not in forecast steps")
+        return [start, end]
+
+    def derive(self, output_request: dict, fc_steps: list[int]) -> list[int]:
+        steps = list(map(int, str(output_request["step"]).split("-")))
+        if len(steps) == 1:
+            return self._inst_step(int(steps[0]), fc_steps)
+        return self._range(*steps, fc_steps)
+
+
+class PrecomputedStepDeriver(BaseModel):
+    type_: Literal["precomputed"] = Field("precomputed", alias="type")
+
+    def derive(self, output_request: dict, fc_steps: list[int]) -> list[int]:
+        if not isinstance(output_request["step"], str):
+            raise ValueError(
+                f"Step {output_request['step']} must be step range for pre-computed steps"
+            )
+        return [output_request["step"]]
+
+
+class FcmonthStepDeriver(DefaultStepDeriver):
     type_: Literal["monthly"] = Field("monthly", alias="type")
-    by: Optional[int] = None
 
     def derive(self, output_request: dict, fc_steps: list[int]) -> list[int]:
         fcmonth = int(output_request["fcmonth"])
@@ -72,32 +116,18 @@ class FcmonthStepDeriver(BaseModel):
                 fcmonth,
             ).split("-"),
         )
-        if self.by:
-            fc_steps = [
-                x
-                for x in fc_steps
-                if x in range(fc_steps[0], fc_steps[-1] + 1, self.by)
-            ]
-        return fc_steps[fc_steps.index(start) : fc_steps.index(end) + 1]
+        return self._range(start, end, fc_steps)
 
 
-class SelectionStepDeriver(BaseModel):
+class SelectionStepDeriver(DefaultStepDeriver):
     type_: Literal["select"] = Field("select", alias="type")
     index: int
-    by: Optional[int] = None
 
     def derive(self, output_request: dict, fc_steps: list[int]) -> list[int]:
         steps = list(map(int, str(output_request["step"]).split("-")))
         if len(steps) == 1:
             assert ValueError("SelectionStepDeriver can not be used for single steps")
-        start, end = steps
-        if self.by:
-            fc_steps = [
-                x
-                for x in fc_steps
-                if x in range(fc_steps[0], fc_steps[-1] + 1, self.by)
-            ]
-        selection_range = fc_steps[fc_steps.index(start) : fc_steps.index(end) + 1]
+        selection_range = self._range(*steps, fc_steps)
         return [selection_range[self.index]]
 
 
@@ -114,7 +144,7 @@ class StaticStepDeriver(BaseModel):
 
 ForecastStepDeriver = Annotated[
     Union[
-        DefaultStepDeriver, FcmonthStepDeriver, SelectionStepDeriver, StaticStepDeriver
+        DefaultStepDeriver, DeaccumulateStepDeriver, PrecomputedStepDeriver, FcmonthStepDeriver, SelectionStepDeriver, StaticStepDeriver
     ],
     Field(default_factory=DefaultStepDeriver, discriminator="type_"),
 ]

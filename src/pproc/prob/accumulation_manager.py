@@ -10,7 +10,7 @@
 from typing import Iterator, List, Tuple, Optional, Dict
 import numpy as np
 
-from pproc.common.accumulation import Accumulator
+from pproc.common.accumulation import Accumulator, coords_name
 from pproc.common.accumulation_manager import AccumulationManager
 from pproc.config.accumulation import accumulation_factory
 
@@ -31,11 +31,12 @@ class ThresholdAccumulationManager(AccumulationManager):
         step_configs = config["step"]
         if isinstance(step_configs, dict):
             step_configs = accumulation_factory(step_configs)
-        for window_id, step_cfg in step_configs.make_configs(grib_keys):
+        for step_cfg in step_configs.make_configs(grib_keys):
             thresholds = step_cfg.pop("thresholds", [])
             if not thresholds:
                 raise ValueError("Step accumulation does not contain thresholds")
-            all_thresholds[f"step_{window_id}"] = thresholds
+            name = coords_name(step_cfg["coords"], step_cfg.get("name", None))
+            all_thresholds[f"step_{name}"] = thresholds
 
         mgr = super().create(config, grib_keys)
         mgr._thresholds = {}

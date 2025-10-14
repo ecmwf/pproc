@@ -110,33 +110,49 @@ TEST_CASES = {
                                     "operation": "mean",
                                     "metadata": {"type": "fcmean"},
                                     "coords": [
-                                        {"from": 0, "to": 168, "by": 12},
-                                        {"from": 24, "to": 192, "by": 12},
+                                        {"from": 12, "to": 168, "by": 12},
+                                        {"from": 36, "to": 192, "by": 12},
                                     ],
+                                    "name": {
+                                        "type": "default", 
+                                        "length": 168,
+                                    },
                                 },
                                 {
                                     "operation": "standard_deviation",
                                     "metadata": {"type": "fcstdev"},
                                     "coords": [
-                                        {"from": 0, "to": 168, "by": 12},
-                                        {"from": 24, "to": 192, "by": 12},
+                                        {"from": 12, "to": 168, "by": 12},
+                                        {"from": 36, "to": 192, "by": 12},
                                     ],
+                                    "name": {
+                                        "type": "default", 
+                                        "length": 168,
+                                    },
                                 },
                                 {
                                     "operation": "minimum",
                                     "metadata": {"type": "fcmin"},
-                                    "coords": [
-                                        {"from": 0, "to": 168, "by": 12},
-                                        {"from": 24, "to": 192, "by": 12},
+                                   "coords": [
+                                        {"from": 12, "to": 168, "by": 12},
+                                        {"from": 36, "to": 192, "by": 12},
                                     ],
+                                    "name": {
+                                        "type": "default", 
+                                        "length": 168,
+                                    },
                                 },
                                 {
                                     "operation": "maximum",
                                     "metadata": {"type": "fcmax"},
                                     "coords": [
-                                        {"from": 0, "to": 168, "by": 12},
-                                        {"from": 24, "to": 192, "by": 12},
+                                        {"from": 12, "to": 168, "by": 12},
+                                        {"from": 36, "to": 192, "by": 12},
                                     ],
+                                    "name": {
+                                        "type": "default", 
+                                        "length": 168,
+                                    },
                                 },
                             ],
                         },
@@ -207,7 +223,6 @@ TEST_CASES = {
                     "metadata": {
                         "paramId": 172228,
                         "stream": "msmm",
-                        "bitsPerValue": 16,
                     },
                     "accumulations": {
                         "step": {
@@ -215,36 +230,45 @@ TEST_CASES = {
                             "windows": [
                                 {
                                     "operation": "mean",
-                                    "metadata": {"type": "fcmean"},
-                                    "include_start": True,
+                                    "metadata": {"type": "fcmean", "bitsPerValue": 16},
                                     "deaccumulate": True,
                                     "coords": [
                                         {"from": 0, "to": 744, "by": 24},
                                         {"from": 744, "to": 1464, "by": 24},
                                         {"from": 1464, "to": 2208, "by": 24},
                                     ],
+                                    "name": {
+                                        "type": "monthly", 
+                                        "date": "20241001",
+                                    },
                                 },
                                 {
                                     "operation": "standard_deviation",
-                                    "metadata": {"type": "fcstdev"},
-                                    "include_start": True,
+                                    "metadata": {"type": "fcstdev", "bitsPerValue": 16},
                                     "deaccumulate": True,
                                     "coords": [
                                         {"from": 0, "to": 744, "by": 24},
                                         {"from": 744, "to": 1464, "by": 24},
                                         {"from": 1464, "to": 2208, "by": 24},
                                     ],
+                                    "name": {
+                                        "type": "monthly", 
+                                        "date": "20241001",
+                                    },
                                 },
                                 {
                                     "operation": "maximum",
-                                    "metadata": {"type": "fcmax"},
-                                    "include_start": True,
+                                    "metadata": {"type": "fcmax", "bitsPerValue": 16},
                                     "deaccumulate": True,
                                     "coords": [
                                         {"from": 0, "to": 744, "by": 24},
                                         {"from": 744, "to": 1464, "by": 24},
                                         {"from": 1464, "to": 2208, "by": 24},
                                     ],
+                                    "name": {
+                                        "type": "monthly", 
+                                        "date": "20241001",
+                                    },
                                 },
                             ],
                         }
@@ -302,33 +326,49 @@ TEST_CASES = {
                                     "operation": "mean",
                                     "metadata": {"type": "fcmean"},
                                     "coords": [
-                                        {"from": 0, "to": 168, "by": 12},
-                                        {"from": 24, "to": 192, "by": 12},
+                                        {"from": 12, "to": 168, "by": 12},
+                                        {"from": 36, "to": 192, "by": 12},
                                     ],
+                                    "name": {
+                                        "type": "default", 
+                                        "length": 168,
+                                    },
                                 },
                                 {
                                     "operation": "standard_deviation",
                                     "metadata": {"type": "fcstdev"},
                                     "coords": [
-                                        {"from": 0, "to": 168, "by": 12},
-                                        {"from": 24, "to": 192, "by": 12},
+                                        {"from": 12, "to": 168, "by": 12},
+                                        {"from": 36, "to": 192, "by": 12},
                                     ],
+                                    "name": {
+                                        "type": "default", 
+                                        "length": 168,
+                                    },
                                 },
                                 {
                                     "operation": "minimum",
                                     "metadata": {"type": "fcmin"},
                                     "coords": [
-                                        {"from": 0, "to": 168, "by": 12},
-                                        {"from": 24, "to": 192, "by": 12},
+                                        {"from": 12, "to": 168, "by": 12},
+                                        {"from": 36, "to": 192, "by": 12},
                                     ],
+                                    "name": {
+                                        "type": "default", 
+                                        "length": 168,
+                                    },
                                 },
                                 {
                                     "operation": "maximum",
                                     "metadata": {"type": "fcmax"},
                                     "coords": [
-                                        {"from": 0, "to": 168, "by": 12},
-                                        {"from": 24, "to": 192, "by": 12},
+                                        {"from": 12, "to": 168, "by": 12},
+                                        {"from": 36, "to": 192, "by": 12},
                                     ],
+                                    "name": {
+                                        "type": "default", 
+                                        "length": 168,
+                                    },
                                 },
                             ],
                         },
@@ -444,33 +484,49 @@ def test_from_outputs(request, output_request, input_param):
                         "operation": "mean",
                         "metadata": {"type": "fcmean"},
                         "coords": [
-                            {"from": 0, "to": 168, "by": 12},
-                            {"from": 24, "to": 192, "by": 12},
+                            {"from": 12, "to": 168, "by": 12},
+                            {"from": 36, "to": 192, "by": 12},
                         ],
+                        "name": {
+                            "type": "default", 
+                            "length": 168,
+                        },
                     },
                     {
                         "operation": "standard_deviation",
                         "metadata": {"type": "fcstdev"},
                         "coords": [
-                            {"from": 0, "to": 168, "by": 12},
-                            {"from": 24, "to": 192, "by": 12},
+                            {"from": 12, "to": 168, "by": 12},
+                            {"from": 36, "to": 192, "by": 12},
                         ],
+                        "name": {
+                            "type": "default", 
+                            "length": 168,
+                        },
                     },
                     {
                         "operation": "minimum",
                         "metadata": {"type": "fcmin"},
                         "coords": [
-                            {"from": 0, "to": 168, "by": 12},
-                            {"from": 24, "to": 192, "by": 12},
+                            {"from": 12, "to": 168, "by": 12},
+                            {"from": 36, "to": 192, "by": 12},
                         ],
+                        "name": {
+                            "type": "default", 
+                            "length": 168,
+                        },
                     },
                     {
                         "operation": "maximum",
                         "metadata": {"type": "fcmax"},
                         "coords": [
-                            {"from": 0, "to": 168, "by": 12},
-                            {"from": 24, "to": 192, "by": 12},
+                            {"from": 12, "to": 168, "by": 12},
+                            {"from": 36, "to": 192, "by": 12},
                         ],
+                        "name": {
+                            "type": "default", 
+                            "length": 168,
+                        },
                     },
                 ],
             },
@@ -518,36 +574,45 @@ def test_from_outputs(request, output_request, input_param):
                 "windows": [
                     {
                         "operation": "mean",
-                        "metadata": {"type": "fcmean"},
+                        "metadata": {"type": "fcmean", "bitsPerValue": 16},
                         "deaccumulate": True,
-                        "include_start": True,
                         "coords": [
                             {"from": 0, "to": 744, "by": 24},
                             {"from": 744, "to": 1464, "by": 24},
                             {"from": 1464, "to": 2208, "by": 24},
                         ],
+                        "name": {
+                            "type": "monthly", 
+                            "date": "20241001",
+                        },
                     },
                     {
                         "operation": "standard_deviation",
-                        "metadata": {"type": "fcstdev"},
+                        "metadata": {"type": "fcstdev", "bitsPerValue": 16},
                         "deaccumulate": True,
-                        "include_start": True,
                         "coords": [
                             {"from": 0, "to": 744, "by": 24},
                             {"from": 744, "to": 1464, "by": 24},
                             {"from": 1464, "to": 2208, "by": 24},
                         ],
+                        "name": {
+                            "type": "monthly", 
+                            "date": "20241001",
+                        },
                     },
                     {
                         "operation": "maximum",
-                        "metadata": {"type": "fcmax"},
+                        "metadata": {"type": "fcmax", "bitsPerValue": 16},
                         "deaccumulate": True,
-                        "include_start": True,
                         "coords": [
                             {"from": 0, "to": 744, "by": 24},
                             {"from": 744, "to": 1464, "by": 24},
                             {"from": 1464, "to": 2208, "by": 24},
                         ],
+                        "name": {
+                            "type": "monthly", 
+                            "date": "20241001",
+                        },
                     },
                 ],
             },

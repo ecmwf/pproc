@@ -48,7 +48,7 @@ from pproc.prob.accumulation_manager import (
                 )
                 for a, b in [(120, 240), (120, 168), (168, 240), (240, 360)]
             },
-            set(range(126, 361, 6)),
+            set(range(120, 361, 6)),
             id="simple-range",
         ),
         pytest.param(
@@ -81,7 +81,7 @@ from pproc.prob.accumulation_manager import (
                 )
                 for a, b in [(0, 24), (12, 36), (336, 360)]
             },
-            set().union(range(6, 37, 6), range(342, 361, 6)),
+            set().union(range(0, 37, 6), range(336, 361, 6)),
             id="multi-range",
         ),
         pytest.param(
@@ -90,7 +90,6 @@ from pproc.prob.accumulation_manager import (
                 "windows": [
                     {
                         "operation": "difference",
-                        "include_start": True,
                         "thresholds": [
                             {"comparison": ">=", "value": 0.001},
                             {"comparison": ">=", "value": 0.005},
@@ -101,7 +100,6 @@ from pproc.prob.accumulation_manager import (
                     },
                     {
                         "operation": "difference",
-                        "include_start": True,
                         "thresholds": [
                             {"comparison": ">=", "value": 0.025},
                             {"comparison": ">=", "value": 0.05},
@@ -111,7 +109,6 @@ from pproc.prob.accumulation_manager import (
                     },
                     {
                         "operation": "difference_rate",
-                        "include_start": True,
                         "factor": 1.0 / 24.0,
                         "thresholds": [
                             {"comparison": "<", "value": 0.001},

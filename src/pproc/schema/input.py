@@ -23,7 +23,7 @@ from pproc.schema.deriver import (
     ClimStepDeriver,
     HindcastDatesDeriver,
 )
-from pproc.schema.filters import _steplength, _steptype, _selection, _number
+from pproc.schema.filters import _steplength, _steptype, _selection, _members
 from pproc.schema.step import StepSchema
 from pproc.config.utils import update_request, expand, squeeze, deep_update
 
@@ -334,7 +334,7 @@ class InputSchema(BaseSchema):
         "steptype": _steptype,
         "steplength": _steplength,
         "selection": _selection,
-        "number": _number,
+        "members": _members,
     }
     custom_match = {"forecast": _match_forecast, "climatology": _match_forecast}
 

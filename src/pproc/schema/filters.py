@@ -1,3 +1,5 @@
+from pproc.common.stepseq import fcmonth_to_steprange
+
 def _steptype(request: dict, key: str) -> str:
     step = request.get("step", "")
     steprange = str(step).split("-")
@@ -5,7 +7,10 @@ def _steptype(request: dict, key: str) -> str:
 
 
 def _steplength(request: dict, key: str) -> str:
-    step = request.get("step", "")
+    if "fcmonth" in request:
+        step = fcmonth_to_steprange(request["date"], request["fcmonth"])
+    else:
+        step = request.get("step", "")
     steprange = list(map(int, str(step).split("-")))
     length = str(0) if len(steprange) == 1 else str(steprange[1] - steprange[0])
     return length
@@ -15,7 +20,7 @@ def _selection(request: dict, key: str) -> str:
     return request.get("selection", "default")
 
 
-def _number(request: dict, key: str) -> str:
+def _members(request: dict, key: str) -> str:
     number = request["number"]
     if isinstance(number, int):
         number = [number]
