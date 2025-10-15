@@ -9,7 +9,7 @@ def _steptype(request: dict, key: str) -> str:
 
 def _steplength(request: dict, key: str) -> str:
     if "fcmonth" in request:
-        step = fcmonth_to_steprange(request["date"], request["fcmonth"])
+        step = fcmonth_to_steprange(str(request["date"]), int(request["fcmonth"]))
     else:
         step = request.get("step", "")
     steprange = list(map(int, str(step).split("-")))

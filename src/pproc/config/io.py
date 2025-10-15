@@ -199,8 +199,8 @@ class OutputsCollection(ConfigModel):
             # Insert default metadata for each output type
             def_metadata = cls.metadata_defaults.get(sub, {})
             metadata = {
-                **def_metadata,
                 **utils._get(defaults, "metadata", {}),
+                **def_metadata,
                 **utils._get(subsec, "metadata", {}),
             }
             # Set target from default, if specified
