@@ -167,13 +167,27 @@ class ClimStepDeriver(BaseModel):
         time = int(fc_request["time"]) // 100
         req_steps = fc_request["step"]
 
-        if len(req_steps) == 1:
-            assert isinstance(req_steps[0], str)
+        if len(req_steps) == 1 and isinstance(req_steps[0], str):
             req_steps = list(map(int, req_steps[0].split("-")))
         start, end = req_steps[0], req_steps[-1]
+        widths = [np.diff(list(map(int, x.split("-"))))[0] for x in clim_steps]
         width = end - start
+        if width not in widths:
+            if len(req_steps) == 1:
+                # Only possible if start should be step 0 and it is missing
+                start = 0
+            else:
+                step_intervals = np.diff(req_steps)
+                if np.any(step_intervals != step_intervals[0]):
+                    raise ValueError(
+                        "Can not derive width not irregular step intervals"
+                    )
+                start = start - step_intervals[0]
+            width = end - start
+            if width not in widths:
+                raise ValueError("Can not derive step range from input steps")
         filtered_clim_steps = [
-            x for x in clim_steps if np.diff(list(map(int, x.split("-"))))[0] == width
+            x for index, x in enumerate(clim_steps) if widths[index] == width
         ]
 
         # Find nearest clim window range to real forecast time
