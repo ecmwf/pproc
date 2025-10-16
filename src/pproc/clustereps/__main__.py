@@ -299,7 +299,7 @@ def main():
                 cluster_att,
                 dest.target,
                 adest.target,
-                {**dest.metadata, **cfg.metadata, **keys},
+                {**dest.metadata, **keys, **cfg.metadata},
                 ncl_dummy=cfg.ncl_dummy,
             )
 

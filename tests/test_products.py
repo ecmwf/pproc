@@ -123,28 +123,16 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
             "clustereps",
             clustereps_main,
             [
-                "--date",
-                "20240507",
-                "--spread-compute",
-                "fdb:spread_z500",
-                "--ensemble",
-                "fdb:ens_z500",
-                "--deterministic",
-                "fdb:determ_z500",
-                "--clim-dir",
-                "{DATA_DIR}/clustclim",
-                "-N",
-                "{test_dir}/NEOF",
-                "--centroids",
-                "fdb:",
-                "--representative",
-                "fdb:",
-                "--output-root",
-                "{test_dir}",
-                "--cen-anomalies",
-                "file:{test_dir}/clm_anom.grib",
-                "--rep-anomalies",
-                "file:{test_dir}/clr_anom.grib",
+                "--set",
+                "output_root={test_dir}",
+                "--set",
+                "clim_dir={DATA_DIR}/clustclim",
+                "--set",
+                "ncomp_file={test_dir}/NEOF",
+                "--set",
+                "outputs.cen_anomalies.target=file:{test_dir}/clm_anom.grib",
+                "--set",
+                "outputs.rep_anomalies.target=file:{test_dir}/clr_anom.grib",
             ],
             {
                 "levtype": "pl",
@@ -174,7 +162,6 @@ def test_products(tmpdir, monkeypatch, fdb, product, main, custom_args, req, len
     shutil.copyfile(f"{TEST_DIR}/templates/{product}.yaml", f"{tmpdir}/{product}.yaml")
     with open(f"{tmpdir}/{product}.yaml", "r") as file:
         config = yaml.safe_load(file)
-    config["root_dir"] = str(tmpdir)
     yaml.dump(config, open(f"{tmpdir}/{product}.yaml", "w"), sort_keys=False)
     args = [product, "--config", f"{tmpdir}/{product}.yaml"] + [
         x.format_map(
