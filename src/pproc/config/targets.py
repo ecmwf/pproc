@@ -138,6 +138,7 @@ class FileSetTarget(Target):
 
     _mode: str = "wb"
     _file_locks: dict[str, FileLock] = {}
+    _lock_paths: list[str] = []
     _track_truncated: list[str] = []
     _overwrite_existing: bool = False
 
@@ -153,10 +154,13 @@ class FileSetTarget(Target):
 
     def enable_parallel(self):
         self._track_truncated = _shared_list()
+        self._lock_paths = _shared_list()
 
     def write(self, message):
         path = self.path.format_map(message)
-        with self._file_locks.setdefault(path, FileLock(path + ".lock")):
+        with self._file_locks.setdefault(path, FileLock(path + ".lock")) as lock:
+            if lock.lock_file not in self._lock_paths:
+                self._lock_paths.append(lock.lock_file)
             if self._overwrite_existing:
                 remove_duplicate(path, message)
             with open(path, self.mode(path)) as file:
@@ -164,8 +168,7 @@ class FileSetTarget(Target):
 
     def clean(self):
         if self.clean_locks:
-            for lock in self._file_locks.values():
-                lock_file = lock.lock_file
+            for lock_file in self._lock_paths:
                 if os.path.exists(lock_file):
                     os.remove(lock_file)
 
