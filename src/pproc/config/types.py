@@ -1470,6 +1470,7 @@ class ClusterFullConfig(
             reqs = copy.deepcopy(fc_reqs if isinstance(fc_reqs, list) else [fc_reqs])
             for req in reqs:
                 req.update(output.metadata)
+                req.update(self.metadata)
                 req["target"] = (
                     output.target.path
                     if hasattr(output.target, "path")
