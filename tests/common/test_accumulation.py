@@ -476,7 +476,7 @@ def test_convert_dims():
             {
                 "coords": ["0-168"],
             },
-            {},
+            {"stepRange": "0-168"},
             id="precomputed",
         ),
     ],
