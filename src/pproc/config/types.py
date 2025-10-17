@@ -714,10 +714,14 @@ class ExtremeConfig(BaseConfig):
                 clim_step = inp["step"]
             else:
                 src_name = "fc"
-                fc_step = steprange(inp["step"])
+                fc_step = inp["step"]
             sorted_requests.setdefault(src_name, []).append(inp.copy())
 
         for clim_inp in sorted_requests.get("clim", []):
+            if not isinstance(fc_step, str):
+                start, end = map(int, clim_step.split("-"))
+                width = end - start
+                fc_step = f"{fc_step[-1] - width}-{fc_step[-1]}"
             clim_inp["step"] = {fc_step: clim_step}
         return sorted_requests
 
