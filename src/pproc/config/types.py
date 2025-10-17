@@ -36,12 +36,6 @@ from pproc.common.stepseq import steprange_to_fcmonth
 from pproc.extremes.indices import Index, SUPPORTED_INDICES, create_indices
 
 
-def steprange(steps: list[int] | str) -> str:
-    if isinstance(steps, str):
-        return steps
-    return f"{steps[0]}-{steps[-1]}"
-
-
 def end_step(step: int | str) -> int:
     return step if isinstance(step, int) else int(step.split("-")[1])
 
