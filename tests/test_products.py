@@ -9,8 +9,6 @@
 
 import os
 import pytest
-import shutil
-import yaml
 
 import pyfdb
 import eccodes
@@ -159,11 +157,7 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
 )
 def test_products(tmpdir, monkeypatch, fdb, product, main, custom_args, req, length):
     monkeypatch.chdir(tmpdir)  # To avoid polluting cwd with grib templates
-    shutil.copyfile(f"{TEST_DIR}/templates/{product}.yaml", f"{tmpdir}/{product}.yaml")
-    with open(f"{tmpdir}/{product}.yaml", "r") as file:
-        config = yaml.safe_load(file)
-    yaml.dump(config, open(f"{tmpdir}/{product}.yaml", "w"), sort_keys=False)
-    args = [product, "--config", f"{tmpdir}/{product}.yaml"] + [
+    args = [product, "--config", f"{TEST_DIR}/templates/{product}.yaml"] + [
         x.format_map(
             {
                 "test_dir": str(tmpdir),

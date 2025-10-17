@@ -116,26 +116,26 @@ class Accumulation(metaclass=ABCMeta):
                 start = self.coords[0]
                 end = start
 
-            if end > start and end >= 256:
-                if grib_header.get("edition", 1) == 1:
+            if end > start:
+                steprange = f"{start}-{end}"
+                if end >= 256 and grib_header.get("edition", 1) == 1:
                     # The range is encoded as two 8-bit integers
                     grib_header.setdefault("unitOfTimeRange", 11)
-
-            if end == start and "timeRangeIndicator" not in grib_header:
-                if end >= 256:
-                    grib_header["timeRangeIndicator"] = 10
-                elif end == 0:
-                    grib_header["timeRangeIndicator"] = 1
-                else:
-                    grib_header["timeRangeIndicator"] = 0
-
-            if end == start and "step" not in grib_header:
-                grib_header["step"] = str(start)
+                if self.coords[0] != steprange:
+                    grib_header.setdefault(
+                        "stepType", "max"
+                    )  # Don't override if set in config
+                    grib_header["stepRange"] = steprange
             else:
-                grib_header.setdefault(
-                    "stepType", "max"
-                )  # Don't override if set in config
-                grib_header["stepRange"] = f"{start}-{end}"
+                assert end == start, f"Start step can not be greater than end step"
+                if "timeRangeIndicator" not in grib_header:
+                    if end >= 256:
+                        grib_header["timeRangeIndicator"] = 10
+                    elif end == 0:
+                        grib_header["timeRangeIndicator"] = 1
+                    else:
+                        grib_header["timeRangeIndicator"] = 0
+                grib_header.setdefault("step", str(start))
         else:
             start = self.coords[0]
             end = self.coords[-1]

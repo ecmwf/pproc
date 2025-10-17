@@ -402,9 +402,10 @@ def test_convert_dims():
         pytest.param(
             {
                 "coords": [1],
-                "operation": "aggregation", 
-            }, 
-            {"step": "1", "timeRangeIndicator": 0}, id="inst"
+                "operation": "aggregation",
+            },
+            {"step": "1", "timeRangeIndicator": 0},
+            id="inst",
         ),
         pytest.param(
             {
@@ -424,10 +425,11 @@ def test_convert_dims():
         ),
         pytest.param(
             {
-                "coords": [1, 2], 
-                "operation": "maximum", 
-            }, 
-            {"stepRange": "1-2", "stepType": "max"}, id="range"
+                "coords": [1, 2],
+                "operation": "maximum",
+            },
+            {"stepRange": "1-2", "stepType": "max"},
+            id="range",
         ),
         pytest.param(
             {
@@ -451,9 +453,9 @@ def test_convert_dims():
                 "coords": [1, 2],
                 "operation": "mean",
                 "name": {
-                    "type": "default", 
+                    "type": "default",
                     "length": 2,
-                }, 
+                },
             },
             {"stepRange": "0-2", "stepType": "max"},
             id="name",
@@ -463,12 +465,19 @@ def test_convert_dims():
                 "coords": range(6, 721, 6),
                 "operation": "mean",
                 "name": {
-                    "type": "monthly", 
+                    "type": "monthly",
                     "date": "20250601",
-                }, 
+                },
             },
             {"stepRange": "0-720", "stepType": "max", "unitOfTimeRange": 11},
             id="name-monthly",
+        ),
+        pytest.param(
+            {
+                "coords": ["0-168"],
+            },
+            {},
+            id="precomputed",
         ),
     ],
 )
