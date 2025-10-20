@@ -49,10 +49,9 @@ inputs:
       param: '129'
       type: cf
       step:
-      - 132
-      - 144
-      - 156
-      - 168
+      - 72
+      - 84
+      - 96
       interpolate:
         grid: 1.5/1.5
         intgrid: none
@@ -120,6 +119,7 @@ inputs:
       - 49
       - 50
       step:
+      - 72
       - 84
       - 96
       interpolate:
@@ -142,6 +142,7 @@ inputs:
       param: '129'
       type: es
       step:
+      - 72
       - 84
       - 96
       interpolate:
