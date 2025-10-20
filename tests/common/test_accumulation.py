@@ -28,6 +28,7 @@ from pproc.common.accumulation import (
     convert_dims,
     convert_range,
     create_accumulation,
+    coords_name,
 )
 
 
@@ -394,6 +395,39 @@ def test_convert_dims():
         convert_dims([Dimension("step", dims["step"]), ("levelist", dims["levelist"])])
         == expected
     )
+
+
+@pytest.mark.parametrize(
+    "coords, name, expected",
+    [
+        [[], {"suffix": "SUFFIX_"}, "SUFFIX_"],
+        [[0], None, "0"],
+        [[0, 2, 4], None, "0-4"],
+        [["0-4"], None, "0-4"],
+        [
+            ["0-4"],
+            {"length": 4, "suffix": "_SUFFIX", "prefix": "PREFIX_"},
+            "PREFIX_0-4_SUFFIX",
+        ],
+        [
+            [2, 4],
+            {"length": 4, "suffix": "_SUFFIX", "prefix": "PREFIX_"},
+            "PREFIX_0-4_SUFFIX",
+        ],
+        [
+            list(range(6, 721, 6)),
+            {
+                "type": "monthly",
+                "date": "20250601",
+                "suffix": "_SUFFIX",
+                "prefix": "PREFIX_",
+            },
+            "PREFIX_0-720_SUFFIX",
+        ],
+    ],
+)
+def test_coords_name(coords, name, expected):
+    assert expected == coords_name(coords, name)
 
 
 @pytest.mark.parametrize(

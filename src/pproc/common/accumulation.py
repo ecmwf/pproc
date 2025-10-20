@@ -39,12 +39,12 @@ def coords_name(coords: Coords, name_config: Optional[dict] = None) -> str:
 
     if len(coords) == 0:
         return f"{prefix}{suffix}"
-    if len(coords) == 1 and isinstance(coords[0], str):
-        return f"{prefix}{coords[0]}{suffix}"
 
     end = coords[-1]
     if name_type == "default":
         length = name_config.get("length", None)
+        if len(coords) == 1 and (length is None or isinstance(coords[0], str)):
+            return f"{prefix}{coords[0]}{suffix}"
         start = coords[0] if length is None else int(end) - length
     elif name_type == "monthly":
         fcdate = datetime.datetime.strptime(name_config["date"], "%Y%m%d")
