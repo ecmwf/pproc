@@ -39,6 +39,8 @@ def coords_name(coords: Coords, name_config: Optional[dict] = None) -> str:
 
     if len(coords) == 0:
         return f"{prefix}{suffix}"
+    if len(coords) == 1 and isinstance(coords[0], str):
+        return f"{prefix}{coords[0]}{suffix}"
 
     end = coords[-1]
     if name_type == "default":
