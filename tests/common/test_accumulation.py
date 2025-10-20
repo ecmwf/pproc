@@ -479,6 +479,11 @@ def test_convert_dims():
             {"stepRange": "0-168"},
             id="precomputed",
         ),
+        pytest.param(
+            {"coords": [6], "name": {"type": "default", "length": 6}},
+            {"stepRange": "0-6", "stepType": "max"},
+            id="single-step-range",
+        ),
     ],
 )
 def test_grib_header(config, grib_key_values):
