@@ -51,6 +51,7 @@ class ConfigSchema(BaseSchema):
                 "year": date[0:4],
                 "month": date[4:6],
                 "day": date[6:8],
+                "steplength": _steplength(output_request, "step"),
             }
         )
         config = dict_apply(

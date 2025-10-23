@@ -17,7 +17,7 @@ from conftest import schema
 def test_in_steps():
     test_schema = StepSchema(schema("windows"))
     in_steps = test_schema.in_steps(
-        {"stream": "enfo", "type": "em", "param": "167", "time": "00"}
+        {"stream": "enfo", "type": "em", "param": "167", "time": "0000"}
     )
     assert in_steps == (
         list(range(0, 91)) + list(range(93, 145, 3)) + list(range(150, 361, 6))
@@ -28,22 +28,22 @@ def test_in_steps():
     "out, expected, in_steps",
     [
         [
-            {"stream": "enfo", "type": "em", "param": "167", "time": "00"},
+            {"stream": "enfo", "type": "em", "param": "167", "time": "0000"},
             list(range(0, 145, 3)) + list(range(150, 361, 6)),
             None,
         ],
         [
-            {"stream": "enfo", "type": "em", "param": "167", "time": "00"},
+            {"stream": "enfo", "type": "em", "param": "167", "time": "0000"},
             list(range(0, 361, 12)),
             list(range(0, 361, 12)),
         ],
         [
-            {"stream": "enfo", "type": "cf", "param": "261001", "time": "00"},
+            {"stream": "enfo", "type": "cf", "param": "261001", "time": "0000"},
             list(range(1, 91)) + list(range(93, 145, 3)) + list(range(150, 361, 6)),
             None,
         ],
         [
-            {"stream": "eefo", "type": "fcmean", "param": "167", "time": "00"},
+            {"stream": "eefo", "type": "fcmean", "param": "167", "time": "0000"},
             [f"{x}-{x+168}" for x in list(range(0, 1104 - 168 + 1, 24))],
             None,
         ],
@@ -53,18 +53,18 @@ def test_in_steps():
                 "type": "fcmean",
                 "param": "167",
                 "date": "20241001",
-                "time": "00",
+                "time": "0000",
             },
             list(range(1, 8)),
             None,
         ],
         [
-            {"stream": "enfo", "type": "ep", "param": "131064", "time": "00"},
+            {"stream": "enfo", "type": "ep", "param": "131064", "time": "0000"},
             ["120-240", "240-360", "120-168", "168-240"],
             None,
         ],
         [
-            {"stream": "oper", "type": "fc", "param": "207", "time": "00"},
+            {"stream": "oper", "type": "fc", "param": "207", "time": "0000"},
             list(range(1, 91)),
             list(range(1, 91)),
         ],

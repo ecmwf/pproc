@@ -28,6 +28,7 @@ from pproc.common.accumulation import (
     convert_dims,
     convert_range,
     create_accumulation,
+    coords_name,
 )
 
 
@@ -396,6 +397,135 @@ def test_convert_dims():
     )
 
 
+@pytest.mark.parametrize(
+    "coords, name, expected",
+    [
+        [[], {"suffix": "SUFFIX_"}, "SUFFIX_"],
+        [[0], None, "0"],
+        [[0, 2, 4], None, "0-4"],
+        [["0-4"], None, "0-4"],
+        [
+            ["0-4"],
+            {"length": 4, "suffix": "_SUFFIX", "prefix": "PREFIX_"},
+            "PREFIX_0-4_SUFFIX",
+        ],
+        [
+            [2, 4],
+            {"length": 4, "suffix": "_SUFFIX", "prefix": "PREFIX_"},
+            "PREFIX_0-4_SUFFIX",
+        ],
+        [
+            list(range(6, 721, 6)),
+            {
+                "type": "monthly",
+                "date": "20250601",
+                "suffix": "_SUFFIX",
+                "prefix": "PREFIX_",
+            },
+            "PREFIX_0-720_SUFFIX",
+        ],
+    ],
+)
+def test_coords_name(coords, name, expected):
+    assert expected == coords_name(coords, name)
+
+
+@pytest.mark.parametrize(
+    "config, grib_key_values",
+    [
+        pytest.param(
+            {
+                "coords": [1],
+                "operation": "aggregation",
+            },
+            {"step": "1", "timeRangeIndicator": 0},
+            id="inst",
+        ),
+        pytest.param(
+            {
+                "coords": [0],
+                "operation": "aggregation",
+            },
+            {"step": "0", "timeRangeIndicator": 1},
+            id="inst-0",
+        ),
+        pytest.param(
+            {
+                "coords": [260],
+                "operation": "aggregation",
+            },
+            {"step": "260", "timeRangeIndicator": 10},
+            id="inst-260",
+        ),
+        pytest.param(
+            {
+                "coords": [1, 2],
+                "operation": "maximum",
+            },
+            {"stepRange": "1-2", "stepType": "max"},
+            id="range",
+        ),
+        pytest.param(
+            {
+                "coords": list(range(320, 361)),
+                "operation": "maximum",
+            },
+            {"stepRange": "320-360", "stepType": "max", "unitOfTimeRange": 11},
+            id="range-360",
+        ),
+        pytest.param(
+            {
+                "coords": [1, 2],
+                "operation": "mean",
+                "metadata": {"stepType": "avg", "numberIncludedInAverage": 2},
+            },
+            {"numberIncludedInAverage": 2, "stepRange": "1-2", "stepType": "avg"},
+            id="extra",
+        ),
+        pytest.param(
+            {
+                "coords": [1, 2],
+                "operation": "mean",
+                "name": {
+                    "type": "default",
+                    "length": 2,
+                },
+            },
+            {"stepRange": "0-2", "stepType": "max"},
+            id="name",
+        ),
+        pytest.param(
+            {
+                "coords": range(6, 721, 6),
+                "operation": "mean",
+                "name": {
+                    "type": "monthly",
+                    "date": "20250601",
+                },
+            },
+            {"stepRange": "0-720", "stepType": "max", "unitOfTimeRange": 11},
+            id="name-monthly",
+        ),
+        pytest.param(
+            {
+                "coords": ["0-168"],
+            },
+            {"stepRange": "0-168"},
+            id="precomputed",
+        ),
+        pytest.param(
+            {"coords": [6], "name": {"type": "default", "length": 6}},
+            {"stepRange": "0-6", "stepType": "max"},
+            id="single-step-range",
+        ),
+    ],
+)
+def test_grib_header(config, grib_key_values):
+    accum = create_accumulation(config)
+    header = accum.grib_keys("step")
+    assert header == grib_key_values
+
+
 def test_accumulator_contains():
     assert {"step": 12} in Accumulator({"step": Mean(range(6, 24, 6))})
     assert {"hdate": 20200301, "step": 6, "example": "a"} in Accumulator(
@@ -495,3 +625,20 @@ def test_create_accumulator():
     assert type(acc.dims[1].accumulation) is SimpleAccumulation
     assert acc.dims[1].accumulation.operation is np.maximum
     assert acc.dims[1].accumulation.coords == range(24, 49, 6)
+
+
+def test_multi_accum():
+    accum = create_accumulation({"coords": [1, 2], "operation": "sum"})
+    accum2 = create_accumulation({"coords": [1, 2], "operation": "sum"})
+    step_values = np.array([[1, 2, 3], [2, 4, 6]])
+    accum.feed(1, step_values)
+    accum2.feed(1, step_values)
+    step_values = np.array([[1, 2, 3], [2, 4, 6]])
+    accum.feed(2, step_values * 2)
+    values = accum.get_values()
+    assert values is not None
+    np.testing.assert_equal(values, np.array([[3, 6, 9], [6, 12, 18]]))
+    accum2.feed(2, step_values)
+    values2 = accum2.get_values()
+    assert values2 is not None
+    np.testing.assert_equal(values2, np.array([[2, 4, 6], [4, 8, 12]]))

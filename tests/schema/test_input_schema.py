@@ -153,7 +153,7 @@ INPUTS = {
             "stream": "mmsf",
             "levtype": "sfc",
             "param": ["165", "166"],
-            "step": list(range(0, 745, 6)),
+            "step": list(range(6, 745, 6)),
             "type": "fc",
             "number": list(range(0, 51)),
             "date": "20241001",
@@ -358,7 +358,7 @@ def test_inputs(request, output):
 
 @pytest.mark.parametrize(
     "out_type, num_outputs",
-    [["em", 1], ["cf", 11], ["ep", 52], ["efi", 1], ["fcmean", 3], ["ep", 7]],
+    [["em", 1], ["cf", 12], ["ep", 52], ["efi", 1], ["fcmean", 3], ["ep", 7]],
     ids=["ensms", "thermofeel", "t850", "efi", "monthly", "prob"],
 )
 def test_outputs(request, out_type, num_outputs):
@@ -399,11 +399,11 @@ def test_outputs(request, out_type, num_outputs):
                     "step": [2, 3],
                     "type": "fc",
                     "levtype": "sfc",
-                    "time": "00",
+                    "time": "0000",
                 }
             ],
             {"type": "fc"},
-            18,
+            20,
         ],
         [
             [
@@ -412,7 +412,7 @@ def test_outputs(request, out_type, num_outputs):
                     "param": ["228246", "228247"],
                     "type": "cf",
                     "levtype": "sfc",
-                    "time": "00",
+                    "time": "0000",
                 }
             ],
             {"type": "cf"},
@@ -426,7 +426,7 @@ def test_outputs(request, out_type, num_outputs):
                     "type": "cf",
                     "levtype": "sfc",
                     "step": 3,
-                    "time": "00",
+                    "time": "0000",
                 },
                 {
                     "stream": "enfo",
@@ -435,7 +435,7 @@ def test_outputs(request, out_type, num_outputs):
                     "levtype": "sfc",
                     "number": list(range(1, 51)),
                     "step": 3,
-                    "time": "00",
+                    "time": "0000",
                 },
                 {
                     "stream": "enfo",
@@ -444,7 +444,7 @@ def test_outputs(request, out_type, num_outputs):
                     "levtype": "pl",
                     "levelist": [50, 100],
                     "step": 3,
-                    "time": "00",
+                    "time": "0000",
                 },
                 {
                     "stream": "enfo",
@@ -454,7 +454,7 @@ def test_outputs(request, out_type, num_outputs):
                     "number": list(range(1, 51)),
                     "levelist": [50, 100],
                     "step": 3,
-                    "time": "00",
+                    "time": "0000",
                 },
             ],
             {"levtype": "pl", "levelist": 50, "type": "em"},
@@ -496,5 +496,5 @@ def test_fcstat_inputs(number, updates):
     inputs = input_schema.inputs(output, step_schema)
     base_input = output.copy()
     base_input.pop("number")
-    expected = update_request({**base_input, "step": list(range(0, 169, 6))}, updates)
+    expected = update_request({**base_input, "step": list(range(6, 169, 6))}, updates)
     assert list(inputs) == expected

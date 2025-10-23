@@ -1281,13 +1281,13 @@ def main():
         keys, steps = get_output_keys(cfg, message)
 
     target = cfg.outputs.centroids.target
-    metadata = {**cfg.outputs.centroids.metadata, **keys}
+    metadata = {**cfg.outputs.centroids.metadata, **keys, **cfg.metadata}
     write_cluster_grib(
         steps, ind_cl, rep_members, det_index, centroids_gp, target, metadata
     )
 
     target = cfg.outputs.representative.target
-    metadata = {**cfg.outputs.representative.metadata, **keys}
+    metadata = {**cfg.outputs.representative.metadata, **keys, **cfg.metadata}
     write_cluster_grib(
         steps, ind_cl, rep_members, det_index, rep_members_gp, target, metadata
     )

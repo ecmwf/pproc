@@ -36,12 +36,6 @@ from pproc.common.stepseq import steprange_to_fcmonth
 from pproc.extremes.indices import Index, SUPPORTED_INDICES, create_indices
 
 
-def steprange(steps: list[int] | str) -> str:
-    if isinstance(steps, str):
-        return steps
-    return f"{steps[0]}-{steps[-1]}"
-
-
 def end_step(step: int | str) -> int:
     return step if isinstance(step, int) else int(step.split("-")[1])
 
@@ -714,10 +708,14 @@ class ExtremeConfig(BaseConfig):
                 clim_step = inp["step"]
             else:
                 src_name = "fc"
-                fc_step = steprange(inp["step"])
+                fc_step = inp["step"]
             sorted_requests.setdefault(src_name, []).append(inp.copy())
 
         for clim_inp in sorted_requests.get("clim", []):
+            if not isinstance(fc_step, str):
+                start, end = map(int, clim_step.split("-"))
+                width = end - start
+                fc_step = f"{fc_step[-1] - width}-{fc_step[-1]}"
             clim_inp["step"] = {fc_step: clim_step}
         return sorted_requests
 
@@ -1472,6 +1470,7 @@ class ClusterFullConfig(
             reqs = copy.deepcopy(fc_reqs if isinstance(fc_reqs, list) else [fc_reqs])
             for req in reqs:
                 req.update(output.metadata)
+                req.update(self.metadata)
                 req["target"] = (
                     output.target.path
                     if hasattr(output.target, "path")

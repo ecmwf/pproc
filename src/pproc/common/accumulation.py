@@ -11,10 +11,14 @@ from abc import ABCMeta, abstractmethod
 import copy
 from dataclasses import dataclass
 from math import prod
+import datetime
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 from numpy.typing import DTypeLike
+
+from earthkit.time.calendar import MonthInYear
+from earthkit.time.sequence import MonthlySequence
 
 from pproc.common.grib_helpers import fill_template_values
 
@@ -26,6 +30,35 @@ Coord = Union[str, NumericCoord]
 Coords = Union[List[str], NumericCoords]
 
 
+def coords_name(coords: Coords, name_config: Optional[dict] = None) -> str:
+    coords = convert_coords(coords)
+    name_config = name_config or {}
+    name_type = name_config.get("type", "default")
+    prefix = name_config.get("prefix", "")
+    suffix = name_config.get("suffix", "")
+
+    if len(coords) == 0:
+        return f"{prefix}{suffix}"
+
+    end = coords[-1]
+    if name_type == "default":
+        length = name_config.get("length", None)
+        if len(coords) == 1 and (length is None or isinstance(coords[0], str)):
+            return f"{prefix}{coords[0]}{suffix}"
+        start = coords[0] if length is None else int(end) - length
+    elif name_type == "monthly":
+        fcdate = datetime.datetime.strptime(name_config["date"], "%Y%m%d")
+        end = int(end)
+        seq = MonthlySequence(1)
+        first_month = seq.next(fcdate, False)
+        this_month = fcdate + datetime.timedelta(hours=end - 1)
+        month_length = MonthInYear(this_month.year, this_month.month).length() * 24
+        start = end - month_length
+    else:
+        raise ValueError(f"Unknown name type {name_type}")
+    return f"{prefix}{start}-{end}{suffix}"
+
+
 class Accumulation(metaclass=ABCMeta):
     values: Optional[np.ndarray]
 
@@ -34,10 +67,12 @@ class Accumulation(metaclass=ABCMeta):
         coords: Coords,
         sequential: bool = False,
         metadata: Optional[dict] = None,
+        name: Optional[dict] = None,
     ):
         self.coords = coords
         self.sequential = sequential
         self._grib_keys = {} if metadata is None else metadata.copy()
+        self.name = coords_name(coords, name)
         self.reset(initial=True)
 
     def __len__(self) -> int:
@@ -70,13 +105,46 @@ class Accumulation(metaclass=ABCMeta):
     def get_values(self) -> Optional[np.ndarray]:
         return self.values
 
-    def grib_keys(self) -> dict:
+    def grib_keys(self, dim: str) -> dict:
+        grib_header = self._grib_keys.copy()
+        if dim == "step":
+            steps = self.name.split("-")
+            if len(steps) > 1:
+                start = int(steps[0].split("_")[-1])
+                end = int(steps[-1].split("_")[0])
+            else:
+                start = self.coords[0]
+                end = start
+
+            if end > start:
+                steprange = f"{start}-{end}"
+                if end >= 256 and grib_header.get("edition", 1) == 1:
+                    # The range is encoded as two 8-bit integers
+                    grib_header.setdefault("unitOfTimeRange", 11)
+                if self.coords[0] != steprange:
+                    grib_header.setdefault(
+                        "stepType", "max"
+                    )  # Don't override if set in config
+                grib_header["stepRange"] = steprange
+            else:
+                assert end == start, f"Start step can not be greater than end step"
+                if "timeRangeIndicator" not in grib_header:
+                    if end >= 256:
+                        grib_header["timeRangeIndicator"] = 10
+                    elif end == 0:
+                        grib_header["timeRangeIndicator"] = 1
+                    else:
+                        grib_header["timeRangeIndicator"] = 0
+                grib_header.setdefault("step", str(start))
+        else:
+            start = self.coords[0]
+            end = self.coords[-1]
         return fill_template_values(
-            self._grib_keys,
+            grib_header,
             {
                 "num_coords": len(self.coords),
-                "start_coord": self.coords[0],
-                "end_coord": self.coords[-1],
+                "start_coord": start,
+                "end_coord": end,
             },
         )
 
@@ -93,6 +161,7 @@ class Accumulation(metaclass=ABCMeta):
         config: dict,
         sequential: bool = False,
         metadata: Optional[dict] = None,
+        name: Optional[dict] = None,
     ) -> "Accumulation":
         raise NotImplementedError
 
@@ -104,8 +173,9 @@ class SimpleAccumulation(Accumulation):
         coords: Coords,
         sequential: bool = False,
         metadata: Optional[dict] = None,
+        name: Optional[dict] = None,
     ):
-        super().__init__(coords, sequential, metadata)
+        super().__init__(coords, sequential, metadata, name)
         self.operation = getattr(np, operation)
 
     def combine(self, coord: Coord, values: np.ndarray) -> bool:
@@ -121,10 +191,13 @@ class SimpleAccumulation(Accumulation):
         config: dict,
         sequential: bool = False,
         metadata: Optional[dict] = None,
+        name: Optional[dict] = None,
     ) -> Accumulation:
         if operation == "sum":
             operation = "add"
-        return cls(operation, coords, sequential=sequential, metadata=metadata)
+        return cls(
+            operation, coords, sequential=sequential, metadata=metadata, name=name
+        )
 
 
 class Integral(SimpleAccumulation):
@@ -133,9 +206,10 @@ class Integral(SimpleAccumulation):
         init: int,
         coords: NumericCoords,
         metadata: Optional[dict] = None,
+        name: Optional[dict] = None,
     ):
         self.init = init
-        super().__init__("add", coords, sequential=True, metadata=metadata)
+        super().__init__("add", coords, sequential=True, metadata=metadata, name=name)
 
     def reset(self, initial: bool = False) -> None:
         super().reset(initial)
@@ -156,6 +230,7 @@ class Integral(SimpleAccumulation):
         config: dict,
         sequential: bool = True,
         metadata: Optional[dict] = None,
+        name: Optional[dict] = None,
     ) -> Accumulation:
         if isinstance(coords, range):
             init = coords.start
@@ -163,7 +238,7 @@ class Integral(SimpleAccumulation):
         else:
             coords = coords.copy()
             init = coords.pop(0)
-        return cls(init, coords, metadata=metadata)
+        return cls(init, coords, metadata=metadata, name=name)
 
 
 class Difference(Accumulation):
@@ -172,9 +247,10 @@ class Difference(Accumulation):
         coords: Coords,
         sequential: bool = False,
         metadata: Optional[dict] = None,
+        name: Optional[dict] = None,
     ):
         assert len(coords) in {1, 2}
-        super().__init__(coords, sequential, metadata)
+        super().__init__(coords, sequential, metadata, name)
 
     def combine(self, coord: Coord, values: np.ndarray) -> bool:
         assert self.values is not None
@@ -190,8 +266,9 @@ class Difference(Accumulation):
         config: dict,
         sequential: bool = False,
         metadata: Optional[dict] = None,
+        name: Optional[dict] = None,
     ) -> Accumulation:
-        return cls(coords, sequential=sequential, metadata=metadata)
+        return cls(coords, sequential=sequential, metadata=metadata, name=name)
 
 
 class DifferenceRate(Difference):
@@ -201,8 +278,9 @@ class DifferenceRate(Difference):
         factor: float = 1.0,
         sequential: bool = False,
         metadata: Optional[dict] = None,
+        name: Optional[dict] = None,
     ):
-        super().__init__(coords, sequential, metadata)
+        super().__init__(coords, sequential, metadata, name)
         length = self.coords[-1] - (self.coords[0] if len(self.coords) == 2 else 0)
         self.factor = factor * length
 
@@ -219,12 +297,14 @@ class DifferenceRate(Difference):
         config: dict,
         sequential: bool = False,
         metadata: Optional[dict] = None,
+        name: Optional[dict] = None,
     ) -> Accumulation:
         return cls(
             coords,
             factor=config.get("factor", 1.0),
             sequential=sequential,
             metadata=metadata,
+            name=name,
         )
 
 
@@ -234,8 +314,9 @@ class Mean(SimpleAccumulation):
         coords: Coords,
         sequential: bool = False,
         metadata: Optional[dict] = None,
+        name: Optional[dict] = None,
     ):
-        super().__init__("add", coords, sequential, metadata)
+        super().__init__("add", coords, sequential, metadata, name)
 
     def reset(self, initial: bool = False) -> None:
         super().reset(initial)
@@ -260,8 +341,9 @@ class Mean(SimpleAccumulation):
         config: dict,
         sequential: bool = False,
         metadata: Optional[dict] = None,
+        name: Optional[dict] = None,
     ) -> Accumulation:
-        return cls(coords, sequential=sequential, metadata=metadata)
+        return cls(coords, sequential=sequential, metadata=metadata, name=name)
 
 
 class WeightedMean(SimpleAccumulation):
@@ -271,8 +353,9 @@ class WeightedMean(SimpleAccumulation):
         weights: list[float],
         sequential: bool = False,
         metadata: Optional[dict] = None,
+        name: Optional[dict] = None,
     ):
-        super().__init__("add", coords, sequential, metadata)
+        super().__init__("add", coords, sequential, metadata, name)
         assert len(coords) == len(
             weights
         ), "Length coords must match length for weights for WeightedMean accumulation"
@@ -293,6 +376,7 @@ class WeightedMean(SimpleAccumulation):
         config: dict,
         sequential: bool = False,
         metadata: Optional[dict] = None,
+        name: Optional[dict] = None,
     ) -> Accumulation:
         weights = config.get("weights", None)
         if weights is None:
@@ -304,7 +388,9 @@ class WeightedMean(SimpleAccumulation):
                 coords = coords.copy()
                 init = coords.pop(0)
             weights = list(diff / (coords[-1] - init))
-        return cls(coords, weights=weights, sequential=sequential, metadata=metadata)
+        return cls(
+            coords, weights=weights, sequential=sequential, metadata=metadata, name=name
+        )
 
 
 class Histogram(SimpleAccumulation):
@@ -318,8 +404,9 @@ class Histogram(SimpleAccumulation):
         dtype: DTypeLike = np.float32,
         sequential: bool = False,
         metadata: Optional[dict] = None,
+        name: Optional[dict] = None,
     ):
-        super().__init__("add", coords, sequential, metadata)
+        super().__init__("add", coords, sequential, metadata, name)
         self.bins = np.asarray(bins)
         self.mod = mod
         self.normalise = normalise
@@ -361,6 +448,7 @@ class Histogram(SimpleAccumulation):
         config: dict,
         sequential: bool = False,
         metadata: Optional[dict] = None,
+        name: Optional[dict] = None,
     ) -> Accumulation:
         return cls(
             coords,
@@ -370,6 +458,7 @@ class Histogram(SimpleAccumulation):
             scale_out=config.get("scale_out"),
             sequential=sequential,
             metadata=metadata,
+            name=name,
         )
 
 
@@ -379,8 +468,9 @@ class Aggregation(Accumulation):
         coords: Coords,
         sequential: bool = False,
         metadata: Optional[dict] = None,
+        name: Optional[dict] = None,
     ):
-        super().__init__(coords, sequential, metadata)
+        super().__init__(coords, sequential, metadata, name)
         self.lookup = {k: i for i, k in enumerate(coords)}
 
     def feed(self, coord: Coord, values: np.ndarray) -> bool:
@@ -412,8 +502,9 @@ class Aggregation(Accumulation):
         config: dict,
         sequential: bool = False,
         metadata: Optional[dict] = None,
+        name: Optional[dict] = None,
     ) -> Accumulation:
-        return cls(coords, sequential=sequential, metadata=metadata)
+        return cls(coords, sequential=sequential, metadata=metadata, name=name)
 
 
 class StandardDeviation(Mean):
@@ -422,8 +513,9 @@ class StandardDeviation(Mean):
         coords: Coords,
         sequential: bool = False,
         metadata: Optional[dict] = None,
+        name: Optional[dict] = None,
     ):
-        super().__init__(coords, sequential, metadata)
+        super().__init__(coords, sequential, metadata, name)
         self.sumsq = None
 
     def reset(self, initial: bool = False) -> None:
@@ -456,8 +548,9 @@ class Filter(Aggregation):
         neighbours_op: Optional[str] = None,
         sequential: bool = False,
         metadata: Optional[dict] = None,
+        name: Optional[dict] = None,
     ):
-        super().__init__(coords, sequential, metadata)
+        super().__init__(coords, sequential, metadata, name)
         if filter_op == "max":
             self.filter_op = np.argmax
         elif filter_op == "min":
@@ -502,6 +595,7 @@ class Filter(Aggregation):
         config: dict,
         sequential: bool = False,
         metadata: Optional[dict] = None,
+        name: Optional[dict] = None,
     ) -> Accumulation:
         return cls(
             coords,
@@ -511,6 +605,7 @@ class Filter(Aggregation):
             neighbours_op=config.get("neighbours_op", None),
             sequential=sequential,
             metadata=metadata,
+            name=name,
         )
 
 
@@ -519,6 +614,7 @@ class DeaccumulationWrapper(Accumulation):
         if len(accumulation.coords) < 2:
             raise ValueError("Deaccumulation can not be performed on single coord")
         self.coords = copy.deepcopy(accumulation.coords)
+        self.zero_initial = int(accumulation.name.split("-")[0]) not in self.coords
         # Remove first coord from accumulation
         accumulation.coords = list(accumulation.coords)
         accumulation.coords.pop(0)
@@ -529,6 +625,12 @@ class DeaccumulationWrapper(Accumulation):
     def reset(self, initial: bool = False) -> None:
         super().reset(initial)
         self.acc.reset(initial)
+        if self.zero_initial:
+            self.values = 0
+
+    @property
+    def name(self) -> str:
+        return self.acc.name
 
     def is_complete(self) -> bool:
         return self.acc.is_complete()
@@ -536,15 +638,8 @@ class DeaccumulationWrapper(Accumulation):
     def get_values(self) -> Optional[np.ndarray]:
         return self.acc.get_values()
 
-    def grib_keys(self) -> dict:
-        return fill_template_values(
-            self.acc._grib_keys,
-            {
-                "num_coords": len(self.coords) - 1,
-                "start_coord": self.coords[1],
-                "end_coord": self.coords[-1],
-            },
-        )
+    def grib_keys(self, dim: str) -> dict:
+        return self.acc.grib_keys(dim)
 
     def combine(self, coord: Coord, values: np.ndarray) -> bool:
         processed = self.acc.feed(coord, values - self.values)
@@ -560,6 +655,7 @@ class DeaccumulationWrapper(Accumulation):
         config: dict,
         sequential: bool = False,
         metadata: Optional[dict] = None,
+        name: Optional[dict] = None,
     ) -> "Accumulation":
         raise NotImplementedError
 
@@ -596,6 +692,7 @@ def create_accumulation(config: dict) -> Accumulation:
     coords = convert_coords(config["coords"])
     sequential = config.get("sequential", False)
     metadata = config.get("metadata", {})
+    name = config.get("name", {})
     known = {
         "sum": SimpleAccumulation,
         "minimum": SimpleAccumulation,
@@ -613,7 +710,9 @@ def create_accumulation(config: dict) -> Accumulation:
     cls = known.get(op)
     if cls is None:
         raise ValueError(f"Unknown accumulation {op!r}")
-    acc = cls.create(op, coords, config, sequential=sequential, metadata=metadata)
+    acc = cls.create(
+        op, coords, config, sequential=sequential, metadata=metadata, name=name
+    )
     if config.get("deaccumulate", False):
         return DeaccumulationWrapper(acc)
     return acc
@@ -692,21 +791,14 @@ class Accumulator:
     def grib_keys(self) -> dict:
         keys = {}
         for dim in self.dims:
-            keys.update(dim.accumulation.grib_keys())
+            keys.update(dim.accumulation.grib_keys(dim.key))
         return keys
 
     @classmethod
     def create(cls, config: dict) -> "Accumulator":
-        names = {}
         dims = []
         for key, acc_cfg in config.items():
-            if isinstance(acc_cfg, tuple):
-                name = acc_cfg[0]
-                if name:
-                    names[key] = name
-                acc_cfg = acc_cfg[1]
-            dims.append((key, create_accumulation(acc_cfg)))
-        if not names:
-            name = None
-        name = ":".join(f"{k}_{v}" for k, v in names.items())
+            acc = create_accumulation(acc_cfg)
+            dims.append((key, acc))
+        name = ":".join(f"{k}_{v.name}" for k, v in dims)
         return cls(dims, name)

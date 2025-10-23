@@ -118,7 +118,6 @@ CONFIGS = {
                 "to": 5160,
                 "by": 6,
             },
-            "include_start_step": True,
         }
     },
 }
@@ -150,7 +149,7 @@ EXPECT_ACCUMS = {
     "factory-legacy": {"step": (Aggregation, [[24], [48]])},
     "factory-multidim": {
         "hdate": (Aggregation, [[20220610], [20230610]]),
-        "step": (Mean, [[6, 12, 18, 24]]),
+        "step": (Mean, [range(0, 25, 6)]),
     },
     "factory-dateseq-bracket": {
         "date": (
@@ -202,7 +201,7 @@ EXPECT_COORDS = {
     },
     "factory-default": {"step": {12, 18}},
     "factory-legacy": {"step": {24, 48}},
-    "factory-multidim": {"hdate": {20220610, 20230610}, "step": {6, 12, 18, 24}},
+    "factory-multidim": {"hdate": {20220610, 20230610}, "step": {0, 6, 12, 18, 24}},
     "factory-dateseq-bracket": {
         "date": {
             "20240711",

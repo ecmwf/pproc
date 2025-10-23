@@ -4,28 +4,13 @@ clim_eof: '{season}_eof.grd'
 clim_means: '{season}_means.grd'
 clim_pcs: '{season}_pcs.gts'
 clim_sdv: '{season}_sdv.gts'
-defs:
-  base_interp: &id001
-    grid: 1.5/1.5
-    intgrid: none
-    legendre-loader: shmem
-    matrix-loader: file-io
-  base_keys:
-    class: od
-    date: 20240507
-    domain: g
-    expver: '0001'
-    levelist: 500
-    levtype: pl
-    param: 129
-    stream: enfo
-    time: '1200'
 generate_dummy: true
 init: sector
-lat_n: 75.0
-lat_s: 30.0
-lon_e: 40.0
-lon_w: 340.0
+bbox:
+  lat_n: 75.0
+  lat_s: 30.0
+  lon_e: 40.0
+  lon_w: 340.0
 max_anom: 10000.0
 max_sig: 95.0
 med_sig: 90.0
@@ -38,74 +23,166 @@ npc: -1
 nrsamples: 5 # So that tests run quickly, as results are not important
 num_components: 50
 num_members: 51
-out_keys:
+metadata:
   expver: '0001'
+  stream: enfo
 seasons:
 - - 5
   - 9
 - - 10
   - 4
 sig_tol: 3.0
-sources:
-  fdb:
-    determ_z500:
+inputs:
+  overrides: {}
+  fc:
+    source:
+      type: fdb
+    request:
+    - levelist: 500
       class: od
-      date: 20240507
-      domain: g
-      expver: '0001'
-      interpolate: *id001
-      levelist: 500
-      levtype: pl
-      param: 129
-      stream: oper
-      time: '1200'
-      type: fc
-    ens_z500:
-    - class: od
-      date: 20240507
-      domain: g
-      expver: '0001'
-      interpolate:
-        accuracy: '24'
-        grid: 1.5/1.5
-        intgrid: none
-        legendre-loader: shmem
-        matrix-loader: file-io
-      levelist: 500
-      levtype: pl
-      param: 129
       stream: enfo
+      expver: '0001'
+      levtype: pl
+      domain: g
+      date: '20240507'
       time: '1200'
+      param: '129'
       type: cf
-    - class: od
-      date: 20240507
-      domain: g
-      expver: '0001'
+      step:
+      - 72
+      - 84
+      - 96
       interpolate:
-        accuracy: '24'
         grid: 1.5/1.5
         intgrid: none
         legendre-loader: shmem
         matrix-loader: file-io
-      levelist: 500
-      levtype: pl
-      param: 129
-      stream: enfo
-      time: '1200'
-      type: pf
-    spread_z500:
+    - levelist: 500
       class: od
-      date: 20240507
-      domain: g
-      expver: '0001'
-      interpolate: *id001
-      levelist: 500
-      levtype: pl
-      param: 129
       stream: enfo
+      expver: '0001'
+      levtype: pl
+      domain: g
+      date: '20240507'
       time: '1200'
+      param: '129'
+      type: pf
+      number:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+      - 10
+      - 11
+      - 12
+      - 13
+      - 14
+      - 15
+      - 16
+      - 17
+      - 18
+      - 19
+      - 20
+      - 21
+      - 22
+      - 23
+      - 24
+      - 25
+      - 26
+      - 27
+      - 28
+      - 29
+      - 30
+      - 31
+      - 32
+      - 33
+      - 34
+      - 35
+      - 36
+      - 37
+      - 38
+      - 39
+      - 40
+      - 41
+      - 42
+      - 43
+      - 44
+      - 45
+      - 46
+      - 47
+      - 48
+      - 49
+      - 50
+      step:
+      - 72
+      - 84
+      - 96
+      interpolate:
+        grid: 1.5/1.5
+        intgrid: none
+        legendre-loader: shmem
+        matrix-loader: file-io
+  spread:
+    source:
+      type: fdb
+    request:
+    - levelist: 500
+      class: od
+      stream: enfo
+      expver: '0001'
+      levtype: pl
+      domain: g
+      date: '20240507'
+      time: '1200'
+      param: '129'
       type: es
+      step:
+      - 72
+      - 84
+      - 96
+      interpolate:
+        grid: 1.5/1.5
+        intgrid: none
+        legendre-loader: shmem
+        matrix-loader: file-io
+  deterministic:
+    source:
+      type: 'null'
+      path: null
+    request: {}
+outputs:
+  default:
+    target:
+      type: fdb
+      config: null
+    metadata: {}
+  overrides: {}
+  centroids:
+    target:
+      type: fdb
+      config: null
+    metadata:
+      type: cm
+  representative:
+    target:
+      type: fdb
+      config: null
+    metadata:
+      type: cr
+parameters: []
 step_del: 12
 step_end: 96
 step_start: 72
 var_th: 80.0
+pca_factor: null
+cluster_factor: 0.4
+indexes: null
+deterministic_is_control: true
+date: 2024-05-07 00:00:00
+compute_spread: true
+pca_output: null

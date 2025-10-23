@@ -17,8 +17,7 @@ from earthkit.time.calendar import parse_date
 from earthkit.time.sequence import Sequence
 
 from pproc.common.stepseq import stepseq_ranges, stepseq_monthly
-from pproc.common.accumulation import coords_extent
-from pproc.common.window import legacy_window_factory
+from pproc.common.accumulation import convert_coords, coords_name
 from pproc.config.utils import extract_mars, _get
 
 
@@ -64,9 +63,9 @@ class LegacyWindowConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     operation: Optional[str] = None
-    include_start: bool = False
     deaccumulate: bool = False
     metadata: dict = {}
+    name: Optional[dict] = None
     coords: Annotated[
         list[Union[List[int | str], dict]], BeforeValidator(_to_coords)
     ] = []
@@ -92,15 +91,7 @@ class LegacyWindowConfig(BaseModel):
     def unique_coords(self):
         coords = set()
         for coord in self.coords:
-            if isinstance(coord, list):
-                update = coord
-            elif isinstance(coord, dict):
-                update = list(
-                    range(coord.get("from", 0), coord["to"] + 1, coord.get("by", 1))
-                )
-            if len(update) > 1 and not (self.include_start or self.deaccumulate):
-                update = update[1:]
-            coords.update(update)
+            coords.update(convert_coords(coord))
         coords = list(coords)
         coords.sort()
         return coords
@@ -112,12 +103,12 @@ class LegacyWindowConfig(BaseModel):
 
         base[dim] = []
         for coord in self.coords:
-            if isinstance(coord, list):
-                base[dim].append(
-                    coord[0] if len(coord) == 1 else f"{coord[0]}-{coord[-1]}"
-                )
-            elif isinstance(coord, dict):
-                base[dim].append(f"{coord['from']}-{coord['to']}")
+            name = coords_name(coord, self.name)
+            try:
+                name = int(name)
+            except:
+                pass
+            base[dim].append(name)
         if hasattr(self, "thresholds"):
             base["param"] = []
             for thr in self.thresholds:
@@ -198,6 +189,7 @@ class BaseAccumulation(BaseModel):
     operation: Optional[str] = None
     metadata: dict = {}
     sequential: bool = False
+    name: Optional[dict] = None
 
 
 class DefaultAccumulation(BaseAccumulation):
@@ -205,29 +197,20 @@ class DefaultAccumulation(BaseAccumulation):
     coords: list[Union[List[int | str], dict]] = []
     deaccumulate: bool = False
 
-    def make_configs(self, metadata: dict) -> Iterator[Tuple[str, dict]]:
+    def make_configs(self, metadata: dict) -> Iterator[dict]:
         for coords in self.coords:
             acc_config = self.model_dump(by_alias=True, exclude_none=True)
             acc_config["coords"] = coords
-            min_coord, max_coord = coords_extent(coords)
-            name = (
-                f"{min_coord}" if min_coord == max_coord else f"{min_coord}-{max_coord}"
-            )
             acc_grib_keys = metadata.copy()
             acc_grib_keys.update(acc_config.get("metadata", {}))
             if acc_grib_keys:
                 acc_config["metadata"] = acc_grib_keys
-            yield name, acc_config
+            yield acc_config
 
     def unique_coords(self):
         coords = set()
         for coord in self.coords:
-            if isinstance(coord, list):
-                coords.update(coord)
-            elif isinstance(coord, dict):
-                coords.update(
-                    range(coord.get("from", 0), coord["to"] + 1, coord.get("by", 1))
-                )
+            coords.update(convert_coords(coord))
         coords = list(coords)
         coords.sort()
         return coords
@@ -239,12 +222,12 @@ class DefaultAccumulation(BaseAccumulation):
 
         base[dim] = []
         for coord in self.coords:
-            if isinstance(coord, list):
-                base[dim].append(
-                    coord[0] if len(coord) == 1 else f"{coord[0]}-{coord[-1]}"
-                )
-            elif isinstance(coord, dict):
-                base[dim].append(f"{coord['from']}-{coord['to']}")
+            name = coords_name(coord, self.name)
+            try:
+                name = int(name)
+            except:
+                pass
+            base[dim].append(name)
         return [base]
 
     def merge(self, other: Self) -> Self:
@@ -269,7 +252,7 @@ class StepSeqAccumulation(BaseAccumulation):
     ]
     deaccumulate: bool = False
 
-    def make_configs(self, metadata: dict) -> Iterator[Tuple[str, dict]]:
+    def make_configs(self, metadata: dict) -> Iterator[dict]:
         return DefaultAccumulation(
             **self.model_dump(by_alias=True, exclude={"type_", "sequence"}),
             coords=self.sequence.coords(),
@@ -302,7 +285,7 @@ class DateSeqAccumulation(BaseAccumulation):
         list[Union[DateBracket, DateRange]], BeforeValidator(_to_date_range)
     ] = []
 
-    def make_configs(self, metadata: dict) -> Iterator[Tuple[str, dict]]:
+    def make_configs(self, metadata: dict) -> Iterator[dict]:
         seq = _dateseq_factory(self.sequence)
         return DefaultAccumulation(
             **self.model_dump(by_alias=True, exclude={"type_", "sequence", "coords"}),
@@ -334,11 +317,22 @@ class LegacyStepAccumulation(BaseModel):
     type_: Literal["legacywindow"] = Field("legacywindow", alias="type")
     windows: list[LegacyWindowConfig] = []
 
-    def make_configs(self, metadata: dict) -> Iterator[Tuple[str, dict]]:
-        return legacy_window_factory(
-            self.model_dump(by_alias=True, exclude={"type"}, exclude_none=True),
-            metadata,
-        )
+    def make_configs(self, metadata: dict) -> Iterator[dict]:
+        config = self.model_dump(by_alias=True, exclude={"type"}, exclude_none=True)
+        for window_index, window_config in enumerate(config["windows"]):
+            window_config = window_config.copy()
+            prefix = "STDANOM_" if window_config.get("std_anomaly", False) else ""
+            for coord in window_config.pop("coords"):
+                coord_config = window_config.copy()
+                acc_grib_keys = metadata.copy()
+                acc_grib_keys.update(coord_config.pop("metadata", {}))
+                coord_config.setdefault("name", {"type": "default"})
+                coord_config["name"]["prefix"] = prefix
+                coord_config["name"]["suffix"] = f"_{window_index}"
+                coord_config.update(
+                    {"coords": coord, "sequential": True, "metadata": acc_grib_keys}
+                )
+                yield coord_config
 
     def unique_coords(self):
         coords = set()

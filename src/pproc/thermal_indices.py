@@ -89,10 +89,13 @@ def process_step(
     accum_metadata: list[GribFieldMetadata],
 ):
     fields = load_input(config, param, "inst", step)
-    if len(accum["step"].coords) > 1:
+    if len(accum_metadata) != 0:
         logger.debug(f"Write out accum fields to target {config.outputs.accum}")
         # Set step range for de-accumulated fields
-        step_range = "-".join(map(str, accum["step"].coords))
+        coords = list(map(str, accum["step"].coords))
+        if len(coords) == 1:
+            coords = ["0"] + coords
+        step_range = "-".join(coords)
         accum_fields = earthkit.data.FieldList.from_array(
             accum.values,
             [

@@ -51,7 +51,7 @@ from conftest import schema
                         "date": "20241001",
                         "time": "0000",
                         "type": "fc",
-                        "step": list(range(0, 745, 6)),
+                        "step": list(range(6, 745, 6)),
                         "number": list(range(0, 51)),
                     },
                 ],
@@ -59,11 +59,14 @@ from conftest import schema
                     "step": {
                         "type": "legacywindow",
                         "operation": "mean",
-                        "metadata": {"type": "fcmean"},
+                        "metadata": {"type": "fcmean", "bitsPerValue": 16},
+                        "name": {
+                            "type": "monthly",
+                            "date": "20241001",
+                        },
                     }
                 },
                 "metadata": {
-                    "bitsPerValue": 16,
                     "stream": "msmm",
                 },
             },
@@ -97,10 +100,12 @@ from conftest import schema
                         "type": "legacywindow",
                         "operation": "mean",
                         "deaccumulate": True,
-                        "include_start": True,
                         "metadata": {
                             "type": "fcmean",
-                            "numberIncludedInAverage": "{num_coords}:int",
+                        },
+                        "name": {
+                            "type": "default",
+                            "length": 168,
                         },
                     }
                 },
@@ -139,12 +144,7 @@ from conftest import schema
                     },
                 ],
                 "metadata": {
-                    "bitsPerValue": 16,
-                    "legBaseDate": 0,
-                    "legNumber": 0,
                     "paramId": 172228,
-                    "timeRangeIndicator": 3,
-                    "stepType": "avg",
                 },
             },
             2,
@@ -272,7 +272,7 @@ def test_schema_from_output(req, config, num_generated):
                         "date": "20241001",
                         "time": "0000",
                         "type": "cf",
-                        "step": list(range(0, 169, 6)),
+                        "step": list(range(6, 169, 6)),
                     }
                 ],
                 "accumulations": {
@@ -280,6 +280,10 @@ def test_schema_from_output(req, config, num_generated):
                         "type": "legacywindow",
                         "operation": "mean",
                         "metadata": {"type": "fcmean"},
+                        "name": {
+                            "type": "default",
+                            "length": 168,
+                        },
                     }
                 },
                 "interp_keys": {
@@ -317,8 +321,14 @@ def test_schema_from_output(req, config, num_generated):
                         "type": "legacywindow",
                         "operation": "mean",
                         "deaccumulate": True,
-                        "include_start": True,
-                        "metadata": {"type": "fcmean"},
+                        "metadata": {
+                            "type": "fcmean",
+                            "bitsPerValue": 16,
+                        },
+                        "name": {
+                            "type": "monthly",
+                            "date": "20241001",
+                        },
                     }
                 },
                 "vmin": 0.0,
@@ -350,7 +360,6 @@ def test_schema_from_output(req, config, num_generated):
                     "matrix-loader": "file-io",
                 },
                 "metadata": {
-                    "bitsPerValue": 16,
                     "paramId": 172228,
                     "stream": "msmm",
                 },
