@@ -614,10 +614,13 @@ class DeaccumulationWrapper(Accumulation):
         if len(accumulation.coords) < 2:
             raise ValueError("Deaccumulation can not be performed on single coord")
         self.coords = copy.deepcopy(accumulation.coords)
-        self.zero_initial = int(accumulation.name.split("-")[0]) not in self.coords
-        # Remove first coord from accumulation
-        accumulation.coords = list(accumulation.coords)
-        accumulation.coords.pop(0)
+        self.zero_initial = (
+            int(accumulation.name.split("-")[0].split("_")[-1]) not in self.coords
+        )
+        # Remove first coord from accumulation if not initialising with 0
+        if not self.zero_initial:
+            accumulation.coords = list(accumulation.coords)
+            accumulation.coords.pop(0)
         self.acc = accumulation
         self.sequential = accumulation.sequential
         self.reset(initial=True)
