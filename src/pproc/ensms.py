@@ -119,8 +119,7 @@ def main():
                 accum_manager.dims,
                 [requester],
             ):
-                step = keys["step"]
-                with ResourceMeter(f"Process step {step}"):
+                with ResourceMeter(f"Process keys {keys}"):
                     metadata, data = retrieved_data[0]
 
                     completed_windows = accum_manager.feed(
