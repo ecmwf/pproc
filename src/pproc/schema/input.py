@@ -345,7 +345,7 @@ class InputSchema(BaseSchema):
             "number": lambda req: (
                 req["type"] not in ["pf", "fcmean", "fcmax", "fcstdev", "fcmin", "fc"]
             ),
-            "model": lambda req: req.get("model", None) == "ecPoint",
+            "method": lambda req: req.get("method", None) == "ecPoint",
             "step": None,
             "fcmonth": None,
             "quantile": None,
