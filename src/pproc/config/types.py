@@ -606,6 +606,7 @@ class ExtremeParamConfig(ClimParamConfig):
     sot: list[int] = []
     cpf_eps: Optional[float] = None
     cpf_symmetric: bool = False
+    cpf_from_zero: bool = True
     compute_indices: list[str] = ["efi", "sot"]
     allow_grib1_to_grib2: bool = False
     _merge_exclude: tuple[str] = (

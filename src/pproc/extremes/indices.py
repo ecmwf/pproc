@@ -95,6 +95,7 @@ class CPF(Index):
             else None
         )
         self.symmetric = options.get("cpf_symmetric", False)
+        self.from_zero = options.get("cpf_from_zero", True)
 
     def compute(
         self,
@@ -112,6 +113,7 @@ class CPF(Index):
             sort_ens=True,
             epsilon=self.eps,
             symmetric=self.symmetric,
+            from_zero=self.from_zero,
         )
         cpf_keys = cpf_metadata(out_template, metadata)
         common.io.write_grib(target, out_template, cpf, cpf_keys)
