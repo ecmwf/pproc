@@ -64,13 +64,13 @@ def from_inputs(args):
 def _to_mars(requests: list[dict]) -> str:
     ret = b""
     for req in requests:
-        source = req.pop("source")
-        target = req.pop("target")
-        if source not in ["fdb", "mars"]:
+        source = req.pop("source", None)
+        target = req.pop("target", None)
+        if source and source not in ["fdb", "mars"]:
             req["target"] = "'{path}'".format(
                 path=source.replace("{", "[").replace("}", "]")
             )
-        elif target not in ["fdb", "mars"]:
+        elif target and target not in ["fdb", "mars"]:
             req["source"] = "'{path}'".format(
                 path=target.replace("{", "[").replace("}", "]")
             )
