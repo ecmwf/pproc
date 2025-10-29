@@ -64,11 +64,12 @@ def from_inputs(args):
 def _to_mars(requests: list[dict]) -> str:
     ret = b""
     for req in requests:
-        if "source" in req:
-            assert "target" not in req
-            req["target"] = req.pop("source").replace("{", "[").replace("}", "]")
-        elif "target" in req:
-            req["source"] = req.pop("target").replace("{", "[").replace("}", "]")
+        source = req.pop("source")
+        target = req.pop("target")
+        if source not in ["fdb", "mars"]:
+            req["target"] = source.replace("{", "[").replace("}", "]")
+        elif target not in ["fdb", "mars"]:
+            req["source"] = target.replace("{", "[").replace("}", "]")
         ret += mars.to_mars(b"retrieve", req)
         ret += b"\n"
     return ret.decode("utf-8")
