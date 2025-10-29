@@ -67,9 +67,13 @@ def _to_mars(requests: list[dict]) -> str:
         source = req.pop("source")
         target = req.pop("target")
         if source not in ["fdb", "mars"]:
-            req["target"] = source.replace("{", "[").replace("}", "]")
+            req["target"] = "'{path}'".format(
+                path=source.replace("{", "[").replace("}", "]")
+            )
         elif target not in ["fdb", "mars"]:
-            req["source"] = target.replace("{", "[").replace("}", "]")
+            req["source"] = "'{path}'".format(
+                path=target.replace("{", "[").replace("}", "]")
+            )
         ret += mars.to_mars(b"retrieve", req)
         ret += b"\n"
     return ret.decode("utf-8")
