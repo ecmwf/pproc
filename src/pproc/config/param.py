@@ -155,7 +155,6 @@ class ParamConfig(BaseModel):
                         if pinput.type in ["file", "fileset"]
                         else pinput.type
                     )
-                    print("SOURCE", req["source"])
                     accum_updates = (
                         getattr(self, input).accumulations
                         if hasattr(self, input)
