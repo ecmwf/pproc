@@ -267,7 +267,9 @@ class ClimParamConfig(ParamConfig):
                 )
                 for req in reqs:
                     req["source"] = (
-                        pinput.path if pinput.path is not None else pinput.type
+                        pinput.path
+                        if pinput.type in ["file", "fileset"]
+                        else pinput.type
                     )
                     if isinstance(req.get("step", []), dict):
                         req["step"] = list(set(req["step"].values()))
@@ -751,7 +753,9 @@ class ThermoParamConfig(ParamConfig):
                 )
                 for req in reqs:
                     req["source"] = (
-                        pinput.path if pinput.path is not None else pinput.type
+                        pinput.path
+                        if pinput.type in ["file", "fileset"]
+                        else pinput.type
                     )
                     req.update(
                         {
@@ -1447,7 +1451,9 @@ class ClusterFullConfig(
                 pinput.request if isinstance(pinput.request, list) else [pinput.request]
             )
             for req in reqs:
-                req["source"] = pinput.path if pinput.path is not None else pinput.type
+                req["source"] = (
+                    pinput.path if pinput.type in ["file", "fileset"] else pinput.type
+                )
                 req.update(acc_keys[input])
                 req.pop("interpolate", None)
                 if str(req) not in seen:

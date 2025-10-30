@@ -151,8 +151,11 @@ class ParamConfig(BaseModel):
                 )
                 for req in reqs:
                     req["source"] = (
-                        pinput.path if pinput.path is not None else pinput.type
+                        pinput.path
+                        if pinput.type in ["file", "fileset"]
+                        else pinput.type
                     )
+                    print("SOURCE", req["source"])
                     accum_updates = (
                         getattr(self, input).accumulations
                         if hasattr(self, input)
