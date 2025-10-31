@@ -31,7 +31,7 @@ class StepRanges(BaseModel):
 
     def coords(self) -> list[list[int]]:
         return [
-            x
+            list(x)
             for x in stepseq_ranges(
                 self.from_, self.to, self.width, self.interval, self.by
             )
@@ -46,7 +46,9 @@ class StepMonthly(BaseModel):
     by: int = 1
 
     def coords(self) -> list[list[int]]:
-        return [x for x in stepseq_monthly(self.date, self.from_, self.to, self.by)]
+        return [
+            list(x) for x in stepseq_monthly(self.date, self.from_, self.to, self.by)
+        ]
 
 
 def _to_coords(coords: Any) -> list[list[int]]:
@@ -259,7 +261,7 @@ class StepSeqAccumulation(BaseAccumulation):
         ).make_configs(metadata)
 
     def unique_coords(self):
-        coords = list(set.union(*self.sequence.coords()))
+        coords = list(set(sum(self.sequence.coords(), [])))
         coords.sort()
         return coords
 
@@ -294,7 +296,7 @@ class DateSeqAccumulation(BaseAccumulation):
 
     def unique_coords(self):
         seq = _dateseq_factory(self.sequence)
-        coords = list(set.union(*(coord.coords(seq) for coord in self.coords)))
+        coords = list(set(sum([coord.coords(seq) for coord in self.coords], [])))
         coords.sort()
         return coords
 

@@ -119,8 +119,8 @@ def main():
                 accum_manager.dims,
                 [requester],
             ):
-                step = keys["step"]
-                with ResourceMeter(f"Process step {step}"):
+                ids = ", ".join(f"{k}={v}" for k, v in keys.items())
+                with ResourceMeter(f"{param.name}, {ids}: Compute accumulation"):
                     metadata, data = retrieved_data[0]
 
                     completed_windows = accum_manager.feed(

@@ -32,6 +32,9 @@ def _shared_list():
     return _manager.list()
 
 
+_track_truncated = _shared_list()
+
+
 def remove_duplicate(path: str, message: eccodes.Message):
     """
     Removes existing message in file specified by path if it has mars keys
@@ -95,7 +98,6 @@ class FileTarget(Target):
 
     _mode: str = "wb"
     _lock: FileLock = None
-    _track_truncated: list[str] = []
     _overwrite_existing: bool = False
 
     @model_validator(mode="after")
@@ -106,17 +108,15 @@ class FileTarget(Target):
 
     @property
     def mode(self):
-        if self.path not in self._track_truncated:
-            self._track_truncated += [self.path]
+        global _track_truncated
+        if self.path not in _track_truncated:
+            _track_truncated += [self.path]
             return self._mode
         return "ab"
 
     def enable_recovery(self):
         self._mode = "ab"
         self._overwrite_existing = True
-
-    def enable_parallel(self):
-        self._track_truncated = _shared_list()
 
     def write(self, message):
         with self._lock:
@@ -139,12 +139,12 @@ class FileSetTarget(Target):
     _mode: str = "wb"
     _file_locks: dict[str, FileLock] = {}
     _lock_paths: list[str] = []
-    _track_truncated: list[str] = []
     _overwrite_existing: bool = False
 
     def mode(self, path: str):
-        if path not in self._track_truncated:
-            self._track_truncated += [path]
+        global _track_truncated
+        if path not in _track_truncated:
+            _track_truncated += [path]
             return self._mode
         return "ab"
 
@@ -153,7 +153,6 @@ class FileSetTarget(Target):
         self._overwrite_existing = True
 
     def enable_parallel(self):
-        self._track_truncated = _shared_list()
         self._lock_paths = _shared_list()
 
     def write(self, message):
