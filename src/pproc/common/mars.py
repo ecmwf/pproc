@@ -31,7 +31,10 @@ def _mkftemp(dir=None, mode=0o600, num_attempts=1000):
                 continue
             raise
         return path
-    raise OSError(errno.EEXIST, f"_mkftemp: No usable temporary name found after {num_attempts} attempts")
+    raise OSError(
+        errno.EEXIST,
+        f"_mkftemp: No usable temporary name found after {num_attempts} attempts",
+    )
 
 
 class FIFO:
@@ -122,7 +125,7 @@ class MARSReader:
             if self.fifo.wait(1e-2):
                 # We have data (or EOF)
                 break
-        buf = b''
+        buf = b""
         # Don't block again if there is nothing to read
         if self.fifo.ready():
             while len(buf) < size:
@@ -162,6 +165,8 @@ def _val_to_mars(val):
         val = f"{first}/to/{last}"
         if step != 1:
             val += f"/by/{step}"
+    elif isinstance(val, float) and val.is_integer():
+        val = str(int(val))
     else:
         raise TypeError(f"Cannot convert {type(val)} to MARS request")
     return val.encode("utf-8")
@@ -174,15 +179,18 @@ def to_mars(verb: bytes, req: dict) -> bytes:
             key = key.encode("utf-8")
             val = _val_to_mars(val)
             yield key + b"=" + val
+
     return b",".join(_gen_req())
 
 
-def mars_retrieve(req: dict, mars_cmd: Union[str, List[str]] = "mars", tmpdir=None) -> MARSReader:
+def mars_retrieve(
+    req: dict, mars_cmd: Union[str, List[str]] = "mars", tmpdir=None
+) -> MARSReader:
     req = copy.deepcopy(req)
     with ExitStack() as stack:
         req_file = stack.enter_context(NamedTemporaryFile(dir=tmpdir))
         fifo = stack.enter_context(FIFO(dir=tmpdir))
-        req['target'] = '"' + fifo.path + '"'
+        req["target"] = '"' + fifo.path + '"'
         req_s = to_mars(b"retrieve", req)
         req_file.write(req_s + b"\n")
         req_file.flush()

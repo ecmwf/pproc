@@ -976,9 +976,10 @@ class ECPointParamConfig(ParamConfig):
         for param in self.dependencies.values():
             requests.extend(param.in_keys(inputs, filters))
         unique = pd.DataFrame(expand(requests))
+        unique.drop(columns=["interpolate"], inplace=True, errors="ignore")
         unique.drop_duplicates(inplace=True)
         for _, group in unique.groupby("param", sort=False):
-            yield from squeeze(group.to_dict("records"), ["step"])
+            yield from squeeze(group.to_dict("records"), ["step", "number"])
 
     def _merge_dependencies(self, other: Self) -> dict[str, ParamConfig]:
         new_deps = {}
