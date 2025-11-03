@@ -146,6 +146,8 @@ def squeeze(reqs: list[dict], dims: list[str]) -> Iterator[dict]:
         cond_reqs = df.loc[condition].to_dict("records")
         for dim in dims:
             val = cond_reqs[0].get(dim, np.nan)
+            if val is None:
+                continue
             if isinstance(val, str) or not np.isnan(val):
                 req[dim] = sorted(list({x[dim] for x in cond_reqs}))
         yield req
