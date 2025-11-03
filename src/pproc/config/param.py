@@ -114,7 +114,7 @@ class ParamConfig(BaseModel):
             ]
 
         reqs = list(expand(reqs, "param"))
-        df = pd.DataFrame(reqs)
+        df = pd.DataFrame(reqs).convert_dtypes()
         if "param" in df:
             return [
                 Input(

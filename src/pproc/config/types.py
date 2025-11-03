@@ -975,7 +975,7 @@ class ECPointParamConfig(ParamConfig):
 
         for param in self.dependencies.values():
             requests.extend(param.in_keys(inputs, filters))
-        unique = pd.DataFrame(expand(requests))
+        unique = pd.DataFrame(expand(requests)).convert_dtypes()
         unique.drop(columns=["interpolate"], inplace=True, errors="ignore")
         unique.drop_duplicates(inplace=True)
         for _, group in unique.groupby("param", sort=False):
