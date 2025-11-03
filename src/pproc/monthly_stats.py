@@ -45,7 +45,6 @@ def mstat_keys(template, out_keys: dict, interval: int):
     return {
         "localDefinitionNumber": 16,
         **out_keys,
-        "stepType": "instant",
         "productDefinitionTemplateNumber": 11,
         "indicatorOfUnitForTimeIncrement": 1,
         "timeIncrement": interval,
