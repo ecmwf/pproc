@@ -28,7 +28,8 @@ def quantiles_metadata(
             }
         )
     else:
-        grib_keys.setdefault("productDefinitionTemplateNumber", 86)
+        product_template_number = 87 if "stepRange" in out_keys else 86
+        grib_keys.setdefault("productDefinitionTemplateNumber", product_template_number)
         grib_keys.update(
             {
                 "totalNumberOfQuantiles": total_number,

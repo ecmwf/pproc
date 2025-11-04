@@ -22,6 +22,7 @@ from pydantic import (
 )
 import numpy as np
 import datetime
+import pandas as pd
 
 from conflator import CLIArg, ConfigModel
 from earthkit.time import DailySequence
@@ -30,7 +31,15 @@ from pproc.clustereps.season import MONTH_DAYS, Season
 from pproc.config.base import BaseConfig, Parallelisation
 from pproc.config import io
 from pproc.config.param import ParamConfig, partial_equality
-from pproc.config.utils import _set, _get, extract_mars, update_request, deep_update
+from pproc.config.utils import (
+    _set,
+    _get,
+    extract_mars,
+    update_request,
+    deep_update,
+    expand,
+    squeeze,
+)
 from pproc.config.preprocessing import Expression
 from pproc.common.stepseq import steprange_to_fcmonth
 from pproc.extremes.indices import Index, SUPPORTED_INDICES, create_indices
@@ -267,7 +276,9 @@ class ClimParamConfig(ParamConfig):
                 )
                 for req in reqs:
                     req["source"] = (
-                        pinput.path if pinput.path is not None else pinput.type
+                        pinput.path
+                        if pinput.type in ["file", "fileset"]
+                        else pinput.type
                     )
                     if isinstance(req.get("step", []), dict):
                         req["step"] = list(set(req["step"].values()))
@@ -751,7 +762,9 @@ class ThermoParamConfig(ParamConfig):
                 )
                 for req in reqs:
                     req["source"] = (
-                        pinput.path if pinput.path is not None else pinput.type
+                        pinput.path
+                        if pinput.type in ["file", "fileset"]
+                        else pinput.type
                     )
                     req.update(
                         {
@@ -957,10 +970,16 @@ class ECPointParamConfig(ParamConfig):
     def in_keys(
         self, inputs: io.InputsCollection, filters: Optional[list[str]] = None
     ) -> Iterator[dict]:
-        yield from super().in_keys(inputs, filters)
+        requests = []
+        requests.extend(super().in_keys(inputs, filters))
 
         for param in self.dependencies.values():
-            yield from param.in_keys(inputs, filters)
+            requests.extend(param.in_keys(inputs, filters))
+        unique = pd.DataFrame(expand(requests)).convert_dtypes()
+        unique.drop(columns=["interpolate"], inplace=True, errors="ignore")
+        unique.drop_duplicates(inplace=True)
+        for _, group in unique.groupby("param", sort=False):
+            yield from squeeze(group.to_dict("records"), ["step", "number"])
 
     def _merge_dependencies(self, other: Self) -> dict[str, ParamConfig]:
         new_deps = {}
@@ -1447,7 +1466,9 @@ class ClusterFullConfig(
                 pinput.request if isinstance(pinput.request, list) else [pinput.request]
             )
             for req in reqs:
-                req["source"] = pinput.path if pinput.path is not None else pinput.type
+                req["source"] = (
+                    pinput.path if pinput.type in ["file", "fileset"] else pinput.type
+                )
                 req.update(acc_keys[input])
                 req.pop("interpolate", None)
                 if str(req) not in seen:

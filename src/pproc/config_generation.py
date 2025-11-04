@@ -64,8 +64,14 @@ def from_inputs(args):
 def _to_mars(requests: list[dict]) -> str:
     ret = b""
     for req in requests:
-        req.pop("source", None)
-        req.pop("target", None)
+        source = req.pop("source", None)
+        target = req.pop("target", None)
+        # Reverse source/target keys so request can be used to 
+        # create/extract from the input/output files
+        if source and source not in ["fdb", "mars", "fdbmars"]:
+            req["target"] = f"'{source}'"
+        elif target and target != "fdb":
+            req["source"] = f"'{target}'"
         ret += mars.to_mars(b"retrieve", req)
         ret += b"\n"
     return ret.decode("utf-8")

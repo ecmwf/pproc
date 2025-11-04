@@ -103,37 +103,24 @@ class ParamConfig(BaseModel):
         )
 
         if self.vod2uv:
-            return [
-                Input(
-                    source={
-                        "type": cfg_source.get("type", base_config.type),
-                        "path": cfg_source.get("path", base_config.path),
-                    },
-                    request=reqs,
-                )
-            ]
-
-        reqs = list(expand(reqs, "param"))
-        df = pd.DataFrame(reqs)
-        if "param" in df:
-            return [
-                Input(
-                    source={
-                        "type": cfg_source.get("type", base_config.type),
-                        "path": cfg_source.get("path", base_config.path),
-                    },
-                    request=[row.dropna().to_dict() for _, row in items.iterrows()],
-                )
-                for _, items in df.groupby("param", sort=False)
-            ]
+            requests = [reqs]
+        else:
+            requests = [list(expand(reqs, "param"))]
+            df = pd.DataFrame(requests[0]).convert_dtypes()
+            if "param" in df:
+                requests = [
+                    [row.dropna().to_dict() for _, row in items.iterrows()]
+                    for _, items in df.groupby("param", sort=False)
+                ]
         return [
             Input(
                 source={
                     "type": cfg_source.get("type", base_config.type),
                     "path": cfg_source.get("path", base_config.path),
                 },
-                request=reqs,
+                request=param_requests,
             )
+            for param_requests in requests
         ]
 
     def in_keys(
@@ -151,7 +138,9 @@ class ParamConfig(BaseModel):
                 )
                 for req in reqs:
                     req["source"] = (
-                        pinput.path if pinput.path is not None else pinput.type
+                        pinput.path
+                        if pinput.type in ["file", "fileset"]
+                        else pinput.type
                     )
                     accum_updates = (
                         getattr(self, input).accumulations
