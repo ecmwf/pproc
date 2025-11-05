@@ -44,14 +44,9 @@ def mstat_keys(template, out_keys: dict, interval: int):
     out_keys.pop("unitOfTimeRange", None)
     return {
         "localDefinitionNumber": 16,
-        **out_keys,
-        "stepType": "instant",
         "productDefinitionTemplateNumber": 11,
-        "indicatorOfUnitForTimeIncrement": 1,
-        "timeIncrement": interval,
-        "step": end,
         "typeOfGeneratingProcess": template.get("typeOfGeneratingProcess"),
-        "typeOfProcessedData": template.get("type"),
+        **out_keys,
     }
 
 
