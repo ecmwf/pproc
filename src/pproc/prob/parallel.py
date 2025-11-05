@@ -76,7 +76,9 @@ def prob_iteration(
             grib_set = out_prob.metadata.copy()
             grib_set.update(accum.grib_keys())
             grib_set.update(
-                threshold.grib_keys(grib_set.get("edition", 1), clim_metadata)
+                threshold.grib_keys(
+                    grib_set.get("edition", template["edition"]), clim_metadata
+                )
             )
             write_grib(out_prob.target, template, window_probability, grib_set)
 
