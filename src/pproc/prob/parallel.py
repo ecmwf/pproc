@@ -31,10 +31,7 @@ def ensemble_probability(data: np.array, thconfig: ThresholdConfig) -> np.array:
 
     """
     thresholds = thconfig.param_thresholds
-    num_params = len(thresholds)
-    data = data.reshape(
-        (num_params, round(data.shape[0] / num_params)) + data.shape[1:]
-    )
+    data = data.reshape((len(thresholds), -1) + data.shape[1:])
     is_nan = 0
     comp = 1
     for index, threshold in enumerate(thresholds):
