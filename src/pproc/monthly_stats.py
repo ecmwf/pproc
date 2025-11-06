@@ -42,8 +42,10 @@ def mstat_keys(template, out_keys: dict, interval: int):
             "averagingPeriod": interval,
         }
     out_keys.pop("unitOfTimeRange", None)
+    out_keys.setdefault("indicatorOfUnitForTimeIncrement", 1)
     out_keys.setdefault("timeIncrement", interval)
     out_keys.setdefault("typeOfGeneratingProcess", template["typeOfGeneratingProcess"])
+    out_keys.setdefault("typeOfProcessedData", template["type"])
     return {
         "localDefinitionNumber": 16,
         "productDefinitionTemplateNumber": 11,
