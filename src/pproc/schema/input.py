@@ -411,7 +411,7 @@ class InputSchema(BaseSchema):
             **matching,
         ):
             out, input_config = cfg.pop("recon_req"), InputConfig(**cfg)
-            print(f"Reconstructed output {out}, with config {input_config}")
+            logger.info("Reconstructed output %s, with config %s", out, input_config)
             yield out, input_config
 
     def _set_defaults(cls, output_request: dict, input_requests: list[dict]) -> dict:
@@ -452,7 +452,7 @@ class InputSchema(BaseSchema):
             from_inputs=True,
         ):
             for mconfig in config.match(input_requests):
-                print(f"Matched config: {mconfig}")
+                logger.debug("Matched config: %s", mconfig)
                 mout = {
                     **mconfig.forecast.base_request("step", "number"),
                     **base_output,
