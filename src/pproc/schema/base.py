@@ -153,7 +153,7 @@ class BaseSchema:
                 if not cls.custom_match.get(key, DEFAULT_MATCH)(
                     cfg["recon_req"],
                     cfg.get(key, value),
-                    copy.deepcopy(value),
+                    value,
                 ):
                     is_match = False
                     break
