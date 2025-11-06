@@ -22,7 +22,14 @@ from typing_extensions import Self
 from pproc.config import io
 from pproc.config.log import LoggingConfig
 from pproc.config.param import ParamConfig, partial_equality
-from pproc.config.utils import deep_update, extract_mars, update_request, _get, _set
+from pproc.config.utils import (
+    deep_update,
+    extract_mars,
+    update_request,
+    to_list,
+    _get,
+    _set,
+)
 from pproc.config.recovery import BaseRecovery, create_recovery
 
 
@@ -223,10 +230,14 @@ class BaseConfig(ConfigModel):
         number = None
         num_members = param.compute_members(self.inputs)
         for src_req in src_reqs:
-            if len(src_req) == 0:
+            if len(src_req) == 0 or "number" not in src_req:
                 continue
-            number = src_req.get("number", number)
+            if number is None:
+                number = src_req["number"]
+            elif number != src_req["number"]:
+                raise ValueError("Inconsistent number of members in input requests")
 
+        number = to_list(number)
         if len(number) == num_members - 1:
             number = [0] + number
         req["number"] = number

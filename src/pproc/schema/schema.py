@@ -17,18 +17,9 @@ import yaml
 from pproc.schema.config import ConfigSchema
 from pproc.schema.input import InputSchema
 from pproc.schema.step import StepSchema
+from pproc.schema.utils import validate_request, VALUE_TYPES
 
 from pproc.config.utils import expand, METADATA_KEYS
-
-VALUE_TYPES = {
-    "param": str,
-    "paramId": int,
-    "levelist": int,
-    "step": int,
-    "fcmonth": int,
-    "number": int,
-    "dataDate": int,
-}
 
 
 class Schema:
@@ -43,53 +34,30 @@ class Schema:
             schema = yaml.safe_load(f)
         return cls(**schema)
 
-    @classmethod
-    def validate_request(cls, request: dict) -> dict:
-        out = copy.deepcopy(request)
-        # Map types
-        for key, value_type in VALUE_TYPES.items():
-            if key in out:
-                value = out[key]
-                try:
-                    out[key] = (
-                        value_type(value)
-                        if np.ndim(value) == 0
-                        else list(map(value_type, value))
-                    )
-                except ValueError:
-                    pass
-        # Format time
-        if "time" in out:
-            time = out["time"]
-            if isinstance(time, list):
-                assert len(time) == 1, "Only single value of time supported per request"
-                time = time[0]
-            if isinstance(time, int):
-                time = f"{time:02d}"
-            out["time"] = time.ljust(4, "0")
-        return out
-
     def config_from_output(
         self, output_request: dict, inputs: Optional[list[dict]] = None
     ) -> dict:
-        valid_out = self.validate_request(output_request)
-        config = self.config_schema.config(valid_out)
-        inputs = inputs or list(self.param_schema.inputs(valid_out, self.step_schema))
+        config = self.config_schema.config(output_request)
+        if inputs is not None:
+            inputs = [validate_request(x) for x in inputs]
+        else:
+            inputs = list(self.param_schema.inputs(output_request, self.step_schema))
 
         # Set metadata
         base_request = inputs[0]
         metadata = config.setdefault("metadata", {})
-        if (
-            not isinstance(base_request["param"], str)
-            and len(base_request["param"]) > 1
-        ):
-            config["name"] = f"{valid_out['param']}_{valid_out['levtype']}"
-        config.setdefault("name", f"{base_request['param']}_{valid_out['levtype']}")
-        for key in config.pop("metadata_from_output"):
-            if base_request.get(key, None) != valid_out[key]:
+        if np.size(base_request["param"]) > 1:
+            config["name"] = f"{output_request['param']}_{output_request['levtype']}"
+        config.setdefault(
+            "name", f"{base_request['param']}_{output_request['levtype']}"
+        )
+        for key in config.pop("metadata_from_output", []):
+            if base_request.get(key, None) != VALUE_TYPES.get(key, str)(
+                output_request[key]
+            ):
                 metadata_key = METADATA_KEYS.get(key, key)
                 metadata[metadata_key] = VALUE_TYPES.get(metadata_key, str)(
-                    valid_out[key]
+                    output_request[key]
                 )
         return {**config, "inputs": inputs}
 
@@ -99,14 +67,9 @@ class Schema:
         output_template: Optional[dict] = None,
         entrypoint: Optional[str] = None,
     ) -> Iterator[dict]:
-        input_requests = list(
-            expand([self.validate_request(req) for req in input_requests])
-        )
         reconstructed = self.config_schema.reconstruct(
             output_template=(
-                None
-                if output_template is None
-                else self.validate_request(output_template)
+                None if output_template is None else validate_request(output_template)
             ),
             **({} if entrypoint is None else {"entrypoint": entrypoint}),
         )

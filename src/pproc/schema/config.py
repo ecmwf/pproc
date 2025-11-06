@@ -11,6 +11,7 @@ import numpy as np
 
 from pproc.schema.base import BaseSchema, dict_update
 from pproc.schema.filters import _steplength, _selection, _steptype
+from pproc.schema.utils import validate_request
 from pproc.common.grib_helpers import fill_template_value
 from pproc.common.utils import dict_apply
 
@@ -24,6 +25,7 @@ class ConfigSchema(BaseSchema):
     custom_update = {"interp_keys": dict_update}
 
     def config(self, output_request: dict) -> dict:
+        output_request = validate_request(output_request)
         config = self.traverse(output_request)
         if "quantile" in output_request:
             numbers = np.zeros(len(output_request["quantile"]))

@@ -106,6 +106,12 @@ def update_request(
     return deduplicated
 
 
+def to_list(value: Any) -> list[Any]:
+    if np.ndim(value) == 0:
+        return [value]
+    return list(value)
+
+
 def expand(
     requests: dict | list[dict],
     dim: Optional[str | list[str]] = None,
@@ -129,9 +135,7 @@ def expand(
             coords = request.pop(d, None)
             if coords is None:
                 continue
-            if np.ndim(coords) == 0:
-                coords = [coords]
-            expansion[d] = coords
+            expansion[d] = to_list(coords)
 
         for vals in dict_product(expansion):
             yield {**request, **vals}

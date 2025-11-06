@@ -25,24 +25,17 @@ from pproc.schema.deriver import (
 )
 from pproc.schema.filters import _steplength, _steptype, _selection, _members
 from pproc.schema.step import StepSchema
-from pproc.config.utils import update_request, expand, squeeze, deep_update
+from pproc.schema.utils import validate_request
+from pproc.config.utils import (
+    update_request,
+    expand,
+    squeeze,
+    deep_update,
+    extract_mars,
+    to_list,
+)
 
 logger = logging.getLogger(__name__)
-
-
-def format_request(request: dict, pop: Optional[list[str]] = None) -> dict:
-    for key in list(request.keys()):
-        if pop and key in pop:
-            request.pop(key, None)
-            continue
-        value = request[key]
-        if key == "number":
-            if np.ndim(value) == 0:
-                value = [value]
-            request[key] = list(map(int, value))
-        elif isinstance(value, list) and len(value) == 1:
-            request[key] = value[0]
-    return request
 
 
 class ForecastInput(BaseModel):
@@ -90,6 +83,13 @@ class ForecastInput(BaseModel):
             self.request["date"] = request["date"]
         if self.derive_hdate:
             self.request["hdate"] = self.derive_hdate.derive(base_request)
+
+    def mars(self) -> dict:
+        req = extract_mars(self.request, additional=["target_grid"])
+        for key in list(req.keys()):
+            if req[key] == f"{{{key}}}":
+                req.pop(key)
+        return req
 
 
 class ClimatologyInput(ForecastInput):
@@ -160,7 +160,8 @@ class ForecastConfig(BaseModel):
         return out
 
     def match(self, input_requests: list[dict]) -> Iterator[Self]:
-        paramless = ["param" not in inp.request for inp in self.inputs]
+        paramless = ["param" not in inp.mars() for inp in self.inputs]
+
         if any(paramless):
             assert all(paramless), "All or none of the inputs must specify param"
             groupby = ["param", "levtype"]
@@ -171,14 +172,13 @@ class ForecastConfig(BaseModel):
         for _, group in pd.DataFrame(input_requests).groupby(groupby, sort=False):
             updated_reqs = []
             for inp in self.inputs:
-                require = expand(inp.request)
+                req = inp.mars()
+                require = expand(req)
                 intersection = _intersect(require, group.to_dict("records"))
                 reqs = list(squeeze(intersection.to_dict("records"), squeeze_dims))
                 if len(reqs) == 0:
                     break
-                assert (
-                    len(reqs) == 1
-                ), f"Expected single request, got {reqs} for {inp.request}"
+                assert len(reqs) == 1, f"Expected single request, got {reqs} for {req}"
                 updated_reqs.append(reqs[0])
             if len(updated_reqs) == 0:
                 continue
@@ -200,7 +200,7 @@ class ClimatologyConfig(ForecastConfig):
     required: bool = False
 
     def match(self, input_requests: list[dict]) -> Iterator[Self]:
-        assert all(["param" in inp.request for inp in self.inputs])
+        assert all(["param" in inp.mars() for inp in self.inputs])
         yield from super().match(input_requests)
 
 
@@ -227,13 +227,11 @@ class InputConfig(BaseModel):
                 )
 
     def inputs(self) -> Iterator[dict]:
-        for input in self.forecast.inputs:
-            yield format_request(input.request, pop=["selection"])
+        for inp in self.forecast.inputs:
+            yield inp.mars()
         if self.climatology.required:
-            for input in self.climatology.inputs:
-                yield format_request(
-                    {**input.request, "climatology": True}, pop=["selection"]
-                )
+            for inp in self.climatology.inputs:
+                yield {**inp.mars(), "climatology": True}
 
     def match(self, input_requests: list[dict]) -> Iterator[Self]:
         fc_inputs = list(self.forecast.match(input_requests))
@@ -356,9 +354,10 @@ class InputSchema(BaseSchema):
         for key, condition in ignore_inheritance.items():
             if condition is None or condition(request):
                 out.pop(key, None)
-        return format_request(out)
+        return out
 
     def inputs(self, output_request: dict, step_schema: StepSchema) -> Iterator[dict]:
+        output_request = validate_request(output_request)
         initial = {
             "forecast": ForecastConfig.model_construct(
                 inputs=[
@@ -386,7 +385,8 @@ class InputSchema(BaseSchema):
             else step_schema.out_steps(config.climatology.inputs[0].request)[1]
         )
         config.populate_derived(output_request, fc_steps, clim_steps)
-        yield from config.inputs()
+        for inp in config.inputs():
+            yield validate_request(inp)
 
     def reconstruct(
         self, output_template: Optional[dict] = None, **matching
@@ -411,18 +411,15 @@ class InputSchema(BaseSchema):
             **matching,
         ):
             out, input_config = cfg.pop("recon_req"), InputConfig(**cfg)
-            for req in input_config.inputs():
-                for key in list(req.keys()):
-                    if req[key] == f"{{{key}}}":
-                        req.pop(key)
-            logger.info("Reconstructed output %s, with config %s", out, input_config)
+            print(f"Reconstructed output {out}, with config {input_config}")
             yield out, input_config
 
     def _set_defaults(cls, output_request: dict, input_requests: list[dict]) -> dict:
+        output_request = validate_request(output_request)
         tp = output_request["type"]
         if tp in ["fcmean", "fcmax", "fcstdev", "fcmin"]:
             output_request["number"] = sum(
-                [req.get("number", [0]) for req in input_requests], []
+                [to_list(req.get("number", [0])) for req in input_requests], []
             )
         elif tp == "pf":
             for req in input_requests:
@@ -433,7 +430,7 @@ class InputSchema(BaseSchema):
             output_request.setdefault("quantile", [f"{x}:100" for x in range(0, 101)])
         elif tp == "sot":
             output_request.setdefault("number", [10, 90])
-        return format_request(output_request)
+        return output_request
 
     def outputs(
         self,
@@ -444,14 +441,18 @@ class InputSchema(BaseSchema):
         """
         Assumes inputs are from the same forecast for a single date and time
         """
+        input_requests = list(expand([validate_request(req) for req in input_requests]))
+        output_template = (
+            None if output_template is None else validate_request(output_template)
+        )
         for base_output, config in self.reconstruct(
-            output_template=format_request(output_template),
+            output_template=output_template,
             forecast={"inputs": input_requests},
             climatology={"inputs": input_requests},
             from_inputs=True,
         ):
             for mconfig in config.match(input_requests):
-                logger.debug("Matched config: %s", mconfig)
+                print(f"Matched config: {mconfig}")
                 mout = {
                     **mconfig.forecast.base_request("step", "number"),
                     **base_output,
@@ -471,6 +472,6 @@ class InputSchema(BaseSchema):
                     out = {**mout, step_dim: step}
                     sconfig = mconfig.model_copy(deep=True)
                     sconfig.populate_derived(out, sconfig.forecast.steps(), clim_steps)
-                    out, inputs = out, list(sconfig.inputs())
+                    out, inputs = out, [validate_request(x) for x in sconfig.inputs()]
                     logger.info("Output %s, requiring inputs %s", out, inputs)
                     yield self._set_defaults(out, inputs), inputs
