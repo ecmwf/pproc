@@ -18,6 +18,7 @@ from pproc.common.accumulation import (
 from pproc.prob.accumulation_manager import (
     ThresholdAccumulationManager,
 )
+from pproc.prob.threshold import ThresholdConfig
 
 
 @pytest.mark.parametrize(
@@ -30,7 +31,11 @@ from pproc.prob.accumulation_manager import (
                     {
                         "operation": "minimum",
                         "thresholds": [
-                            {"comparison": "<=", "value": 273.15},
+                            {
+                                "out_paramid": 131073,
+                                "comparison": "<=",
+                                "value": 273.15,
+                            },
                         ],
                         "coords": [
                             {"from": 120, "to": 240, "by": 6},
@@ -44,7 +49,11 @@ from pproc.prob.accumulation_manager import (
             {
                 f"step_{a}-{b}_0": (
                     SimpleAccumulation,
-                    [{"comparison": "<=", "value": 273.15}],
+                    [
+                        ThresholdConfig(
+                            out_paramid=131073, comparison="<=", value=273.15
+                        )
+                    ],
                 )
                 for a, b in [(120, 240), (120, 168), (168, 240), (240, 360)]
             },
@@ -58,9 +67,9 @@ from pproc.prob.accumulation_manager import (
                     {
                         "operation": "maximum",
                         "thresholds": [
-                            {"comparison": ">=", "value": 15},
-                            {"comparison": ">=", "value": 20},
-                            {"comparison": ">=", "value": 25},
+                            {"out_paramid": 131073, "comparison": ">=", "value": 15},
+                            {"out_paramid": 131073, "comparison": ">=", "value": 20},
+                            {"out_paramid": 131073, "comparison": ">=", "value": 25},
                         ],
                         "coords": [
                             {"from": 0, "to": 24, "by": 6},
@@ -74,9 +83,15 @@ from pproc.prob.accumulation_manager import (
                 f"step_{a}-{b}_0": (
                     SimpleAccumulation,
                     [
-                        {"comparison": ">=", "value": 15.0},
-                        {"comparison": ">=", "value": 20.0},
-                        {"comparison": ">=", "value": 25.0},
+                        ThresholdConfig(
+                            out_paramid=131073, comparison=">=", value=15.0
+                        ),
+                        ThresholdConfig(
+                            out_paramid=131073, comparison=">=", value=20.0
+                        ),
+                        ThresholdConfig(
+                            out_paramid=131073, comparison=">=", value=25.0
+                        ),
                     ],
                 )
                 for a, b in [(0, 24), (12, 36), (336, 360)]
@@ -91,19 +106,19 @@ from pproc.prob.accumulation_manager import (
                     {
                         "operation": "difference",
                         "thresholds": [
-                            {"comparison": ">=", "value": 0.001},
-                            {"comparison": ">=", "value": 0.005},
-                            {"comparison": ">=", "value": 0.01},
-                            {"comparison": ">=", "value": 0.02},
+                            {"out_paramid": 131073, "comparison": ">=", "value": 0.001},
+                            {"out_paramid": 131073, "comparison": ">=", "value": 0.005},
+                            {"out_paramid": 131073, "comparison": ">=", "value": 0.01},
+                            {"out_paramid": 131073, "comparison": ">=", "value": 0.02},
                         ],
                         "coords": [[0, 24], [12, 36], [336, 360]],
                     },
                     {
                         "operation": "difference",
                         "thresholds": [
-                            {"comparison": ">=", "value": 0.025},
-                            {"comparison": ">=", "value": 0.05},
-                            {"comparison": ">=", "value": 0.1},
+                            {"out_paramid": 131073, "comparison": ">=", "value": 0.025},
+                            {"out_paramid": 131073, "comparison": ">=", "value": 0.05},
+                            {"out_paramid": 131073, "comparison": ">=", "value": 0.1},
                         ],
                         "coords": [[0, 24], [12, 36], [336, 360]],
                     },
@@ -111,9 +126,9 @@ from pproc.prob.accumulation_manager import (
                         "operation": "difference_rate",
                         "factor": 1.0 / 24.0,
                         "thresholds": [
-                            {"comparison": "<", "value": 0.001},
-                            {"comparison": ">=", "value": 0.003},
-                            {"comparison": ">=", "value": 0.005},
+                            {"out_paramid": 131073, "comparison": "<", "value": 0.001},
+                            {"out_paramid": 131073, "comparison": ">=", "value": 0.003},
+                            {"out_paramid": 131073, "comparison": ">=", "value": 0.005},
                         ],
                         "coords": [[120, 240], [168, 240], [228, 360]],
                     },
@@ -123,7 +138,12 @@ from pproc.prob.accumulation_manager import (
                 **{
                     f"step_{a}-{b}_{i}": (
                         Difference,
-                        [{"comparison": ">=", "value": thr} for thr in thrs],
+                        [
+                            ThresholdConfig(
+                                out_paramid=131073, comparison=">=", value=thr
+                            )
+                            for thr in thrs
+                        ],
                     )
                     for i, thrs in enumerate(
                         [[0.001, 0.005, 0.01, 0.02], [0.025, 0.05, 0.1]]
@@ -134,7 +154,9 @@ from pproc.prob.accumulation_manager import (
                     f"step_{a}-{b}_2": (
                         DifferenceRate,
                         [
-                            {"comparison": cmp, "value": val}
+                            ThresholdConfig(
+                                out_paramid=131073, comparison=cmp, value=val
+                            )
                             for cmp, vals in [("<", [0.001]), (">=", [0.003, 0.005])]
                             for val in vals
                         ],
@@ -152,8 +174,8 @@ from pproc.prob.accumulation_manager import (
                     {
                         "operation": "mean",
                         "thresholds": [
-                            {"comparison": "<", "value": -2},
-                            {"comparison": ">=", "value": 2},
+                            {"out_paramid": 131073, "comparison": "<", "value": -2},
+                            {"out_paramid": 131073, "comparison": ">=", "value": 2},
                         ],
                         "coords": [
                             {"from": 120, "to": 168, "by": 12},
@@ -167,8 +189,8 @@ from pproc.prob.accumulation_manager import (
                 f"step_{a}-{b}_0": (
                     Mean,
                     [
-                        {"comparison": "<", "value": -2},
-                        {"comparison": ">=", "value": 2},
+                        ThresholdConfig(out_paramid=131073, comparison="<", value=-2),
+                        ThresholdConfig(out_paramid=131073, comparison=">=", value=2),
                     ],
                 )
                 for a, b in [(120, 168), (168, 240), (240, 360)]
@@ -203,24 +225,24 @@ def test_create_threshold(config, expected, exp_coords):
                     {
                         "operation": "minimum",
                         "thresholds": [
-                            {"comparison": "<", "value": -8},
-                            {"comparison": "<", "value": -4},
+                            {"out_paramid": 131073, "comparison": "<", "value": -8},
+                            {"out_paramid": 131073, "comparison": "<", "value": -4},
                         ],
                         "coords": [[0], [12], [360]],
                     },
                     {
                         "operation": "maximum",
                         "thresholds": [
-                            {"comparison": ">", "value": 4},
-                            {"comparison": ">", "value": 8},
+                            {"out_paramid": 131073, "comparison": ">", "value": 4},
+                            {"out_paramid": 131073, "comparison": ">", "value": 8},
                         ],
                         "coords": [[0], [12], [360]],
                     },
                     {
                         "operation": "mean",
                         "thresholds": [
-                            {"comparison": "<", "value": -4},
-                            {"comparison": ">=", "value": 2},
+                            {"out_paramid": 131073, "comparison": "<", "value": -4},
+                            {"out_paramid": 131073, "comparison": ">=", "value": 2},
                         ],
                         "coords": [
                             {"from": 120, "to": 240, "by": 12},
@@ -231,7 +253,7 @@ def test_create_threshold(config, expected, exp_coords):
                         "operation": "maximum",
                         "std_anomaly": True,
                         "thresholds": [
-                            {"comparison": ">", "value": 1},
+                            {"out_paramid": 131073, "comparison": ">", "value": 1},
                         ],
                         "coords": [[0], [12], [300]],
                     },
@@ -239,7 +261,7 @@ def test_create_threshold(config, expected, exp_coords):
                         "operation": "minimum",
                         "std_anomaly": True,
                         "thresholds": [
-                            {"comparison": "<", "value": -1.5},
+                            {"out_paramid": 131073, "comparison": "<", "value": -1.5},
                         ],
                         "coords": [[0], [12], [300]],
                     },
@@ -249,7 +271,12 @@ def test_create_threshold(config, expected, exp_coords):
                 **{
                     f"step_{s}_{index}": (
                         SimpleAccumulation,
-                        [{"comparison": cmp, "value": val} for val in vals],
+                        [
+                            ThresholdConfig(
+                                out_paramid=131073, comparison=cmp, value=val
+                            )
+                            for val in vals
+                        ],
                     )
                     for index, (cmp, op, vals) in enumerate(
                         [
@@ -263,8 +290,12 @@ def test_create_threshold(config, expected, exp_coords):
                     f"step_{a}-{b}_2": (
                         Mean,
                         [
-                            {"comparison": "<", "value": -4},
-                            {"comparison": ">=", "value": 2},
+                            ThresholdConfig(
+                                out_paramid=131073, comparison="<", value=-4
+                            ),
+                            ThresholdConfig(
+                                out_paramid=131073, comparison=">=", value=2
+                            ),
                         ],
                     )
                     for a, b in [(120, 240), (336, 360)]
@@ -272,7 +303,11 @@ def test_create_threshold(config, expected, exp_coords):
                 **{
                     f"step_STDANOM_{s}_{index + 3}": (
                         SimpleAccumulation,
-                        [{"comparison": cmp, "value": val}],
+                        [
+                            ThresholdConfig(
+                                out_paramid=131073, comparison=cmp, value=val
+                            )
+                        ],
                     )
                     for index, (cmp, op, val) in enumerate(
                         [

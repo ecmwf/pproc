@@ -8,7 +8,7 @@
 # nor does it submit to any jurisdiction.
 
 from meters import ResourceMeter
-from typing import Dict, Optional
+from typing import Union, Optional
 import numpy as np
 import numexpr
 
@@ -19,64 +19,10 @@ from pproc.config.io import Output
 from pproc.config.recovery import BaseRecovery
 from pproc.common.accumulation import Accumulator
 from pproc.common.io import write_grib
+from pproc.prob.threshold import ThresholdConfig
 
 
-def threshold_grib_headers(
-    edition: int, threshold: Dict, clim_metadata: Optional[Dict] = None
-) -> Dict:
-    """
-    Creates dictionary of threshold related grib headers
-    """
-    threshold_dict = {"paramId": threshold["out_paramid"]}
-    scale_factor = threshold.get("local_scale_factor", 0)
-    threshold_value = round(threshold["value"] * 10**scale_factor, 0)
-    comparison = threshold["comparison"].strip("=")
-    if edition == 1 and comparison == "<":
-        grib_keys = {
-            "localDefinitionNumber": 5,
-            "localDecimalScaleFactor": scale_factor,
-            "thresholdIndicator": 2,
-            "upperThreshold": threshold_value,
-        }
-    elif edition == 1 and comparison == ">":
-        grib_keys = {
-            "localDefinitionNumber": 5,
-            "localDecimalScaleFactor": scale_factor,
-            "thresholdIndicator": 1,
-            "lowerThreshold": threshold_value,
-        }
-    elif edition == 2:
-        # GRIB 2 has probability types above/below upper/lower limits (see Code Table 4.9)
-        # where the threshold value can correspond to either limit. The default limit type
-        # is upper for "<" and lower for ">", consistent with the GRIB 1 to GRIB 2 conversion
-        # assumption.
-        prob_types = {"<": {"upper": 4, "lower": 0}, ">": {"upper": 1, "lower": 3}}
-        if comparison == "<":
-            limit_type = threshold.get("limit_type", "upper")
-            probability_type = prob_types[comparison][limit_type]
-        elif comparison == ">":
-            limit_type = threshold.get("limit_type", "lower")
-            probability_type = prob_types[comparison][limit_type]
-        missing = "Upper" if limit_type == "lower" else "Lower"
-        grib_keys = {
-            f"scaleFactorOf{limit_type.capitalize()}Limit": scale_factor,
-            f"scaledValueOf{limit_type.capitalize()}Limit": threshold_value,
-            "probabilityType": probability_type,
-            f"scaleFactorOf{missing}Limit": "MISSING",
-            f"scaledValueOf{missing}Limit": "MISSING",
-        }
-        if clim_metadata:
-            grib_keys.update(clim_metadata)
-    else:
-        raise ValueError(
-            f"Unsupported threshold comparison {comparison} for grib edition {edition}"
-        )
-
-    threshold_dict.update(grib_keys)
-    return threshold_dict
-
-
-def ensemble_probability(data: np.array, threshold: Dict) -> np.array:
+def ensemble_probability(data: np.array, thconfig: ThresholdConfig) -> np.array:
     """Ensemble Probabilities:
 
     Computes the probability of a given parameter crossing a given threshold,
@@ -84,20 +30,24 @@ def ensemble_probability(data: np.array, threshold: Dict) -> np.array:
     e.g. the chance of temperature being less than 0C
 
     """
+    thresholds = thconfig.param_thresholds
+    data = data.reshape((len(thresholds), -1) + data.shape[1:])
+    is_nan = 0
+    comp = 1
+    for index, threshold in enumerate(thresholds):
+        param_data = data[index]
+        # Find all locations where np.nan appears as an ensemble value
+        is_nan |= np.isnan(param_data).any(axis=0)
 
-    # Find all locations where np.nan appears as an ensemble value
-    is_nan = np.isnan(data).any(axis=0)
+        # Read threshold configuration and compute probability
+        comp &= numexpr.evaluate(
+            "data " + threshold.comparison + str(threshold.value),
+            local_dict={"data": param_data},
+        )
 
-    # Read threshold configuration and compute probability
-    comparison = threshold["comparison"]
-    comp = numexpr.evaluate(
-        "data " + comparison + str(threshold["value"]), local_dict={"data": data}
-    )
     probability = np.where(comp, 100, 0).mean(axis=0)
-
     # Put in missing values
     probability = np.where(is_nan, np.nan, probability)
-
     return probability
 
 
@@ -108,7 +58,7 @@ def prob_iteration(
     template: eccodes.GRIBMessage,
     window_id: str,
     accum: Accumulator,
-    thresholds: list,
+    thresholds: list[ThresholdConfig],
     clim_metadata: Optional[dict] = None,
 ):
     with ResourceMeter(f"Window {window_id}, computing threshold probs"):
@@ -121,16 +71,15 @@ def prob_iteration(
 
             print(
                 f"Writing probability for input param {param.name} and output "
-                + f"param {threshold['out_paramid']} for step(s) {window_id}"
+                + f"param {threshold.out_paramid} for step(s) {window_id}"
             )
             grib_set = out_prob.metadata.copy()
             grib_set.update(accum.grib_keys())
             grib_set.update(
-                threshold_grib_headers(
-                    grib_set.get("edition", 1), threshold, clim_metadata
+                threshold.grib_keys(
+                    grib_set.get("edition", template["edition"]), clim_metadata
                 )
             )
-            grib_set.update(threshold.get("metadata", {}))
             write_grib(out_prob.target, template, window_probability, grib_set)
 
         out_prob.target.flush()

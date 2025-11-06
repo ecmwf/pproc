@@ -13,6 +13,7 @@ import numpy as np
 from pproc.common.accumulation import Accumulator, coords_name
 from pproc.common.accumulation_manager import AccumulationManager
 from pproc.config.accumulation import accumulation_factory
+from pproc.prob.threshold import ThresholdConfig
 
 
 class ThresholdAccumulationManager(AccumulationManager):
@@ -23,7 +24,7 @@ class ThresholdAccumulationManager(AccumulationManager):
     :raises: RuntimeError if no window operation was provided, or could be derived
     """
 
-    _thresholds: dict
+    _thresholds: dict[str, list[ThresholdConfig]]
 
     @classmethod
     def create(cls, config: Dict[str, dict], grib_keys: Optional[dict] = None):
@@ -43,10 +44,12 @@ class ThresholdAccumulationManager(AccumulationManager):
         for accum_name in mgr.accumulations.keys():
             dims = accum_name.split(":")
             step_name = [x for x in dims if "step" in x][0]
-            mgr._thresholds[accum_name] = all_thresholds[step_name]
+            mgr._thresholds[accum_name] = [
+                ThresholdConfig(**x) for x in all_thresholds[step_name]
+            ]
         return mgr
 
-    def thresholds(self, identifier: str) -> dict:
+    def thresholds(self, identifier: str) -> list[ThresholdConfig]:
         """
         Returns thresholds for window and deletes window from window:threshold dictionary
         """
