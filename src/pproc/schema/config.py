@@ -12,6 +12,7 @@ import numpy as np
 from pproc.schema.base import BaseSchema, dict_update
 from pproc.schema.filters import _steplength, _selection, _steptype
 from pproc.schema.utils import validate_request
+from pproc.config.utils import to_list
 from pproc.common.grib_helpers import fill_template_value
 from pproc.common.utils import dict_apply
 
@@ -28,9 +29,10 @@ class ConfigSchema(BaseSchema):
         output_request = validate_request(output_request)
         config = self.traverse(output_request)
         if "quantile" in output_request:
-            numbers = np.zeros(len(output_request["quantile"]))
-            totals = np.zeros(len(output_request["quantile"]))
-            for index, quantile in enumerate(output_request["quantile"]):
+            out_quantiles = to_list(output_request["quantile"])
+            numbers = np.zeros(len(out_quantiles))
+            totals = np.zeros(len(out_quantiles))
+            for index, quantile in enumerate(out_quantiles):
                 number, total = map(int, quantile.split(":"))
                 numbers[index] = number
                 totals[index] = total
@@ -44,7 +46,7 @@ class ConfigSchema(BaseSchema):
                 quantiles = list(numbers / totals)
             config["quantiles"] = quantiles
         if output_request["type"] == "sot":
-            config["sot"] = output_request["number"]
+            config["sot"] = to_list(output_request["number"])
 
         out_vals = output_request.copy()
         date = str(output_request["date"])
