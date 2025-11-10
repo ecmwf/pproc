@@ -11,7 +11,6 @@ import pytest
 
 from pproc.config.utils import expand, update_request
 from pproc.schema.input import (
-    format_request,
     InputSchema,
     ForecastConfig,
     ForecastInput,
@@ -25,7 +24,6 @@ INPUTS = {
         {
             "stream": "enfo",
             "levtype": "sfc",
-            "type": "em",
             "param": "167",
             "step": 3,
             "type": "cf",
@@ -34,7 +32,6 @@ INPUTS = {
         {
             "stream": "enfo",
             "levtype": "sfc",
-            "type": "em",
             "param": "167",
             "step": 3,
             "type": "pf",
@@ -171,20 +168,45 @@ INPUTS = {
             "time": "0000",
         },
     ],
-}
-
-
-@pytest.mark.parametrize(
-    "req, expected",
-    [
-        [{"levelist": [250]}, {"levelist": 250}],
-        [{"number": 0}, {"number": [0]}],
-        [{"number": ["0", "1"]}, {"number": [0, 1]}],
+    "sfc-pl": [
+        {
+            "stream": "enfo",
+            "levtype": "pl",
+            "levelist": [250, 850],
+            "param": "130",
+            "step": 6,
+            "type": "cf",
+            "time": "0000",
+        },
+        {
+            "stream": "enfo",
+            "levtype": "pl",
+            "levelist": [250, 850],
+            "param": "130",
+            "step": 6,
+            "type": "pf",
+            "number": list(range(1, 51)),
+            "time": "0000",
+        },
+        {
+            "stream": "enfo",
+            "levtype": "sfc",
+            "param": "167",
+            "step": 6,
+            "type": "cf",
+            "time": "0000",
+        },
+        {
+            "stream": "enfo",
+            "levtype": "sfc",
+            "param": "167",
+            "step": 6,
+            "type": "pf",
+            "number": list(range(1, 51)),
+            "time": "0000",
+        },
     ],
-    ids=["squeeze", "number-is-list", "number-is-int"],
-)
-def test_format_request(req, expected):
-    assert format_request(req) == expected
+}
 
 
 @pytest.mark.parametrize(
@@ -375,6 +397,42 @@ def test_outputs(request, out_type, num_outputs):
     assert len(generated) == num_outputs
 
 
+def test_input_format():
+    expanded_inputs = sum(
+        [list(expand(x, exclude=["levelist", "number"])) for x in INPUTS["sfc-pl"]], []
+    )
+    input_schema = InputSchema(schema("inputs"))
+    step_schema = StepSchema(schema("windows"))
+    generated = list(
+        input_schema.outputs(
+            expanded_inputs, step_schema, output_template={"type": "em"}
+        )
+    )
+    expected_outputs = [
+        {
+            "stream": "enfo",
+            "levtype": "pl",
+            "levelist": [250, 850],
+            "param": "130",
+            "step": 6,
+            "type": "em",
+            "time": "0000",
+        },
+        {
+            "stream": "enfo",
+            "levtype": "sfc",
+            "param": "167",
+            "step": 6,
+            "type": "em",
+            "time": "0000",
+        },
+    ]
+    for out, inputs in generated:
+        assert out in expected_outputs
+        for inp in inputs:
+            assert inp in expanded_inputs
+
+
 @pytest.mark.parametrize(
     "inputs, template, num_outputs",
     [
@@ -477,8 +535,8 @@ def test_redundant_inputs(inputs, template, num_outputs):
     "number, updates",
     [
         [0, {"type": "cf"}],
-        [[0, 1], [{"type": "cf"}, {"type": "pf", "number": [1]}]],
-        [1, {"type": "pf", "number": [1]}],
+        [[0, 1], [{"type": "cf"}, {"type": "pf", "number": 1}]],
+        [1, {"type": "pf", "number": 1}],
     ],
     ids=["cf", "cf-and-pf", "pf"],
 )

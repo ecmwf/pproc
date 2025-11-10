@@ -20,7 +20,7 @@ import pyfdb
 
 TEST_DIR = os.path.dirname(os.path.realpath(__file__))
 DATA_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "data")
-NEXUS = "https://get.ecmwf.int/test-data/pproc/test-data"
+NEXUS = "https://sites.ecmwf.int/repository/pproc/test-data/test-data"
 SCHEMA = os.path.join(TEST_DIR, "schema", "schema.yaml")
 
 

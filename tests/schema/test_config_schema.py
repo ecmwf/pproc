@@ -7,6 +7,8 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
+import pytest
+
 from pproc.schema.config import ConfigSchema
 
 from conftest import schema
@@ -22,3 +24,63 @@ def test_reconstruct():
     assert len([x for x, _ in cfgs if x["type"] == "em"]) == len(
         [x for x, _ in cfgs if x["type"] == "es"]
     )
+
+
+@pytest.mark.parametrize(
+    "out_request, expected_config",
+    [
+        [
+            {
+                "stream": "enfo",
+                "date": "20250101",
+                "time": "00",
+                "type": "sot",
+                "number": 90,
+                "param": "132167",
+                "step": "0-24",
+            },
+            {"sot": [90]},
+        ],
+        [
+            {
+                "stream": "enfo",
+                "date": "20250101",
+                "time": "00",
+                "type": "sot",
+                "number": [10, 90],
+                "param": "132167",
+                "step": "0-24",
+            },
+            {"sot": [10, 90]},
+        ],
+        [
+            {
+                "stream": "enfo",
+                "date": "20250101",
+                "time": "00",
+                "type": "pb",
+                "quantile": "1:100",
+                "param": "167",
+                "step": "0-24",
+            },
+            {"quantiles": [0.01]},
+        ],
+        [
+            {
+                "stream": "enfo",
+                "date": "20250101",
+                "time": "00",
+                "type": "pb",
+                "quantile": ["1:100", "2:100"],
+                "param": "167",
+                "step": "0-24",
+            },
+            {"quantiles": [0.01, 0.02]},
+        ],
+    ],
+)
+def test_config_from_output(out_request, expected_config):
+    config_schema = ConfigSchema(schema("config"))
+    config = config_schema.config(out_request)
+    for key, value in expected_config.items():
+        assert config[key] == value

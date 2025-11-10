@@ -23,8 +23,9 @@ def _selection(request: dict, key: str) -> str:
 
 def _members(request: dict, key: str) -> str:
     number = request["number"]
-    if isinstance(number, int):
+    if isinstance(number, (int, str)):
         number = [number]
+    number = list(map(int, number))
     if 0 not in number:
         return "no_zero"
     if len(number) == 1:

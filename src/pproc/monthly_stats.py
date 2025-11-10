@@ -25,9 +25,9 @@ from pproc.common.stepseq import steprange_to_fcmonth
 
 def mstat_keys(template, out_keys: dict, interval: int):
     out_keys = out_keys.copy()
-    steprange = out_keys.pop("stepRange")
-    start, end = map(int, steprange.split("-"))
     if out_keys.get("edition", template.get("edition")) == 1:
+        steprange = out_keys.pop("stepRange")
+        start, end = map(int, steprange.split("-"))
         date = datetime.strptime(template.get("dataDate:str"), "%Y%m%d")
         this_month = date + timedelta(hours=int(start))
         return {
@@ -42,10 +42,13 @@ def mstat_keys(template, out_keys: dict, interval: int):
             "averagingPeriod": interval,
         }
     out_keys.pop("unitOfTimeRange", None)
+    out_keys.setdefault("indicatorOfUnitForTimeIncrement", 1)
+    out_keys.setdefault("timeIncrement", interval)
+    out_keys.setdefault("typeOfGeneratingProcess", template["typeOfGeneratingProcess"])
+    out_keys.setdefault("typeOfProcessedData", template["type"])
     return {
         "localDefinitionNumber": 16,
         "productDefinitionTemplateNumber": 11,
-        "typeOfGeneratingProcess": template.get("typeOfGeneratingProcess"),
         **out_keys,
     }
 
