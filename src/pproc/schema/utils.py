@@ -11,6 +11,7 @@ VALUE_TYPES = {
     "fcmonth": int,
     "number": int,
     "dataDate": int,
+    "date": str,
 }
 
 
