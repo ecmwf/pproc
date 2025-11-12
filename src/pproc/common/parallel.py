@@ -12,6 +12,7 @@ import os
 import sys
 from typing import List
 import signal
+import multiprocessing
 
 import psutil
 from meters import ResourceMeter
@@ -47,7 +48,12 @@ class QueueingExecutor(fut.ProcessPoolExecutor):
         :queue_size: maximum number of allowed pending futures, if 0 then
         no queueing is implemented
         """
-        super().__init__(max_workers=n_par, initializer=initializer, initargs=initargs)
+        super().__init__(
+            max_workers=n_par,
+            initializer=initializer,
+            initargs=initargs,
+            mp_context=multiprocessing.get_context("forkserver"),
+        )
         self.futures = []
         self.queue_size = queue_size
 
@@ -120,7 +126,10 @@ def parallel_processing(
         SynchronousExecutor()
         if n_par == 1
         else fut.ProcessPoolExecutor(
-            max_workers=n_par, initializer=initializer, initargs=initargs
+            max_workers=n_par,
+            initializer=initializer,
+            initargs=initargs,
+            mp_context=multiprocessing.get_context("forkserver"),
         )
     )
     with executor:
@@ -172,7 +181,10 @@ def parallel_data_retrieval(
         SynchronousExecutor()
         if num_processes == 1
         else fut.ProcessPoolExecutor(
-            max_workers=num_processes, initializer=initializer, initargs=initargs
+            max_workers=num_processes,
+            initializer=initializer,
+            initargs=initargs,
+            mp_context=multiprocessing.get_context("forkserver"),
         )
     )
     with executor:
