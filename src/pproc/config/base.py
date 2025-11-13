@@ -237,7 +237,7 @@ class BaseConfig(ConfigModel):
             elif number != src_req["number"]:
                 raise ValueError("Inconsistent number of members in input requests")
 
-        number = to_list(number)
+        number = [] if number is None else to_list(number)
         if len(number) == num_members - 1:
             number = [0] + number
         req["number"] = number
