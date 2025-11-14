@@ -1087,7 +1087,6 @@ class ECPointConfig(QuantilesConfig):
             return req
 
         req.pop("quantile")
-        # Consult inputs for setting of number
         self._append_number(param, req)
         return req
 
