@@ -1066,6 +1066,20 @@ class ECPointConfig(QuantilesConfig):
             return {}
         return super()._populate_accumulations(inputs, base_accum)
 
+    def _append_number(self, param: ParamConfig, req: dict):
+        src_name = self.inputs.names[0]
+        inputs = param.input_list(self.inputs, src_name)
+        src_reqs = inputs[0].request
+        if isinstance(src_reqs, dict):
+            src_reqs = [src_reqs]
+
+        # Inherit number from matching source
+        for src_req in src_reqs:
+            if src_req["stream"] != req["stream"] or "number" not in src_req:
+                continue
+            req["number"] = src_req["number"]
+            break
+
     def _format_out(self, param: ParamConfig, req) -> dict:
         req = super()._format_out(param, req)
         req["model"] = "ecPoint"
