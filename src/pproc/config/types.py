@@ -1073,12 +1073,16 @@ class ECPointConfig(QuantilesConfig):
         if isinstance(src_reqs, dict):
             src_reqs = [src_reqs]
 
-        # Inherit number from matching source
+        # Inherit number from sources with matching stream
+        number = []
         for src_req in src_reqs:
-            if src_req["stream"] != req["stream"] or "number" not in src_req:
-                continue
-            req["number"] = src_req["number"]
-            break
+            if src_req["stream"] == req["stream"]:
+                if src_req["type"] == "cf":
+                    number += [0]
+                else:
+                    number += src_req.get("number", [])
+        if len(number) != 0:
+            req["number"] = number
 
     def _format_out(self, param: ParamConfig, req) -> dict:
         req = super()._format_out(param, req)
