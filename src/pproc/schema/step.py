@@ -66,6 +66,8 @@ class Monthly(BaseModel):
 
     def generate_steps(self, steps: list[int]) -> list[str]:
         by = np.diff(steps)
+        if len(by) == 0:
+            return []
         if len(set(by)) != 1:
             raise ValueError("Monthly steps must be evenly spaced")
         return [
