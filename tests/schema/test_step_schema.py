@@ -28,6 +28,11 @@ from conftest import schema
             ["0-6", "3-9"],
         ],
         [
+            {"type": "range", "interval": 1, "width": 1},
+            list(range(0, 5)),
+            ["0-1", "1-2", "2-3", "3-4"],
+        ],
+        [
             {"type": "range", "start": 2, "end": 8, "interval": 2, "width": 2},
             list(range(0, 7)),
             ["2-4", "4-6"],
