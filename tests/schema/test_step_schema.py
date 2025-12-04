@@ -9,9 +9,47 @@
 
 import pytest
 
-from pproc.schema.step import StepSchema
+from pproc.schema.step import StepType, StepSchema
 
 from conftest import schema
+
+
+@pytest.mark.parametrize(
+    "config, steps, expected",
+    [
+        [{"type": "instantaneous"}, [0, 1, 2], [0, 1, 2]],
+        [{"type": "instantaneous", "deaccumulate": True}, [0, 1, 2], [1, 2]],
+        [{"type": "instantaneous", "start": 1, "end": 2}, [0, 1, 2, 3], [1, 2]],
+        [{"type": "instantaneous", "interval": 2}, [0, 1, 2, 3, 4], [0, 2, 4]],
+        [{"type": "instantaneous", "start": 3, "end": 6}, [0, 1, 2], []],
+        [
+            {"type": "range", "interval": 3, "width": 6},
+            list(range(0, 10)),
+            ["0-6", "3-9"],
+        ],
+        [
+            {"type": "range", "interval": 1, "width": 1},
+            list(range(0, 5)),
+            ["0-1", "1-2", "2-3", "3-4"],
+        ],
+        [
+            {"type": "range", "start": 2, "end": 8, "interval": 2, "width": 2},
+            list(range(0, 7)),
+            ["2-4", "4-6"],
+        ],
+        [
+            {"type": "range", "start": 12, "end": 24, "interval": 2, "width": 4},
+            list(range(0, 10)),
+            [],
+        ],
+        [{"type": "monthly", "date": "20240601"}, list(range(0, 800)), [1]],
+        [{"type": "monthly", "date": "20240601"}, list(range(0, 500)), []],
+        [{"type": "monthly", "date": "20240601"}, [0], []],
+    ],
+)
+def test_step_type(config, steps, expected):
+    step_type = StepType(**config).root
+    assert step_type.generate_steps(steps) == expected
 
 
 def test_in_steps():

@@ -52,11 +52,10 @@ class Range(BaseModel):
             isinstance(x, int) for x in steps
         ), "Steps can not be a mix of strings and integers"
         start = self.start or steps[0]
-        end = self.end or steps[-1]
-        return [
-            f"{rstart}-{rstart + self.width}"
-            for rstart in range(start, end - self.width + 1, self.interval)
-        ]
+        end = min((self.end or steps[-1]), steps[-1]) - self.width
+        rstarts = set(range(start, end + 1, self.interval))
+        rstarts.intersection_update(steps)
+        return [f"{rstart}-{rstart + self.width}" for rstart in sorted(rstarts)]
 
 
 class Monthly(BaseModel):
@@ -64,8 +63,10 @@ class Monthly(BaseModel):
     date: str
     dim: Literal["fcmonth"] = "fcmonth"
 
-    def generate_steps(self, steps: list[int]) -> list[str]:
+    def generate_steps(self, steps: list[int]) -> list[int]:
         by = np.diff(steps)
+        if len(by) == 0:
+            return []
         if len(set(by)) != 1:
             raise ValueError("Monthly steps must be evenly spaced")
         return [
