@@ -20,44 +20,11 @@ from pproc.config.targets import Target
 
 logger = logging.getLogger(__name__)
 
-# Constants
-UTCI_MIN_VALUE = thermofeel.celsius_to_kelvin(-80)
-UTCI_MAX_VALUE = thermofeel.celsius_to_kelvin(90)
-
-MRT_DIFF_HIGH = 150
-MRT_DIFF_LOW = -30
-
-# parameter to units
-units = {
-    "cossza": "",
-    "2t": "K",
-    "2d": "K",
-    "wcf": "K",
-    "aptmp": "K",
-    "hmdx": "K",
-    "nefft": "K",
-    "wbgt": "K",
-    "wbt": "K",
-    "gt": "K",
-    "2r": "%",
-    "10si": "m/s",
-    "mrt": "K",
-    "utci": "K",
-    "heatx": "K",
-    "dsrp": "W/m2",
-    "ssrd": "W/m2",
-    "ssr": "W/m2",
-    "fdir": "W/m2",
-    "strd": "W/m2",
-    "str": "W/m2",
-}
-
 
 def compute_ehPa_(rh_pc, svp):
     return svp * rh_pc * 0.01  # / 100.0
 
 
-@metered("ehPa", out=logger.debug)
 def compute_ehPa(t2m, t2d):
     rh_pc = thermofeel.calculate_relative_humidity_percent(t2m, t2d)
     svp = thermofeel.calculate_saturation_vapour_pressure(t2m)
@@ -66,6 +33,9 @@ def compute_ehPa(t2m, t2d):
 
 
 def find_utci_missing_values(t2m, va, mrt, ehPa, utci, print_misses=True):
+    mrt_diff_high = 150
+    mrt_diff_low = -30
+
     e_mrt = np.subtract(mrt, t2m)
 
     misses = np.where(t2m >= thermofeel.celsius_to_kelvin(70))
@@ -82,11 +52,11 @@ def find_utci_missing_values(t2m, va, mrt, ehPa, utci, print_misses=True):
     nehpa = len(t[0])
     misses = np.union1d(t, misses)
 
-    t = np.where(e_mrt >= MRT_DIFF_HIGH)
+    t = np.where(e_mrt >= mrt_diff_high)
     ndiffmrt = len(t[0])
     misses = np.union1d(t, misses)
 
-    t = np.where(e_mrt <= MRT_DIFF_LOW)
+    t = np.where(e_mrt <= mrt_diff_low)
     ndiffmrtneg = len(t[0])
     misses = np.union1d(t, misses)
 
@@ -99,19 +69,21 @@ def find_utci_missing_values(t2m, va, mrt, ehPa, utci, print_misses=True):
     if print_misses:
         print(
             f"UTCI nmisses {nmisses} NANs {nnan} T2>70C {nt2high} T2<-70 {nt2low} highwind {nhighwind}"
-            + f"nehpa {nehpa} MRT-T2>{MRT_DIFF_HIGH} {ndiffmrt} MRT-T2<{MRT_DIFF_LOW} {ndiffmrtneg}"
+            + f"nehpa {nehpa} MRT-T2>{mrt_diff_high} {ndiffmrt} MRT-T2<{mrt_diff_low} {ndiffmrtneg}"
         )
 
     return misses
 
 
 def validate_utci(utci, misses, lats, lons):
+    utci_min_value = thermofeel.celsius_to_kelvin(-80)
+    utci_max_value = thermofeel.celsius_to_kelvin(90)
 
     out_of_bounds = 0
     nans = 0
     for i in range(len(utci)):
         v = utci[i]
-        if v < UTCI_MIN_VALUE or v > UTCI_MAX_VALUE:
+        if v < utci_min_value or v > utci_max_value:
             out_of_bounds += 1
             logger.info("UTCI [", i, "] = ", utci[i], " : lat/lon ", lats[i], lons[i])
         if np.isnan(v):
@@ -159,21 +131,17 @@ def check_field_sizes(fields: earthkit.data.FieldList):
 
 def step_interval(fields) -> int:
     # Derive step interval from de-accumulated fields
-    accum_field = fields.sel(stepType="diff")
-    if len(accum_field) == 0:
-        raise ValueError("No accumulation fields found, can not derive step interval")
-    delta = (
-        accum_field[0].metadata()["endStep"] - accum_field[0].metadata()["startStep"]
-    )
-    check = [
-        delta == (f.metadata()["endStep"] - f.metadata()["startStep"])
-        for f in accum_field
-    ]
-    if not all(check):
+    delta = [x["endStep"] - x["startStep"] for x in fields.metadata()]
+    delta = delta[delta > 0]
+    if len(delta) == 0:
         raise ValueError(
-            f"Step intervals are not consistent for accumulated fields {accum_field.ls()}"
+            f"No accumulated fields found to derive step intervals from {fields.ls()}"
         )
-    return delta
+    if not all(delta[0] == delta):
+        raise ValueError(
+            f"Step intervals are not consistent for accumulated fields"
+        )
+    return delta[0]
 
 
 def write(
