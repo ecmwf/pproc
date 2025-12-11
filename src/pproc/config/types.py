@@ -1285,7 +1285,7 @@ class ClusterAttributionConfig(ClusterBaseConfig):
     @property
     def month_end_dos(self) -> int:  # FIXME: remove eventually?
         return self.this_season.dos(
-            self.date.replace(day=MONTH_DAYS[self.date.month] - 1)
+            self.date.replace(day=MONTH_DAYS[self.date.month - 1])
         )
 
     @property
