@@ -3,7 +3,6 @@ import pytest
 from pproc.config import types
 
 BASE_OUTPUT = {
-    "method": "ecPoint",
     "target": "fdb",
 }
 
