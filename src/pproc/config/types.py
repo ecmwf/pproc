@@ -1086,7 +1086,6 @@ class ECPointConfig(QuantilesConfig):
 
     def _format_out(self, param: ParamConfig, req) -> dict:
         req = super()._format_out(param, req)
-        req["method"] = "ecPoint"
         if req["type"] == "pfc":
             return req
 
