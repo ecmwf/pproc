@@ -1410,7 +1410,7 @@ class ClusterFullConfig(
         schema_config = copy.deepcopy(schema_config)
         outputs = schema_config.pop("outputs", {})
         overrides = copy.deepcopy(overrides)
-        overrides.pop("parameters")
+        overrides.pop("parameters", None)
 
         # Construct parameter config
         schema_inputs = copy.deepcopy(schema_config.pop("inputs"))
@@ -1426,13 +1426,17 @@ class ClusterFullConfig(
         step_start, step_end = cls._derive_steps(schema_inputs)
         date = cls._derive_date(schema_inputs)
 
-        inputs = {
-            "fc": {"source": {"type": "fdb"}, "request": schema_inputs},
-            "spread": {
-                "source": {"type": "fdb"},
-                "request": cls._derive_spread_req(schema_inputs),
-            },
-        }
+        inputs = {}
+        input_overrides = overrides.pop("inputs", {})
+        for inp, request in [
+            ("fc", schema_inputs),
+            ("spread", cls._derive_spread_req(schema_inputs)),
+        ]:
+            inp_overrides = input_overrides.get(inp, {})
+            inputs[inp] = {
+                "source": inp_overrides.get("source", {"type": "fdb"}),
+                "request": update_request(request, inp_overrides.get("request", {})),
+            }
 
         config = {
             **schema_config,
