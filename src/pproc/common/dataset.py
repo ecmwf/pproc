@@ -177,7 +177,9 @@ def _open_dataset_fdbmars(
         req_mars = req_fdb.copy()
         reqs_fdb.append(req_fdb)
         if loc is not None:
-            reqs_fset.append(req)
+            req_fset = req.copy()
+            req_fset.pop("interpolate", None)
+            reqs_fset.append(req_fset)
             req_mars["cache"] = loc
         reqs_mars.append(req_mars)
 
