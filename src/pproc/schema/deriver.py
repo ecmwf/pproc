@@ -27,7 +27,7 @@ class DefaultStepDeriver(BaseModel):
 
     def _inst_step(self, step: int, fc_steps: list[int]) -> list[int]:
         if step not in fc_steps:
-            raise ValueError(f"Required step {start} not in forecast steps")
+            raise ValueError(f"Required step {step} not in forecast steps")
         return [step]
 
     def _range(self, start: int, end: int, fc_steps: list[int]) -> tuple[int]:
