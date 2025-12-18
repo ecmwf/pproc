@@ -84,7 +84,8 @@ def grid_bc_metadata(
         )
         grib_keys.update(out_keys)
         if grib_keys["productDefinitionTemplateNumber"] == 73:
-            if template.get("number", 0) == 0:
+            mars_keys = {k: v for k, v in template.items(namespace="mars")}
+            if mars_keys.get("number", 0) == 0:
                 grib_keys["typeOfEnsembleForecast"] = 5
             else:
                 grib_keys["typeOfEnsembleForecast"] = 6
@@ -127,7 +128,8 @@ def weather_types_metadata(
         )
         grib_keys.update(out_keys)
         if grib_keys["productDefinitionTemplateNumber"] == 73:
-            if template.get("number", 0) == 0:
+            mars_keys = {k: v for k, v in template.items(namespace="mars")}
+            if mars_keys.get("number", 0) == 0:
                 grib_keys["typeOfEnsembleForecast"] = 5
             else:
                 grib_keys["typeOfEnsembleForecast"] = 6
