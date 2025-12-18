@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field, model_validator
 from pproc.config.preprocessing import PreprocessingConfig
 from pproc.config.accumulation import AccumulationConfig
 from pproc.config.utils import extract_mars, deep_update
-from pproc.config.io import Input, InputsCollection
+from pproc.config.io import Source, Input, InputsCollection
 from pproc.config.utils import update_request, expand
 
 logger = logging.getLogger(__name__)
@@ -43,6 +43,15 @@ class ParamConfig(BaseModel):
     total_fields: int = 0
     vod2uv: bool = False
     _merge_exclude: tuple[str] = ("accumulations",)
+
+    @model_validator(mode="after")
+    def validate_inputs(self) -> Self:
+        for src_name, src_config in self.inputs.items():
+            if "source" in src_config:
+                self.inputs[src_name]["source"] = Source.validate_source(
+                    src_config["source"]
+                )
+        return self
 
     @model_validator(mode="after")
     def set_vod2uv(self) -> Self:
