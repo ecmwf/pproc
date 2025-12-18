@@ -864,7 +864,7 @@ class ThermoConfig(BaseConfig):
     parameters: list[ThermoParamConfig]
     validateutci: bool = False
     utci_misses: bool = False
-    _merge_exclude: tuple[str] = ("parameters", "inputs")
+    _merge_exclude: tuple[str] = ("parameters",)
 
     @model_validator(mode="after")
     def check_params(self) -> Self:
@@ -885,6 +885,10 @@ class ThermoConfig(BaseConfig):
         for out_name in io.ThermoOutputModel.names:
             if out_name != "indices" and out_name not in outputs:
                 outputs["out_name"] = {"target": {"type": "null"}}
+
+        overrides.setdefault("inputs", {}).setdefault("accum", {}).setdefault(
+            "source", "null:"
+        )
         return super().from_schema(schema_config, **overrides)
 
     @model_validator(mode="after")
@@ -913,6 +917,13 @@ class ThermoConfig(BaseConfig):
             sorted_requests.setdefault(src_name, []).append(inp)
         return sorted_requests
 
+    @classmethod
+    def _populate_inputs(
+        cls, inputs: list[dict], accum_dims: list[str], **overrides
+    ) -> dict:
+        overrides.setdefault("accum", {}).setdefault("source", "fdb:")
+        return super()._populate_inputs(inputs, accum_dims, **overrides)
+
     def _merge_parameters(self, other: Self = None) -> list[ThermoParamConfig]:
         merged_params = [self.parameters[0]]
         other_params = self.parameters[1:]
@@ -928,21 +939,6 @@ class ThermoConfig(BaseConfig):
             if not merged:
                 merged_params.append(in_param)
         return merged_params
-
-    def _merge_inputs(self, other: Self) -> io.ThermoInputModel:
-        new_inputs = self.inputs.model_copy()
-        other_inputs = other.inputs.model_copy()
-        if new_inputs.accum.type == "null":
-            new_inputs.accum.type = other_inputs.accum.type
-            new_inputs.accum.path = other_inputs.accum.path
-        if other_inputs.accum.type == "null" and new_inputs.accum.type != "null":
-            other_inputs.accum.type = new_inputs.accum.type
-            other_inputs.accum.path = new_inputs.accum.path
-        if new_inputs != other_inputs:
-            raise ValueError(
-                "Can only merge configs with inputs differing by accum input type"
-            )
-        return new_inputs
 
     def _format_out(self, param: ParamConfig, req) -> dict:
         req = super()._format_out(param, req)

@@ -700,3 +700,81 @@ def test_wind():
             [],
         ),
     )
+
+
+@pytest.mark.parametrize(
+    "updates, has_accum",
+    [
+        [
+            [
+                {
+                    "param": [
+                        261002,
+                        261001,
+                        260004,
+                        260005,
+                        260255,
+                        260242,
+                        261016,
+                        261018,
+                        261015,
+                        261014,
+                        261023,
+                    ],
+                    "step": [1, 2],
+                }
+            ],
+            [True],
+        ],
+        [
+            [
+                {
+                    "param": [
+                        261002,
+                        261001,
+                        260004,
+                        260005,
+                        260255,
+                        260242,
+                        261016,
+                        261018,
+                        261015,
+                        261014,
+                        261023,
+                    ],
+                    "step": [1, 2],
+                },
+                {"param": [260242], "step": [0]},
+            ],
+            [True, False],
+        ],
+        [
+            [
+                {
+                    "param": [260004, 260242, 261016, 260005, 260255, 261018],
+                    "step": [0, 1, 2],
+                }
+            ],
+            [False],
+        ],
+    ],
+)
+def test_thermofeel_merge(updates, has_accum):
+    test_schema = Schema(**schema())
+    base_request = {
+        **DEFAULT_REQUEST,
+        "levtype": "sfc",
+        "type": "pf",
+        "number": [1, 2, 3],
+    }
+    overrides = {
+        "inputs": {"inst": {"source": "mars:"}},
+        "parameters": {"default": {"inputs": {"accum": {"source": "mars:"}}}},
+    }
+    config = ConfigFactory.from_outputs(
+        test_schema, [{**base_request, **req} for req in updates], **overrides
+    )
+    assert len(config.parameters) == len(has_accum)
+    assert config.inputs.accum.source.type_ == "null"
+    for param, accum in zip(config.parameters, has_accum):
+        assert param.inputs.get("accum", None) is not None if accum else True
