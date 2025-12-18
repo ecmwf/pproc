@@ -82,7 +82,15 @@ def grid_bc_metadata(
                 "timeIncrement": 1,
             }
         )
-    grib_keys.update(out_keys)
+        grib_keys.update(out_keys)
+        if grib_keys["productDefinitionTemplateNumber"] == 73:
+            mars_keys = {k: v for k, v in template.items(namespace="mars")}
+            if mars_keys.get("number", 0) == 0:
+                grib_keys["typeOfEnsembleForecast"] = 5
+            else:
+                grib_keys["typeOfEnsembleForecast"] = 6
+    else:
+        grib_keys.update(out_keys)
     return template, grib_keys
 
 
@@ -118,7 +126,15 @@ def weather_types_metadata(
                 "timeIncrement": 1,
             }
         )
-    grib_keys.update(out_keys)
+        grib_keys.update(out_keys)
+        if grib_keys["productDefinitionTemplateNumber"] == 73:
+            mars_keys = {k: v for k, v in template.items(namespace="mars")}
+            if mars_keys.get("number", 0) == 0:
+                grib_keys["typeOfEnsembleForecast"] = 5
+            else:
+                grib_keys["typeOfEnsembleForecast"] = 6
+    else:
+        grib_keys.update(out_keys)
     return template, grib_keys
 
 
@@ -356,7 +372,9 @@ def main():
                 },
             )
         ]
-        checkpointed_windows = [x["window"] for x in cfg.recovery.computed(param=param.name)]
+        checkpointed_windows = [
+            x["window"] for x in cfg.recovery.computed(param=param.name)
+        ]
         managers[0].delete(checkpointed_windows)
         requesters = [
             FilteredParamRequester(
