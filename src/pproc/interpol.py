@@ -81,6 +81,12 @@ def main(args=None):
     )
 
     arg.add_argument(
+        "--intermediate-interpolation",
+        type=_Regex(_interpolation),
+        help="intermediate interpolation method (" + _interpolation + ")",
+    )
+
+    arg.add_argument(
         "--packing",
         type=_Regex(_packing),
         help="packing method (GRIB packingType, " + _packing + ")",
@@ -107,7 +113,7 @@ def main(args=None):
     arg.add_argument(
         "--intgrid",
         type=_Regex(_intgrid),
-        help="spectral transforms intermediate Gaussian grid (" + _intgrid + ")",
+        help="intermediate Gaussian grid (" + _intgrid + ")",
     )
 
     arg.add_argument(
