@@ -150,6 +150,7 @@ def main(args=None):
         "grid",
         "interpolation",
         "interpolation_statistics",
+        "intermediate_interpolation",
         "intgrid",
         "packing",
         "accuracy",
