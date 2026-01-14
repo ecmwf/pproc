@@ -8,7 +8,7 @@
 # nor does it submit to any jurisdiction.
 
 import sys
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Iterator
 import functools
 import numpy as np
 import pandas as pd
@@ -177,8 +177,8 @@ def compute_single_ens(
     num_wt = thr_inf.shape[0]
     num_pred, num_gp = predictors.shape
 
-    pt_bc_allwt = np.zeros((num_fer, num_gp))
-    wt_allwt = np.zeros((num_gp,))
+    pt_bc_allwt = np.zeros((num_fer, num_gp), dtype=predictant.dtype)
+    wt_allwt = np.zeros((num_gp,), dtype=predictant.dtype)
     for index in range(0, num_wt, wt_batch_size):
         end_index = min(index + wt_batch_size, num_wt)
         logger.info(f"Weather types: {index} - {end_index - 1}")
@@ -215,7 +215,7 @@ def compute_weather_types(
     min_predictant: Optional[float] = None,
     wt_batch_size: int = 1,
     ens_batch_size: int = 1,
-) -> Tuple[list[np.ndarray], list[np.ndarray], list[np.ndarray]]:
+) -> Iterator[Tuple[np.ndarray, np.ndarray, np.ndarray]]:
     # Extract variables from files
     bp_file = pd.read_csv(bp_loc, header=0, delimiter=",")
     fer_file = pd.read_csv(fer_loc, header=0, delimiter=",")
@@ -236,15 +236,6 @@ def compute_weather_types(
         wt_batch_size=wt_batch_size,
     )
 
-    # inizialize field for the new post-processed ensemble (CDF)
-    # built from all raw ensemble members and all WTs
-    pt_bc_allens_allwt = []
-    # inizialize field for the bias corrected (bc) at grid-scale
-    # fields for all raw ensemble members and all WTs
-    grid_bc_allens_allwt = []
-    # inizialize field for the wt for all raw ensemble members and all WTs
-    wt_allens_allwt = []
-
     with fut.ProcessPoolExecutor(
         max_workers=ens_batch_size,
         initializer=signal.signal,
@@ -255,8 +246,6 @@ def compute_weather_types(
         ):
             logger.info(f"Ensemble member: {ind_em}")
             pt_bc_allwt, wt_allwt = result
-            grid_bc_allens_allwt.append(np.mean(pt_bc_allwt, axis=0))
-            pt_bc_allens_allwt.extend(list(pt_bc_allwt))
             if min_predictant is not None:
                 wt_allwt = np.where(
                     (predictant[ind_em] < min_predictant)
@@ -264,13 +253,7 @@ def compute_weather_types(
                     99999,
                     wt_allwt,
                 )
-            wt_allens_allwt.append(wt_allwt)
-
-    return (
-        np.asarray(pt_bc_allens_allwt),
-        np.asarray(grid_bc_allens_allwt),
-        np.asarray(wt_allens_allwt),
-    )
+            yield pt_bc_allwt, np.mean(pt_bc_allwt, axis=0), wt_allwt
 
 
 def ecpoint_iteration(
@@ -284,61 +267,58 @@ def ecpoint_iteration(
         f"Processing {window_id}, fields: \n {input_params.ls(namespace='mars')}"
     )
     with ResourceMeter(f"Compute predictant and predictors: {window_id}"):
-        predictant = input_params.sel(param=config.predictant).values
+        predictant = input_params.sel(param=config.predictant)
         predictors = compute_predictors(
             config, param, out_keys["stepRange"], input_params
         )
 
+    pt_bc_allens_allwt = []
     with ResourceMeter(f"Compute realisations: {window_id}"):
-        (
-            pt_bc_allens_allwt,
-            grid_bc_allens_allwt,
-            wt_allens_allwt,
-        ) = compute_weather_types(
-            predictant,
+        out_bs = config.outputs.bs
+        out_wt = config.outputs.wt
+
+        for index, (
+            pt_bc_allwt,
+            grid_bc_allwt,
+            wt_allwt,
+        ) in enumerate(compute_weather_types(
+            predictant.values,
             predictors,
             config.bp_location,
             config.fer_location,
             config.min_predictant,
             config.parallelisation.wt_batch_size,
             config.parallelisation.ens_batch_size,
-        )
+        )):
 
-    # Scale outputs, needed for grib 2 rainfall in metres
-    if config.scale_outputs is not None:
-        pt_bc_allens_allwt *= config.scale_outputs
-        grid_bc_allens_allwt *= config.scale_outputs
+            # Scale outputs, needed for grib 2 rainfall in metres
+            if config.scale_outputs is not None:
+                pt_bc_allwt *= config.scale_outputs
+                grid_bc_allwt *= config.scale_outputs
 
-    # Save the grid-scale outputs and weather types for each member
-    out_bs = config.outputs.bs
-    out_wt = config.outputs.wt
-    for index, field in enumerate(input_params.sel(param=config.predictant)):
-        template = field.metadata()._handle
-        bs_message, metadata = grid_bc_metadata(
-            template,
-            {
-                **out_keys,
-                **out_bs.metadata,
-            },
-        )
-        write_grib(out_bs.target, bs_message, grid_bc_allens_allwt[index], metadata)
-        out_bs.target.flush()
+            template = predictant[index].metadata()._handle
+            bs_message, metadata = grid_bc_metadata(
+                template,
+                {
+                    **out_keys,
+                    **out_bs.metadata,
+                },
+            )
+            write_grib(out_bs.target, bs_message, grid_bc_allwt, metadata)
 
-        wt_message, metadata = weather_types_metadata(
-            template, {**out_keys, **out_wt.metadata}
-        )
-        write_grib(out_wt.target, wt_message, wt_allens_allwt[index], metadata)
-        out_wt.target.flush()
+            wt_message, metadata = weather_types_metadata(
+                template, {**out_keys, **out_wt.metadata}
+            )
+            write_grib(out_wt.target, wt_message, wt_allwt, metadata)
+            pt_bc_allens_allwt.append(pt_bc_allwt)
+        pt_bc_allens_allwt = np.concatenate(pt_bc_allens_allwt)
 
-    del grid_bc_allens_allwt
-    del wt_allens_allwt
-
-    with ResourceMeter(f"Compute the percentiles: {window_id}"):
+    with ResourceMeter(f"Compute percentiles: {window_id}"):
         out_perc = config.outputs.perc
-        template = input_params.sel(param=config.predictant)[0].metadata()._handle
+        template = predictant[0].metadata()._handle
         for i, quantile in enumerate(
             iter_quantiles(
-                np.asarray(pt_bc_allens_allwt), config.quantiles, method="sort"
+                pt_bc_allens_allwt, config.quantiles, method="sort"
             )
         ):
             grib_keys = {
@@ -350,8 +330,10 @@ def ecpoint_iteration(
                 template, pert_number, total_number, grib_keys
             )
             write_grib(out_perc.target, template, quantile, metadata)
-        out_perc.target.flush()
-
+        
+    out_bs.target.flush()
+    out_wt.target.flush()
+    out_perc.target.flush()
     config.recovery.add_checkpoint(param=param.name, window=window_id)
 
 
