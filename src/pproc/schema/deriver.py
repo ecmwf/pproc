@@ -211,11 +211,17 @@ class ClimStepDeriver(BaseModel):
     def _instantaneous(fc_request: dict, clim_steps: list[int]) -> list[int]:
         time = int(fc_request["time"]) // 100
         steps = fc_request["step"]
-        if time in [12, 18]:
-            return [
-                (step - 12) if step == clim_steps[-1] else step + 12 for step in steps
-            ]
-        return steps
+        # Match on valid time. Reforecast assumed to run at 00UTC only
+        matched_steps = []
+        for step in steps:
+            valid_time = step + time
+            if valid_time > clim_steps[-1] and time == 12:
+                # This rule only applies to 12UTC runs
+                valid_time = step - time
+            if valid_time not in clim_steps:
+                raise ValueError(f"Required step {valid_time} not in climatology steps")
+            matched_steps.append(valid_time)
+        return matched_steps
 
     def derive(self, request: dict, clim_steps: list[str]) -> int | str:
         return getattr(ClimStepDeriver, f"_{self.type_}")(request, clim_steps)
