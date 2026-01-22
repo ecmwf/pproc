@@ -85,35 +85,8 @@ def process_step(
     param: ThermoParamConfig,
     step: int,
     window_id: str,
-    accum: Accumulator,
-    accum_metadata: list[GribFieldMetadata],
+    fields: earthkit.data.FieldList,
 ):
-    fields = load_input(config, param, "inst", step)
-    if len(accum_metadata) != 0:
-        logger.debug(f"Write out accum fields to target {config.outputs.accum}")
-        # Set step range for de-accumulated fields
-        coords = list(map(str, accum["step"].coords))
-        if len(coords) == 1:
-            coords = ["0"] + coords
-        step_range = "-".join(coords)
-        accum_fields = earthkit.data.FieldList.from_array(
-            accum.values,
-            [
-                x.override(
-                    stepType="diff",
-                    stepRange=step_range,
-                )
-                for x in accum_metadata
-            ],
-        )
-        helpers.write(
-            config.outputs.accum.target,
-            accum_fields,
-            metadata=config.outputs.accum.metadata,
-        )
-        fields += accum_fields
-
-    assert len(fields) != 0, f"No fields retrieved for param {param}."
     helpers.check_field_sizes(fields)
     basetime, validtime = helpers.get_datetime(fields)
     time = basetime.hour
@@ -225,9 +198,7 @@ def main():
             ]
             accum_manager.delete(checkpointed_windows)
 
-            thermo_partial = functools.partial(
-                process_step, cfg, param
-            )
+            thermo_partial = functools.partial(process_step, cfg, param)
             for step in accum_manager.dims["step"]:
                 accum_fields = load_input(cfg, param, "accum", step)
                 completed_windows = accum_manager.feed(
@@ -235,12 +206,41 @@ def main():
                     np.empty((1,)) if len(accum_fields) == 0 else accum_fields.values,
                 )
                 for window_id, accum in completed_windows:
+                    fields = load_input(cfg, param, "inst", step)
+                    if len(accum_fields.metadata()) != 0:
+                        logger.debug(
+                            f"Write out accum fields to target {cfg.outputs.accum}"
+                        )
+                        # Set step range for de-accumulated fields
+                        coords = list(map(str, accum["step"].coords))
+                        if len(coords) == 1:
+                            coords = ["0"] + coords
+                        step_range = "-".join(coords)
+                        accum_fields = earthkit.data.FieldList.from_array(
+                            accum.values,
+                            [
+                                x.override(
+                                    stepType="diff",
+                                    stepRange=step_range,
+                                )
+                                for x in accum_fields.metadata()
+                            ],
+                        )
+                        helpers.write(
+                            cfg.outputs.accum.target,
+                            accum_fields,
+                            metadata=cfg.outputs.accum.metadata,
+                        )
+                        fields += accum_fields
+
+                    assert (
+                        len(fields) != 0
+                    ), f"No fields retrieved for param {param} for step {step}"
                     executor.submit(
                         thermo_partial,
                         step,
                         window_id,
-                        accum,
-                        accum_fields.metadata(),
+                        fields,
                     )
 
             executor.wait()
