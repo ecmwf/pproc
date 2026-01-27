@@ -1531,3 +1531,24 @@ class ClusterFullConfig(
                 if req not in seen:
                     seen.append(req)
                     yield req
+
+
+class CATConfig(AccumConfig):
+    outputs: io.CATOutputModel = io.CATOutputModel()
+    model: str = "ifs"
+    n_levels: int = 137
+    target_levels: list[int]
+    interp_method: str = "linear"
+
+    @classmethod
+    def from_schema(cls, schema_config: dict, **overrides) -> Self:
+        overrides = overrides.copy()
+        for var in [
+            "model",
+            "n_levels",
+            "target_levels",
+            "interp_method",
+        ]:
+            if var in schema_config:
+                overrides.setdefault(var, schema_config.pop(var))
+        return super().from_schema(schema_config, **overrides)
