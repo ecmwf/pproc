@@ -560,12 +560,16 @@ class ProbConfig(BaseConfig):
 
     @classmethod
     def _input_request(
-        cls, src_name: str, requests: list[dict], accum_dims: list[str], **overrides
+        cls,
+        src_name: str,
+        requests: list[dict],
+        accum_dims: list[str],
+        overrides: list | dict,
     ) -> dict | list[dict]:
         if src_name == "clim":
             accum_dims = accum_dims.copy()
             accum_dims.remove("step")
-        return super()._input_request(src_name, requests, accum_dims, **overrides)
+        return super()._input_request(src_name, requests, accum_dims, overrides)
 
     @classmethod
     def sort_inputs(cls, inputs: list[dict]) -> dict:
@@ -701,12 +705,16 @@ class ExtremeConfig(BaseConfig):
 
     @classmethod
     def _input_request(
-        cls, src_name: str, requests: list[dict], accum_dims: list[str], **overrides
+        cls,
+        src_name: str,
+        requests: list[dict],
+        accum_dims: list[str],
+        overrides: list | dict,
     ) -> dict | list[dict]:
         if src_name == "clim":
             accum_dims = accum_dims.copy()
             accum_dims.remove("step")
-        return super()._input_request(src_name, requests, accum_dims, **overrides)
+        return super()._input_request(src_name, requests, accum_dims, overrides)
 
     @classmethod
     def sort_inputs(cls, inputs: list[dict]) -> dict:

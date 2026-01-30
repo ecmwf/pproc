@@ -352,7 +352,11 @@ class BaseConfig(ConfigModel):
 
     @classmethod
     def _input_request(
-        cls, src_name: str, requests: list[dict], accum_dims: list[str], **overrides
+        cls,
+        src_name: str,
+        requests: list[dict],
+        accum_dims: list[str],
+        overrides: list | dict,
     ) -> dict | list[dict]:
         [req.pop(dim, None) for req in requests for dim in accum_dims]
         updated_inputs = [
@@ -372,7 +376,7 @@ class BaseConfig(ConfigModel):
             src_overrides = overrides.get(src_name, {}).copy()
             ret[src_name] = {
                 "request": cls._input_request(
-                    src_name, requests, accum_dims, **src_overrides.pop("request", {})
+                    src_name, requests, accum_dims, src_overrides.pop("request", {})
                 ),
                 **src_overrides,
             }
