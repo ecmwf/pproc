@@ -22,6 +22,7 @@ from meters import ResourceMeter
 from earthkit.meteo.stats import iter_quantiles
 from conflator import Conflator
 import earthkit.data
+from earthkit.data.core.config import CONFIG
 
 from pproc.config.types import ECPointConfig, ECPointParamConfig
 from pproc.config.io import InputsCollection
@@ -37,6 +38,8 @@ from pproc.quantile.grib import quantiles_metadata
 from pproc.ecpt.predictors import compute_predictors, to_ekmetadata
 
 logger = logging.getLogger(__name__)
+
+CONFIG.set("use-grib-metadata-cache", False)
 
 
 class FilteredParamRequester(ParamRequester):
@@ -281,15 +284,17 @@ def ecpoint_iteration(
             pt_bc_allwt,
             grid_bc_allwt,
             wt_allwt,
-        ) in enumerate(compute_weather_types(
-            predictant.values,
-            predictors,
-            config.bp_location,
-            config.fer_location,
-            config.min_predictant,
-            config.parallelisation.wt_batch_size,
-            config.parallelisation.ens_batch_size,
-        )):
+        ) in enumerate(
+            compute_weather_types(
+                predictant.values,
+                predictors,
+                config.bp_location,
+                config.fer_location,
+                config.min_predictant,
+                config.parallelisation.wt_batch_size,
+                config.parallelisation.ens_batch_size,
+            )
+        ):
 
             # Scale outputs, needed for grib 2 rainfall in metres
             if config.scale_outputs is not None:
@@ -317,9 +322,7 @@ def ecpoint_iteration(
         out_perc = config.outputs.perc
         template = predictant[0].metadata()._handle
         for i, quantile in enumerate(
-            iter_quantiles(
-                pt_bc_allens_allwt, config.quantiles, method="sort"
-            )
+            iter_quantiles(pt_bc_allens_allwt, config.quantiles, method="sort")
         ):
             grib_keys = {
                 **out_keys,
@@ -330,7 +333,7 @@ def ecpoint_iteration(
                 template, pert_number, total_number, grib_keys
             )
             write_grib(out_perc.target, template, quantile, metadata)
-        
+
     out_bs.target.flush()
     out_wt.target.flush()
     out_perc.target.flush()

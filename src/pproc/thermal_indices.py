@@ -26,6 +26,7 @@ import functools
 import signal
 
 import earthkit.data
+from earthkit.data.core.config import CONFIG
 from earthkit.data.readers.grib.metadata import GribFieldMetadata
 import numpy as np
 import thermofeel as thermofeel
@@ -40,6 +41,8 @@ from pproc.thermo import helpers
 from pproc.thermo.indices import ComputeIndices
 
 logger = logging.getLogger(__name__)
+
+CONFIG.set("use-grib-metadata-cache", False)
 
 
 def load_input(config, param: ThermoParamConfig, source: str, step: int):
