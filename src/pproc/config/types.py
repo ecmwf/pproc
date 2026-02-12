@@ -1533,8 +1533,31 @@ class ClusterFullConfig(
                     yield req
 
 
+class CATParamConfig(ParamConfig):
+    lnsp: ParamConfig
+    _merge_exclude = ("lnsp")
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_input(cls, data: Any) -> Any:
+        lnsp = _get(data, "lnsp", {})
+        if isinstance(lnsp, dict):
+            lnsp_options = {**data, **lnsp}
+            _set(data, "lnsp", ParamConfig(**lnsp_options))
+        return data
+
+    def validate_totalfields(self, inputs: io.InputsCollection):
+        super().validate_totalfields(inputs)
+        if self.lnsp.total_fields == 0:
+            self.lnsp.total_fields = self.compute_totalfields(inputs, "lnsp")
+
+
+
 class CATConfig(AccumConfig):
+    parallelisation: int = 1
+    inputs: io.CATInputModel
     outputs: io.CATOutputModel = io.CATOutputModel()
+    parameters: list[CATParamConfig]
     model: str = "ifs"
     n_levels: int = 137
     target_levels: list[int]

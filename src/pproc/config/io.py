@@ -291,4 +291,5 @@ ClusterClusterOutputModel = create_output_model(
 ClusterAttributionInputModel = create_input_model(
     "ClusterAttribution", ["centroids", "representative"]
 )
+CATInputModel = create_input_model("CAT", ["cat", "lnsp"])
 CATOutputModel = create_output_model("CAT", ["levels"])

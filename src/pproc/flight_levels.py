@@ -20,33 +20,46 @@
 import functools
 import signal
 import sys
+import earthkit
 
 import eccodes
 import numpy as np
 from conflator import Conflator
 from earthkit.meteo import vertical
+from earthkit.data import FieldList, SimpleFieldList
 from meters import ResourceMeter
 
 from pproc.common.accumulation import Accumulator
 from pproc.common.accumulation_manager import AccumulationManager
 from pproc.common.io import write_grib
+from pproc.common.utils import dict_product
 from pproc.common.parallel import (
     create_executor,
-    parallel_data_retrieval,
+    parallel_processing,
     sigterm_handler,
 )
 from pproc.common.param_requester import ParamConfig, ParamRequester
 from pproc.config.types import CATConfig
 
-
 def cat_iteration(
     config: CATConfig,
     param: ParamConfig,
-    window_id: str,
-    fieldlist: FieldList,
+    dims: dict,
 ):
+    fields = SimpleFieldList()
+    for src_name in ["cat", "lnsp"]:
+        src_param = getattr(param, src_name, param)
+        requester = ParamRequester(
+            src_param,
+            config.inputs,
+            src_param.total_fields,
+            src_name,
+        ) 
+        metadata, data = requester.retrieve_data(**dims)
+        fields += FieldList.from_array(data, [x.to_ekmetadata() for x in metadata])
+
     # Interate over ensemble members
-    for group in fieldlist.group_by("type", "number"):
+    for group in fields.group_by("type", "number"):
         cat = group.sel(paramId=260290)
         lnsp = group.sel(param="lnsp")
 
@@ -70,7 +83,7 @@ def cat_iteration(
         )
 
         out_levels = config.outputs.levels
-        for index, values in cat_pl:
+        for index, values in enumerate(cat_pl):
             write_grib(
                 out_levels.target,
                 cat[0].metadata()._handle,
@@ -84,7 +97,7 @@ def cat_iteration(
             )
 
     out_levels.target.flush()
-    config.recovery.add_checkpoint(param=param.name, window=window_id)
+    config.recovery.add_checkpoint(param=param.name, **dims)
 
 
 def main():
@@ -94,50 +107,23 @@ def main():
     cfg = Conflator(app_name="pproc-flight-levels", model=CATConfig).load()
     cfg.print()
 
-    with create_executor(cfg.parallelisation) as executor:
-        for param in cfg.parameters:
-            accum_manager = AccumulationManager.create(
-                param.accumulations,
-                {
-                    **cfg.outputs.default.metadata,
-                    **param.metadata,
-                },
-            )
+    plan = []
+    for param in cfg.parameters:
+        accum_manager = AccumulationManager.create(
+            param.accumulations, 
+        )
+        for dims in dict_product(accum_manager.dims):
+            if cfg.recovery.existing_checkpoint(param=param.name, **dims):
+                print(f"Recovery: skipping dims: {param.name} {dims}")
+                continue
+            plan.append((param, dims))
 
-            checkpointed_windows = [
-                x["window"] for x in cfg.recovery.computed(param=param.name)
-            ]
-            accum_manager.delete(checkpointed_windows)
-
-            requester = ParamRequester(
-                param,
-                cfg.inputs,
-                param.total_fields,
-            )
-            iteration = functools.partial(cat_iteration, cfg, param)
-            for keys, retrieved_data in parallel_data_retrieval(
-                cfg.parallelisation.n_par_read,
-                accum_manager.dims,
-                [requester],
-            ):
-                ids = ", ".join(f"{k}={v}" for k, v in keys.items())
-                with ResourceMeter(f"{param.name}, {ids}: Compute accumulation"):
-                    metadata, data = retrieved_data[0]
-
-                    completed_windows = accum_manager.feed(
-                        keys,
-                        data,
-                    )
-                    for window_id, accum in completed_windows:
-                        assert accum.values is not None
-                        executor.submit(
-                            iteration,
-                            window_id,
-                            FieldList.from_array(
-                                accum, [x.to_ekmetadata() for x in metadata]
-                            ),
-                        )
-            executor.wait()
+    iteration = functools.partial(cat_iteration, cfg)
+    parallel_processing(
+        iteration,
+        plan,
+        cfg.parallelisation,
+    )
 
     cfg.clean()
 
