@@ -1535,7 +1535,7 @@ class ClusterFullConfig(
 
 class CATParamConfig(ParamConfig):
     lnsp: ParamConfig
-    _merge_exclude = ("lnsp")
+    _merge_exclude = "lnsp"
 
     @model_validator(mode="before")
     @classmethod
@@ -1550,7 +1550,6 @@ class CATParamConfig(ParamConfig):
         super().validate_totalfields(inputs)
         if self.lnsp.total_fields == 0:
             self.lnsp.total_fields = self.compute_totalfields(inputs, "lnsp")
-
 
 
 class CATConfig(AccumConfig):

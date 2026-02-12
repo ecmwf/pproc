@@ -41,6 +41,7 @@ from pproc.common.parallel import (
 from pproc.common.param_requester import ParamConfig, ParamRequester
 from pproc.config.types import CATConfig
 
+
 def cat_iteration(
     config: CATConfig,
     param: ParamConfig,
@@ -54,7 +55,7 @@ def cat_iteration(
             config.inputs,
             src_param.total_fields,
             src_name,
-        ) 
+        )
         metadata, data = requester.retrieve_data(**dims)
         fields += FieldList.from_array(data, [x.to_ekmetadata() for x in metadata])
 
@@ -110,7 +111,7 @@ def main():
     plan = []
     for param in cfg.parameters:
         accum_manager = AccumulationManager.create(
-            param.accumulations, 
+            param.accumulations,
         )
         for dims in dict_product(accum_manager.dims):
             if cfg.recovery.existing_checkpoint(param=param.name, **dims):
