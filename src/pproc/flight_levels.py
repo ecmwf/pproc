@@ -42,6 +42,51 @@ from pproc.common.param_requester import ParamConfig, ParamRequester
 from pproc.config.types import CATConfig
 
 
+PRESSURE_TO_FLIGHT_LEVEL = {
+    84310: 50, 
+    81200: 60, 
+    78190: 70, 
+    75260: 80, 
+    72430: 90, 
+    69680: 100, 
+    67020: 110, 
+    64440: 120, 
+    61940: 130, 
+    59520: 140, 
+    57180: 150, 
+    54920: 160, 
+    52720: 170, 
+    50600: 180, 
+    48550: 190, 
+    46560: 200, 
+    44650: 210, 
+    42790: 220, 
+    41000: 230, 
+    39270: 240, 
+    37600: 250, 
+    35990: 260, 
+    34430: 270, 
+    32930: 280, 
+    31490: 290, 
+    30090: 300, 
+    28740: 310, 
+    27450: 320, 
+    26200: 330, 
+    25000: 340, 
+    23840: 350, 
+    22730: 360, 
+    21660: 370, 
+    20650: 380, 
+    19680: 390, 
+    18750: 400, 
+    17870: 410, 
+    17040: 420, 
+    16240: 430, 
+    15470: 440, 
+    14750: 450,
+}
+
+
 def cat_iteration(
     config: CATConfig,
     param: ParamConfig,
@@ -92,8 +137,8 @@ def cat_iteration(
                 {
                     **out_levels.metadata,
                     **param.metadata,
-                    "typeOfLevel": "isobaricInPa",
-                    "level": config.target_levels[index],
+                    "typeOfLevel": "flightLevel",
+                    "level": PRESSURE_TO_FLIGHT_LEVEL[config.target_levels[index]]
                 },
             )
 
