@@ -16,7 +16,7 @@ from earthkit.data.utils.message import CodesHandle
 
 
 def construct_message(template_grib, metadata: dict):
-    # set method in CodesHandle does not support check_values so we need to cast to
+    # CodesHandle.set does not support check_values so we need to cast to
     # eccodes.Message here
     if isinstance(template_grib, CodesHandle):
         out_grib = eccodes.Message(eccodes.codes_clone(template_grib._handle))
