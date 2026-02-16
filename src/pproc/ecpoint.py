@@ -22,6 +22,7 @@ from meters import ResourceMeter
 from earthkit.meteo.stats import iter_quantiles
 from conflator import Conflator
 import earthkit.data
+from earthkit.data.utils.message import CodesHandle
 
 from pproc.config.types import ECPointConfig, ECPointParamConfig
 from pproc.config.io import InputsCollection
@@ -60,9 +61,7 @@ class FilteredParamRequester(ParamRequester):
         return super().retrieve_data(step=step, **kwargs)
 
 
-def grid_bc_metadata(
-    template: eccodes.GRIBMessage, out_keys: dict
-) -> tuple[eccodes.GRIBMessage, dict]:
+def grid_bc_metadata(template: CodesHandle, out_keys: dict) -> tuple[CodesHandle, dict]:
     edition = out_keys.get("edition", template.get("edition"))
     if edition not in (1, 2):
         raise ValueError(f"Unsupported GRIB edition {edition}")
@@ -95,8 +94,8 @@ def grid_bc_metadata(
 
 
 def weather_types_metadata(
-    template: eccodes.GRIBMessage, out_keys: dict
-) -> tuple[eccodes.GRIBMessage, dict]:
+    template: CodesHandle, out_keys: dict
+) -> tuple[CodesHandle, dict]:
     edition = out_keys.get("edition", template.get("edition"))
     if edition not in (1, 2):
         raise ValueError(f"Unsupported GRIB edition {edition}")
@@ -106,13 +105,8 @@ def weather_types_metadata(
         # `typeOfOriginalFieldValues` needs to be set separately as it is a helper key for
         # the packing, which doesn't exist any more after the packingType has been set
         template = template.copy()
-        template.set(
-            {
-                "edition": 2,
-                "typeOfOriginalFieldValues": 1,
-            },
-            check_values=False,
-        )
+        template.set("edition", 2)
+        template.set("typeOfOriginalFieldValues", 1)
         grib_keys.update(
             {
                 "productDefinitionTemplateNumber": 73,
@@ -139,7 +133,7 @@ def weather_types_metadata(
 
 
 def point_scale_metadata(
-    template: eccodes.GRIBMessage, pert_number: int, total_number: int, out_keys: dict
+    template: CodesHandle, pert_number: int, total_number: int, out_keys: dict
 ) -> dict:
     edition = out_keys.get("edition", template.get("edition"))
     if edition not in (1, 2):
@@ -281,15 +275,17 @@ def ecpoint_iteration(
             pt_bc_allwt,
             grid_bc_allwt,
             wt_allwt,
-        ) in enumerate(compute_weather_types(
-            predictant.values,
-            predictors,
-            config.bp_location,
-            config.fer_location,
-            config.min_predictant,
-            config.parallelisation.wt_batch_size,
-            config.parallelisation.ens_batch_size,
-        )):
+        ) in enumerate(
+            compute_weather_types(
+                predictant.values,
+                predictors,
+                config.bp_location,
+                config.fer_location,
+                config.min_predictant,
+                config.parallelisation.wt_batch_size,
+                config.parallelisation.ens_batch_size,
+            )
+        ):
 
             # Scale outputs, needed for grib 2 rainfall in metres
             if config.scale_outputs is not None:
@@ -317,9 +313,7 @@ def ecpoint_iteration(
         out_perc = config.outputs.perc
         template = predictant[0].metadata()._handle
         for i, quantile in enumerate(
-            iter_quantiles(
-                pt_bc_allens_allwt, config.quantiles, method="sort"
-            )
+            iter_quantiles(pt_bc_allens_allwt, config.quantiles, method="sort")
         ):
             grib_keys = {
                 **out_keys,
@@ -330,7 +324,7 @@ def ecpoint_iteration(
                 template, pert_number, total_number, grib_keys
             )
             write_grib(out_perc.target, template, quantile, metadata)
-        
+
     out_bs.target.flush()
     out_wt.target.flush()
     out_perc.target.flush()
