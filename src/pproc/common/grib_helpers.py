@@ -11,9 +11,19 @@ from typing import Dict
 import numpy as np
 import re
 
+import eccodes
+from earthkit.data.utils.message import CodesHandle
+
 
 def construct_message(template_grib, metadata: dict):
-    out_grib = template_grib.copy()
+    # set method in CodesHandle does not support check_values so we need to cast to
+    # eccodes.Message here
+    if isinstance(template_grib, CodesHandle):
+        out_grib = eccodes.Message(eccodes.codes_clone(template_grib._handle))
+    elif isinstance(template_grib, eccodes.Message):
+        out_grib = template_grib.copy()
+    else:
+        raise ValueError(f"Unsupported template_grib type: {type(template_grib)}")
     key_values = metadata.copy()
     arr_grib_keys = {
         key: value for key, value in metadata.items() if np.ndim(value) > 0

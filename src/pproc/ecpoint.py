@@ -111,7 +111,6 @@ def weather_types_metadata(
                 "edition": 2,
                 "typeOfOriginalFieldValues": 1,
             },
-            check_values=False,
         )
         grib_keys.update(
             {
