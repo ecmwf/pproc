@@ -153,7 +153,7 @@ def flight_level_iteration(
                 )
 
     out_levels.target.flush()
-    config.recovery.add_checkpoint(param=param.name, **dims)
+    config.recovery.add_checkpoint(param=pconfig.name, **dims)
 
 
 def main():
