@@ -21,6 +21,7 @@ import functools
 import signal
 import sys
 import earthkit
+import logging
 
 import eccodes
 import numpy as np
@@ -40,6 +41,8 @@ from pproc.common.parallel import (
 )
 from pproc.common.param_requester import ParamRequester
 from pproc.config.types import FlightLevelsParamConfig, FlightLevelsConfig
+
+logger = logging.getLogger(__name__)
 
 
 PRESSURE_TO_FLIGHT_LEVEL = {
@@ -118,14 +121,17 @@ def flight_level_iteration(
             if param.metadata("param")[0] == "lnsp":
                 continue
 
+            logger.debug(f"Inputs:\n {param.ls()}")
             if input_levels is None:
                 input_levels = param.metadata("level")
+                input_levels.sort()
+                logger.debug(f"Subset levels: {input_levels}")
                 pressure_levels = vertical.pressure_on_hybrid_levels(
                     A, B, sp, levels=input_levels, output="full"
                 )
 
-            assert input_levels == param.metadata(
-                "level"
+            assert input_levels == sorted(
+                param.metadata("level")
             ), "Input levels must be the same for all parameters"
             # interpolate cat to target pressure levels
             # this method requires cat levels sorted in ascending order with
