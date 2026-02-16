@@ -1533,7 +1533,7 @@ class ClusterFullConfig(
                     yield req
 
 
-class CATParamConfig(ParamConfig):
+class FlightLevelsParamConfig(ParamConfig):
     lnsp: ParamConfig
     _merge_exclude = "lnsp"
 
@@ -1552,11 +1552,11 @@ class CATParamConfig(ParamConfig):
             self.lnsp.total_fields = self.compute_totalfields(inputs, "lnsp")
 
 
-class CATConfig(AccumConfig):
+class FlightLevelsConfig(AccumConfig):
     parallelisation: int = 1
-    inputs: io.CATInputModel
-    outputs: io.CATOutputModel = io.CATOutputModel()
-    parameters: list[CATParamConfig]
+    inputs: io.FlightLevelsInputModel
+    outputs: io.FlightLevelsOutputModel = io.FlightLevelsOutputModel()
+    parameters: list[FlightLevelsParamConfig]
     model: str = "ifs"
     n_levels: int = 137
     target_levels: list[int]

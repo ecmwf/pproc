@@ -38,63 +38,63 @@ from pproc.common.parallel import (
     parallel_processing,
     sigterm_handler,
 )
-from pproc.common.param_requester import ParamConfig, ParamRequester
-from pproc.config.types import CATConfig
+from pproc.common.param_requester import ParamRequester
+from pproc.config.types import FlightLevelsParamConfig, FlightLevelsConfig
 
 
 PRESSURE_TO_FLIGHT_LEVEL = {
-    84310: 50, 
-    81200: 60, 
-    78190: 70, 
-    75260: 80, 
-    72430: 90, 
-    69680: 100, 
-    67020: 110, 
-    64440: 120, 
-    61940: 130, 
-    59520: 140, 
-    57180: 150, 
-    54920: 160, 
-    52720: 170, 
-    50600: 180, 
-    48550: 190, 
-    46560: 200, 
-    44650: 210, 
-    42790: 220, 
-    41000: 230, 
-    39270: 240, 
-    37600: 250, 
-    35990: 260, 
-    34430: 270, 
-    32930: 280, 
-    31490: 290, 
-    30090: 300, 
-    28740: 310, 
-    27450: 320, 
-    26200: 330, 
-    25000: 340, 
-    23840: 350, 
-    22730: 360, 
-    21660: 370, 
-    20650: 380, 
-    19680: 390, 
-    18750: 400, 
-    17870: 410, 
-    17040: 420, 
-    16240: 430, 
-    15470: 440, 
+    84310: 50,
+    81200: 60,
+    78190: 70,
+    75260: 80,
+    72430: 90,
+    69680: 100,
+    67020: 110,
+    64440: 120,
+    61940: 130,
+    59520: 140,
+    57180: 150,
+    54920: 160,
+    52720: 170,
+    50600: 180,
+    48550: 190,
+    46560: 200,
+    44650: 210,
+    42790: 220,
+    41000: 230,
+    39270: 240,
+    37600: 250,
+    35990: 260,
+    34430: 270,
+    32930: 280,
+    31490: 290,
+    30090: 300,
+    28740: 310,
+    27450: 320,
+    26200: 330,
+    25000: 340,
+    23840: 350,
+    22730: 360,
+    21660: 370,
+    20650: 380,
+    19680: 390,
+    18750: 400,
+    17870: 410,
+    17040: 420,
+    16240: 430,
+    15470: 440,
     14750: 450,
 }
 
 
-def cat_iteration(
-    config: CATConfig,
-    param: ParamConfig,
+def flight_level_iteration(
+    config: FlightLevelsConfig,
+    pconfig: FlightLevelsParamConfig,
     dims: dict,
 ):
     fields = SimpleFieldList()
-    for src_name in ["cat", "lnsp"]:
-        src_param = getattr(param, src_name, param)
+    for src_name in config.inputs.names:
+        src_param = getattr(pconfig, src_name, pconfig)
         requester = ParamRequester(
             src_param,
             config.inputs,
@@ -106,41 +106,51 @@ def cat_iteration(
 
     # Interate over ensemble members
     for group in fields.group_by("type", "number"):
-        cat = group.sel(paramId=260290)
         lnsp = group.sel(param="lnsp")
-
         # A, B params (could also be read from the GRIB)
         A, B = vertical.hybrid_level_parameters(config.n_levels, model=config.model)
-
         # surface pressure array
         sp = np.exp(lnsp[0].values)
+        input_levels = None
+        pressure_levels = None
 
-        # interpolate cat to target pressure levels
-        # this method requires cat levels sorted in ascending order with
-        # respect to model level number!
-        cat = cat.order_by(level="ascending")
-        cat_pl = vertical.interpolate_hybrid_to_pressure_levels(
-            cat.values,
-            config.target_levels,
-            A,
-            B,
-            sp,
-            interpolation=config.interp_method,
-        )
+        for param in group.group_by("param"):
+            if param.metadata("param")[0] == "lnsp":
+                continue
 
-        out_levels = config.outputs.levels
-        for index, values in enumerate(cat_pl):
-            write_grib(
-                out_levels.target,
-                cat[0].metadata()._handle,
-                values,
-                {
-                    **out_levels.metadata,
-                    **param.metadata,
-                    "typeOfLevel": "flightLevel",
-                    "level": PRESSURE_TO_FLIGHT_LEVEL[config.target_levels[index]]
-                },
+            if input_levels is None:
+                input_levels = param.metadata("level")
+                pressure_levels = vertical.pressure_on_hybrid_levels(
+                    A, B, sp, levels=input_levels, output="full"
+                )
+
+            assert input_levels == param.metadata(
+                "level"
+            ), "Input levels must be the same for all parameters"
+            # interpolate cat to target pressure levels
+            # this method requires cat levels sorted in ascending order with
+            # respect to model level number!
+            param = param.order_by(level="ascending")
+            out_pl = vertical.interpolate_monotonic(
+                param.values,
+                pressure_levels,
+                config.target_levels,
+                interpolation=config.interp_method,
             )
+
+            out_levels = config.outputs.levels
+            for index, values in enumerate(out_pl):
+                write_grib(
+                    out_levels.target,
+                    param[0].metadata()._handle,
+                    values,
+                    {
+                        **out_levels.metadata,
+                        **pconfig.metadata,
+                        "typeOfLevel": "flightLevel",
+                        "level": PRESSURE_TO_FLIGHT_LEVEL[config.target_levels[index]],
+                    },
+                )
 
     out_levels.target.flush()
     config.recovery.add_checkpoint(param=param.name, **dims)
@@ -150,7 +160,7 @@ def main():
     sys.stdout.reconfigure(line_buffering=True)
     signal.signal(signal.SIGTERM, sigterm_handler)
 
-    cfg = Conflator(app_name="pproc-flight-levels", model=CATConfig).load()
+    cfg = Conflator(app_name="pproc-flight-levels", model=FlightLevelsConfig).load()
     cfg.print()
 
     plan = []
@@ -164,7 +174,7 @@ def main():
                 continue
             plan.append((param, dims))
 
-    iteration = functools.partial(cat_iteration, cfg)
+    iteration = functools.partial(flight_level_iteration, cfg)
     parallel_processing(
         iteration,
         plan,
