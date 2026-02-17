@@ -40,7 +40,7 @@ from pproc.config.utils import (
     expand,
     squeeze,
 )
-from pproc.config.preprocessing import Expression
+from pproc.config.preprocessing import Reshape, Expression
 from pproc.common.stepseq import steprange_to_fcmonth
 from pproc.extremes.indices import Index, SUPPORTED_INDICES, create_indices
 
@@ -1582,7 +1582,6 @@ class FlightLevelsParamConfig(ParamConfig):
             # other parts of the source are equal, or if all parts of
             # request are equal except parameter to be interpolated
             if self.inputs["lnsp"] == other.inputs["lnsp"]:
-                print("SAME LNSP")
                 fc_input = copy.deepcopy(self.inputs["fc"])
                 other_fc_input = copy.deepcopy(other.inputs["fc"])
                 for xinput in [fc_input, other_fc_input]:
@@ -1617,6 +1616,15 @@ class FlightLevelsConfig(AccumConfig):
     target_flight_levels: list[int]
     interp_method: str = "linear"
     _merge_exclude: tuple[str] = ("parameters",)
+
+    @model_validator(mode="after")
+    def validate_preprocessing(self) -> Self:
+        for param in self.parameters:
+            if len(param.input_list(self.inputs, "fc")) > 1:
+                param.preprocessing.actions = [
+                    Reshape(**{"operation": "reshape", "shape": 1, "order": "C"})
+                ] + param.preprocessing.actions
+        return self
 
     @classmethod
     def from_schema(cls, schema_config: dict, **overrides) -> Self:
