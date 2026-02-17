@@ -10,6 +10,7 @@ from pproc.config.utils import deep_update
     "configs, merged_or_error",
     [
         [[{}, {"target_flight_levels": [110, 200]}], ValueError],
+        [[{}, {"target_flight_levels": [110, 159]}], ValueError],
         [
             [
                 {},
@@ -150,7 +151,7 @@ from pproc.config.utils import deep_update
             AssertionError,
         ],
     ],
-    ids=["diff-levels", "fc-ens", "multi-param", "diff-fcs"],
+    ids=["diff-levels", "invalid-level", "fc-ens", "multi-param", "diff-fcs"],
 )
 def test_merge(configs, merged_or_error):
     base_config = {

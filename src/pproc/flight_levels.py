@@ -41,52 +41,9 @@ from pproc.common.parallel import (
 )
 from pproc.common.param_requester import ParamRequester
 from pproc.config.types import FlightLevelsParamConfig, FlightLevelsConfig
+from pproc.flightlevel.mapping import FLIGHT_TO_PRESSURE_LEVEL
 
 logger = logging.getLogger(__name__)
-
-FLIGHT_TO_PRESSURE_LEVEL = {
-    50: 84310,
-    60: 81200,
-    70: 78190,
-    80: 75260,
-    90: 72430,
-    100: 69680,
-    110: 67020,
-    120: 64440,
-    130: 61940,
-    140: 59520,
-    150: 57180,
-    160: 54920,
-    170: 52720,
-    180: 50600,
-    190: 48550,
-    200: 46560,
-    210: 44650,
-    220: 42790,
-    230: 41000,
-    240: 39270,
-    250: 37600,
-    260: 35990,
-    270: 34430,
-    280: 32930,
-    290: 31490,
-    300: 30090,
-    310: 28740,
-    320: 27450,
-    330: 26200,
-    340: 25000,
-    350: 23840,
-    360: 22730,
-    370: 21660,
-    380: 20650,
-    390: 19680,
-    400: 18750,
-    410: 17870,
-    420: 17040,
-    430: 16240,
-    440: 15470,
-    450: 14750,
-}
 
 
 def flight_level_iteration(
@@ -152,8 +109,8 @@ def flight_level_iteration(
                     {
                         **out_levels.metadata,
                         **pconfig.metadata,
-                        "typeOfLevel": "flightLevel",
-                        "level": config.target_flight_levels[index],
+                        "typeOfLevel": "isobaricInPa",
+                        "level": FLIGHT_TO_PRESSURE_LEVEL[config.target_flight_levels[index]],
                     },
                 )
 

@@ -43,6 +43,7 @@ from pproc.config.utils import (
 from pproc.config.preprocessing import Reshape, Expression
 from pproc.common.stepseq import steprange_to_fcmonth
 from pproc.extremes.indices import Index, SUPPORTED_INDICES, create_indices
+from pproc.flightlevel.mapping import FLIGHT_TO_PRESSURE_LEVEL
 
 
 def end_step(step: int | str) -> int:
@@ -1624,6 +1625,15 @@ class FlightLevelsConfig(AccumConfig):
                 param.preprocessing.actions = [
                     Reshape(**{"operation": "reshape", "shape": 1, "order": "C"})
                 ] + param.preprocessing.actions
+        return self
+
+    @model_validator(mode="after")
+    def validate_flight_levels(self) -> Self:
+        expected = set(FLIGHT_TO_PRESSURE_LEVEL.keys())
+        if not set(self.target_flight_levels).issubset(expected):
+            raise ValueError(
+                f"Invalid flight levels {self.target_flight_levels}, expected subset of {expected}"
+            )
         return self
 
     @classmethod
