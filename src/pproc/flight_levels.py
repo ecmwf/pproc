@@ -109,8 +109,8 @@ def flight_level_iteration(
                     {
                         **out_levels.metadata,
                         **pconfig.metadata,
-                        "typeOfLevel": "isobaricInPa",
-                        "level": FLIGHT_TO_PRESSURE_LEVEL[config.target_flight_levels[index]],
+                        "typeOfLevel": "flightLevel",
+                        "level": config.target_flight_levels[index],
                     },
                 )
 
