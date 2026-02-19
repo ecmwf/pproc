@@ -22,17 +22,16 @@ from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, model_valida
 
 from pproc.config import utils
 
-_manager = None
+
+_opened_files = None
 
 
-def _shared_list():
-    global _manager
-    if _manager is None:
-        _manager = multiprocessing.Manager()
-    return _manager.list()
-
-
-_track_truncated = _shared_list()
+def _get_opened_files():
+    global _opened_files
+    if _opened_files is None:
+        manager = multiprocessing.Manager()
+        _opened_files = manager.list()
+    return _opened_files
 
 
 def remove_duplicate(path: str, message: eccodes.Message):
@@ -108,9 +107,9 @@ class FileTarget(Target):
 
     @property
     def mode(self):
-        global _track_truncated
-        if self.path not in _track_truncated:
-            _track_truncated += [self.path]
+        track_truncated = _get_opened_files()
+        if self.path not in track_truncated:
+            track_truncated.append(self.path)
             return self._mode
         return "ab"
 
@@ -142,9 +141,9 @@ class FileSetTarget(Target):
     _overwrite_existing: bool = False
 
     def mode(self, path: str):
-        global _track_truncated
-        if path not in _track_truncated:
-            _track_truncated += [path]
+        track_truncated = _get_opened_files()
+        if path not in track_truncated:
+            track_truncated.append(path)
             return self._mode
         return "ab"
 
