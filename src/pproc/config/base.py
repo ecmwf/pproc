@@ -310,10 +310,11 @@ class BaseConfig(ConfigModel):
 
         # Most entrypoints don't handle array with level dimension, so put this into accumulations to
         # separate different levels
-        accums = {}
+        accums = base_accum.copy()
         if np.size(req.get("levelist", [])) > 1:
-            accums["levelist"] = {}
-        accums.update(base_accum)
+            accums.setdefault("levelist", {})
+        else:
+            accums.pop("levelist", None)
 
         # Populate coords in accumulations from inputs
         for dim, acc_config in accums.items():
