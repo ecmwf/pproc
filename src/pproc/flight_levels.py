@@ -23,19 +23,16 @@ import sys
 import earthkit
 import logging
 
-import eccodes
 import numpy as np
 from conflator import Conflator
 from earthkit.meteo import vertical
 from earthkit.data import FieldList, SimpleFieldList
 from meters import ResourceMeter
 
-from pproc.common.accumulation import Accumulator
 from pproc.common.accumulation_manager import AccumulationManager
 from pproc.common.io import write_grib
 from pproc.common.utils import dict_product
 from pproc.common.parallel import (
-    create_executor,
     parallel_processing,
     sigterm_handler,
 )
@@ -51,6 +48,7 @@ def flight_level_iteration(
     pconfig: FlightLevelsParamConfig,
     dims: dict,
 ):
+    ids = ", ".join(f"{k}={v}" for k, v in dims.items())
     fields = SimpleFieldList()
     for src_name in config.inputs.names:
         src_param = getattr(pconfig, src_name, pconfig)
@@ -60,59 +58,64 @@ def flight_level_iteration(
             src_param.total_fields,
             src_name,
         )
-        metadata, data = requester.retrieve_data(**dims)
+        with ResourceMeter(f"Retrieve {src_name} {ids}"):
+            metadata, data = requester.retrieve_data(**dims)
         fields += FieldList.from_array(data, [x.to_ekmetadata() for x in metadata])
 
-    # Interate over ensemble members
-    for group in fields.group_by("type", "number"):
-        lnsp = group.sel(param="lnsp")
-        # A, B params (could also be read from the GRIB)
-        A, B = vertical.hybrid_level_parameters(config.n_levels, model=config.model)
-        # surface pressure array
-        sp = np.exp(lnsp[0].values)
-        input_levels = None
-        pressure_levels = None
+    with ResourceMeter(f"Compute flight levels {ids}"):
+        # Interate over ensemble members
+        for group in fields.group_by("type", "number"):
+            lnsp = group.sel(param="lnsp")
+            # A, B params (could also be read from the GRIB)
+            A, B = vertical.hybrid_level_parameters(config.n_levels, model=config.model)
+            # surface pressure array
+            sp = np.exp(lnsp[0].values)
+            input_levels = None
+            pressure_levels = None
 
-        for param in group.group_by("param"):
-            if param.metadata("param")[0] == "lnsp":
-                continue
+            for param in group.group_by("param"):
+                if param.metadata("param")[0] == "lnsp":
+                    continue
 
-            logger.debug(f"Inputs:\n {param.ls()}")
-            if input_levels is None:
-                input_levels = param.metadata("level")
-                input_levels.sort()
-                logger.debug(f"Subset levels: {input_levels}")
-                pressure_levels = vertical.pressure_on_hybrid_levels(
-                    A, B, sp, levels=input_levels, output="full"
+                logger.debug(f"Inputs:\n {param.ls()}")
+                if input_levels is None:
+                    input_levels = param.metadata("level")
+                    input_levels.sort()
+                    logger.debug(f"Subset levels: {input_levels}")
+                    pressure_levels = vertical.pressure_on_hybrid_levels(
+                        A, B, sp, levels=input_levels, output="full"
+                    )
+
+                assert input_levels == sorted(
+                    param.metadata("level")
+                ), "Input levels must be the same for all parameters"
+                # interpolate cat to target pressure levels
+                # this method requires cat levels sorted in ascending order with
+                # respect to model level number!
+                param = param.order_by(level="ascending")
+                out_pl = vertical.interpolate_monotonic(
+                    param.values,
+                    pressure_levels,
+                    [
+                        FLIGHT_TO_PRESSURE_LEVEL[lvl]
+                        for lvl in config.target_flight_levels
+                    ],
+                    interpolation=config.interp_method,
                 )
 
-            assert input_levels == sorted(
-                param.metadata("level")
-            ), "Input levels must be the same for all parameters"
-            # interpolate cat to target pressure levels
-            # this method requires cat levels sorted in ascending order with
-            # respect to model level number!
-            param = param.order_by(level="ascending")
-            out_pl = vertical.interpolate_monotonic(
-                param.values,
-                pressure_levels,
-                [FLIGHT_TO_PRESSURE_LEVEL[lvl] for lvl in config.target_flight_levels],
-                interpolation=config.interp_method,
-            )
-
-            out_levels = config.outputs.levels
-            for index, values in enumerate(out_pl):
-                write_grib(
-                    out_levels.target,
-                    param[0].metadata()._handle,
-                    values,
-                    {
-                        **out_levels.metadata,
-                        **pconfig.metadata,
-                        "typeOfLevel": "flightLevel",
-                        "level": config.target_flight_levels[index],
-                    },
-                )
+                out_levels = config.outputs.levels
+                for index, values in enumerate(out_pl):
+                    write_grib(
+                        out_levels.target,
+                        param[0].metadata()._handle,
+                        values,
+                        {
+                            **out_levels.metadata,
+                            **pconfig.metadata,
+                            "typeOfLevel": "flightLevel",
+                            "level": config.target_flight_levels[index],
+                        },
+                    )
 
     out_levels.target.flush()
     config.recovery.add_checkpoint(param=pconfig.name, **dims)
