@@ -22,15 +22,21 @@ from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, model_valida
 
 from pproc.config import utils
 
-
+_manager = None
 _opened_files = None
+
+
+def _shared_list():
+    global _manager
+    if _manager is None:
+        _manager = multiprocessing.Manager()
+    return _manager.list()
 
 
 def _get_opened_files():
     global _opened_files
     if _opened_files is None:
-        manager = multiprocessing.Manager()
-        _opened_files = manager.list()
+        _opened_files = _shared_list()
     return _opened_files
 
 

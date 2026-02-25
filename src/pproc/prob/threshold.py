@@ -1,46 +1,28 @@
-from pydantic import BaseModel, model_validator
-from typing import Union, Any, Optional
+from pydantic import BaseModel, Field, Discriminator, Tag, model_validator
+from typing import Union, Any, Optional, Literal, Annotated, List
 
 
-class Threshold(BaseModel):
+class SingleThreshold(BaseModel):
+    type_: Literal["single"] = Field("single", alias="type")
+    scale_factor: int = 0
     comparison: str
     value: float
-
-
-class ThresholdConfig(BaseModel):
-    out_paramid: int
-    local_scale_factor: int = 0
-    param_thresholds: list[Threshold]
-    metadata: dict = {}
     limit_type: str = "lower"
 
-    @model_validator(mode="before")
-    def validate_thresholds(cls, data: Any) -> Any:
-        if isinstance(data, dict) and "param_thresholds" not in data:
-            value = data.pop("value")
-            comparison = data.pop("comparison")
-            data["param_thresholds"] = [{"value": value, "comparison": comparison}]
-        return data
-
-    def grib_keys(self, edition: int, clim_metadata: Optional[dict] = None) -> dict:
-        """
-        Creates dictionary of threshold related grib headers
-        """
-        threshold_dict = {"paramId": self.out_paramid}
-        scale_factor = self.local_scale_factor
-        threshold_value = round(self.param_thresholds[0].value * 10**scale_factor, 0)
-        comparison = self.param_thresholds[0].comparison.strip("=")
+    def grib_keys(self, edition: int) -> dict:
+        threshold_value = round(self.value * 10**self.scale_factor, 0)
+        comparison = self.comparison.strip("=")
         if edition == 1 and comparison == "<":
             grib_keys = {
                 "localDefinitionNumber": 5,
-                "localDecimalScaleFactor": scale_factor,
+                "localDecimalScaleFactor": self.scale_factor,
                 "thresholdIndicator": 2,
                 "upperThreshold": threshold_value,
             }
         elif edition == 1 and comparison == ">":
             grib_keys = {
                 "localDefinitionNumber": 5,
-                "localDecimalScaleFactor": scale_factor,
+                "localDecimalScaleFactor": self.scale_factor,
                 "thresholdIndicator": 1,
                 "lowerThreshold": threshold_value,
             }
@@ -53,19 +35,79 @@ class ThresholdConfig(BaseModel):
             probability_type = prob_types[comparison][self.limit_type]
             missing = "Upper" if self.limit_type == "lower" else "Lower"
             grib_keys = {
-                f"scaleFactorOf{self.limit_type.capitalize()}Limit": scale_factor,
+                f"scaleFactorOf{self.limit_type.capitalize()}Limit": self.scale_factor,
                 f"scaledValueOf{self.limit_type.capitalize()}Limit": threshold_value,
                 "probabilityType": probability_type,
                 f"scaleFactorOf{missing}Limit": "MISSING",
                 f"scaledValueOf{missing}Limit": "MISSING",
             }
-            if clim_metadata:
-                grib_keys.update(clim_metadata)
         else:
             raise ValueError(
                 f"Unsupported threshold comparison {comparison} for grib edition {edition}"
             )
+        return grib_keys
 
-        threshold_dict.update(grib_keys)
+
+class RangeThreshold(BaseModel):
+    type_: Literal["range"] = Field("range", alias="type")
+    lower_scale_factor: int = 0
+    lower_comparison: str = ">="
+    lower_value: float
+    upper_scale_factor: int = 0
+    upper_comparison: str = "<"
+    upper_value: float
+
+    def grib_keys(self, edition: int) -> dict:
+        if edition != 2:
+            raise ValueError("Threshold ranges are only supported for GRIB edition 2")
+        return {
+            f"scaleFactorOfLowerLimit": self.lower_scale_factor,
+            f"scaledValueOfLowerLimit": round(
+                self.lower_value * 10**self.lower_scale_factor, 0
+            ),
+            "probabilityType": 2,
+            f"scaleFactorOfUpperLimit": self.upper_scale_factor,
+            f"scaledValueOfUpperLimit": round(
+                self.upper_value * 10**self.upper_scale_factor, 0
+            ),
+        }
+
+
+def _discriminator(config: Any):
+    return config.get("type", "single")
+
+
+class ThresholdConfig(BaseModel):
+    out_paramid: int
+    param_thresholds: List[
+        Annotated[
+            Union[
+                Annotated[SingleThreshold, Tag("single")],
+                Annotated[RangeThreshold, Tag("range")],
+            ],
+            Discriminator(_discriminator),
+            Field(default_factory=SingleThreshold),
+        ]
+    ] = Field(default_factory=list)
+    metadata: dict = {}
+
+    @model_validator(mode="before")
+    def validate_thresholds(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "param_thresholds" not in data:
+            data["param_thresholds"] = [
+                {k: data[k] for k in data if k not in cls.model_fields}
+            ]
+        return data
+
+    def grib_keys(self, edition: int, clim_metadata: Optional[dict] = None) -> dict:
+        """
+        Creates dictionary of threshold related grib headers
+        """
+        threshold_dict = {
+            "paramId": self.out_paramid,
+            **self.param_thresholds[0].grib_keys(edition),
+        }
+        if edition == 2 and clim_metadata:
+            threshold_dict.update(clim_metadata)
         threshold_dict.update(self.metadata)
         return threshold_dict

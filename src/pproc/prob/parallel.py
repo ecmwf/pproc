@@ -19,7 +19,7 @@ from pproc.config.io import Output
 from pproc.config.recovery import BaseRecovery
 from pproc.common.accumulation import Accumulator
 from pproc.common.io import write_grib
-from pproc.prob.threshold import ThresholdConfig
+from pproc.prob.threshold import ThresholdConfig, SingleThreshold
 
 
 def ensemble_probability(data: np.array, thconfig: ThresholdConfig) -> np.array:
@@ -40,10 +40,19 @@ def ensemble_probability(data: np.array, thconfig: ThresholdConfig) -> np.array:
         is_nan |= np.isnan(param_data).any(axis=0)
 
         # Read threshold configuration and compute probability
-        comp &= numexpr.evaluate(
-            "data " + threshold.comparison + str(threshold.value),
-            local_dict={"data": param_data},
-        )
+        if isinstance(threshold, SingleThreshold):
+            comp &= numexpr.evaluate(
+                f"data {threshold.comparison} {threshold.value}",
+                local_dict={"data": param_data},
+            )
+        else:
+            comp &= numexpr.evaluate(
+                f"data {threshold.lower_comparison} {threshold.lower_value}",
+                local_dict={"data": param_data},
+            ) & numexpr.evaluate(
+                f"data {threshold.upper_comparison} {threshold.upper_value}",
+                local_dict={"data": param_data},
+            )
 
     probability = np.where(comp, 100, 0).mean(axis=0)
     # Put in missing values
