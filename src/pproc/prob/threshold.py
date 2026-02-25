@@ -78,7 +78,6 @@ def _discriminator(config: Any):
 
 
 class ThresholdConfig(BaseModel):
-    out_paramid: int
     param_thresholds: List[
         Annotated[
             Union[
@@ -103,10 +102,10 @@ class ThresholdConfig(BaseModel):
         """
         Creates dictionary of threshold related grib headers
         """
-        threshold_dict = {
-            "paramId": self.out_paramid,
-            **self.param_thresholds[0].grib_keys(edition),
-        }
+        threshold_dict = {}
+        if "paramId" in self.metadata:
+            threshold_dict["paramId"] = self.metadata["paramId"]
+        threshold_dict.update(self.param_thresholds[0].grib_keys(edition))
         if edition == 2 and clim_metadata:
             threshold_dict.update(clim_metadata)
         threshold_dict.update(self.metadata)

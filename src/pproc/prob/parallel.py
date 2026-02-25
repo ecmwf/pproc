@@ -70,7 +70,9 @@ def prob_iteration(
     thresholds: list[ThresholdConfig],
     clim_metadata: Optional[dict] = None,
 ):
-    with ResourceMeter(f"Window {window_id}, computing threshold probs"):
+    with ResourceMeter(
+        f"Param {param.name}, window {window_id}, computing threshold probs"
+    ):
 
         ens = accum.values
         assert ens is not None
@@ -78,10 +80,6 @@ def prob_iteration(
         for threshold in thresholds:
             window_probability = ensemble_probability(ens, threshold)
 
-            print(
-                f"Writing probability for input param {param.name} and output "
-                + f"param {threshold.out_paramid} for step(s) {window_id}"
-            )
             grib_set = out_prob.metadata.copy()
             grib_set.update(accum.grib_keys())
             grib_set.update(

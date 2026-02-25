@@ -39,7 +39,7 @@ from pproc.prob.parallel import ensemble_probability
 )
 def test_ensemble_probability(array, config, expected):
     threshold_config = ThresholdConfig(
-        out_paramid=1,
+        metadata={"paramId": 1},
         **config,
     )
 

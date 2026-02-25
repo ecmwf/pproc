@@ -555,7 +555,9 @@ class ProbConfig(BaseConfig):
     def from_schema(cls, schema_config: dict, **overrides) -> Self:
         schema_config = copy.deepcopy(schema_config)
         threshold = schema_config.pop("threshold")
-        threshold["out_paramid"] = schema_config["metadata"].pop("paramId")
+        metadata = threshold.setdefault("metadata", {})
+        if "paramId" in schema_config.get("metadata", {}):
+            metadata.setdefault("paramId", schema_config["metadata"].pop("paramId"))
         schema_config["accumulations"]["step"]["thresholds"] = [threshold]
         return super().from_schema(schema_config, **overrides)
 
