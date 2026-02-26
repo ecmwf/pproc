@@ -63,57 +63,56 @@ def flight_level_iteration(
         fields += FieldList.from_array(data, [x.to_ekmetadata() for x in metadata])
 
     with ResourceMeter(f"Compute flight levels {ids}"):
-        # Interate over ensemble members
-        for group in fields.group_by("type", "number"):
-            lnsp = group.sel(param="lnsp")
-            # A, B params (could also be read from the GRIB)
-            A, B = vertical.hybrid_level_parameters(config.n_levels, model=config.model)
-            # surface pressure array
-            sp = np.exp(lnsp[0].values)
-            input_levels = None
-            pressure_levels = None
+        lnsp = fields.sel(param="lnsp").order_by(number="ascending")
+        # A, B params (could also be read from the GRIB)
+        A, B = vertical.hybrid_level_parameters(config.n_levels, model=config.model)
+        # surface pressure array
+        sp = np.exp(lnsp.values)
+        logger.debug(f"Surface pressure: {sp.shape}")
+        input_levels = None
+        pressure_levels = None
 
-            for param in group.group_by("param"):
-                if param.metadata("param")[0] == "lnsp":
-                    continue
+        for param in fields.group_by("param"):
+            if param.metadata("param")[0] == "lnsp":
+                continue
 
-                logger.debug(f"Inputs:\n {param.ls()}")
-                if input_levels is None:
-                    input_levels = param.metadata("level")
-                    input_levels.sort()
-                    logger.debug(f"Subset levels: {input_levels}")
-                    pressure_levels = vertical.pressure_on_hybrid_levels(
-                        A, B, sp, levels=input_levels, output="full"
-                    )
-
-                assert input_levels == sorted(
-                    param.metadata("level")
-                ), "Input levels must be the same for all parameters"
-                # interpolate cat to target pressure levels
-                # this method requires cat levels sorted in ascending order with
-                # respect to model level number!
-                param = param.order_by(level="ascending")
-                out_pl = vertical.interpolate_monotonic(
-                    param.values,
-                    pressure_levels,
-                    [
-                        FLIGHT_TO_PRESSURE_LEVEL[lvl]
-                        for lvl in config.target_flight_levels
-                    ],
-                    interpolation=config.interp_method,
+            logger.debug(f"Inputs:\n {param.ls()}")
+            param_levels = list(set(param.metadata("level")))
+            param_levels.sort()
+            if input_levels is None:
+                input_levels = param_levels
+                pressure_levels = vertical.pressure_on_hybrid_levels(
+                    A, B, sp, levels=input_levels, output="full"
                 )
+                logger.debug(f"Pressure levels: {pressure_levels.shape}")
 
-                out_levels = config.outputs.levels
-                for index, values in enumerate(out_pl):
+            assert (
+                input_levels == param_levels
+            ), "Input levels must be the same for all parameters"
+            # interpolate cat to target pressure levels
+            # this method requires cat levels sorted in ascending order with
+            # respect to model level number!
+            param = param.order_by(level="ascending", number="ascending")
+            out_pl = vertical.interpolate_monotonic(
+                param.values.reshape(pressure_levels.shape),
+                pressure_levels,
+                [FLIGHT_TO_PRESSURE_LEVEL[lvl] for lvl in config.target_flight_levels],
+                interpolation=config.interp_method,
+            )
+
+            out_levels = config.outputs.levels
+            templates = param.sel(level=input_levels[0])
+            for index, lvl in enumerate(config.target_flight_levels):
+                for mem_index, values in enumerate(out_pl[index]):
                     write_grib(
                         out_levels.target,
-                        param[0].metadata()._handle,
+                        templates[mem_index].metadata()._handle,
                         values,
                         {
                             **out_levels.metadata,
                             **pconfig.metadata,
                             "typeOfLevel": "flightLevel",
-                            "level": config.target_flight_levels[index],
+                            "level": lvl,
                         },
                     )
 
