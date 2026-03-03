@@ -80,8 +80,8 @@ def prob_iteration(
         for threshold in thresholds:
             window_probability = ensemble_probability(ens, threshold)
 
-            grib_set = out_prob.metadata.copy()
-            grib_set.update(accum.grib_keys())
+            grib_set = accum.grib_keys().copy()
+            grib_set.update(out_prob.metadata)
             grib_set.update(
                 threshold.grib_keys(
                     grib_set.get("edition", template["edition"]), clim_metadata
