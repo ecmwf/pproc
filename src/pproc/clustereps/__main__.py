@@ -174,6 +174,7 @@ def main():
     cfg: ClusterFullConfig = Conflator(
         app_name="pproc-clustereps", model=ClusterFullConfig
     ).load()
+    cfg.initialise()
     cfg.print()
 
     # PCA

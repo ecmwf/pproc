@@ -1245,6 +1245,7 @@ def main():
     cfg: ClusterClusterStandaloneConfig = Conflator(
         app_name="pproc-clustereps-cluster", model=ClusterClusterStandaloneConfig
     ).load()
+    cfg.initialise()
     cfg.print()
 
     data = np.load(cfg.pca)
