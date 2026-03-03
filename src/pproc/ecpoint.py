@@ -336,6 +336,7 @@ def main():
     signal.signal(signal.SIGTERM, sigterm_handler)
 
     cfg = Conflator(app_name="pproc-ecpoint", model=ECPointConfig).load()
+    cfg.initialise()
     cfg.print()
 
     for param in cfg.parameters:

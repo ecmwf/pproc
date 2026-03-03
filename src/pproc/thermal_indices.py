@@ -180,6 +180,7 @@ def main():
     signal.signal(signal.SIGTERM, sigterm_handler)
 
     cfg = Conflator(app_name="pproc-thermal-indices", model=ThermoConfig).load()
+    cfg.initialise()
     cfg.print()
 
     logger.info(f"thermofeel: {thermofeel.__version__}")

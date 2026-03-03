@@ -112,6 +112,7 @@ def main():
     signal.signal(signal.SIGTERM, sigterm_handler)
 
     cfg = Conflator(app_name="pproc-wind", model=WindConfig).load()
+    cfg.initialise()
     cfg.print()
 
     plan = []

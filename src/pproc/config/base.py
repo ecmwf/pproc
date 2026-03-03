@@ -107,13 +107,13 @@ class BaseConfig(ConfigModel):
             output.target.clean()
         self.recovery.clean()
 
-    @model_validator(mode="after")
-    def _init_targets(self) -> Self:
+    def initialise(self):
         if self._init:
             return self
 
         for name in self.outputs.names:
             target = getattr(self.outputs, name).target
+            target.init()
             if (isinstance(self.parallelisation, int) and self.parallelisation > 1) or (
                 isinstance(self.parallelisation, Parallelisation)
                 and self.parallelisation.n_par_compute > 1
@@ -122,7 +122,6 @@ class BaseConfig(ConfigModel):
             if self.checkpointing.from_checkpoint:
                 target.enable_recovery()
         self._init = True
-        return self
 
     @model_validator(mode="after")
     def validate_totalfields(self) -> Self:

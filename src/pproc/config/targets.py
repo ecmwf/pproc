@@ -73,6 +73,9 @@ class Target(BaseModel):
     def __exit__(self, exc_type, exc_value, traceback):
         return
 
+    def init(self):
+        pass
+
     def flush(self):
         return
 
@@ -104,6 +107,9 @@ class FileTarget(Target):
     _mode: str = "wb"
     _lock: FileLock = None
     _overwrite_existing: bool = False
+
+    def init(self):
+        _get_opened_files()
 
     @model_validator(mode="after")
     def create_lock(self) -> Self:
@@ -145,6 +151,9 @@ class FileSetTarget(Target):
     _file_locks: dict[str, FileLock] = {}
     _lock_paths: list[str] = []
     _overwrite_existing: bool = False
+
+    def init(self):
+        _get_opened_files()
 
     def mode(self, path: str):
         track_truncated = _get_opened_files()
