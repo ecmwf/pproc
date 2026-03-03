@@ -85,7 +85,6 @@ class ThresholdConfig(BaseModel):
                 Annotated[RangeThreshold, Tag("range")],
             ],
             Discriminator(_discriminator),
-            Field(default_factory=SingleThreshold),
         ]
     ] = Field(default_factory=list)
     metadata: dict = {}

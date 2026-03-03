@@ -361,7 +361,7 @@ class BaseConfig(ConfigModel):
     ) -> dict | list[dict]:
         [req.pop(dim, None) for req in requests for dim in accum_dims]
         updated_inputs = [
-            extract_mars(x, additional=["interpolate"])
+            extract_mars(x, additional=["interpolate", "location"])
             for x in update_request(requests, overrides)
         ]
         return updated_inputs if len(updated_inputs) > 1 else updated_inputs[0]
