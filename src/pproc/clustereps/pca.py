@@ -249,6 +249,7 @@ def main():
     cfg: ClusterPCAStandaloneConfig = Conflator(
         app_name="pproc-clustereps-pca", model=ClusterPCAStandaloneConfig
     ).load()
+    cfg.initialise()
     cfg.print()
 
     # Read ensemble

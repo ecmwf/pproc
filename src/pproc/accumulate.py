@@ -50,7 +50,9 @@ def main():
     sys.stdout.reconfigure(line_buffering=True)
     cfg = Conflator(app_name="pproc-accumulate", model=AccumConfig).load()
     cfg.print()
+    cfg.initialise()
     accum_main(cfg, postproc_iteration)
+    cfg.clean()
 
 
 if __name__ == "__main__":

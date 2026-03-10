@@ -903,7 +903,7 @@ def test_legacy_merge(config1, config2, merged, expected):
                     {
                         "operation": "minimum",
                         "coords": [[0]],
-                        "thresholds": [{"out_paramid": 1}],
+                        "thresholds": [{"metadata": {"paramId": 1}}],
                     }
                 ]
             },
@@ -915,7 +915,7 @@ def test_legacy_merge(config1, config2, merged, expected):
                     {
                         "operation": "minimum",
                         "coords": [[0, 6]],
-                        "thresholds": [{"out_paramid": 1}],
+                        "thresholds": [{"metadata": {"paramId": 1}}],
                     }
                 ]
             },
@@ -927,12 +927,12 @@ def test_legacy_merge(config1, config2, merged, expected):
                     {
                         "operation": "minimum",
                         "coords": [[0]],
-                        "thresholds": [{"out_paramid": 1}],
+                        "thresholds": [{"metadata": {"paramId": 1}}],
                     },
                     {
                         "operation": "minimum",
                         "coords": [[6]],
-                        "thresholds": [{"out_paramid": 1}],
+                        "thresholds": [{"metadata": {"paramId": 1}}],
                     },
                 ]
             },
@@ -944,7 +944,7 @@ def test_legacy_merge(config1, config2, merged, expected):
                     {
                         "operation": "minimum",
                         "coords": [[0], [6]],
-                        "thresholds": [{"out_paramid": 1}],
+                        "thresholds": [{"metadata": {"paramId": 1}}],
                     },
                 ]
             },
@@ -956,7 +956,10 @@ def test_legacy_merge(config1, config2, merged, expected):
                     {
                         "operation": "minimum",
                         "coords": [[0]],
-                        "thresholds": [{"out_paramid": 1}, {"out_paramid": 2}],
+                        "thresholds": [
+                            {"metadata": {"paramId": 1}},
+                            {"metadata": {"paramId": 2}},
+                        ],
                     }
                 ]
             },
@@ -968,18 +971,18 @@ def test_legacy_merge(config1, config2, merged, expected):
                     {
                         "operation": "minimum",
                         "coords": [[0]],
-                        "thresholds": [{"out_paramid": 1}],
+                        "thresholds": [{"metadata": {"paramId": 1}}],
                     },
                     {
                         "operation": "minimum",
                         "std_anomaly": True,
                         "coords": [[0]],
-                        "thresholds": [{"out_paramid": 2}],
+                        "thresholds": [{"metadata": {"paramId": 2}}],
                     },
                     {
                         "operation": "minimum",
                         "coords": [[6]],
-                        "thresholds": [{"out_paramid": 2}],
+                        "thresholds": [{"metadata": {"paramId": 2}}],
                     },
                 ],
             },

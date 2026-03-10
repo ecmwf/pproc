@@ -112,14 +112,17 @@ class LegacyWindowConfig(BaseModel):
                 pass
             base[dim].append(name)
         if hasattr(self, "thresholds"):
-            base["param"] = []
+            params = set()
             for thr in self.thresholds:
                 mars_keys = extract_mars(thr.get("metadata", {}))
-                mars_keys.pop("param", None)
+                param = mars_keys.pop("param", None)
                 assert (
                     len(mars_keys) == 0
                 ), "Mars metadata keys can not be set in threshold metadata"
-                base["param"].append(thr["out_paramid"])
+                if param is not None:
+                    params.add(param)
+            if len(params) > 0:
+                base["param"] = list(params)
         return base
 
 

@@ -40,9 +40,10 @@ from pproc.config.utils import (
     expand,
     squeeze,
 )
-from pproc.config.preprocessing import Expression
+from pproc.config.preprocessing import Reshape, Expression
 from pproc.common.stepseq import steprange_to_fcmonth
 from pproc.extremes.indices import Index, SUPPORTED_INDICES, create_indices
+from pproc.flightlevel.mapping import FLIGHT_TO_PRESSURE_LEVEL
 
 
 def end_step(step: int | str) -> int:
@@ -554,7 +555,9 @@ class ProbConfig(BaseConfig):
     def from_schema(cls, schema_config: dict, **overrides) -> Self:
         schema_config = copy.deepcopy(schema_config)
         threshold = schema_config.pop("threshold")
-        threshold["out_paramid"] = schema_config["metadata"].pop("paramId")
+        metadata = threshold.setdefault("metadata", {})
+        if "paramId" in schema_config.get("metadata", {}):
+            metadata.setdefault("paramId", schema_config["metadata"].pop("paramId"))
         schema_config["accumulations"]["step"]["thresholds"] = [threshold]
         return super().from_schema(schema_config, **overrides)
 
@@ -1531,3 +1534,164 @@ class ClusterFullConfig(
                 if req not in seen:
                     seen.append(req)
                     yield req
+
+
+class FlightLevelsParamConfig(ParamConfig):
+    lnsp: ParamConfig
+    _merge_exclude = ("name", "inputs", "lnsp", "accumulations", "total_fields")
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_input(cls, data: Any) -> Any:
+        lnsp = _get(data, "lnsp", {})
+        if isinstance(lnsp, dict):
+            lnsp_options = {**data, **lnsp}
+            _set(data, "lnsp", ParamConfig(**lnsp_options))
+        return data
+
+    def validate_totalfields(self, inputs: io.InputsCollection):
+        super().validate_totalfields(inputs)
+        if self.lnsp.total_fields == 0:
+            self.lnsp.total_fields = self.compute_totalfields(inputs, "lnsp")
+
+    def _merge_lnsp(self, other: Self) -> dict:
+        return {}
+
+    def _merge_inputs(self, other: Self) -> dict:
+        if self.inputs == other.inputs:
+            return self.inputs
+        inputs = copy.deepcopy(self.inputs)
+        for key, values in inputs.items():
+            requests = values["request"]
+            if not isinstance(requests, list):
+                requests = [requests]
+            other_requests = other.inputs[key]["request"]
+            if not isinstance(other_requests, list):
+                other_requests = [other_requests]
+            inputs[key]["request"] = requests + [
+                x for x in other_requests if x not in requests
+            ]
+        return inputs
+
+    def _merge_name(self, other: Self) -> str:
+        return self.name
+
+    def _merge_total_fields(self, other: Self) -> int:
+        return 0
+
+    def can_merge(self, other: Self) -> bool:
+        if self.accumulations == other.accumulations:
+            # Can merge requests of different types e.g. fc and pf if
+            # other parts of the source are equal, or if all parts of
+            # request are equal except parameter to be interpolated
+            if self.inputs["lnsp"] == other.inputs["lnsp"]:
+                fc_input = copy.deepcopy(self.inputs["fc"])
+                other_fc_input = copy.deepcopy(other.inputs["fc"])
+                for xinput in [fc_input, other_fc_input]:
+                    if isinstance(xinput["request"], dict):
+                        xinput["request"] = [xinput["request"]]
+                    for req in xinput["request"]:
+                        [req.pop(key, None) for key in ["param"]]
+                if fc_input != other_fc_input:
+                    return False
+            else:
+                for src, values in self.inputs.items():
+                    input = copy.deepcopy(values)
+                    other_input = copy.deepcopy(other.inputs[src])
+                    for xinput in [input, other_input]:
+                        if isinstance(xinput["request"], dict):
+                            xinput["request"] = [xinput["request"]]
+                        for req in xinput["request"]:
+                            [req.pop(key, None) for key in ["stream", "type", "number"]]
+                    if input != other_input:
+                        return False
+            return True
+        return self.inputs == other.inputs
+
+
+class FlightLevelsConfig(AccumConfig):
+    parallelisation: int = 1
+    inputs: io.FlightLevelsInputModel
+    outputs: io.FlightLevelsOutputModel = io.FlightLevelsOutputModel()
+    parameters: list[FlightLevelsParamConfig]
+    model: str = "ifs"
+    n_levels: int = 137
+    target_flight_levels: list[int]
+    interp_method: str = "linear"
+    _merge_exclude: tuple[str] = ("parameters",)
+
+    @model_validator(mode="after")
+    def validate_preprocessing(self) -> Self:
+        for param in self.parameters:
+            if len(param.input_list(self.inputs, "fc")) > 1:
+                param.preprocessing.actions = [
+                    Reshape(**{"operation": "reshape", "shape": 1, "order": "C"})
+                ] + param.preprocessing.actions
+        return self
+
+    @model_validator(mode="after")
+    def validate_flight_levels(self) -> Self:
+        expected = set(FLIGHT_TO_PRESSURE_LEVEL.keys())
+        if not set(self.target_flight_levels).issubset(expected):
+            raise ValueError(
+                f"Invalid flight levels {self.target_flight_levels}, expected subset of {expected}"
+            )
+        return self
+
+    @classmethod
+    def from_schema(cls, schema_config: dict, **overrides) -> Self:
+        overrides = overrides.copy()
+        for var in [
+            "model",
+            "n_levels",
+            "interp_method",
+        ]:
+            if var in schema_config:
+                overrides.setdefault(var, schema_config.pop(var))
+        levels = schema_config.pop("target_flight_levels")
+        if not isinstance(levels, list):
+            levels = [levels]
+        overrides["target_flight_levels"] = list(map(int, levels))
+        return super().from_schema(schema_config, **overrides)
+
+    @classmethod
+    def _populate_param(
+        cls,
+        config: dict,
+        inputs_config,
+        src_name: Optional[str] = None,
+        nested: bool = False,
+        **overrides,
+    ) -> dict:
+        nested_params = {}
+        for nparam in ["lnsp"]:
+            nested_params[nparam] = super()._populate_param(
+                config.pop(nparam, {}),
+                inputs_config,
+                src_name=nparam,
+                nested=True,
+                **overrides.pop(nparam, {}),
+            )
+        param_config = super()._populate_param(config, inputs_config, **overrides)
+        param_config.update(nested_params)
+        return param_config
+
+    @classmethod
+    def sort_inputs(cls, inputs: list[dict]) -> dict:
+        sorted_requests = {}
+        for inp in inputs:
+            is_lnsp = (
+                isinstance(inp["levelist"], (int, str)) or len(inp["levelist"]) == 1
+            )
+            if is_lnsp:
+                src_name = "lnsp"
+            else:
+                src_name = "fc"
+            sorted_requests.setdefault(src_name, []).append(inp)
+        return sorted_requests
+
+    def _format_out(self, param: ParamConfig, req) -> dict:
+        req = super()._format_out(param, req)
+        req["levtype"] = "fl"
+        req["levelist"] = self.target_flight_levels
+        return req

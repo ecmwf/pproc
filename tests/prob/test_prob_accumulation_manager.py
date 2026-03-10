@@ -32,9 +32,9 @@ from pproc.prob.threshold import ThresholdConfig
                         "operation": "minimum",
                         "thresholds": [
                             {
-                                "out_paramid": 131073,
                                 "comparison": "<=",
                                 "value": 273.15,
+                                "metadata": {"paramId": 131073},
                             },
                         ],
                         "coords": [
@@ -51,7 +51,7 @@ from pproc.prob.threshold import ThresholdConfig
                     SimpleAccumulation,
                     [
                         ThresholdConfig(
-                            out_paramid=131073, comparison="<=", value=273.15
+                            metadata={"paramId": 131073}, comparison="<=", value=273.15
                         )
                     ],
                 )
@@ -67,9 +67,21 @@ from pproc.prob.threshold import ThresholdConfig
                     {
                         "operation": "maximum",
                         "thresholds": [
-                            {"out_paramid": 131073, "comparison": ">=", "value": 15},
-                            {"out_paramid": 131073, "comparison": ">=", "value": 20},
-                            {"out_paramid": 131073, "comparison": ">=", "value": 25},
+                            {
+                                "metadata": {"paramId": 131073},
+                                "comparison": ">=",
+                                "value": 15,
+                            },
+                            {
+                                "metadata": {"paramId": 131073},
+                                "comparison": ">=",
+                                "value": 20,
+                            },
+                            {
+                                "metadata": {"paramId": 131073},
+                                "comparison": ">=",
+                                "value": 25,
+                            },
                         ],
                         "coords": [
                             {"from": 0, "to": 24, "by": 6},
@@ -84,13 +96,13 @@ from pproc.prob.threshold import ThresholdConfig
                     SimpleAccumulation,
                     [
                         ThresholdConfig(
-                            out_paramid=131073, comparison=">=", value=15.0
+                            metadata={"paramId": 131073}, comparison=">=", value=15.0
                         ),
                         ThresholdConfig(
-                            out_paramid=131073, comparison=">=", value=20.0
+                            metadata={"paramId": 131073}, comparison=">=", value=20.0
                         ),
                         ThresholdConfig(
-                            out_paramid=131073, comparison=">=", value=25.0
+                            metadata={"paramId": 131073}, comparison=">=", value=25.0
                         ),
                     ],
                 )
@@ -106,19 +118,47 @@ from pproc.prob.threshold import ThresholdConfig
                     {
                         "operation": "difference",
                         "thresholds": [
-                            {"out_paramid": 131073, "comparison": ">=", "value": 0.001},
-                            {"out_paramid": 131073, "comparison": ">=", "value": 0.005},
-                            {"out_paramid": 131073, "comparison": ">=", "value": 0.01},
-                            {"out_paramid": 131073, "comparison": ">=", "value": 0.02},
+                            {
+                                "metadata": {"paramId": 131073},
+                                "comparison": ">=",
+                                "value": 0.001,
+                            },
+                            {
+                                "metadata": {"paramId": 131073},
+                                "comparison": ">=",
+                                "value": 0.005,
+                            },
+                            {
+                                "metadata": {"paramId": 131073},
+                                "comparison": ">=",
+                                "value": 0.01,
+                            },
+                            {
+                                "metadata": {"paramId": 131073},
+                                "comparison": ">=",
+                                "value": 0.02,
+                            },
                         ],
                         "coords": [[0, 24], [12, 36], [336, 360]],
                     },
                     {
                         "operation": "difference",
                         "thresholds": [
-                            {"out_paramid": 131073, "comparison": ">=", "value": 0.025},
-                            {"out_paramid": 131073, "comparison": ">=", "value": 0.05},
-                            {"out_paramid": 131073, "comparison": ">=", "value": 0.1},
+                            {
+                                "metadata": {"paramId": 131073},
+                                "comparison": ">=",
+                                "value": 0.025,
+                            },
+                            {
+                                "metadata": {"paramId": 131073},
+                                "comparison": ">=",
+                                "value": 0.05,
+                            },
+                            {
+                                "metadata": {"paramId": 131073},
+                                "comparison": ">=",
+                                "value": 0.1,
+                            },
                         ],
                         "coords": [[0, 24], [12, 36], [336, 360]],
                     },
@@ -126,9 +166,21 @@ from pproc.prob.threshold import ThresholdConfig
                         "operation": "difference_rate",
                         "factor": 1.0 / 24.0,
                         "thresholds": [
-                            {"out_paramid": 131073, "comparison": "<", "value": 0.001},
-                            {"out_paramid": 131073, "comparison": ">=", "value": 0.003},
-                            {"out_paramid": 131073, "comparison": ">=", "value": 0.005},
+                            {
+                                "metadata": {"paramId": 131073},
+                                "comparison": "<",
+                                "value": 0.001,
+                            },
+                            {
+                                "metadata": {"paramId": 131073},
+                                "comparison": ">=",
+                                "value": 0.003,
+                            },
+                            {
+                                "metadata": {"paramId": 131073},
+                                "comparison": ">=",
+                                "value": 0.005,
+                            },
                         ],
                         "coords": [[120, 240], [168, 240], [228, 360]],
                     },
@@ -140,7 +192,7 @@ from pproc.prob.threshold import ThresholdConfig
                         Difference,
                         [
                             ThresholdConfig(
-                                out_paramid=131073, comparison=">=", value=thr
+                                metadata={"paramId": 131073}, comparison=">=", value=thr
                             )
                             for thr in thrs
                         ],
@@ -155,7 +207,7 @@ from pproc.prob.threshold import ThresholdConfig
                         DifferenceRate,
                         [
                             ThresholdConfig(
-                                out_paramid=131073, comparison=cmp, value=val
+                                metadata={"paramId": 131073}, comparison=cmp, value=val
                             )
                             for cmp, vals in [("<", [0.001]), (">=", [0.003, 0.005])]
                             for val in vals
@@ -174,8 +226,16 @@ from pproc.prob.threshold import ThresholdConfig
                     {
                         "operation": "mean",
                         "thresholds": [
-                            {"out_paramid": 131073, "comparison": "<", "value": -2},
-                            {"out_paramid": 131073, "comparison": ">=", "value": 2},
+                            {
+                                "metadata": {"paramId": 131073},
+                                "comparison": "<",
+                                "value": -2,
+                            },
+                            {
+                                "metadata": {"paramId": 131073},
+                                "comparison": ">=",
+                                "value": 2,
+                            },
                         ],
                         "coords": [
                             {"from": 120, "to": 168, "by": 12},
@@ -189,8 +249,12 @@ from pproc.prob.threshold import ThresholdConfig
                 f"step_{a}-{b}_0": (
                     Mean,
                     [
-                        ThresholdConfig(out_paramid=131073, comparison="<", value=-2),
-                        ThresholdConfig(out_paramid=131073, comparison=">=", value=2),
+                        ThresholdConfig(
+                            metadata={"paramId": 131073}, comparison="<", value=-2
+                        ),
+                        ThresholdConfig(
+                            metadata={"paramId": 131073}, comparison=">=", value=2
+                        ),
                     ],
                 )
                 for a, b in [(120, 168), (168, 240), (240, 360)]
@@ -225,24 +289,48 @@ def test_create_threshold(config, expected, exp_coords):
                     {
                         "operation": "minimum",
                         "thresholds": [
-                            {"out_paramid": 131073, "comparison": "<", "value": -8},
-                            {"out_paramid": 131073, "comparison": "<", "value": -4},
+                            {
+                                "metadata": {"paramId": 131073},
+                                "comparison": "<",
+                                "value": -8,
+                            },
+                            {
+                                "metadata": {"paramId": 131073},
+                                "comparison": "<",
+                                "value": -4,
+                            },
                         ],
                         "coords": [[0], [12], [360]],
                     },
                     {
                         "operation": "maximum",
                         "thresholds": [
-                            {"out_paramid": 131073, "comparison": ">", "value": 4},
-                            {"out_paramid": 131073, "comparison": ">", "value": 8},
+                            {
+                                "metadata": {"paramId": 131073},
+                                "comparison": ">",
+                                "value": 4,
+                            },
+                            {
+                                "metadata": {"paramId": 131073},
+                                "comparison": ">",
+                                "value": 8,
+                            },
                         ],
                         "coords": [[0], [12], [360]],
                     },
                     {
                         "operation": "mean",
                         "thresholds": [
-                            {"out_paramid": 131073, "comparison": "<", "value": -4},
-                            {"out_paramid": 131073, "comparison": ">=", "value": 2},
+                            {
+                                "metadata": {"paramId": 131073},
+                                "comparison": "<",
+                                "value": -4,
+                            },
+                            {
+                                "metadata": {"paramId": 131073},
+                                "comparison": ">=",
+                                "value": 2,
+                            },
                         ],
                         "coords": [
                             {"from": 120, "to": 240, "by": 12},
@@ -253,7 +341,11 @@ def test_create_threshold(config, expected, exp_coords):
                         "operation": "maximum",
                         "std_anomaly": True,
                         "thresholds": [
-                            {"out_paramid": 131073, "comparison": ">", "value": 1},
+                            {
+                                "metadata": {"paramId": 131073},
+                                "comparison": ">",
+                                "value": 1,
+                            },
                         ],
                         "coords": [[0], [12], [300]],
                     },
@@ -261,7 +353,11 @@ def test_create_threshold(config, expected, exp_coords):
                         "operation": "minimum",
                         "std_anomaly": True,
                         "thresholds": [
-                            {"out_paramid": 131073, "comparison": "<", "value": -1.5},
+                            {
+                                "metadata": {"paramId": 131073},
+                                "comparison": "<",
+                                "value": -1.5,
+                            },
                         ],
                         "coords": [[0], [12], [300]],
                     },
@@ -273,7 +369,7 @@ def test_create_threshold(config, expected, exp_coords):
                         SimpleAccumulation,
                         [
                             ThresholdConfig(
-                                out_paramid=131073, comparison=cmp, value=val
+                                metadata={"paramId": 131073}, comparison=cmp, value=val
                             )
                             for val in vals
                         ],
@@ -291,10 +387,10 @@ def test_create_threshold(config, expected, exp_coords):
                         Mean,
                         [
                             ThresholdConfig(
-                                out_paramid=131073, comparison="<", value=-4
+                                metadata={"paramId": 131073}, comparison="<", value=-4
                             ),
                             ThresholdConfig(
-                                out_paramid=131073, comparison=">=", value=2
+                                metadata={"paramId": 131073}, comparison=">=", value=2
                             ),
                         ],
                     )
@@ -305,7 +401,7 @@ def test_create_threshold(config, expected, exp_coords):
                         SimpleAccumulation,
                         [
                             ThresholdConfig(
-                                out_paramid=131073, comparison=cmp, value=val
+                                metadata={"paramId": 131073}, comparison=cmp, value=val
                             )
                         ],
                     )

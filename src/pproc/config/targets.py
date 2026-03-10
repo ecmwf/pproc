@@ -23,6 +23,7 @@ from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, model_valida
 from pproc.config import utils
 
 _manager = None
+_opened_files = None
 
 
 def _shared_list():
@@ -32,7 +33,11 @@ def _shared_list():
     return _manager.list()
 
 
-_track_truncated = _shared_list()
+def _get_opened_files():
+    global _opened_files
+    if _opened_files is None:
+        _opened_files = _shared_list()
+    return _opened_files
 
 
 def remove_duplicate(path: str, message: eccodes.Message):
@@ -68,6 +73,9 @@ class Target(BaseModel):
     def __exit__(self, exc_type, exc_value, traceback):
         return
 
+    def init(self):
+        pass
+
     def flush(self):
         return
 
@@ -100,6 +108,9 @@ class FileTarget(Target):
     _lock: FileLock = None
     _overwrite_existing: bool = False
 
+    def init(self):
+        _get_opened_files()
+
     @model_validator(mode="after")
     def create_lock(self) -> Self:
         if self._lock is None:
@@ -108,9 +119,9 @@ class FileTarget(Target):
 
     @property
     def mode(self):
-        global _track_truncated
-        if self.path not in _track_truncated:
-            _track_truncated += [self.path]
+        track_truncated = _get_opened_files()
+        if self.path not in track_truncated:
+            track_truncated.append(self.path)
             return self._mode
         return "ab"
 
@@ -141,10 +152,13 @@ class FileSetTarget(Target):
     _lock_paths: list[str] = []
     _overwrite_existing: bool = False
 
+    def init(self):
+        _get_opened_files()
+
     def mode(self, path: str):
-        global _track_truncated
-        if path not in _track_truncated:
-            _track_truncated += [path]
+        track_truncated = _get_opened_files()
+        if path not in track_truncated:
+            track_truncated.append(path)
             return self._mode
         return "ab"
 

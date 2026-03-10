@@ -37,6 +37,7 @@ class ConfigFactory:
         "pproc-significance": types.SigniConfig,
         "pproc-ecpoint": types.ECPointConfig,
         "pproc-clustereps": types.ClusterFullConfig,
+        "pproc-flight-levels": types.FlightLevelsConfig,
     }
 
     @classmethod

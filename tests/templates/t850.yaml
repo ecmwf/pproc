@@ -28,7 +28,7 @@ parameters:
         - coords: [[0], [12]]
           operation: minimum
           thresholds:
-          - out_paramid: 131022
+          - metadata: {"paramId": 131022}
             comparison: <
             value: -8
           metadata:
@@ -36,7 +36,7 @@ parameters:
         - coords: [[0], [12]]
           operation: maximum
           thresholds:
-          - out_paramid: 131025
+          - metadata: {"paramId": 131025}
             comparison: '>'
             value: 8
           metadata:
@@ -45,10 +45,10 @@ parameters:
           operation: mean
           include_start: true
           thresholds:
-          - out_paramid: 131020
+          - metadata: {"paramId": 131020}
             comparison: <
             value: -2
-          - out_paramid: 131021
+          - metadata: {"paramId": 131021}
             comparison: '>='
             value: 2
           metadata:
@@ -57,7 +57,7 @@ parameters:
           operation: maximum
           std_anomaly: true 
           thresholds:
-          - out_paramid: 133093
+          - metadata: {"paramId": 133093}
             comparison: '>'
             value: 1
           metadata:
@@ -73,7 +73,7 @@ parameters:
           operation: minimum
           std_anomaly: true 
           thresholds:
-          - out_paramid: 133096
+          - metadata: {"paramId": 133096}
             comparison: <
             value: -1
           metadata:

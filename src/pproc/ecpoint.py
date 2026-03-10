@@ -35,7 +35,7 @@ from pproc.common.parallel import (
 from pproc.common.io import write_grib, GribMetadata
 from pproc.common.accumulation_manager import AccumulationManager
 from pproc.quantile.grib import quantiles_metadata
-from pproc.ecpt.predictors import compute_predictors, to_ekmetadata
+from pproc.ecpt.predictors import compute_predictors
 
 logger = logging.getLogger(__name__)
 
@@ -336,6 +336,7 @@ def main():
     signal.signal(signal.SIGTERM, sigterm_handler)
 
     cfg = Conflator(app_name="pproc-ecpoint", model=ECPointConfig).load()
+    cfg.initialise()
     cfg.print()
 
     for param in cfg.parameters:
@@ -377,7 +378,7 @@ def main():
                 )
                 metadata, data = requester.retrieve_data()
                 static_data += earthkit.data.FieldList.from_array(
-                    data, to_ekmetadata(metadata)
+                    data, [x.to_ekmetadata() for x in metadata]
                 )
             else:
                 for dim, vals in new_manager.dims.items():
@@ -418,7 +419,8 @@ def main():
                                 }
                             )
                         new_fields = earthkit.data.FieldList.from_array(
-                            completed_window.values, to_ekmetadata(param_metadata)
+                            completed_window.values,
+                            [x.to_ekmetadata() for x in param_metadata],
                         )
                         for fields in new_fields.group_by("param"):
                             field_name = fields.metadata()[0]["param"]

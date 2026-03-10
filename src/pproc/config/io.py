@@ -9,6 +9,7 @@
 
 from typing import Any, ClassVar, Optional, Union, Tuple
 import re
+import copy
 
 from annotated_types import Annotated
 from conflator import CLIArg, ConfigModel
@@ -89,12 +90,16 @@ class Input(ConfigModel):
         return f"{self.type}:{self.path}" if self.type == "file" else f"{self.type}:req"
 
     def legacy_config(self) -> dict:
-        cfg = {self.type: {"req": self.request}}
         if self.type in ["fileset", "fdbmars"]:
-            cfg[self.type]["req"] = utils.update_request(
-                cfg[self.type]["req"], {"location": self.path}
-            )
-        return cfg
+            request = copy.deepcopy(self.request)
+            if isinstance(request, dict):
+                request.setdefault("location", self.path)
+            else:
+                for req in request:
+                    req.setdefault("location", self.path)
+        else:
+            request = self.request
+        return {self.type: {"req": request}}
 
     def base_request(self) -> dict:
         if isinstance(self.request, dict):
@@ -291,3 +296,5 @@ ClusterClusterOutputModel = create_output_model(
 ClusterAttributionInputModel = create_input_model(
     "ClusterAttribution", ["centroids", "representative"]
 )
+FlightLevelsInputModel = create_input_model("FlightLevels", ["fc", "lnsp"])
+FlightLevelsOutputModel = create_output_model("FlightLevels", ["levels"])

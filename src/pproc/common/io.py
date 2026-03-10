@@ -20,6 +20,8 @@ import yaml
 import eccodes
 import pyfdb
 import mir
+from earthkit.data.readers.grib.metadata import StandAloneGribMetadata
+from earthkit.data.readers.grib.codes import GribCodesHandle
 
 from pproc.config.targets import (
     FDBTarget,
@@ -357,7 +359,7 @@ def write_grib(target, template, data, metadata: dict, missing=None):
     if hasattr(template, "extra"):
         out_keys.update(template.extra)
     out_keys.update(metadata)
-    bits_per_value = out_keys.pop("bitsPerValue")
+    bits_per_value = out_keys.pop("bitsPerValue", template["bitsPerValue"])
     message = construct_message(template, out_keys)
 
     data = nan_to_missing(message, data, missing)
@@ -427,3 +429,8 @@ class GribMetadata(eccodes.Message):
         clone = self.__class__(eccodes.codes_clone(self._handle))
         clone.extra = self.extra.copy()
         return clone
+
+    def to_ekmetadata(self) -> StandAloneGribMetadata:
+        return StandAloneGribMetadata(
+            GribCodesHandle(eccodes.codes_clone(self._handle), None, None)
+        )

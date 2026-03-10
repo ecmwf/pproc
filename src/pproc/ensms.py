@@ -91,6 +91,7 @@ def main():
     signal.signal(signal.SIGTERM, sigterm_handler)
 
     cfg = Conflator(app_name="pproc-ensms", model=EnsmsConfig).load()
+    cfg.initialise()
     cfg.print()
 
     with create_executor(cfg.parallelisation) as executor:

@@ -213,6 +213,7 @@ def main() -> int:
     cfg: ClusterAttributionStandaloneConfig = Conflator(
         app_name="pproc-clustereps-attr", model=ClusterAttributionStandaloneConfig
     ).load()
+    cfg.initialise()
     cfg.print()
 
     scenarios: dict[str, tuple[Output, Output]] = {

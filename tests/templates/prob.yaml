@@ -17,7 +17,8 @@ parameters:
           thresholds:
           - comparison: <=
             local_scale_factor: 2
-            out_paramid: 131073
+            metadata:
+              paramId: 131073
             value: 273.15
 inputs:  
   fc:
