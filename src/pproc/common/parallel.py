@@ -12,7 +12,6 @@ import os
 import sys
 from typing import List
 import signal
-import multiprocessing
 
 import psutil
 from meters import ResourceMeter
@@ -42,7 +41,12 @@ class QueueingExecutor(fut.ProcessPoolExecutor):
     required for pending futures can be large.
     """
 
-    def __init__(self, n_par: int, queue_size: int = 0, initializer=None, initargs=()):
+    def __init__(
+        self,
+        n_par: int,
+        queue_size: int = 0,
+        **executor_kwargs,
+    ):
         """
         :param n_par: number of processes
         :queue_size: maximum number of allowed pending futures, if 0 then
@@ -50,9 +54,7 @@ class QueueingExecutor(fut.ProcessPoolExecutor):
         """
         super().__init__(
             max_workers=n_par,
-            initializer=initializer,
-            initargs=initargs,
-            mp_context=multiprocessing.get_context("forkserver"),
+            **executor_kwargs,
         )
         self.futures = []
         self.queue_size = queue_size
@@ -87,15 +89,21 @@ class QueueingExecutor(fut.ProcessPoolExecutor):
             future.result()
 
 
-def create_executor(options: Parallelisation) -> fut.Executor:
+def create_executor(
+    options: Parallelisation,
+    initializer=signal.signal,
+    initargs=(signal.SIGTERM, signal.SIG_DFL),
+    **executor_kwargs,
+) -> fut.Executor:
     return (
         SynchronousExecutor()
         if options.n_par_compute == 1
         else QueueingExecutor(
             options.n_par_compute,
             options.queue_size,
-            initializer=signal.signal,
-            initargs=(signal.SIGTERM, signal.SIG_DFL),
+            initializer=initializer,
+            initargs=initargs,
+            **executor_kwargs,
         )
     )
 
@@ -106,6 +114,7 @@ def parallel_processing(
     n_par,
     initializer=signal.signal,
     initargs=(signal.SIGTERM, signal.SIG_DFL),
+    **executor_kwargs,
 ):
     """Run a processing function in parallel
 
@@ -129,7 +138,7 @@ def parallel_processing(
             max_workers=n_par,
             initializer=initializer,
             initargs=initargs,
-            mp_context=multiprocessing.get_context("forkserver"),
+            **executor_kwargs,
         )
     )
     with executor:
@@ -163,6 +172,7 @@ def parallel_data_retrieval(
     data_requesters: List[ParamRequester],
     initializer=signal.signal,
     initargs=(signal.SIGTERM, signal.SIG_DFL),
+    **executor_kwargs,
 ):
     """
     Multiprocess retrieve data function from multiple data requests
@@ -184,7 +194,7 @@ def parallel_data_retrieval(
             max_workers=num_processes,
             initializer=initializer,
             initargs=initargs,
-            mp_context=multiprocessing.get_context("forkserver"),
+            **executor_kwargs,
         )
     )
     with executor:
