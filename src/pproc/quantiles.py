@@ -28,8 +28,8 @@ from pproc.common.parallel import (
     parallel_data_retrieval,
     sigterm_handler,
 )
-from pproc.common.param_requester import ParamConfig, ParamRequester
-from pproc.config.types import QuantilesConfig
+from pproc.common.param_requester import ParamRequester
+from pproc.config.types import ClipParamConfig, QuantilesConfig
 from pproc.quantile.grib import quantiles_metadata
 
 
@@ -70,7 +70,7 @@ def do_quantiles(
 
 def quantiles_iteration(
     config: QuantilesConfig,
-    param: ParamConfig,
+    param: ClipParamConfig,
     template: eccodes.GRIBMessage,
     window_id: str,
     accum: Accumulator,
@@ -78,6 +78,10 @@ def quantiles_iteration(
     with ResourceMeter(f"{param.name}, step {window_id}: Quantiles"):
         ens = accum.values
         assert ens is not None
+
+        if param.vmin is not None or param.vmax is not None:
+            np.clip(ens, param.vmin, param.vmax, out=ens)
+
         do_quantiles(
             config,
             ens,
@@ -116,9 +120,7 @@ def main():
                 cfg.inputs,
                 param.total_fields,
             )
-            quantiles_partial = functools.partial(
-                quantiles_iteration, cfg, param
-            )
+            quantiles_partial = functools.partial(quantiles_iteration, cfg, param)
             for keys, data in parallel_data_retrieval(
                 cfg.parallelisation.n_par_read,
                 accum_manager.dims,

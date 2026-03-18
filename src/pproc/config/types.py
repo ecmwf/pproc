@@ -50,12 +50,19 @@ def end_step(step: int | str) -> int:
     return step if isinstance(step, int) else int(step.split("-")[1])
 
 
+class ClipParamConfig(ParamConfig):
+    vmin: Optional[float] = None
+    vmax: Optional[float] = None
+
+
 class EnsmsConfig(BaseConfig):
+    parameters: list[ClipParamConfig]
     parallelisation: Parallelisation = Parallelisation()
     outputs: io.EnsmsOutputModel = io.EnsmsOutputModel()
 
 
 class QuantilesConfig(BaseConfig):
+    parameters: list[ClipParamConfig]
     parallelisation: Parallelisation = Parallelisation()
     outputs: io.QuantilesOutputModel = io.QuantilesOutputModel()
     quantiles: int | List[float] = 100
@@ -106,9 +113,7 @@ class QuantilesConfig(BaseConfig):
         return req
 
 
-class AccumParamConfig(ParamConfig):
-    vmin: Optional[float] = None
-    vmax: Optional[float] = None
+class AccumParamConfig(ClipParamConfig):
     out_accum_key: str = "perturbationNumber"
     out_accum_values: Optional[list[float]] = None
     _merge_exclude = ("name", "inputs", "accumulations", "total_fields")
@@ -481,6 +486,8 @@ def anom_discriminator(config: Any) -> str:
 
 
 class ProbParamConfig(ClimParamConfig):
+    vmin: Optional[float] = None
+    vmax: Optional[float] = None
     clim: Optional[ParamConfig] = None
     _merge_exclude = ("name", "accumulations", "inputs", "clim")
 

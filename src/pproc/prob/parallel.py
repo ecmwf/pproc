@@ -14,7 +14,7 @@ import numexpr
 
 import eccodes
 
-from pproc.config.param import ParamConfig
+from pproc.config.types import ProbParamConfig
 from pproc.config.io import Output
 from pproc.config.recovery import BaseRecovery
 from pproc.common.accumulation import Accumulator
@@ -61,7 +61,7 @@ def ensemble_probability(data: np.array, thconfig: ThresholdConfig) -> np.array:
 
 
 def prob_iteration(
-    param: ParamConfig,
+    param: ProbParamConfig,
     recovery: BaseRecovery,
     out_prob: Output,
     template: eccodes.GRIBMessage,
@@ -76,6 +76,9 @@ def prob_iteration(
 
         ens = accum.values
         assert ens is not None
+
+        if param.vmin is not None or param.vmax is not None:
+            np.clip(ens, param.vmin, param.vmax, out=ens)
 
         for threshold in thresholds:
             window_probability = ensemble_probability(ens, threshold)

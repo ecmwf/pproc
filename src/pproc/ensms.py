@@ -34,9 +34,9 @@ from pproc.common.parallel import (
     parallel_data_retrieval,
     sigterm_handler,
 )
-from pproc.common.param_requester import ParamConfig, ParamRequester
+from pproc.common.param_requester import ParamRequester
 from pproc.common.grib_helpers import fill_template_values
-from pproc.config.types import EnsmsConfig
+from pproc.config.types import ClipParamConfig, EnsmsConfig
 
 
 def ensms_metadata(
@@ -53,7 +53,7 @@ def ensms_metadata(
 
 def ensms_iteration(
     config: EnsmsConfig,
-    param: ParamConfig,
+    param: ClipParamConfig,
     window_id: str,
     accum: Accumulator,
     template_ens: eccodes.GRIBMessage,
@@ -61,6 +61,9 @@ def ensms_iteration(
 
     ens = accum.values
     assert ens is not None
+
+    if param.vmin is not None or param.vmax is not None:
+        np.clip(ens, param.vmin, param.vmax, out=ens)
 
     # Compute mean/std over all dimensions except last
     axes = tuple(range(ens.ndim - 1))
