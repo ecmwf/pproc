@@ -7,6 +7,7 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
+import multiprocessing
 import concurrent.futures as fut
 import os
 import sys
@@ -45,6 +46,9 @@ class QueueingExecutor(fut.ProcessPoolExecutor):
         self,
         n_par: int,
         queue_size: int = 0,
+        initializer=signal.signal,
+        initargs=(signal.SIGTERM, signal.SIG_DFL),
+        mp_context: str = "forkserver",
         **executor_kwargs,
     ):
         """
@@ -54,6 +58,9 @@ class QueueingExecutor(fut.ProcessPoolExecutor):
         """
         super().__init__(
             max_workers=n_par,
+            initializer=initializer,
+            initargs=initargs,
+            mp_context=multiprocessing.get_context(mp_context),
             **executor_kwargs,
         )
         self.futures = []
@@ -93,6 +100,7 @@ def create_executor(
     options: Parallelisation,
     initializer=signal.signal,
     initargs=(signal.SIGTERM, signal.SIG_DFL),
+    mp_context: str = "forkserver",
     **executor_kwargs,
 ) -> fut.Executor:
     return (
@@ -103,6 +111,7 @@ def create_executor(
             options.queue_size,
             initializer=initializer,
             initargs=initargs,
+            mp_context=multiprocessing.get_context(mp_context),
             **executor_kwargs,
         )
     )
@@ -114,6 +123,7 @@ def parallel_processing(
     n_par,
     initializer=signal.signal,
     initargs=(signal.SIGTERM, signal.SIG_DFL),
+    mp_context: str = "forkserver",
     **executor_kwargs,
 ):
     """Run a processing function in parallel
@@ -138,6 +148,7 @@ def parallel_processing(
             max_workers=n_par,
             initializer=initializer,
             initargs=initargs,
+            mp_context=multiprocessing.get_context(mp_context),
             **executor_kwargs,
         )
     )
@@ -172,6 +183,7 @@ def parallel_data_retrieval(
     data_requesters: List[ParamRequester],
     initializer=signal.signal,
     initargs=(signal.SIGTERM, signal.SIG_DFL),
+    mp_context: str = "forkserver",
     **executor_kwargs,
 ):
     """
@@ -194,6 +206,7 @@ def parallel_data_retrieval(
             max_workers=num_processes,
             initializer=initializer,
             initargs=initargs,
+            mp_context=multiprocessing.get_context(mp_context),
             **executor_kwargs,
         )
     )

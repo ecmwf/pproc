@@ -24,7 +24,6 @@ import logging
 import sys
 import functools
 import signal
-import multiprocessing
 
 import earthkit.data
 from earthkit.data.readers.grib.metadata import GribFieldMetadata
@@ -192,9 +191,7 @@ def main():
         f"Parallel processes: {cfg.parallelisation.n_par_compute}, queue size: {cfg.parallelisation.queue_size}"
     )
 
-    with create_executor(
-        cfg.parallelisation, mp_context=multiprocessing.get_context("forkserver")
-    ) as executor:
+    with create_executor(cfg.parallelisation) as executor:
         for param in cfg.parameters:
             accum_manager = AccumulationManager.create(param.accumulations)
             checkpointed_windows = [
