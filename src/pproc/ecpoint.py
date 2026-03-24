@@ -129,6 +129,7 @@ def weather_types_metadata(
         grib_keys.update(out_keys)
     return template, grib_keys
 
+
 def compute_single_ens(
     predictant: np.ndarray,
     predictors: np.ndarray,
@@ -279,7 +280,7 @@ def ecpoint_iteration(
                     out_realisations.target,
                     template,
                     pt_bc_allwt[number],
-                    out_keys,
+                    {**out_keys, **out_realisations.metadata},
                 )
 
     out_bs.target.flush()
