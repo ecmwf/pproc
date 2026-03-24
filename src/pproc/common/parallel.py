@@ -111,7 +111,7 @@ def create_executor(
             options.queue_size,
             initializer=initializer,
             initargs=initargs,
-            mp_context=multiprocessing.get_context(mp_context),
+            mp_context=mp_context,
             **executor_kwargs,
         )
     )
