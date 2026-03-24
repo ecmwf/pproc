@@ -1006,7 +1006,7 @@ class ECPointParallelisation(BaseModel):
     ens_batch_size: int = 1
 
 
-class ECPointConfig(QuantilesConfig):
+class ECPointConfig(BaseConfig):
     parallelisation: ECPointParallelisation = ECPointParallelisation()
     outputs: io.ECPointOutputModel = io.ECPointOutputModel()
     parameters: list[ECPointParamConfig]
@@ -1093,10 +1093,6 @@ class ECPointConfig(QuantilesConfig):
 
     def _format_out(self, param: ParamConfig, req) -> dict:
         req = super()._format_out(param, req)
-        if req["type"] == "pfc":
-            return req
-
-        req.pop("quantile")
         self._append_number(param, req)
         return req
 

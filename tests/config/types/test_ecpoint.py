@@ -8,25 +8,18 @@ BASE_OUTPUT = {
 
 
 @pytest.mark.parametrize(
-    "inputs, perc_metadata, expected",
+    "inputs, expected",
     [
         [
             [
                 {"stream": "oper", "type": "fc"},
                 {"stream": "enfo", "type": "pf", "number": [1, 2, 3]},
             ],
-            {"stream": "enfo"},
             [
                 {**BASE_OUTPUT, "stream": "oper", "type": "gbf"},
                 {**BASE_OUTPUT, "stream": "enfo", "type": "gbf", "number": [1, 2, 3]},
                 {**BASE_OUTPUT, "stream": "oper", "type": "gwt"},
                 {**BASE_OUTPUT, "stream": "enfo", "type": "gwt", "number": [1, 2, 3]},
-                {
-                    **BASE_OUTPUT,
-                    "stream": "enfo",
-                    "type": "pfc",
-                    "quantile": [f"{x}:{100}" for x in range(1, 101)],
-                },
             ],
         ],
         [
@@ -34,7 +27,6 @@ BASE_OUTPUT = {
                 {"stream": "eefo", "type": "cf"},
                 {"stream": "eefo", "type": "pf", "number": [1, 2, 3]},
             ],
-            {},
             [
                 {
                     **BASE_OUTPUT,
@@ -48,31 +40,18 @@ BASE_OUTPUT = {
                     "type": "gwt",
                     "number": [0, 1, 2, 3],
                 },
-                {
-                    **BASE_OUTPUT,
-                    "stream": "eefo",
-                    "type": "pfc",
-                    "quantile": [f"{x}:{100}" for x in range(1, 101)],
-                },
             ],
         ],
         [
             {"stream": "oper", "type": "fc"},
-            {},
             [
                 {**BASE_OUTPUT, "stream": "oper", "type": "gbf"},
                 {**BASE_OUTPUT, "stream": "oper", "type": "gwt"},
-                {
-                    **BASE_OUTPUT,
-                    "stream": "oper",
-                    "type": "pfc",
-                    "quantile": [f"{x}:{100}" for x in range(1, 101)],
-                },
             ],
         ],
     ],
 )
-def test_ecpoint_outputs(inputs, perc_metadata, expected):
+def test_ecpoint_outputs(inputs, expected):
     config = types.ECPointConfig(
         bp_location="bp.csv",
         fer_location="fer.csv",
@@ -90,9 +69,8 @@ def test_ecpoint_outputs(inputs, perc_metadata, expected):
             "default": {"target": {"type": "fdb"}},
             "bs": {"metadata": {"type": "gbf"}},
             "wt": {"metadata": {"type": "gwt"}},
-            "perc": {"metadata": {"type": "pfc", **perc_metadata}},
+            "realisations": {"target": {"type": "file", "path": "realisations.grib"}},
         },
-        quantiles=[x / 100 for x in range(1, 101)],
     )
     config.print()
     outputs = list(config.out_mars(targets=["fdb"]))

@@ -18,7 +18,6 @@ import numexpr
 
 import eccodes
 from meters import ResourceMeter
-from earthkit.meteo.stats import iter_quantiles
 from conflator import Conflator
 import earthkit.data
 from earthkit.data.utils.message import CodesHandle
@@ -34,7 +33,6 @@ from pproc.common.parallel import (
 )
 from pproc.common.io import write_grib, GribMetadata
 from pproc.common.accumulation_manager import AccumulationManager
-from pproc.quantile.grib import quantiles_metadata
 from pproc.ecpt.predictors import compute_predictors
 
 logger = logging.getLogger(__name__)
@@ -130,33 +128,6 @@ def weather_types_metadata(
     else:
         grib_keys.update(out_keys)
     return template, grib_keys
-
-
-def point_scale_metadata(
-    template: CodesHandle, pert_number: int, total_number: int, out_keys: dict
-) -> dict:
-    edition = out_keys.get("edition", template.get("edition"))
-    if edition not in (1, 2):
-        raise ValueError(f"Unsupported GRIB edition {edition}")
-
-    grib_keys = {}
-    if edition == 2:
-        grib_keys.update(
-            {
-                "edition": 2,
-                "productDefinitionTemplateNumber": 90,
-                "type": "pfc",
-                "inputProcessIdentifier": template.get("generatingProcessIdentifier"),
-                "inputOriginatingCentre": template.get("originatingCentre"),
-                "typeOfGeneratingProcess": 13,
-                "typeOfPostProcessing": 206,
-                "indicatorOfUnitForTimeIncrement": 1,
-                "timeIncrement": 1,
-            }
-        )
-    grib_keys.update(out_keys)
-    return quantiles_metadata(template, pert_number, total_number, grib_keys)
-
 
 def compute_single_ens(
     predictant: np.ndarray,
@@ -262,10 +233,10 @@ def ecpoint_iteration(
             config, param, out_keys["stepRange"], input_params
         )
 
-    pt_bc_allens_allwt = []
     with ResourceMeter(f"Compute realisations: {window_id}"):
         out_bs = config.outputs.bs
         out_wt = config.outputs.wt
+        out_realisations = config.outputs.realisations
 
         for index, (
             pt_bc_allwt,
@@ -302,28 +273,18 @@ def ecpoint_iteration(
                 template, {**out_keys, **out_wt.metadata}
             )
             write_grib(out_wt.target, wt_message, wt_allwt, metadata)
-            pt_bc_allens_allwt.append(pt_bc_allwt)
-        pt_bc_allens_allwt = np.concatenate(pt_bc_allens_allwt)
 
-    with ResourceMeter(f"Compute percentiles: {window_id}"):
-        out_perc = config.outputs.perc
-        template = predictant[0].metadata()._handle
-        for i, quantile in enumerate(
-            iter_quantiles(pt_bc_allens_allwt, config.quantiles, method="sort")
-        ):
-            grib_keys = {
-                **out_keys,
-                **out_perc.metadata,
-            }
-            pert_number, total_number = config.quantile_indices(i)
-            metadata = point_scale_metadata(
-                template, pert_number, total_number, grib_keys
-            )
-            write_grib(out_perc.target, template, quantile, metadata)
+            for number in range(len(pt_bc_allwt)):
+                write_grib(
+                    out_realisations.target,
+                    template,
+                    pt_bc_allwt[number],
+                    out_keys,
+                )
 
     out_bs.target.flush()
     out_wt.target.flush()
-    out_perc.target.flush()
+    out_realisations.target.flush()
     config.recovery.add_checkpoint(param=param.name, window=window_id)
 
 
