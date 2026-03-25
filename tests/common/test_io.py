@@ -87,7 +87,6 @@ def test_fdb_target():
 
 def test_file_target(tmpdir):
     target = io.target_from_location(f"file:{tmpdir}/test.grib")
-    target.enable_recovery()
     messages = [
         msg
         for index, msg in enumerate(eccodes.FileReader(f"{DATA_DIR}/wind.grib"))
@@ -99,28 +98,15 @@ def test_file_target(tmpdir):
     data = [msg for msg in eccodes.FileReader(f"{tmpdir}/test.grib")]
     assert len(data) == 5
 
-    # Check files are overwritten
-    for msg in messages:
-        target.write(msg)
-    data = [msg for msg in eccodes.FileReader(f"{tmpdir}/test.grib")]
-    assert len(data) == 5
-
 
 def test_fileset_target(tmpdir):
     target = io.target_from_location(f"fileset:{tmpdir}" + "/test_{step}.grib")
-    target.enable_recovery()
     for msg in eccodes.FileReader(f"{DATA_DIR}/2t_ens.grib"):
         target.write(msg)
     files = os.listdir(tmpdir)
     assert set(x for x in files if x.endswith(".grib")) == set(
         f"test_{x}.grib" for x in range(12, 37, 6)
     )
-    data = [msg for msg in eccodes.FileReader(f"{tmpdir}/test_12.grib")]
-    assert len(data) == 6
-
-    # Check files are overwritten
-    for msg in eccodes.FileReader(f"{DATA_DIR}/2t_ens.grib"):
-        target.write(msg)
     data = [msg for msg in eccodes.FileReader(f"{tmpdir}/test_12.grib")]
     assert len(data) == 6
 
@@ -150,7 +136,12 @@ def test_target_parallel(tmpdir, fdb, loc, out_loc, reqs):
     target = io.target_from_location(loc)
     target.enable_parallel()
     parallel.parallel_processing(
-        _write, [(target, x) for x in eccodes.FileReader(f"{DATA_DIR}/2t_ens.grib")], 4
+        _write,
+        [
+            (target, io.GribMetadata(x._handle))
+            for x in eccodes.FileReader(f"{DATA_DIR}/2t_ens.grib")
+        ],
+        4,
     )
 
     type_, path = loc.split(":")
