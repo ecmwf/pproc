@@ -73,7 +73,10 @@ class QueueingExecutor(fut.ProcessPoolExecutor):
         completion, removes all complete futures and then submits
         new job
         """
-        if self.queue_size > 0 and len(self.futures) >= self.queue_size:
+        if self.queue_size == 0:
+            return super().submit(function, *args, **kwargs)
+
+        if len(self.futures) >= self.queue_size:
             print(
                 f"Queue reached max limit {self.queue_size}. Waiting for a subprocess completion"
             )
@@ -87,6 +90,7 @@ class QueueingExecutor(fut.ProcessPoolExecutor):
             self.futures[:] = new_futures
 
         self.futures.append(super().submit(function, *args, **kwargs))
+        return self.futures[-1]
 
     def wait(self):
         """
