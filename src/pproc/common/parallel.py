@@ -7,6 +7,7 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
+import multiprocessing
 import concurrent.futures as fut
 import os
 import sys
@@ -41,13 +42,27 @@ class QueueingExecutor(fut.ProcessPoolExecutor):
     required for pending futures can be large.
     """
 
-    def __init__(self, n_par: int, queue_size: int = 0, initializer=None, initargs=()):
+    def __init__(
+        self,
+        n_par: int,
+        queue_size: int = 0,
+        initializer=signal.signal,
+        initargs=(signal.SIGTERM, signal.SIG_DFL),
+        mp_context: str = "forkserver",
+        **executor_kwargs,
+    ):
         """
         :param n_par: number of processes
         :queue_size: maximum number of allowed pending futures, if 0 then
         no queueing is implemented
         """
-        super().__init__(max_workers=n_par, initializer=initializer, initargs=initargs)
+        super().__init__(
+            max_workers=n_par,
+            initializer=initializer,
+            initargs=initargs,
+            mp_context=multiprocessing.get_context(mp_context),
+            **executor_kwargs,
+        )
         self.futures = []
         self.queue_size = queue_size
 
@@ -58,7 +73,10 @@ class QueueingExecutor(fut.ProcessPoolExecutor):
         completion, removes all complete futures and then submits
         new job
         """
-        if self.queue_size > 0 and len(self.futures) >= self.queue_size:
+        if self.queue_size == 0:
+            return super().submit(function, *args, **kwargs)
+
+        if len(self.futures) >= self.queue_size:
             print(
                 f"Queue reached max limit {self.queue_size}. Waiting for a subprocess completion"
             )
@@ -72,6 +90,7 @@ class QueueingExecutor(fut.ProcessPoolExecutor):
             self.futures[:] = new_futures
 
         self.futures.append(super().submit(function, *args, **kwargs))
+        return self.futures[-1]
 
     def wait(self):
         """
@@ -81,15 +100,23 @@ class QueueingExecutor(fut.ProcessPoolExecutor):
             future.result()
 
 
-def create_executor(options: Parallelisation) -> fut.Executor:
+def create_executor(
+    options: Parallelisation,
+    initializer=signal.signal,
+    initargs=(signal.SIGTERM, signal.SIG_DFL),
+    mp_context: str = "forkserver",
+    **executor_kwargs,
+) -> fut.Executor:
     return (
         SynchronousExecutor()
         if options.n_par_compute == 1
         else QueueingExecutor(
             options.n_par_compute,
             options.queue_size,
-            initializer=signal.signal,
-            initargs=(signal.SIGTERM, signal.SIG_DFL),
+            initializer=initializer,
+            initargs=initargs,
+            mp_context=mp_context,
+            **executor_kwargs,
         )
     )
 
@@ -100,6 +127,8 @@ def parallel_processing(
     n_par,
     initializer=signal.signal,
     initargs=(signal.SIGTERM, signal.SIG_DFL),
+    mp_context: str = "forkserver",
+    **executor_kwargs,
 ):
     """Run a processing function in parallel
 
@@ -120,7 +149,11 @@ def parallel_processing(
         SynchronousExecutor()
         if n_par == 1
         else fut.ProcessPoolExecutor(
-            max_workers=n_par, initializer=initializer, initargs=initargs
+            max_workers=n_par,
+            initializer=initializer,
+            initargs=initargs,
+            mp_context=multiprocessing.get_context(mp_context),
+            **executor_kwargs,
         )
     )
     with executor:
@@ -154,6 +187,8 @@ def parallel_data_retrieval(
     data_requesters: List[ParamRequester],
     initializer=signal.signal,
     initargs=(signal.SIGTERM, signal.SIG_DFL),
+    mp_context: str = "forkserver",
+    **executor_kwargs,
 ):
     """
     Multiprocess retrieve data function from multiple data requests
@@ -172,7 +207,11 @@ def parallel_data_retrieval(
         SynchronousExecutor()
         if num_processes == 1
         else fut.ProcessPoolExecutor(
-            max_workers=num_processes, initializer=initializer, initargs=initargs
+            max_workers=num_processes,
+            initializer=initializer,
+            initargs=initargs,
+            mp_context=multiprocessing.get_context(mp_context),
+            **executor_kwargs,
         )
     )
     with executor:

@@ -15,7 +15,6 @@ import pandas as pd
 import signal
 import logging
 import numexpr
-import concurrent.futures as fut
 
 import eccodes
 from meters import ResourceMeter
@@ -31,6 +30,7 @@ from pproc.common.steps import AnyStep
 from pproc.common.parallel import (
     parallel_data_retrieval,
     sigterm_handler,
+    QueueingExecutor,
 )
 from pproc.common.io import write_grib, GribMetadata
 from pproc.common.accumulation_manager import AccumulationManager
@@ -230,11 +230,7 @@ def compute_weather_types(
         wt_batch_size=wt_batch_size,
     )
 
-    with fut.ProcessPoolExecutor(
-        max_workers=ens_batch_size,
-        initializer=signal.signal,
-        initargs=(signal.SIGTERM, signal.SIG_DFL),
-    ) as executor:
+    with QueueingExecutor(n_par=ens_batch_size) as executor:
         for ind_em, result in enumerate(
             executor.map(ens_partial, predictant, predictors.transpose(1, 0, 2))
         ):

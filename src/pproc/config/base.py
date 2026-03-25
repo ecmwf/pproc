@@ -113,7 +113,6 @@ class BaseConfig(ConfigModel):
 
         for name in self.outputs.names:
             target = getattr(self.outputs, name).target
-            target.init()
             if (isinstance(self.parallelisation, int) and self.parallelisation > 1) or (
                 isinstance(self.parallelisation, Parallelisation)
                 and self.parallelisation.n_par_compute > 1

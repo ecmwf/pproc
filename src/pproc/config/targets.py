@@ -23,7 +23,6 @@ from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, model_valida
 from pproc.config import utils
 
 _manager = None
-_opened_files = None
 
 
 def _shared_list():
@@ -31,37 +30,6 @@ def _shared_list():
     if _manager is None:
         _manager = multiprocessing.Manager()
     return _manager.list()
-
-
-def _get_opened_files():
-    global _opened_files
-    if _opened_files is None:
-        _opened_files = _shared_list()
-    return _opened_files
-
-
-def remove_duplicate(path: str, message: eccodes.Message):
-    """
-    Removes existing message in file specified by path if it has mars keys
-    matching those in message
-    """
-    if os.path.exists(path):
-        mars_keys = ",".join(
-            [f"{key}={value}" for key, value in message.items(namespace="mars")]
-        )
-        file_messages = [
-            ",".join([f"{key}={value}" for key, value in msg.items(namespace="mars")])
-            for msg in eccodes.FileReader(path)
-        ]
-        if mars_keys in file_messages:
-            print(f"Deleting duplicate message {mars_keys} in file {path}")
-            duplicate_index = file_messages.index(mars_keys)
-            with open(f"{path}.temp", "wb") as temp_file:
-                for msg_index, msg in enumerate(eccodes.FileReader(path)):
-                    if msg_index == duplicate_index:
-                        continue
-                    msg.write_to(temp_file)
-            os.rename(f"{path}.temp", path)
 
 
 class Target(BaseModel):
@@ -72,9 +40,6 @@ class Target(BaseModel):
 
     def __exit__(self, exc_type, exc_value, traceback):
         return
-
-    def init(self):
-        pass
 
     def flush(self):
         return
@@ -104,12 +69,8 @@ class FileTarget(Target):
     path: str
     clean_lock: bool = True
 
-    _mode: str = "wb"
+    _opened_files: list[str] = []
     _lock: FileLock = None
-    _overwrite_existing: bool = False
-
-    def init(self):
-        _get_opened_files()
 
     @model_validator(mode="after")
     def create_lock(self) -> Self:
@@ -119,20 +80,19 @@ class FileTarget(Target):
 
     @property
     def mode(self):
-        track_truncated = _get_opened_files()
-        if self.path not in track_truncated:
-            track_truncated.append(self.path)
-            return self._mode
+        if self.path not in self._opened_files:
+            self._opened_files.append(self.path)
+            return "wb"
         return "ab"
 
     def enable_recovery(self):
-        self._mode = "ab"
-        self._overwrite_existing = True
+        raise NotImplementedError("Recovery is not implemented for FileTarget")
+
+    def enable_parallel(self):
+        self._opened_files = _shared_list()
 
     def write(self, message):
         with self._lock:
-            if self._overwrite_existing:
-                remove_duplicate(self.path, message)
             with open(self.path, self.mode) as file:
                 message.write_to(file)
 
@@ -147,26 +107,21 @@ class FileSetTarget(Target):
     path: str
     clean_locks: bool = True
 
-    _mode: str = "wb"
     _file_locks: dict[str, FileLock] = {}
+    _opened_files: list[str] = []
     _lock_paths: list[str] = []
-    _overwrite_existing: bool = False
-
-    def init(self):
-        _get_opened_files()
 
     def mode(self, path: str):
-        track_truncated = _get_opened_files()
-        if path not in track_truncated:
-            track_truncated.append(path)
-            return self._mode
+        if path not in self._opened_files:
+            self._opened_files.append(path)
+            return "wb"
         return "ab"
 
     def enable_recovery(self):
-        self._mode = "ab"
-        self._overwrite_existing = True
+        raise NotImplementedError("Recovery is not implemented for FileSetTarget")
 
     def enable_parallel(self):
+        self._opened_files = _shared_list()
         self._lock_paths = _shared_list()
 
     def write(self, message):
@@ -174,8 +129,6 @@ class FileSetTarget(Target):
         with self._file_locks.setdefault(path, FileLock(path + ".lock")) as lock:
             if lock.lock_file not in self._lock_paths:
                 self._lock_paths.append(lock.lock_file)
-            if self._overwrite_existing:
-                remove_duplicate(path, message)
             with open(path, self.mode(path)) as file:
                 message.write_to(file)
 
