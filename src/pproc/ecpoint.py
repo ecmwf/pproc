@@ -71,7 +71,6 @@ def grid_bc_metadata(template: CodesHandle, out_keys: dict) -> tuple[CodesHandle
                 "edition": 2,
                 "productDefinitionTemplateNumber": 73,
                 "type": "gbf",
-                "inputProcessIdentifier": template.get("generatingProcessIdentifier"),
                 "inputOriginatingCentre": template.get("originatingCentre"),
                 "typeOfGeneratingProcess": 13,
                 "typeOfPostProcessing": 206,
@@ -110,10 +109,37 @@ def weather_types_metadata(
                 "productDefinitionTemplateNumber": 73,
                 "type": "gwt",
                 "packingType": "grid_ieee",
-                "inputProcessIdentifier": template.get("generatingProcessIdentifier"),
                 "inputOriginatingCentre": template.get("originatingCentre"),
                 "typeOfGeneratingProcess": 13,
                 "typeOfPostProcessing": 206,
+                "indicatorOfUnitForTimeIncrement": 1,
+                "timeIncrement": 1,
+            }
+        )
+        grib_keys.update(out_keys)
+        if grib_keys["productDefinitionTemplateNumber"] == 73:
+            mars_keys = {k: v for k, v in template.items(namespace="mars")}
+            if mars_keys.get("number", 0) == 0:
+                grib_keys["typeOfEnsembleForecast"] = 5
+            else:
+                grib_keys["typeOfEnsembleForecast"] = 6
+    else:
+        grib_keys.update(out_keys)
+    return template, grib_keys
+
+
+def realisations_metadata(template: CodesHandle, out_keys: dict) -> dict:
+    edition = out_keys.get("edition", template.get("edition"))
+    if edition not in (1, 2):
+        raise ValueError(f"Unsupported GRIB edition {edition}")
+
+    grib_keys = {}
+    if edition == 2:
+        grib_keys.update(
+            {
+                "edition": 2,
+                "productDefinitionTemplateNumber": 73,
+                "inputOriginatingCentre": template.get("originatingCentre"),
                 "indicatorOfUnitForTimeIncrement": 1,
                 "timeIncrement": 1,
             }
@@ -276,11 +302,18 @@ def ecpoint_iteration(
             write_grib(out_wt.target, wt_message, wt_allwt, metadata)
 
             for number in range(len(pt_bc_allwt)):
+                msg, metadata = realisations_metadata(
+                    template,
+                    {
+                        **out_keys,
+                        **out_realisations.metadata,
+                    },
+                )
                 write_grib(
                     out_realisations.target,
-                    template,
+                    msg,
                     pt_bc_allwt[number],
-                    {**out_keys, **out_realisations.metadata},
+                    metadata,
                 )
 
     out_bs.target.flush()
