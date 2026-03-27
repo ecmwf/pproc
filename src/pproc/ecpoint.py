@@ -128,7 +128,7 @@ def weather_types_metadata(
     return template, grib_keys
 
 
-def realisations_metadata(template: CodesHandle, out_keys: dict) -> dict:
+def members_metadata(template: CodesHandle, out_keys: dict) -> dict:
     edition = out_keys.get("edition", template.get("edition"))
     if edition not in (1, 2):
         raise ValueError(f"Unsupported GRIB edition {edition}")
@@ -260,10 +260,10 @@ def ecpoint_iteration(
             config, param, out_keys["stepRange"], input_params
         )
 
-    with ResourceMeter(f"Compute realisations: {window_id}"):
+    with ResourceMeter(f"Compute members on ecpoint: {window_id}"):
         out_bs = config.outputs.bs
         out_wt = config.outputs.wt
-        out_realisations = config.outputs.realisations
+        out_members = config.outputs.members
 
         for index, (
             pt_bc_allwt,
@@ -302,15 +302,15 @@ def ecpoint_iteration(
             write_grib(out_wt.target, wt_message, wt_allwt, metadata)
 
             for number in range(len(pt_bc_allwt)):
-                msg, metadata = realisations_metadata(
+                msg, metadata = members_metadata(
                     template,
                     {
                         **out_keys,
-                        **out_realisations.metadata,
+                        **out_members.metadata,
                     },
                 )
                 write_grib(
-                    out_realisations.target,
+                    out_members.target,
                     msg,
                     pt_bc_allwt[number],
                     metadata,
@@ -318,7 +318,7 @@ def ecpoint_iteration(
 
     out_bs.target.flush()
     out_wt.target.flush()
-    out_realisations.target.flush()
+    out_members.target.flush()
     config.recovery.add_checkpoint(param=param.name, window=window_id)
 
 

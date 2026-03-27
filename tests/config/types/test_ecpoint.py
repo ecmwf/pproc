@@ -69,7 +69,7 @@ def test_ecpoint_outputs(inputs, expected):
             "default": {"target": {"type": "fdb"}},
             "bs": {"metadata": {"type": "gbf"}},
             "wt": {"metadata": {"type": "gwt"}},
-            "realisations": {"target": {"type": "file", "path": "realisations.grib"}},
+            "members": {"target": {"type": "file", "path": "members.grib"}},
         },
     )
     config.print()

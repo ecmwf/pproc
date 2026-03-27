@@ -277,7 +277,7 @@ WindOutputModel = create_output_model(
 )
 ThermoInputModel = create_input_model("Thermo", ["inst"], optional=["accum"])
 ThermoOutputModel = create_output_model("Thermo", ["indices", "accum", "intermediate"])
-ECPointOutputModel = create_output_model("ECPoint", ["bs", "wt", "realisations"])
+ECPointOutputModel = create_output_model("ECPoint", ["bs", "wt", "members"])
 ClusterInputModel = create_input_model(
     "Cluster", ["fc", "spread"], optional=["deterministic"]
 )
