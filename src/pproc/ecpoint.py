@@ -261,8 +261,8 @@ def ecpoint_iteration(
         )
 
     with ResourceMeter(f"Compute members on ecpoint: {window_id}"):
-        out_bs = config.outputs.bs
-        out_wt = config.outputs.wt
+        out_bc = config.outputs.bias_corrected
+        out_wt = config.outputs.weather_types
         out_members = config.outputs.members
 
         for index, (
@@ -291,10 +291,10 @@ def ecpoint_iteration(
                 template,
                 {
                     **out_keys,
-                    **out_bs.metadata,
+                    **out_bc.metadata,
                 },
             )
-            write_grib(out_bs.target, bs_message, grid_bc_allwt, metadata)
+            write_grib(out_bc.target, bs_message, grid_bc_allwt, metadata)
 
             wt_message, metadata = weather_types_metadata(
                 template, {**out_keys, **out_wt.metadata}
@@ -316,7 +316,7 @@ def ecpoint_iteration(
                     metadata,
                 )
 
-    out_bs.target.flush()
+    out_bc.target.flush()
     out_wt.target.flush()
     out_members.target.flush()
     config.recovery.add_checkpoint(param=param.name, window=window_id)

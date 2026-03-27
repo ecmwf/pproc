@@ -67,8 +67,8 @@ def test_ecpoint_outputs(inputs, expected):
         inputs={"fc": {"source": {"type": "fdb"}}},
         outputs={
             "default": {"target": {"type": "fdb"}},
-            "bs": {"metadata": {"type": "gbf"}},
-            "wt": {"metadata": {"type": "gwt"}},
+            "bias_corrected": {"metadata": {"type": "gbf"}},
+            "weather_types": {"metadata": {"type": "gwt"}},
             "members": {"target": {"type": "file", "path": "members.grib"}},
         },
     )
