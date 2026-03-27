@@ -1002,8 +1002,8 @@ class ECPointParamConfig(ParamConfig):
 
 class ECPointParallelisation(BaseModel):
     n_par_read: int = 1
+    n_par_compute: int = 1
     wt_batch_size: int = 1
-    ens_batch_size: int = 1
 
 
 class ECPointConfig(BaseConfig):

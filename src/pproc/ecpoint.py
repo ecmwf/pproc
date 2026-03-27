@@ -206,7 +206,7 @@ def compute_weather_types(
     fer_loc: str,
     min_predictant: Optional[float] = None,
     wt_batch_size: int = 1,
-    ens_batch_size: int = 1,
+    n_par: int = 1,
 ) -> Iterator[Tuple[np.ndarray, np.ndarray, np.ndarray]]:
     # Extract variables from files
     bp_file = pd.read_csv(bp_loc, header=0, delimiter=",")
@@ -228,7 +228,7 @@ def compute_weather_types(
         wt_batch_size=wt_batch_size,
     )
 
-    with QueueingExecutor(n_par=ens_batch_size) as executor:
+    with QueueingExecutor(n_par=n_par) as executor:
         for ind_em, result in enumerate(
             executor.map(ens_partial, predictant, predictors.transpose(1, 0, 2))
         ):
@@ -277,7 +277,7 @@ def ecpoint_iteration(
                 config.fer_location,
                 config.min_predictant,
                 config.parallelisation.wt_batch_size,
-                config.parallelisation.ens_batch_size,
+                config.parallelisation.n_par_compute,
             )
         ):
 
