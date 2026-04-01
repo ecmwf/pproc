@@ -34,6 +34,9 @@ BASE_OUTPUT = {
                         }
                     }
                 },
+                "outputs": {
+                    "default": {"metadata": {"stream": "enfo"}},
+                },
             },
             [
                 {**BASE_OUTPUT, "stream": "enfo", "type": "efi", "step": ["12-36"]},
@@ -59,6 +62,9 @@ BASE_OUTPUT = {
         [
             {
                 "parameters": {"2t": {"sot": []}},
+                "outputs": {
+                    "default": {"metadata": {"stream": "enfo"}},
+                },
             },
             [
                 {**BASE_OUTPUT, "stream": "enfo", "type": "efi", "step": ["12-36"]},
@@ -67,7 +73,10 @@ BASE_OUTPUT = {
         ],
         [
             {
-                "outputs": {"efi": {"target": "file", "path": "efi.grib"}},
+                "outputs": {
+                    "default": {"metadata": {"stream": "enfo"}},
+                    "efi": {"target": "file", "path": "efi.grib"},
+                },
             },
             [
                 {
@@ -79,8 +88,59 @@ BASE_OUTPUT = {
                 },
             ],
         ],
+        [
+            {
+                "parameters": {
+                    "2t": {
+                        "inputs": {
+                            "fc": {
+                                "request": [
+                                    {"stream": "eefo", "type": "cf"},
+                                    {
+                                        "stream": "eefo",
+                                        "type": "pf",
+                                        "number": [1, 2, 3],
+                                    },
+                                ]
+                            },
+                        },
+                        "accumulations": {
+                            "step": {
+                                "type": "legacywindow",
+                                "windows": [
+                                    {
+                                        "coords": [["0-168"], ["24-192"]],
+                                    },
+                                ],
+                            },
+                        },
+                    }
+                },
+            },
+            [
+                {
+                    **BASE_OUTPUT,
+                    "stream": "eefo",
+                    "type": "efi",
+                    "step": ["0-168", "24-192"],
+                },
+                {
+                    **BASE_OUTPUT,
+                    "stream": "eefo",
+                    "type": "efic",
+                    "step": ["0-168", "24-192"],
+                },
+                {
+                    **BASE_OUTPUT,
+                    "stream": "eefo",
+                    "type": "sot",
+                    "step": ["0-168", "24-192"],
+                    "number": [10, 90],
+                },
+            ],
+        ],
     ],
-    ids=["mult-accum", "no-sot", "diff-target"],
+    ids=["mult-accum", "no-sot", "diff-target", "subseasonal"],
 )
 def test_outputs(overrides, expected):
     base_config = {
@@ -107,7 +167,7 @@ def test_outputs(overrides, expected):
         },
         "inputs": {"default": {"source": {"type": "fdb"}}},
         "outputs": {
-            "default": {"target": {"type": "fdb"}, "metadata": {"stream": "enfo"}},
+            "default": {"target": {"type": "fdb"}},
             "efi": {},
             "sot": {},
             "cpf": {},
