@@ -343,7 +343,8 @@ class InputSchema(BaseSchema):
         out = copy.deepcopy(request)
         ignore_inheritance = {
             "number": lambda req: (
-                req["type"] not in ["pf", "fcmean", "fcmax", "fcstdev", "fcmin", "fc"]
+                req["type"]
+                not in ["pf", "fcmean", "fcmax", "fcstdev", "fcmin", "fc", "gwt"]
             ),
             "step": None,
             "fcmonth": None,
@@ -420,9 +421,9 @@ class InputSchema(BaseSchema):
             output_request["number"] = sum(
                 [to_list(req.get("number", [0])) for req in input_requests], []
             )
-        elif tp == "pf":
+        elif tp in ["pf", "gwt"]:
             for req in input_requests:
-                if req["type"] == "pf":
+                if req["type"] in ["pf", "gwt"] and "number" in req:
                     output_request["number"] = req["number"]
                     break
         elif tp in ["pb", "cd"]:
