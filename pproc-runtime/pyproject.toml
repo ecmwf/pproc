@@ -22,7 +22,15 @@ requires-python = ">=3.10"
 readme = "README.md"
 dynamic = [ "version" ]
 
-dependencies = []
+dependencies = [
+    "earthkit-data[mars,fdb]", 
+    "earthkit-meteo", 
+    "thermofeel",
+    "code-meters"
+    "mir-python", 
+    "fdblibs",
+    "array_api_compat",
+]
 
 
 [project.optional-dependencies]

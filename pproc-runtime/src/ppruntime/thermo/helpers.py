@@ -15,9 +15,6 @@ import thermofeel
 from meters import metered
 from typing import Optional
 
-from pproc.common.io import write_grib
-from pproc.config.targets import Target
-
 logger = logging.getLogger(__name__)
 
 # Constants
@@ -176,19 +173,20 @@ def step_interval(fields) -> int:
     return delta
 
 
-def write(
-    target: Target,
-    ds: "earthkit.data.FieldList | earthkit.data.core.fieldlist.Field",
-    metadata: Optional[dict] = None,
-):
-    if isinstance(ds, earthkit.data.core.fieldlist.Field):
-        ds = [ds]
-    metadata = metadata or {}
-    for f in ds:
-        field_metadata = f.metadata()
-        updates = metadata.copy()
-        # Handle wrapped metadata
-        if hasattr(field_metadata, "extra"):
-            updates.update(field_metadata.extra)
-        message = f.metadata()._handle
-        write_grib(target, message, f.values, updates)
+def create_output(values: np.ndarray, template: earthkit.data.Metadata, metadata: dict):
+        template = [x.override(**metadata) for x in template]
+        return earthkit.data.FieldList.from_array(values, template)
+
+
+def create_surface_output(values: np.ndarray, template: earthkit.data.Metadata, metadata: dict):
+    template = [x.override(**metadata) for x in template]
+    template = [
+        x.override(
+            **metadata,
+            typeOfFirstFixedSurface=1,
+            scaleFactorOfFirstFixedSurface="MISSING",
+            scaledValueOfFirstFixedSurface="MISSING",
+        )
+        for x in template
+    ]
+    return earthkit.data.FieldList.from_array(values, template)

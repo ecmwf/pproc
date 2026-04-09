@@ -13,7 +13,7 @@ from typing import Callable, Any, Optional, Iterator
 from typing_extensions import Self
 import logging
 
-from pproc.config.utils import deep_update
+from ppcore.utils.helpers import deep_update
 
 logger = logging.getLogger(__name__)
 

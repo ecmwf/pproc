@@ -17,13 +17,6 @@ from earthkit.data.sources import Source, from_source
 from earthkit.data.sources.file import FileSource
 from earthkit.data.sources.stream import StreamSource
 from meters import ResourceMeter
-from pproc.common.io import (
-    FileSetTarget,
-    FileTarget,
-    split_location,
-    target_from_location,
-    write_grib,
-)
 
 # Set cache policy to "temporary" to avoid "database is locked" errors when
 # for wind when executing across multiple workers
@@ -164,7 +157,7 @@ def retrieve_single_source(request: dict, **kwargs) -> FieldList:
 
 
 def retrieve(request: dict | list[dict], **kwargs):
-    with ResourceMeter(f"RETRIEVE {request}, {kwargs}"):
+    with ResourceMeter(f"retrieve {request}, {kwargs}"):
         if isinstance(request, dict):
             res = retrieve_single_source(request, **kwargs)
         else:
@@ -175,19 +168,8 @@ def retrieve(request: dict | list[dict], **kwargs):
         )
         return ret
 
-
-def write(data: FieldList, loc, metadata: dict | None = None):
-    if loc == "null:":
-        return
-    target = target_from_location(loc)
-    if isinstance(target, (FileTarget, FileSetTarget)):
-        # Allows file to be appended on each write call
-        target.enable_recovery()
-    assert len(data) == 1, f"Expected single field, received {len(data)}"
-
-    template = data.metadata()[0]
-    if metadata is not None:
-        template = template.override(metadata)
-
-    with ResourceMeter(f"WRITE {loc}"):
-        write_grib(target, template._handle, data[0].values)
+def write(data: FieldList, target: dict) -> dict:
+    if target["name"] == "null":
+        return target
+    data.to_target(**target)
+    return target

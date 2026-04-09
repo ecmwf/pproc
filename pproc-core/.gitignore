@@ -9,3 +9,10 @@
 .mypy_cache
 
 dist/*
+env
+build
+*.ipynb_checkpoints
+runs
+docs/examples/lib
+lib/
+experiments

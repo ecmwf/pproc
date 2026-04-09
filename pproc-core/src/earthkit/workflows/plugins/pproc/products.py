@@ -8,11 +8,11 @@
 # nor does it submit to any jurisdiction.
 
 from earthkit.workflows.graph import Graph, deduplicate_nodes
-from pproc.config.utils import expand, squeeze
 
 from earthkit.workflows.plugins.pproc.fluent import from_source
 from earthkit.workflows.plugins.pproc.templates import derive_template
 from earthkit.workflows.plugins.pproc.utils.request import Request
+from ppcore.utils.requests import expand, squeeze
 
 
 def ensemble(

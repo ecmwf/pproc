@@ -12,8 +12,9 @@ from typing import Literal, Optional, Annotated, Union
 import numpy as np
 import bisect
 
-from pproc.schema.base import BaseSchema
-from pproc.common.stepseq import stepseq_monthly, steprange_to_fcmonth
+# from pproc.common.stepseq import stepseq_monthly, steprange_to_fcmonth
+
+from ppcore.schema.base import BaseSchema
 
 
 class Instantaneous(BaseModel):

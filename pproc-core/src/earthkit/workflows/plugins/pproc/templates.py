@@ -12,11 +12,10 @@ from typing import Optional
 
 from earthkit.workflows.backends.earthkit import FieldListBackend
 from earthkit.workflows.fluent import Payload
-from pproc.config.preprocessing import PreprocessingConfig
-from pproc.schema.schema import Schema
 
 from earthkit.workflows.plugins.pproc.fluent import Action
-from earthkit.workflows.plugins.pproc.utils import grib
+from ppcore.config.preprocessing import PreprocessingConfig
+from ppcore.schema.schema import Schema
 
 
 @dataclass
@@ -31,7 +30,7 @@ class EnsembleConfig:
     ) -> Action:
         action = forecast
         for preprocessing in self.preprocessing:
-            action = action.param_operation(dim=preprocessing_dim, **preprocessing)
+            action = action.param_operation(dim=preprocessing_dim, **preprocessing.model_dump())
         for dim, accumulation in self.accumulations.items():
             action = action.accum_operation(
                 accumulation["operation"],
@@ -73,7 +72,7 @@ class ExtremeConfig(EnsembleConfig):
     ) -> Action:
         action = forecast
         for preprocessing in self.preprocessing:
-            action = action.param_operation(dim=preprocessing_dim, **preprocessing)
+            action = action.param_operation(dim=preprocessing_dim, **preprocessing.model_dump())
         for dim, accumulation in self.accumulations.items():
             action = action.accum_operation(
                 accumulation["operation"],
@@ -109,11 +108,11 @@ class AnomalyConfig(EnsembleConfig):
         ensemble_dim="number",
     ) -> Action:
         clim_headers = climatology.iselect({"type": 0, "step": 0}, drop=True).map(
-            Payload(grib.anomaly_clim)
+            Payload("earthkit.workflows.plugins.pproc.runtime.metadata.anomaly_clim")
         )
         action = forecast
         for preprocessing in self.preprocessing:
-            action = action.param_operation(dim=preprocessing_dim, **preprocessing)
+            action = action.param_operation(dim=preprocessing_dim, **preprocessing.model_dump())
         action = action.anomaly(
             climatology.select({"type": "em"}, drop=True),
             climatology.select({"type": "es"}, drop=True),
