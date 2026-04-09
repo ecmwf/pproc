@@ -15,25 +15,25 @@ import pandas as pd
 import numpy as np
 import logging
 
-from pproc.schema.base import BaseSchema
-from pproc.schema.deriver import (
+from ppcore.schema.base import BaseSchema
+from ppcore.schema.deriver import (
     ForecastStepDeriver,
     DefaultStepDeriver,
     ClimDateDeriver,
     ClimStepDeriver,
     HindcastDatesDeriver,
 )
-from pproc.schema.filters import _steplength, _steptype, _selection, _members
-from pproc.schema.step import StepSchema
-from pproc.schema.utils import validate_request
-from pproc.config.utils import (
+from ppcore.schema.filters import _steplength, _steptype, _selection, _members
+from ppcore.schema.step import StepSchema
+from ppcore.schema.utils import validate_request
+from ppcore.utils.requests import (
     update_request,
     expand,
     squeeze,
-    deep_update,
     extract_mars,
-    to_list,
 )
+from ppcore.utils.dicts import deep_update
+from ppcore.utils.helpers import to_list
 
 logger = logging.getLogger(__name__)
 

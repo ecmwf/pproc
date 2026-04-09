@@ -9,12 +9,11 @@
 
 import numpy as np
 
-from pproc.schema.base import BaseSchema, dict_update
-from pproc.schema.filters import _steplength, _selection, _steptype
-from pproc.schema.utils import validate_request
-from pproc.config.utils import to_list
-from pproc.common.grib_helpers import fill_template_value
-from pproc.common.utils import dict_apply
+from ppcore.schema.base import BaseSchema, dict_update
+from ppcore.schema.filters import _steplength, _selection, _steptype
+from ppcore.utils.requests import validate_request
+from ppcore.utils.helpers import to_list, fill_template_value
+from ppcore.utils.dicts import dict_apply
 
 
 class ConfigSchema(BaseSchema):

@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from earthkit.workflows.plugins.pproc.utils.io import retrieve
+from ppruntime.io import retrieve
 
 request = {
     "class": "od",

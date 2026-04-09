@@ -15,32 +15,31 @@ import numpy as np
 from earthkit.workflows.backends.earthkit import FieldListBackend
 
 from earthkit.workflows import fluent
-from earthkit.workflows.plugins.pproc.utils import grib, io, math
 from earthkit.workflows.plugins.pproc.utils.request import MultiSourceRequest, Request
 
 
 class Action(fluent.Action):
     _THERMAL_CONFIG = {
-        "utci": {"operation": math.calc_utci, "params": ["2t", "2d", "10si", "mrt"]},
+        "utci": {"operation": "ppcore.thermal_indices.calc_utci", "params": ["2t", "2d", "10si", "mrt"]},
         "10si": {
             "operation": "norm",
             "metadata": {"paramId": 207},
             "params": ["10u", "10v"],
         },
         "mrt": {
-            "operation": math.calc_mrt,
-            "params": ["uvcossza", "dsrp", "ssrd", "fdir", "strd", "str", "ssr"],
+            "operation": "ppcore.thermal_indices.calc_mrt",
+            "params": ["cossza", "dsrp", "ssrd", "fdir", "strd", "str", "ssr"],
         },
-        "uvcossza": {"operation": math.calc_cossza, "params": ["2t", "fdir"]},
-        "dsrp": {"operation": math.calc_dsrp, "params": ["fdir", "uvcossza"]},
-        "hmdx": {"operation": math.calc_hmdx, "params": ["2t", "2d"]},
-        "2r": {"operation": math.calc_rhp, "params": ["2t", "2d"]},
-        "heatx": {"operation": math.calc_heatx, "params": ["2t", "2d"]},
-        "wbgt": {"operation": math.calc_wbgt, "params": ["2t", "2d", "10si", "mrt"]},
-        "gt": {"operation": math.calc_gt, "params": ["2t", "10si", "mrt"]},
-        "nefft": {"operation": math.calc_nefft, "params": ["2t", "10si", "2r"]},
-        "wcf": {"operation": math.calc_wcf, "params": ["2t", "10si"]},
-        "aptmp": {"operation": math.calc_aptmp, "params": ["2t", "2r", "10si"]},
+        "cossza": {"operation": "ppcore.thermal_indices.calc_cossza", "params": ["2t", "fdir"]},
+        "dsrp": {"operation": "ppcore.thermal_indices.calc_dsrp", "params": ["fdir", "cossza"]},
+        "hmdx": {"operation": "ppcore.thermal_indices.calc_hmdx", "params": ["2t", "2d"]},
+        "2r": {"operation": "ppcore.thermal_indices.calc_rhp", "params": ["2t", "2d"]},
+        "heatx": {"operation": "ppcore.thermal_indices.calc_heatx", "params": ["2t", "2d"]},
+        "wbgt": {"operation": "ppcore.thermal_indices.calc_wbgt", "params": ["2t", "2d", "10si", "mrt"]},
+        "gt": {"operation": "ppcore.thermal_indices.calc_gt", "params": ["2t", "10si", "mrt"]},
+        "nefft": {"operation": "ppcore.thermal_indices.calc_nefft", "params": ["2t", "10si", "2r"]},
+        "wcf": {"operation": "ppcore.thermal_indices.calc_wcf", "params": ["2t", "10si"]},
+        "aptmp": {"operation": "ppcore.thermal_indices.calc_aptmp", "params": ["2t", "2r", "10si"]},
     }
 
     def _reduction_with_metadata(
@@ -251,11 +250,11 @@ class Action(fluent.Action):
         Action
         """
         eps = float(eps)
-        if self.nodes.size == 1:
+        if nodetree_size(self.nodes) == 1:
             if len(step_ranges) != 1:
                 raise ValueError("Single node, but multiple step ranges")
             payload = fluent.Payload(
-                math.efi,
+                "ppcore.stats.efi",
                 (fluent.Node.input_name(1), fluent.Node.input_name(0), eps),
                 {"metadata": metadata},
             )
@@ -299,7 +298,7 @@ class Action(fluent.Action):
         if not isinstance(sot, list):
             sot = [sot]
 
-        if self.nodes.size == 1:
+        if nodetree_size(self.nodes) == 1:
             if len(step_ranges) != 1:
                 raise ValueError("Single node, but multiple step ranges")
             ret = self.join(
@@ -356,28 +355,16 @@ class Action(fluent.Action):
 
     def threshold_prob(
         self,
-        comparison: str,
-        value: float,
-        local_scale_factor: float = None,
+        threshold: dict,
         dim: str = "number",
         batch_size: int = 0,
         metadata: dict | None = None,
     ) -> "Action":
-        metadata = {} if metadata is None else metadata.copy()
-        metadata.update(
-            grib.threshold(
-                metadata.get("edition", 1),
-                comparison,
-                value,
-                local_scale_factor,
-            )
-        )
         payload = fluent.Payload(
-            math.threshold,
+            "ppcore.stats.threshold",
             (
                 fluent.Node.input_name(0),
-                comparison,
-                float(value),
+                threshold,
             ),
         )
         return (
@@ -627,24 +614,11 @@ class Action(fluent.Action):
         ]
         return self.transform(_accum_transform, params, dim)
 
-    def write(
-        self, target: str, metadata: dict | fluent.Action | None = None
-    ) -> "Action":
-        if isinstance(metadata, fluent.Action):
-            res = self.join(metadata, "**datatype**", match_coord_values=True).reduce(
-                fluent.Payload(
-                    io.write,
-                    (fluent.Node.input_name(0), target, fluent.Node.input_name(1)),
-                ),
-                dim="**datatype**",
-            )
-            return res
-
+    def write(self, target: dict) -> "Action":
         return self.map(
             fluent.Payload(
-                io.write,
+                "ppcore.io.write",
                 (fluent.Node.input_name(0), target),
-                {"metadata": metadata},
             )
         )
 
@@ -654,7 +628,7 @@ def _sot_transform(
 ) -> fluent.Action:
     new_sot = action.reduce(
         fluent.Payload(
-            math.sot,
+            "ppcore.stats.sot",
             (fluent.Node.input_name(1), fluent.Node.input_name(0), number, eps),
             {"metadata": metadata},
         )
@@ -681,7 +655,7 @@ def _efi_window_transform(
 ) -> fluent.Action:
     ret = action.select(selection).reduce(
         fluent.Payload(
-            math.efi,
+            "ppcore.stats.efi",
             (fluent.Node.input_name(1), fluent.Node.input_name(0), eps),
             {"metadata": metadata},
         ),
@@ -694,7 +668,7 @@ def _quantiles_transform(
     action, q_number: int, total_number: int, new_dim: str, metadata: dict | None
 ):
     payload = fluent.Payload(
-        math.quantiles,
+        "ppcore.stats.quantiles",
         (fluent.Node.input_name(0), q_number, total_number),
         {"metadata": metadata},
     )
@@ -717,10 +691,6 @@ def _accum_transform(
     if len(coords) == 1:
         # Nothing to reduce and no metadata to set
         return action.select({dim: coords})
-
-    metadata = {} if metadata is None else metadata.copy()
-    if dim == "step":
-        metadata.update(grib.window(operation, coords, include_start))
 
     if deaccumulate:
         accum_action = action.select({dim: coords[:-1]})
@@ -752,7 +722,7 @@ def from_source(
         payloads = np.empty(tuple(request.dims.values()), dtype=object)
         for indices, new_request in request.expand():
             payloads[indices] = functools.partial(
-                io.retrieve, new_request, **backend_kwargs
+                "ppcore.io.retrieve", new_request, **backend_kwargs
             )
         new_action = fluent.from_source(
             payloads,

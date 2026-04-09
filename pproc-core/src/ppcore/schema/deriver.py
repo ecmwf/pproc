@@ -16,7 +16,7 @@ import numpy as np
 from earthkit.time import Sequence
 from earthkit.time.climatology import RelativeYear, date_range
 
-from pproc.common.stepseq import fcmonth_to_steprange
+# from pproc.common.stepseq import fcmonth_to_steprange
 
 
 class DefaultStepDeriver(BaseModel):

@@ -14,12 +14,10 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from pproc.schema.config import ConfigSchema
-from pproc.schema.input import InputSchema
-from pproc.schema.step import StepSchema
-from pproc.schema.utils import validate_request, VALUE_TYPES
-
-from pproc.config.utils import expand, METADATA_KEYS
+from ppcore.schema.config import ConfigSchema
+from ppcore.schema.input import InputSchema
+from ppcore.schema.step import StepSchema
+from ppcore.utils.requests import METADATA_KEYS, VALUE_TYPES, expand, validate_request
 
 
 class Schema:
