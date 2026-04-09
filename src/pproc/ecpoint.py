@@ -18,7 +18,6 @@ import numexpr
 
 import eccodes
 from meters import ResourceMeter
-from earthkit.meteo.stats import iter_quantiles
 from conflator import Conflator
 import earthkit.data
 from earthkit.data.utils.message import CodesHandle
@@ -34,7 +33,6 @@ from pproc.common.parallel import (
 )
 from pproc.common.io import write_grib, GribMetadata
 from pproc.common.accumulation_manager import AccumulationManager
-from pproc.quantile.grib import quantiles_metadata
 from pproc.ecpt.predictors import compute_predictors
 
 logger = logging.getLogger(__name__)
@@ -73,7 +71,6 @@ def grid_bc_metadata(template: CodesHandle, out_keys: dict) -> tuple[CodesHandle
                 "edition": 2,
                 "productDefinitionTemplateNumber": 73,
                 "type": "gbf",
-                "inputProcessIdentifier": template.get("generatingProcessIdentifier"),
                 "inputOriginatingCentre": template.get("originatingCentre"),
                 "typeOfGeneratingProcess": 13,
                 "typeOfPostProcessing": 206,
@@ -112,7 +109,6 @@ def weather_types_metadata(
                 "productDefinitionTemplateNumber": 73,
                 "type": "gwt",
                 "packingType": "grid_ieee",
-                "inputProcessIdentifier": template.get("generatingProcessIdentifier"),
                 "inputOriginatingCentre": template.get("originatingCentre"),
                 "typeOfGeneratingProcess": 13,
                 "typeOfPostProcessing": 206,
@@ -132,9 +128,7 @@ def weather_types_metadata(
     return template, grib_keys
 
 
-def point_scale_metadata(
-    template: CodesHandle, pert_number: int, total_number: int, out_keys: dict
-) -> dict:
+def members_metadata(template: CodesHandle, out_keys: dict) -> dict:
     edition = out_keys.get("edition", template.get("edition"))
     if edition not in (1, 2):
         raise ValueError(f"Unsupported GRIB edition {edition}")
@@ -144,18 +138,22 @@ def point_scale_metadata(
         grib_keys.update(
             {
                 "edition": 2,
-                "productDefinitionTemplateNumber": 90,
-                "type": "pfc",
-                "inputProcessIdentifier": template.get("generatingProcessIdentifier"),
+                "productDefinitionTemplateNumber": 73,
                 "inputOriginatingCentre": template.get("originatingCentre"),
-                "typeOfGeneratingProcess": 13,
-                "typeOfPostProcessing": 206,
                 "indicatorOfUnitForTimeIncrement": 1,
                 "timeIncrement": 1,
             }
         )
-    grib_keys.update(out_keys)
-    return quantiles_metadata(template, pert_number, total_number, grib_keys)
+        grib_keys.update(out_keys)
+        if grib_keys["productDefinitionTemplateNumber"] == 73:
+            mars_keys = {k: v for k, v in template.items(namespace="mars")}
+            if mars_keys.get("number", 0) == 0:
+                grib_keys["typeOfEnsembleForecast"] = 5
+            else:
+                grib_keys["typeOfEnsembleForecast"] = 6
+    else:
+        grib_keys.update(out_keys)
+    return template, grib_keys
 
 
 def compute_single_ens(
@@ -208,7 +206,7 @@ def compute_weather_types(
     fer_loc: str,
     min_predictant: Optional[float] = None,
     wt_batch_size: int = 1,
-    ens_batch_size: int = 1,
+    n_par: int = 1,
 ) -> Iterator[Tuple[np.ndarray, np.ndarray, np.ndarray]]:
     # Extract variables from files
     bp_file = pd.read_csv(bp_loc, header=0, delimiter=",")
@@ -230,7 +228,7 @@ def compute_weather_types(
         wt_batch_size=wt_batch_size,
     )
 
-    with QueueingExecutor(n_par=ens_batch_size) as executor:
+    with QueueingExecutor(n_par=n_par) as executor:
         for ind_em, result in enumerate(
             executor.map(ens_partial, predictant, predictors.transpose(1, 0, 2))
         ):
@@ -262,10 +260,10 @@ def ecpoint_iteration(
             config, param, out_keys["stepRange"], input_params
         )
 
-    pt_bc_allens_allwt = []
-    with ResourceMeter(f"Compute realisations: {window_id}"):
-        out_bs = config.outputs.bs
-        out_wt = config.outputs.wt
+    with ResourceMeter(f"Compute members on ecpoint: {window_id}"):
+        out_bc = config.outputs.bias_corrected
+        out_wt = config.outputs.weather_types
+        out_members = config.outputs.members
 
         for index, (
             pt_bc_allwt,
@@ -279,7 +277,7 @@ def ecpoint_iteration(
                 config.fer_location,
                 config.min_predictant,
                 config.parallelisation.wt_batch_size,
-                config.parallelisation.ens_batch_size,
+                config.parallelisation.n_par_compute,
             )
         ):
 
@@ -293,37 +291,34 @@ def ecpoint_iteration(
                 template,
                 {
                     **out_keys,
-                    **out_bs.metadata,
+                    **out_bc.metadata,
                 },
             )
-            write_grib(out_bs.target, bs_message, grid_bc_allwt, metadata)
+            write_grib(out_bc.target, bs_message, grid_bc_allwt, metadata)
 
             wt_message, metadata = weather_types_metadata(
                 template, {**out_keys, **out_wt.metadata}
             )
             write_grib(out_wt.target, wt_message, wt_allwt, metadata)
-            pt_bc_allens_allwt.append(pt_bc_allwt)
-        pt_bc_allens_allwt = np.concatenate(pt_bc_allens_allwt)
 
-    with ResourceMeter(f"Compute percentiles: {window_id}"):
-        out_perc = config.outputs.perc
-        template = predictant[0].metadata()._handle
-        for i, quantile in enumerate(
-            iter_quantiles(pt_bc_allens_allwt, config.quantiles, method="sort")
-        ):
-            grib_keys = {
-                **out_keys,
-                **out_perc.metadata,
-            }
-            pert_number, total_number = config.quantile_indices(i)
-            metadata = point_scale_metadata(
-                template, pert_number, total_number, grib_keys
-            )
-            write_grib(out_perc.target, template, quantile, metadata)
+            for number in range(len(pt_bc_allwt)):
+                msg, metadata = members_metadata(
+                    template,
+                    {
+                        **out_keys,
+                        **out_members.metadata,
+                    },
+                )
+                write_grib(
+                    out_members.target,
+                    msg,
+                    pt_bc_allwt[number],
+                    metadata,
+                )
 
-    out_bs.target.flush()
+    out_bc.target.flush()
     out_wt.target.flush()
-    out_perc.target.flush()
+    out_members.target.flush()
     config.recovery.add_checkpoint(param=param.name, window=window_id)
 
 
