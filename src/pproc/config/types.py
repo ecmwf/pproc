@@ -665,20 +665,6 @@ class ExtremeParamConfig(ClimParamConfig):
     def indices(self) -> dict[str, Index]:
         return create_indices(self.compute_indices, self.model_dump())
 
-    def out_keys(
-        self, inputs: io.InputsCollection, metadata: Optional[dict] = None
-    ) -> Iterator:
-        base_outs = [req for req in super().out_keys(inputs, metadata)]
-        indices = self.compute_indices.copy()
-        if np.any([x["type"] in ["cf", "fc"] for x in base_outs]):
-            indices.append("efic")
-        req = base_outs[0].copy()
-        for index in indices:
-            if index == "sot" and len(self.sot) == 0:
-                continue
-            req["type"] = index
-            yield req
-
     def _merge_clim(self, other: Self) -> dict:
         return {}
 
@@ -741,6 +727,41 @@ class ExtremeConfig(BaseConfig):
                 fc_step = f"{fc_step[-1] - width}-{fc_step[-1]}"
             clim_inp["step"] = {fc_step: clim_step}
         return sorted_requests
+
+    def out_mars(self, targets: Optional[list[str]] = None) -> Iterator:
+        seen = []
+        for param in self.parameters:
+            for name in self.outputs.names:
+                if name == "default":
+                    continue
+                output = getattr(self.outputs, name)
+                out_type = output.target.type_
+                if out_type == "null" or (targets and out_type not in targets):
+                    continue
+                if name not in param.compute_indices:
+                    continue
+                if name == "sot" and len(param.sot) == 0:
+                    continue
+                out_types = [name]
+                if name == "efi" and np.any(
+                    [x["type"] in ["cf", "fc"] for x in param.in_keys(self.inputs)]
+                ):
+                    out_types.append("efic")
+                for req in param.out_keys(self.inputs, output.metadata):
+                    for tp in out_types:
+                        req = req.copy()
+                        req["type"] = tp
+                        req["target"] = (
+                            output.target.path
+                            if hasattr(output.target, "path")
+                            else output.target.type_
+                        )
+                        req.update(extract_mars(self.outputs.overrides))
+                        req = self._format_out(param, req)
+                        req.pop("interpolate", None)
+                        if req not in seen:
+                            seen.append(req)
+                            yield req
 
 
 class WindConfig(BaseConfig):
