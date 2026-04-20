@@ -10,7 +10,7 @@
 import pytest
 import os
 
-from pproc.schema.schema import Schema
+from ppcore.schema.schema import Schema
 
 from conftest import schema
 

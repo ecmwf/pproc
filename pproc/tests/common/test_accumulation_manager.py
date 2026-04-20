@@ -11,10 +11,10 @@ from typing import Iterator
 
 import numpy as np
 import pytest
+from ppcore.utils.dicts import dict_product
 
 from pproc.common.accumulation import Aggregation, Mean, SimpleAccumulation
 from pproc.common.accumulation_manager import AccumulationManager
-from pproc.common.utils import dict_product
 
 
 CONFIGS = {

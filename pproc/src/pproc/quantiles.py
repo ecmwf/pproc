@@ -18,10 +18,10 @@ import eccodes
 from earthkit.meteo.stats import iter_quantiles
 from meters import ResourceMeter
 from conflator import Conflator
+from ppcore.utils.helpers import fill_template_values
 
 from pproc.common.accumulation import Accumulator
 from pproc.common.accumulation_manager import AccumulationManager
-from pproc.common.grib_helpers import fill_template_values
 from pproc.common.io import write_grib
 from pproc.common.parallel import (
     create_executor,

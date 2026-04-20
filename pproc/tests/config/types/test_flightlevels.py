@@ -2,8 +2,9 @@ import copy
 import pytest
 from contextlib import nullcontext
 
+from ppcore.utils.dicts import deep_update
+
 from pproc.config.types import FlightLevelsConfig
-from pproc.config.utils import deep_update
 
 
 @pytest.mark.parametrize(

@@ -11,8 +11,9 @@ from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Tuple, Un
 
 import numpy as np
 
+from ppcore.utils.dicts import dict_product
+
 from pproc.common.accumulation import Accumulator, Coord
-from pproc.common.utils import dict_product
 from pproc.common.steps import parse_step
 from pproc.config.accumulation import accumulation_factory, AccumulationConfig
 

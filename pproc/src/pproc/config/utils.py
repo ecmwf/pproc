@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 import itertools
 
-from pproc.common.utils import dict_product
+from ppcore.utils.dicts import dict_product
 
 
 def parse_vars(items):

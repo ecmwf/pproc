@@ -9,7 +9,7 @@
 
 import pytest
 
-from pproc.schema.step import StepType, StepSchema
+from ppcore.schema.step import StepType, StepSchema
 
 from conftest import schema
 

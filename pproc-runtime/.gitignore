@@ -34,9 +34,7 @@ MANIFEST
 profile_default/
 ipython_config.py
 
+tests/data
 
-src/earthkit/workflows/plugins/pproc/_version.py
 
-*.ipynb_checkpoints
-docs/examples/lib
-experiments
+src/ppruntime/_version.py

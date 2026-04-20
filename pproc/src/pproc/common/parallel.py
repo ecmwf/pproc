@@ -16,9 +16,10 @@ import signal
 
 import psutil
 from meters import ResourceMeter
+from ppcore.utils.dicts import dict_product
 
 from pproc.common.param_requester import ParamRequester
-from pproc.common.utils import delayed_map, dict_product
+from pproc.common.utils import delayed_map
 from pproc.config.base import Parallelisation
 
 

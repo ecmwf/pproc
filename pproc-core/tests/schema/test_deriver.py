@@ -2,7 +2,7 @@ import pytest
 
 from pydantic import TypeAdapter
 
-from pproc.schema.deriver import ForecastStepDeriver, ClimStepDeriver, ClimDateDeriver
+from ppcore.schema.deriver import ForecastStepDeriver, ClimStepDeriver, ClimDateDeriver
 
 FcStepDeriver = TypeAdapter(ForecastStepDeriver)
 

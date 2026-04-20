@@ -15,10 +15,11 @@ import copy
 
 from earthkit.time.calendar import parse_date
 from earthkit.time.sequence import Sequence
+from ppcore.utils.requests import extract_mars
 
 from pproc.common.stepseq import stepseq_ranges, stepseq_monthly
 from pproc.common.accumulation import convert_coords, coords_name
-from pproc.config.utils import extract_mars, _get
+from pproc.config.utils import _get
 
 
 class StepRanges(BaseModel):

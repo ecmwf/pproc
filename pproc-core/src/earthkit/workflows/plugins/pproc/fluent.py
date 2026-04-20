@@ -19,6 +19,7 @@ from earthkit.workflows.plugins.pproc.utils.request import MultiSourceRequest, R
 
 
 class Action(fluent.Action):
+    # TODO: migrate to schema
     _THERMAL_CONFIG = {
         "utci": {"operation": "ppcore.thermal_indices.calc_utci", "params": ["2t", "2d", "10si", "mrt"]},
         "10si": {
@@ -481,6 +482,10 @@ class Action(fluent.Action):
             return self.multiply(kwargs["value"], metadata=metadata)
         return self._wrapped_reduction(operation, dim, batch_size, metadata, **kwargs)
 
+    # TODO: turn this into more general param operation that scans schema to look for 
+    # computation method of missing parameters. Or should it be that in the creation of the 
+    # configuration returned by the schema, we list configuration for creating all required 
+    # intermediate parameters
     def thermal_index(
         self, param: str, dim: str = "param", metadata: dict | None = None
     ) -> "Action":

@@ -9,13 +9,13 @@
 
 import pytest
 
-from pproc.config.utils import expand, update_request
-from pproc.schema.input import (
+from ppcore.utils.requests import expand, update_request
+from ppcore.schema.input import (
     InputSchema,
     ForecastConfig,
     ForecastInput,
 )
-from pproc.schema.step import StepSchema
+from ppcore.schema.step import StepSchema
 
 from conftest import schema
 

@@ -10,9 +10,11 @@
 import os
 import pytest
 
-from pproc.schema.schema import Schema
+from ppcore.utils.dicts import deep_update
+from ppcore.utils.requests import expand, extract_mars
+from ppcore.schema.schema import Schema
+
 from pproc.config import types
-from pproc.config.utils import deep_update, extract_mars, expand
 from pproc.config.factory import ConfigFactory
 
 from conftest import schema
