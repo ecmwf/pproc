@@ -216,6 +216,7 @@ def compute_weather_types(
     codes_wt = bp_file.iloc[:, 0].to_numpy()
     thr_inf = bp[:, 0:-1:2]
     thr_sup = bp[:, 1::2]
+    wt_missing = int("9" * len(predictors))
 
     if min_predictant is not None:
         predictant = np.where(predictant < min_predictant, 0, predictant)
@@ -238,7 +239,7 @@ def compute_weather_types(
                 wt_allwt = np.where(
                     (predictant[ind_em] < min_predictant)
                     & (np.invert(np.isnan(wt_allwt))),
-                    99999,
+                    wt_missing,
                     wt_allwt,
                 )
             yield pt_bc_allwt, np.mean(pt_bc_allwt, axis=0), wt_allwt
