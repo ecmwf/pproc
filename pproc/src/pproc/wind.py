@@ -25,11 +25,11 @@ import signal
 import eccodes
 from meters import ResourceMeter
 from conflator import Conflator
+from ppcore.utils.dicts import dict_product
 
 from pproc import common
 from pproc.common.accumulation_manager import AccumulationManager
 from pproc.common.parallel import parallel_processing, sigterm_handler
-from pproc.common.utils import dict_product
 from pproc.common.param_requester import ParamRequester
 from pproc.config.param import ParamConfig
 from pproc.config.types import WindConfig

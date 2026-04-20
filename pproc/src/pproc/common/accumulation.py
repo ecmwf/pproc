@@ -19,8 +19,7 @@ from numpy.typing import DTypeLike
 
 from earthkit.time.calendar import MonthInYear
 from earthkit.time.sequence import MonthlySequence
-
-from pproc.common.grib_helpers import fill_template_values
+from ppcore.utils.helpers import fill_template_values
 
 
 NumericCoord = int

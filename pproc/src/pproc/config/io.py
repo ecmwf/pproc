@@ -23,6 +23,7 @@ from pydantic import (
     model_validator,
     field_validator,
 )
+from ppcore.utils.dicts import deep_update
 
 from pproc.config import utils
 from pproc.config.targets import (
@@ -139,7 +140,7 @@ class InputsCollection(ConfigModel):
         def_source = data["default"]
         for sub in cls.names:
             subsec = data.setdefault(sub, {})
-            data[sub] = utils.deep_update(subsec, def_source)
+            data[sub] = deep_update(subsec, def_source)
         return data
 
 

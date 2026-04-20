@@ -9,7 +9,7 @@
 
 import pytest
 
-from pproc.schema.config import ConfigSchema
+from ppcore.schema.config import ConfigSchema
 
 from conftest import schema
 

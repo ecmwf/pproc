@@ -13,9 +13,9 @@ import copy
 import pytest
 import yaml
 from conflator import Conflator
+from ppcore.utils.dicts import deep_update
 
 from pproc.config.base import BaseConfig
-from pproc.config.utils import deep_update
 
 
 @pytest.fixture(scope="function")

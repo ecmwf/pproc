@@ -6,22 +6,22 @@ from meters import metered
 from earthkit.workflows.backends.earthkit import Metadata, resolve_metadata
 from ppruntime.thermo.helpers import (
     compute_ehPa,
-    field_values,
     find_utci_missing_values,
     get_datetime,
     latlon,
     step_interval,
     units,
     validate_utci,
-    create_output, 
+    create_output,
     create_surface_output,
 )
 
 logger = logging.getLogger(__name__)
 
 
-def _check_shape(fields: earthkit.data.FieldList, params: list[str]):
+def field_values(fields: earthkit.data.FieldList, params: list[str]):
     shape = None
+    out_values = []
     for param in params:
         selected = fields.sel(param=param)
         if len(selected) == 0:
@@ -33,6 +33,8 @@ def _check_shape(fields: earthkit.data.FieldList, params: list[str]):
         assert (
             shape == selected.values.shape
         ), f"Shape mismatch for {param} {shape} != {selected.values.shape}"
+        out_values.append(selected.to_array())
+    return out_values
 
 
 @metered("cossza", out=logger.debug)
@@ -56,48 +58,45 @@ def calc_cossza(*fields: FieldList, metadata: Metadata = None) -> FieldList:
     )
 
     return create_output(
-        cossza, metadata_intensity(fields)[:1], {**resolve_metadata(metadata), "paramId": "214001"}
+        cossza,
+        metadata_intensity(fields)[:1],
+        {**resolve_metadata(metadata), "paramId": "214001"},
     )
 
 
 @metered("hmdx", out=logger.debug)
 def calc_hmdx(*fields: FieldList, metadata: Metadata = None) -> FieldList:
     fields = sum(fields[1:], fields[0])
-    _check_shape(fields, ["2t", "2d"])
-    t2m = field_values(fields, "2t")  # Kelvin
-    td = field_values(fields, "2d")  # Kelvin
-
-    hmdx = thermofeel.calculate_humidex(t2_k=t2m, td_k=td)  # Kelvin
-
+    inputs = field_values(fields, ["2t", "2d"])
+    hmdx = thermofeel.calculate_humidex(*inputs)
     return create_surface_output(
-        hmdx, metadata_intensity(fields), {**resolve_metadata(metadata), "paramId": "261016"}
+        hmdx,
+        metadata_intensity(fields),
+        {**resolve_metadata(metadata), "paramId": "261016"},
     )
 
 
 @metered("rhp", out=logger.debug)
 def calc_rhp(*fields: FieldList, metadata: Metadata = None) -> FieldList:
     fields = sum(fields[1:], fields[0])
-    _check_shape(fields, ["2t", "2d"])
-    t2m = field_values(fields, "2t")  # Kelvin
-    td = field_values(fields, "2d")  # Kelvin
-
-    rhp = thermofeel.calculate_relative_humidity_percent(t2_k=t2m, td_k=td)  # %
-
-    return create_surface_output(rhp, metadata_intensity(fields), {**resolve_metadata(metadata), "paramId": "260242"})
+    inputs = field_values(fields, ["2t", "2d"])
+    rhp = thermofeel.calculate_relative_humidity_percent(*inputs)
+    return create_surface_output(
+        rhp,
+        metadata_intensity(fields),
+        {**resolve_metadata(metadata), "paramId": "260242"},
+    )
 
 
 @metered("heatx", out=logger.debug)
 def calc_heatx(*fields: FieldList, metadata: Metadata = None) -> FieldList:
     fields = sum(fields[1:], fields[0])
-    _check_shape(fields, ["2t", "2d"])
-
-    t2m = field_values(fields, "2t")  # Kelvin
-    td = field_values(fields, "2d")  # Kelvin
-
-    heatx = thermofeel.calculate_heat_index_adjusted(t2_k=t2m, td_k=td)  # Kelvin
-
+    inputs = field_values(fields, ["2t", "2d"])
+    heatx = thermofeel.calculate_heat_index_adjusted(*inputs)
     return create_surface_output(
-        heatx, metadata_intensity(fields), {**resolve_metadata(metadata), "paramId": "260004"}
+        heatx,
+        metadata_intensity(fields),
+        {**resolve_metadata(metadata), "paramId": "260004"},
     )
 
 
@@ -108,111 +107,94 @@ def calc_dsrp(*fields: FieldList, metadata: Metadata = None):
     Note this introduces some amount of error as cossza approaches zero
     """
     fields = sum(fields[1:], fields[0])
-    
-    # Will use dsrp if available, otherwise approximate it
-    if "dsrp" in fields.indices()["param"]:
-        return fields.sel(param="dsrp")
-
-    fdir = field_values(fields, "fdir")  # W/m2
-    cossza = field_values(fields, "cossza")
-
-    dsrp = thermofeel.approximate_dsrp(fdir, cossza)
-
-    return create_output(dsrp, metadata_accumulation(fields), {**resolve_metadata(metadata), "paramId": "47"})
+    inputs = field_values(fields, ["fdir", "cossza"])
+    dsrp = thermofeel.approximate_dsrp(*inputs)
+    return create_output(
+        dsrp,
+        metadata_accumulation(fields),
+        {**resolve_metadata(metadata), "paramId": "47"},
+    )
 
 
 @metered("utci", out=logger.debug)
 def calc_utci(*fields: FieldList, metadata: Metadata = None, validate=True):
     fields = sum(fields[1:], fields[0])
-    _check_shape(fields, ["2t", "2d", "10si", "mrt"])
-    lats, lons = latlon(fields)
+    inputs = field_values(fields, ["2t", "2d", "10si", "mrt"])
 
-    t2m = field_values(fields, "2t")  # Kelvin
-    t2d = field_values(fields, "2d")  # Kelvin
-    ws = field_values(fields, "10si")  # m/s
-    mrt = field_values(fields, "mrt")  # Kelvin
-
-    ehPa = compute_ehPa(t2m, t2d)
-
-    utci = thermofeel.calculate_utci(t2_k=t2m, va=ws, mrt=mrt, ehPa=ehPa)  # Kelvin
+    ehPa = compute_ehPa(inputs[0], inputs[1])
+    utci = thermofeel.calculate_utci(
+        t2_k=inputs[0], va=inputs[2], mrt=inputs[3], ehPa=ehPa
+    )  # Kelvin
 
     for index in range(len(utci)):
         missing = find_utci_missing_values(
-            t2m[index],
-            ws[index],
-            mrt[index],
+            inputs[0][index],
+            inputs[2][index],
+            inputs[3][index],
             ehPa[index],
             utci[index],
-            print_misses,
         )
 
         if validate:
+            lats, lons = latlon(fields)
             validate_utci(utci[index], missing, lats, lons)
-
         utci[index][missing] = np.nan
 
     return create_surface_output(
-        utci, metadata_intensity(fields), {**resolve_metadata(metadata), "paramId": "261001"}
+        utci,
+        metadata_intensity(fields),
+        {**resolve_metadata(metadata), "paramId": "261001"},
     )
 
 
 @metered("wbgt", out=logger.debug)
 def calc_wbgt(*fields: FieldList, metadata: Metadata = None):
     fields = sum(fields[1:], fields[0])
-    _check_shape(fields, ["2t", "2d", "10si", "mrt"])
-    t2m = field_values(fields, "2t")  # Kelvin
-    t2d = field_values(fields, "2d")  # Kelvin
-    ws = field_values(fields, "10si")  # m/s
-    mrt = field_values(fields, "mrt")  # Kelvin
-
-    wbgt = thermofeel.calculate_wbgt(t2m, mrt, ws, t2d)  # Kelvin
-
+    inputs = field_values(fields, ["2t", "mrt", "10si", "2d"])
+    wbgt = thermofeel.calculate_wbgt(*inputs)
     return create_surface_output(
-        wbgt, metadata_intensity(fields), {**resolve_metadata(metadata), "paramId": "261014"}
+        wbgt,
+        metadata_intensity(fields),
+        {**resolve_metadata(metadata), "paramId": "261014"},
     )
 
 
 @metered("gt", out=logger.debug)
 def calc_gt(*fields: FieldList, metadata: Metadata = None):
     fields = sum(fields[1:], fields[0])
-    _check_shape(fields, ["2t", "10si", "mrt"])
-    t2m = field_values(fields, "2t")  # Kelvin
-    ws = field_values(fields, "10si")  # m/s
-    mrt = field_values(fields, "mrt")  # Kelvin
+    inputs = field_values(fields, ["2t", "mrt", "10si"])
 
-    gt = thermofeel.calculate_bgt(t2m, mrt, ws)  # Kelvin
+    gt = thermofeel.calculate_bgt(*inputs)
 
     return create_surface_output(
-        gt, metadata_intensity(fields), {**resolve_metadata(metadata), "paramId": "261015"}
+        gt,
+        metadata_intensity(fields),
+        {**resolve_metadata(metadata), "paramId": "261015"},
     )
+
 
 @metered("wbt", out=logger.debug)
 def calc_wbt(*fields: FieldList, metadata: Metadata = None):
     fields = sum(fields[1:], fields[0])
-    _check_shape(fields, ["2t", "2r"])
-    t2m = field_values(fields, "2t")  # Kelvin
-    rhp = field_values(fields, "2r")  # %
-
-    wbt = thermofeel.calculate_wbt(t2_k=t2m, rh=rhp)  # Kelvin
-
+    inputs = field_values(fields, ["2t", "2r"])
+    wbt = thermofeel.calculate_wbt(*inputs)
     return create_surface_output(
-        wbt, metadata_intensity(fields), {**resolve_metadata(metadata), "paramId": "261023"}
+        wbt,
+        metadata_intensity(fields),
+        {**resolve_metadata(metadata), "paramId": "261023"},
     )
+
 
 @metered("nefft", out=logger.debug)
 def calc_nefft(*fields: FieldList, metadata: Metadata = None):
     fields = sum(fields[1:], fields[0])
     _check_shape(fields, ["2t", "10si", "2r"])
-    t2m = field_values(fields, "2t")  # Kelvin
-    ws = field_values(fields, "10si")  # m/s
-    rhp = field_values(fields, "2r")  # %
-
-    nefft = thermofeel.calculate_normal_effective_temperature(
-        t2m, ws, rhp
-    )  # Kelvin
-
+    inputs = field_values(fields, ["2t", "10si", "2r"])
+    nefft = thermofeel.calculate_normal_effective_temperature(*inputs)
     return create_surface_output(
-        nefft, metadata_intensity(fields), {**resolve_metadata(metadata), "paramId": "261018"}
+        nefft,
+        metadata_intensity(fields),
+        {**resolve_metadata(metadata), "paramId": "261018"},
     )
 
 
@@ -220,50 +202,38 @@ def calc_nefft(*fields: FieldList, metadata: Metadata = None):
 def calc_wcf(*fields: FieldList, metadata: Metadata = None):
     fields = sum(fields[1:], fields[0])
     _check_shape(fields, ["2t", "10si"])
-    t2m = field_values(fields, "2t")  # Kelvin
-    ws = field_values(fields, "10si")  # m/s
-
-    wcf = thermofeel.calculate_wind_chill(t2m, ws)  # Kelvin
-
+    inputs = field_values(fields, ["2t", "10si"])
+    wcf = thermofeel.calculate_wind_chill(*inputs)
     return create_surface_output(
-        wcf, metadata_intensity(fields), {**resolve_metadata(metadata), "paramId": "260005"}
+        wcf,
+        metadata_intensity(fields),
+        {**resolve_metadata(metadata), "paramId": "260005"},
     )
 
 
 @metered("aptmp", out=logger.debug)
 def calc_aptmp(*fields: FieldList, metadata: Metadata = None):
     fields = sum(fields[1:], fields[0])
-    _check_shape(fields, ["2t", "10si", "2r"])
-    t2m = field_values(fields, "2t")  # Kelvin
-    ws = field_values(fields, "10si")  # m/s
-    rhp = field_values(fields, "2r")  # %
-
-    aptmp = thermofeel.calculate_apparent_temperature(
-        t2_k=t2m, va=ws, rh=rhp
-    )  # Kelvin
-
+    inputs = field_values(fields, ["2t", "10si", "2r"])
+    aptmp = thermofeel.calculate_apparent_temperature(*inputs)
     return create_surface_output(
-        aptmp, metadata_intensity(fields), {**resolve_metadata(metadata), "paramId": "260255"}
+        aptmp,
+        metadata_intensity(fields),
+        {**resolve_metadata(metadata), "paramId": "260255"},
     )
 
 
 @metered("mrt", out=logger.debug)
 def calc_mrt(*fields: FieldList, metadata: Metadata = None):
     fields = sum(fields[1:], fields[0])
-    _check_shape(fields, ["ssrd", "fdir", "strd", "ssr", "dsrp", "str", "cossza"])
-    cossza = field_values(fields, "cossza")  
-    dsrp = field_values(fields, "dsrp") 
+    ssrd, ssr, dsrp, strd, fdir, strr, cossza = field_values(
+        fields, ["ssrd", "ssr", "dsrp", "strd", "fdir", "str", "cossza"]
+    )
 
     delta = step_interval(fields)
     seconds_in_time_step = delta * 3600  # steps are in hours
 
     f = 1.0 / float(seconds_in_time_step)
-
-    ssrd = field_values(fields, "ssrd")  # W/m2
-    fdir = field_values(fields, "fdir")  # W/m2
-    strd = field_values(fields, "strd")  # W/m2
-    strr = field_values(fields, "str")  # W/m2
-    ssr = field_values(fields, "ssr")  # W/m2
 
     # remove negative values from deaccumulated solar fields
     for v in ssrd, fdir, strd, ssr:
@@ -274,5 +244,7 @@ def calc_mrt(*fields: FieldList, metadata: Metadata = None):
     )  # Kelvin
 
     return create_surface_output(
-        mrt, metadata_intensity(fields), {**resolve_metadata(metadata), "paramId": "261002"}
+        mrt,
+        metadata_intensity(fields),
+        {**resolve_metadata(metadata), "paramId": "261002"},
     )
