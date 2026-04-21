@@ -173,11 +173,13 @@ class ParamConfig(BaseModel):
         fc_name = inputs.names[0]
         base_input: Input = getattr(inputs, fc_name)
         param_input = self.inputs.get(fc_name, {})
+        vod2uv_param = {"param": [131, 132]} if self.vod2uv else {}
         reqs = update_request(
             base_input.request,
             param_input.get("request", {}),
             **{
                 **inputs.overrides,
+                **vod2uv_param,
                 **extract_mars(metadata or {}),
                 **extract_mars(self.metadata),
             },

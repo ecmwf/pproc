@@ -11,6 +11,7 @@ import pytest
 
 from pproc.config.param import ParamConfig
 from pproc.config.io import BaseInputModel
+from pproc.config.utils import extract_mars
 
 base_config = {
     "name": "2t",
@@ -117,3 +118,85 @@ def test_totalfields(config, expected):
     inputs = BaseInputModel(fc={"source": {"type": "fdb"}})
     param.validate_totalfields(inputs)
     assert param.total_fields == expected
+
+
+@pytest.mark.parametrize(
+    "config, expected",
+    [
+        [
+            {
+                "inputs": {
+                    "fc": {
+                        "request": {
+                            "levelist": [1, 2],
+                            "param": [138, 155],
+                        }
+                    }
+                },
+                "accumulations": {
+                    "step": {"operation": "mean", "coords": [[0, 6, 12]]},
+                },
+            },
+            [
+                {
+                    "param": [138, 155],
+                    "levelist": [1, 2],
+                    "step": ["0-12"],
+                }
+            ],
+        ],
+        [
+            {
+                "inputs": {
+                    "fc": {
+                        "request": {
+                            "levelist": [1, 2],
+                            "param": [138, 155],
+                            "interpolate": {"vod2uv": True},
+                        }
+                    }
+                },
+                "accumulations": {
+                    "step": {"operation": "mean", "coords": [[0, 6, 12]]},
+                },
+            },
+            [
+                {
+                    "param": [131, 132],
+                    "levelist": [1, 2],
+                    "step": ["0-12"],
+                }
+            ],
+        ],
+        [
+            {
+                "inputs": {
+                    "fc": {
+                        "request": {
+                            "levelist": [1, 2],
+                            "param": [138, 155],
+                            "interpolate": {"vod2uv": True},
+                        }
+                    }
+                },
+                "accumulations": {
+                    "step": {"operation": "mean", "coords": [[0, 6, 12]]},
+                },
+                "metadata": {"paramId": 10},
+            },
+            [
+                {
+                    "param": 10,
+                    "levelist": [1, 2],
+                    "step": ["0-12"],
+                }
+            ],
+        ],
+    ],
+    ids=["no-vod2uv", "vod2uv", "vod2uv-with-metadata"],
+)
+def test_vod2uv(config, expected):
+    param = ParamConfig(**{**base_config, **config})
+    inputs = BaseInputModel(fc={"source": {"type": "fdb"}})
+    out_keys = [extract_mars(x) for x in param.out_keys(inputs)]
+    assert out_keys == expected
