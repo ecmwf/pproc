@@ -216,6 +216,7 @@ def compute_weather_types(
     codes_wt = bp_file.iloc[:, 0].to_numpy()
     thr_inf = bp[:, 0:-1:2]
     thr_sup = bp[:, 1::2]
+    wt_missing = int("9" * len(predictors))
 
     if min_predictant is not None:
         predictant = np.where(predictant < min_predictant, 0, predictant)
@@ -238,7 +239,7 @@ def compute_weather_types(
                 wt_allwt = np.where(
                     (predictant[ind_em] < min_predictant)
                     & (np.invert(np.isnan(wt_allwt))),
-                    np.nan,
+                    wt_missing,
                     wt_allwt,
                 )
             yield pt_bc_allwt, np.mean(pt_bc_allwt, axis=0), wt_allwt
@@ -264,7 +265,6 @@ def ecpoint_iteration(
         out_bc = config.outputs.bias_corrected
         out_wt = config.outputs.weather_types
         out_members = config.outputs.members
-        wt_missing = int("9" * len(config.predictors))
 
         for index, (
             pt_bc_allwt,
@@ -300,9 +300,7 @@ def ecpoint_iteration(
             wt_message, metadata = weather_types_metadata(
                 template, {**out_keys, **out_wt.metadata}
             )
-            write_grib(
-                out_wt.target, wt_message, wt_allwt, metadata, missing=wt_missing
-            )
+            write_grib(out_wt.target, wt_message, wt_allwt, metadata)
 
             for number in range(len(pt_bc_allwt)):
                 msg, metadata = members_metadata(
