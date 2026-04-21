@@ -184,6 +184,7 @@ def mir_wind_input(fdb_reader, request, cached_file=None):
             + ".grb"
         )
     fields = earthkit.data.from_source("stream", fdb_reader, read_all=True)
+    # Mir expects vo and d fields to be paired, so param must be last in order
     fields = fields.order_by([x for x in list_keys if x != "param"])
     fields.to_target("file", cached_file)
     if os.path.getsize(cached_file) == 0:
