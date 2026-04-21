@@ -20,6 +20,7 @@ import yaml
 import eccodes
 import pyfdb
 import mir
+import earthkit.data
 from earthkit.data.readers.grib.metadata import StandAloneGribMetadata
 from earthkit.data.readers.grib.codes import GribCodesHandle
 
@@ -171,23 +172,21 @@ def read_grib_messages(messages, dims=()):
 
 
 def mir_wind_input(fdb_reader, request, cached_file=None):
+    list_keys = [key for key in request if isinstance(request[key], (list, range))]
     if not cached_file:
         cached_file = (
             "_".join(
                 [
-                    (
-                        f"{key}{len(value)}"
-                        if isinstance(value, (list, range))
-                        else f"{key}{value}"
-                    )
+                    (f"{key}{len(value)}" if key in list_keys else f"{key}{value}")
                     for key, value in request.items()
                 ]
             )
             + ".grb"
         )
-    outfile = open(cached_file, "wb")
-    for data in iter((lambda: fdb_reader.read(4096)), b""):
-        outfile.write(data)
+    fields = earthkit.data.from_source("stream", fdb_reader, read_all=True)
+    # Mir expects vo and d fields to be paired, so param must be last in order
+    fields = fields.order_by([x for x in list_keys if x != "param"])
+    fields.to_target("file", cached_file)
     if os.path.getsize(cached_file) == 0:
         raise RuntimeError(f"No data retrieved for request {request}")
     return mir.MultiDimensionalGribFileInput(cached_file, 2), cached_file

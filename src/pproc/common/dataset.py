@@ -12,11 +12,19 @@ import pprint
 from contextlib import ExitStack
 from io import BytesIO
 from typing import Any, Callable, Iterable, Iterator, List, Optional, Union
+import os
 
 import eccodes
 import mir
 
-from pproc.common.io import FileTarget, NullTarget, fdb, fdb_retrieve, split_location
+from pproc.common.io import (
+    FileTarget,
+    NullTarget,
+    fdb,
+    fdb_retrieve,
+    split_location,
+    mir_wind_input,
+)
 from pproc.common.mars import mars_retrieve
 
 
@@ -91,15 +99,19 @@ def _mars_retrieve_interp(
     )
     mars_reader = mars_retrieve(request, mars_cmd=mars_cmd, tmpdir=tmpdir)
     if mir_options:
+        cached_file = None
         with mars_reader:
             if mir_options.get("vod2uv", False):
                 mir_options = mir_options.copy()
                 mir_options["vod2uv"] = "1"
+                mars_reader, cached_file = mir_wind_input(mars_reader, request)
             job = mir.Job(**mir_options)
             stream = BytesIO()
             job.execute(mars_reader, stream)
         stream.seek(0)
         mars_reader = stream
+        if cached_file:
+            os.remove(cached_file)
     return MARSDecoder(mars_reader, cache=cache)
 
 
