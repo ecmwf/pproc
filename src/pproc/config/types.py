@@ -776,6 +776,37 @@ class WindConfig(BaseConfig):
         return req
 
 
+class CapeConfig(BaseConfig):
+    parallelisation: int = 1
+    inputs: io.CapeInputModel
+    outputs: io.CapeOutputModel = io.CapeOutputModel()
+    parameters: list[ParamConfig]
+    pressure_levels: list[int]
+    model: str = "aifs"
+
+    @model_validator(mode="after")
+    def validate_split_params(self) -> Self:
+        for param in self.parameters:
+            param.split_params = False
+        return self
+
+    @model_validator(mode="after")
+    def validate_pressure_levels(self) -> Self:
+        pl_request = self.inputs.pl.request
+        if isinstance(pl_request, list):
+            pl_request = pl_request[0]
+        levelist = pl_request.get("levelist", None)
+        if levelist is not None:
+            if set(self.pressure_levels) != set(
+                levelist if isinstance(levelist, list) else [levelist]
+            ):
+                raise ValueError(
+                    f"pressure_levels {self.pressure_levels} must match "
+                    f"levelist {levelist} in pl input request"
+                )
+        return self
+
+
 class ThermoParamConfig(ParamConfig):
     out_params: list[str | int]
 
