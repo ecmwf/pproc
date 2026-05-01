@@ -54,8 +54,10 @@ def cape_iteration(
             total,
             src_name,
         )
+        # Surface geopotential is only available at step 0
+        retrieve_dims = {**dims, "step": 0} if src_name == "zsfc" else dims
         with ResourceMeter(f"Retrieve {src_name} {ids}"):
-            metadata, data = requester.retrieve_data(**dims)
+            metadata, data = requester.retrieve_data(**retrieve_dims)
         fields += FieldList.from_array(data, [x.to_ekmetadata() for x in metadata])
 
     with ResourceMeter(f"Compute CAPE/CIN {ids}"):

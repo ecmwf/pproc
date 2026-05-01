@@ -1,0 +1,66 @@
+parallelisation: 1
+pressure_levels: [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
+inputs:
+  pl:
+    request:
+      class: ai
+      stream: oper
+      type: fc
+      expver: '0001'
+      model: aifs-single
+      date: 20260201
+      time: 0
+      levtype: pl
+      levelist: [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
+    source:
+      type: fdb
+  sfc:
+    request:
+      class: ai
+      stream: oper
+      type: fc
+      expver: '0001'
+      model: aifs-single
+      date: 20260201
+      time: 0
+      levtype: sfc
+    source:
+      type: fdb
+  zsfc:
+    request:
+      class: ai
+      stream: oper
+      type: fc
+      expver: '0001'
+      model: aifs-single
+      date: 20260201
+      time: 0
+      levtype: sfc
+    source:
+      type: fdb
+parameters:
+  cape:
+    inputs:
+      pl:
+        request:
+          param: [t, q, z]
+      sfc:
+        request:
+          param: [2t, 2d, sp]
+      zsfc:
+        request:
+          param: [z]
+    accumulations:
+      step:
+        coords: [[0], [6]]
+outputs:
+  mucape:
+    target:
+      type: fdb
+    metadata:
+      edition: 2
+  mucin:
+    target:
+      type: fdb
+    metadata:
+      edition: 2
