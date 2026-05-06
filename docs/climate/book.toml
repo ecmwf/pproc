@@ -1,0 +1,15 @@
+[book]
+authors = ["ECMWF"]
+language = "en"
+src = "src"
+title = "pproc — Climate Field Generation"
+
+[output.html]
+default-theme = "navy"
+preferred-dark-theme = "navy"
+git-repository-url = ""
+edit-url-template = ""
+
+[output.html.fold]
+enable = true
+level = 2

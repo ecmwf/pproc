@@ -400,6 +400,212 @@ def target_from_location(
     return target_factory(type_, out_file=ident, overrides=overrides)
 
 
+# ---------------------------------------------------------------------------
+# In-memory GRIB codec helpers
+# ---------------------------------------------------------------------------
+#
+# These helpers expose a numpy <-> bytes codec for GRIB messages so callers
+# (mir wrappers, in-memory pipelines, CLIs) can move data around without
+# touching the filesystem. They sit alongside the existing ``write_grib``
+# helper, which writes to a :class:`Target` rather than returning bytes.
+#
+# Pattern decision D-A: ``encode_grib`` is polymorphic on its ``template``
+# argument (raw GRIB ``bytes`` *or* a :class:`GribMetadata` instance), and a
+# paired ``decode_grib_with_metadata`` is exported alongside the dict-form
+# ``decode_grib`` for downstream consumers that need the canonical metadata
+# type.
+
+# Metadata keys returned by :func:`decode_grib` for every message. Tuned to
+# cover the GRIB section-1 / section-4 identification fields plus the keys
+# needed to reproduce the wire-level packing on a round trip.
+_DECODE_METADATA_KEYS: tuple = (
+    "edition",
+    "centre",
+    "subCentre",
+    "discipline",
+    "parameterCategory",
+    "parameterNumber",
+    "paramId",
+    "shortName",
+    "name",
+    "units",
+    "typeOfLevel",
+    "level",
+    "gridType",
+    "gridName",
+    "N",
+    "Ni",
+    "Nj",
+    "numberOfDataPoints",
+    "numberOfValues",
+    "packingType",
+    "bitsPerValue",
+    "bitmapPresent",
+    "missingValue",
+    "dataDate",
+    "dataTime",
+    "stepType",
+    "stepRange",
+)
+
+
+def _collect_metadata(message) -> Dict[str, Any]:
+    """Return a JSON-friendly metadata dict for a decoded GRIB message."""
+    meta: Dict[str, Any] = {}
+    for key in _DECODE_METADATA_KEYS:
+        try:
+            value = message.get(key)
+        except (eccodes.KeyValueNotFoundError, KeyError, RuntimeError):
+            continue
+        if value is None:
+            continue
+        # eccodes returns the literal string "MISSING" for keys that exist
+        # but are unset on the wire (e.g. ``Ni``/``Nj`` on reduced grids);
+        # we keep it so the dict is faithful to the message.
+        meta[key] = value
+    return meta
+
+
+def _read_messages(grib_bytes: bytes):
+    """Yield every :class:`eccodes.Message` contained in ``grib_bytes``."""
+    if not isinstance(grib_bytes, (bytes, bytearray, memoryview)):
+        raise TypeError(
+            f"grib_bytes must be bytes-like, got {type(grib_bytes).__name__}"
+        )
+    reader = eccodes.MemoryReader(bytes(grib_bytes))
+    for message in reader:
+        yield message
+
+
+def decode_grib(grib_bytes: bytes) -> "tuple[np.ndarray, dict]":
+    """Decode a single GRIB message from ``grib_bytes``.
+
+    Returns
+    -------
+    tuple of (numpy.ndarray, dict)
+        Float64 values array (with GRIB missing values replaced by NaN) and
+        a metadata dict covering the standard identification + packing keys.
+    """
+    iterator = _read_messages(grib_bytes)
+    try:
+        message = next(iterator)
+    except StopIteration:
+        raise ValueError("grib_bytes does not contain any GRIB messages") from None
+
+    values = message.get_array("values").astype(np.float64, copy=False)
+    values = missing_to_nan(message, values)
+    metadata = _collect_metadata(message)
+    return values, metadata
+
+
+def decode_grib_with_metadata(
+    grib_bytes: bytes,
+) -> "tuple[np.ndarray, GribMetadata]":
+    """Decode a single GRIB message and return a :class:`GribMetadata`.
+
+    Mirrors :func:`decode_grib` but exposes the canonical pproc metadata
+    type, which preserves the eccodes handle for downstream consumers
+    (``write_message``, ``fdb_write_ufunc``, ...). See Pattern decision D-A.
+    """
+    iterator = _read_messages(grib_bytes)
+    try:
+        message = next(iterator)
+    except StopIteration:
+        raise ValueError("grib_bytes does not contain any GRIB messages") from None
+
+    values = message.get_array("values").astype(np.float64, copy=False)
+    values = missing_to_nan(message, values)
+    metadata = GribMetadata(message._handle)
+    return values, metadata
+
+
+def decode_multi_grib(grib_bytes: bytes, count: int) -> "list[tuple[np.ndarray, dict]]":
+    """Decode ``count`` consecutive GRIB messages from ``grib_bytes``.
+
+    The buffer must contain at least ``count`` messages; if it contains
+    fewer, a :class:`ValueError` is raised so callers (in particular the
+    ``mir-compute``-style multi-message inputs that bundle fields with a
+    shell ``cat``) can fail loudly on malformed input.
+    """
+    if count < 0:
+        raise ValueError(f"count must be non-negative, got {count}")
+
+    results: List[tuple] = []
+    iterator = _read_messages(grib_bytes)
+    for _ in range(count):
+        try:
+            message = next(iterator)
+        except StopIteration:
+            raise ValueError(
+                f"grib_bytes contains only {len(results)} message(s), "
+                f"but {count} were requested"
+            ) from None
+        values = message.get_array("values").astype(np.float64, copy=False)
+        values = missing_to_nan(message, values)
+        results.append((values, _collect_metadata(message)))
+    return results
+
+
+def encode_grib(
+    values: np.ndarray,
+    template: "Union[bytes, bytearray, memoryview, GribMetadata, eccodes.Message]",
+    metadata: Optional[Dict[str, Any]] = None,
+) -> bytes:
+    """Encode ``values`` as a GRIB message by cloning ``template``.
+
+    Parameters
+    ----------
+    values:
+        Float64 numpy array. ``np.nan`` entries are translated to the
+        message's missing value with ``bitmapPresent`` flipped on.
+    template:
+        Either a raw GRIB byte string (the wire bytes of a reference
+        message) or a :class:`GribMetadata` instance. Pattern decision D-A
+        keeps the call site flexible: pipelines that already hold a
+        ``GribMetadata`` can pass it directly without re-serialising.
+    metadata:
+        Optional dict of GRIB key/value overrides applied to the cloned
+        template before the values are written (using the same convention
+        as :func:`write_grib` / :func:`construct_message`).
+    """
+    if isinstance(template, (bytes, bytearray, memoryview)):
+        try:
+            base = next(_read_messages(template))
+        except StopIteration:
+            raise ValueError("template bytes do not contain a GRIB message") from None
+    elif isinstance(template, eccodes.Message):
+        base = template
+    else:
+        raise TypeError(
+            "template must be bytes-like or a GribMetadata/eccodes.Message, "
+            f"got {type(template).__name__}"
+        )
+
+    if metadata:
+        # Apply caller-supplied overrides via the existing pproc convention
+        # (handles edition switches, MISSING sentinels, array-valued keys,
+        # and the operational ``packingType`` default for edition 2).
+        out_keys: Dict[str, Any] = {}
+        if hasattr(base, "extra"):
+            out_keys.update(base.extra)
+        out_keys.update(metadata)
+        bits_per_value = out_keys.pop("bitsPerValue", base.get("bitsPerValue"))
+        message = construct_message(base, out_keys)
+        message.set("bitsPerValue", bits_per_value)
+    else:
+        # Plain clone path. Avoids ``construct_message``'s edition-2
+        # ``packingType=grid_ccsds`` default, which would re-quantise a
+        # losslessly-packed (e.g. ``grid_ieee``) template and break
+        # bit-identical round-tripping.
+        message = base.copy()
+
+    data = np.asarray(values, dtype=np.float64).copy()
+    data = nan_to_missing(message, data)
+    message.set_array("values", data)
+
+    return message.get_buffer()
+
+
 class GribMetadata(eccodes.Message):
     def __init__(self, handle, headers_only: bool = False):
         new_handle = eccodes.codes_clone(handle, headers_only=headers_only)

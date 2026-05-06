@@ -68,6 +68,9 @@ pproc-monthly-stats = "pproc.monthly_stats:main"
 pproc-config="pproc.config_generation:main"
 pproc-ecpoint = "pproc.ecpoint:main"
 pproc-flight-levels = "pproc.flight_levels:main"
+pproc-field-calc = "pproc.field_calc:main"
+pproc-gradient = "pproc.gradient:main"
+pproc-sso = "pproc.sso:main"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
