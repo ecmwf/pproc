@@ -1,3 +1,12 @@
+# (C) Copyright 2021- ECMWF.
+#
+# This software is licensed under the terms of the Apache Licence Version 2.0
+# which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# In applying this licence, ECMWF does not waive the privileges and immunities
+# granted to it by virtue of its status as an intergovernmental organisation
+# nor does it submit to any jurisdiction.
+
 import argparse
 
 import pytest
@@ -47,12 +56,15 @@ def test_parse_var_strs(inp, exp):
     assert config.parse_var_strs(inp) == exp
 
 
-@pytest.mark.parametrize("inp", [
-    [],
-    ["class=rd"],
-    ["class=rd,expver=abcd"],
-    ["stream=lwda", "class=rd,expver=abcd"],
-])
+@pytest.mark.parametrize(
+    "inp",
+    [
+        [],
+        ["class=rd"],
+        ["class=rd,expver=abcd"],
+        ["stream=lwda", "class=rd,expver=abcd"],
+    ],
+)
 def test_parser_override_input(inp):
     in_args = ["-c", "config.yaml"]
     for arg in inp:
@@ -63,12 +75,15 @@ def test_parser_override_input(inp):
     assert args.override_input == inp
 
 
-@pytest.mark.parametrize("inp", [
-    [],
-    ["edition=2"],
-    ["edition=2, paramId=123456"],
-    ["edition=2", "class=rd,expver=abcd"],
-])
+@pytest.mark.parametrize(
+    "inp",
+    [
+        [],
+        ["edition=2"],
+        ["edition=2, paramId=123456"],
+        ["edition=2", "class=rd,expver=abcd"],
+    ],
+)
 def test_parser_override_output(inp):
     in_args = ["-c", "config.yaml"]
     for arg in inp:

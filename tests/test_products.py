@@ -1,13 +1,19 @@
+# (C) Copyright 2021- ECMWF.
+#
+# This software is licensed under the terms of the Apache Licence Version 2.0
+# which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# In applying this licence, ECMWF does not waive the privileges and immunities
+# granted to it by virtue of its status as an intergovernmental organisation
+# nor does it submit to any jurisdiction.
+
 import os
 import pytest
-import shutil
-import yaml
 
 import pyfdb
+import eccodes
 
-from pproc.common.io import fdb_read_with_template
 from pproc.probabilities import main as prob_main
-from pproc.anomaly_probs import main as anomaly_prob_main
 from pproc.ensms import main as ensms_main
 from pproc.extreme import main as extreme_main
 from pproc.quantiles import main as quantiles_main
@@ -20,55 +26,39 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
 
 
 @pytest.mark.parametrize(
-    "product, main, custom_args, pass_args, req, length",
+    "product, main, custom_args, req, length",
     [
         [
             "prob",
             prob_main,
-            ["-d", "2024050712", "--out_prob", "fdb:"],
-            False,
+            [],
             {"type": "ep", "param": 131073, "step": ["12", "12-36"]},
             2,
         ],
         [
             "t850",
-            anomaly_prob_main,
-            ["-d", "2024050712", "--out_prob", "fdb:"],
-            False,
+            prob_main,
+            [],
             {
                 "levtype": "pl",
                 "levelist": 850,
                 "type": "ep",
-                "param": 131022,
+                "param": [131022, 133093],
                 "step": [0, 12],
             },
-            2,
+            4,
         ],
         [
             "ensms",
             ensms_main,
-            [
-                "--in-ens",
-                "fdb:ens",
-                "--out-mean",
-                "fdb:",
-                "--out-std",
-                "fdb:",
-            ],
-            False,
+            [],
             {"type": "em", "param": 167, "step": [12, 36]},
             2,
         ],
         [
             "extreme",
             extreme_main,
-            [
-                "--out_efi",
-                "fdb:",
-                "--out_sot",
-                "fdb:",
-            ],
-            False,
+            [],
             {
                 "type": "efi",
                 "param": 167,
@@ -79,13 +69,7 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
         [
             "quantiles",
             quantiles_main,
-            [
-                "--in-ens",
-                "fdb:ens",
-                "--out-quantiles",
-                "fdb:",
-            ],
-            True,
+            [],
             {
                 "type": "pb",
                 "param": 167,
@@ -97,13 +81,7 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
         [
             "wind",
             wind_main,
-            [
-                "--out_eps_mean",
-                "fdb:",
-                "--out_eps_std",
-                "fdb:",
-            ],
-            False,
+            [],
             {
                 "type": "es",
                 "levtype": "pl",
@@ -117,7 +95,6 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
             "thermo",
             thermo_main,
             [],
-            True,
             {
                 "type": "fc",
                 "stream": "oper",
@@ -132,7 +109,7 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
                     261016,
                     261018,
                     261015,
-                    261022,
+                    261023,
                     261014,
                     260242,
                 ],
@@ -144,30 +121,17 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
             "clustereps",
             clustereps_main,
             [
-                "--date",
-                "20240507",
-                "--spread-compute",
-                "fdb:spread_z500",
-                "--ensemble",
-                "fdb:ens_z500",
-                "--deterministic",
-                "fdb:determ_z500",
-                "--clim-dir",
-                "{DATA_DIR}/clustclim",
-                "-N",
-                "{test_dir}/NEOF",
-                "--centroids",
-                "fdb:",
-                "--representative",
-                "fdb:",
-                "--output-root",
-                "{test_dir}",
-                "--cen-anomalies",
-                "file:{test_dir}/clm_anom.grib",
-                "--rep-anomalies",
-                "file:{test_dir}/clr_anom.grib",
+                "--set",
+                "output_root={test_dir}",
+                "--set",
+                "clim_dir={DATA_DIR}/clustclim",
+                "--set",
+                "ncomp_file={test_dir}/NEOF",
+                "--set",
+                "outputs.cen_anomalies.target=file:{test_dir}/clm_anom.grib",
+                "--set",
+                "outputs.rep_anomalies.target=file:{test_dir}/clr_anom.grib",
             ],
-            False,
             {
                 "levtype": "pl",
                 "levelist": 500,
@@ -191,16 +155,9 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
         "clustereps",
     ],
 )
-def test_products(
-    tmpdir, monkeypatch, fdb, product, main, custom_args, pass_args, req, length
-):
+def test_products(tmpdir, monkeypatch, fdb, product, main, custom_args, req, length):
     monkeypatch.chdir(tmpdir)  # To avoid polluting cwd with grib templates
-    shutil.copyfile(f"{TEST_DIR}/templates/{product}.yaml", f"{tmpdir}/{product}.yaml")
-    with open(f"{tmpdir}/{product}.yaml", "r") as file:
-        config = yaml.safe_load(file)
-    config["root_dir"] = str(tmpdir)
-    yaml.dump(config, open(f"{tmpdir}/{product}.yaml", "w"))
-    args = [product, "-c", f"{tmpdir}/{product}.yaml"] + [
+    args = [product, "--config", f"{TEST_DIR}/templates/{product}.yaml"] + [
         x.format_map(
             {
                 "test_dir": str(tmpdir),
@@ -210,11 +167,8 @@ def test_products(
         )
         for x in custom_args
     ]
-    if pass_args:
-        main(args[1:])
-    else:
-        monkeypatch.setattr("sys.argv", args)
-        main()
+    monkeypatch.setattr("sys.argv", args)
+    main()
     test_fdb = pyfdb.FDB()
     request = {
         "class": "od",
@@ -226,5 +180,5 @@ def test_products(
         "domain": "g",
     }
     request.update(req)
-    _, messages = fdb_read_with_template(test_fdb, request)
+    messages = list(eccodes.StreamReader(test_fdb.retrieve(request)))
     assert len(messages) == length

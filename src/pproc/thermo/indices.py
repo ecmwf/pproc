@@ -1,7 +1,17 @@
+# (C) Copyright 2021- ECMWF.
+#
+# This software is licensed under the terms of the Apache Licence Version 2.0
+# which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# In applying this licence, ECMWF does not waive the privileges and immunities
+# granted to it by virtue of its status as an intergovernmental organisation
+# nor does it submit to any jurisdiction.
+
 from datetime import timedelta
 import logging
 import numpy as np
 import copy
+from typing import Optional
 
 import earthkit.data
 import earthkit.meteo.solar
@@ -23,34 +33,36 @@ logger = logging.getLogger(__name__)
 
 
 def metadata_intensity(fields):
-    return fields.sel(param="2t").metadata()[0]
+    return fields.sel(param="2t").metadata()
 
 
 def metadata_accumulation(fields):
-    return fields.sel(param="fdir").metadata()[0]
+    return fields.sel(param="fdir").metadata()
 
 
 class ComputeIndices:
-    def __init__(self, out_keys={}):
-        self.out_keys = out_keys
+    def __init__(self, out_keys: Optional[dict] = None):
+        self.out_keys = out_keys or {}
         self.results = None
-        self.misses = {}
 
     def create_output(self, values, template, **overrides):
         grib_set = copy.deepcopy(self.out_keys)
         grib_set.update(overrides)
-        template = template.override(**grib_set)
+        template = [x.override(**grib_set) for x in template]
         return earthkit.data.FieldList.from_array(values, template)
 
     def create_surface_output(self, values, template, **overrides):
         grib_set = copy.deepcopy(self.out_keys)
         grib_set.update(overrides)
-        template = template.override(
-            **grib_set,
-            typeOfFirstFixedSurface=1,
-            scaleFactorOfFirstFixedSurface="MISSING",
-            scaledValueOfFirstFixedSurface="MISSING",
-        )
+        template = [
+            x.override(
+                **grib_set,
+                typeOfFirstFixedSurface=1,
+                scaleFactorOfFirstFixedSurface="MISSING",
+                scaledValueOfFirstFixedSurface="MISSING",
+            )
+            for x in template
+        ]
         return earthkit.data.FieldList.from_array(values, template)
 
     @metered("cossza", out=logger.debug)
@@ -73,7 +85,9 @@ class ComputeIndices:
             integration_order=2,
         )
 
-        return self.create_output(cossza, metadata_intensity(fields), paramId="214001")
+        return self.create_output(
+            cossza, metadata_intensity(fields)[:1], paramId="214001"
+        )
 
     @metered("ws", out=logger.debug)
     def calc_ws(self, fields):
@@ -84,7 +98,7 @@ class ComputeIndices:
         v10 = field_values(fields, "10v")  # m/s
 
         ws = np.sqrt(u10**2 + v10**2)  # m/s
-        template = fields.sel(param="10u").metadata()[0]
+        template = fields.sel(param="10u").metadata()
         return self.create_output(ws, template, paramId="207")
 
     @metered("hmdx", out=logger.debug)
@@ -120,9 +134,6 @@ class ComputeIndices:
         )
 
     def field_stats(self, name, values):
-        if name in self.misses:
-            values[self.misses[name]] = np.nan
-
         try:
             unit = units[name]
         except:
@@ -145,7 +156,7 @@ class ComputeIndices:
             return fields.sel(param="dsrp")
 
         fdir = field_values(fields, "fdir")  # W/m2
-        cossza = self.calc_field("cossza", self.calc_cossza_int, fields)[0].values
+        cossza = self.calc_field("cossza", self.calc_cossza_int, fields).to_array()
 
         dsrp = thermofeel.approximate_dsrp(fdir, cossza)
 
@@ -159,7 +170,7 @@ class ComputeIndices:
 
         res = func(fields, **kwargs)
 
-        self.field_stats(name, res[0].values)
+        self.field_stats(name, res.to_array())
         if self.results is None:
             self.results = res
         else:
@@ -176,20 +187,27 @@ class ComputeIndices:
         t2m = field_values(fields, "2t")  # Kelvin
         t2d = field_values(fields, "2d")  # Kelvin
 
-        ws = self.calc_field("10si", self.calc_ws, fields)[0].values  # m/s
-        mrt = self.calc_field("mrt", self.calc_mrt, fields)[0].values  # Kelvin
+        ws = self.calc_field("10si", self.calc_ws, fields).to_array()  # m/s
+        mrt = self.calc_field("mrt", self.calc_mrt, fields).to_array()  # Kelvin
 
         ehPa = compute_ehPa(t2m, t2d)
 
         utci = thermofeel.calculate_utci(t2_k=t2m, va=ws, mrt=mrt, ehPa=ehPa)  # Kelvin
 
-        missing = find_utci_missing_values(t2m, ws, mrt, ehPa, utci, print_misses)
+        for index in range(len(utci)):
+            missing = find_utci_missing_values(
+                t2m[index],
+                ws[index],
+                mrt[index],
+                ehPa[index],
+                utci[index],
+                print_misses,
+            )
 
-        if validate:
-            validate_utci(utci, missing, lats, lons)
+            if validate:
+                validate_utci(utci[index], missing, lats, lons)
 
-        utci[missing] = np.nan
-        self.misses["utci"] = missing
+            utci[index][missing] = np.nan
 
         return self.create_surface_output(
             utci, metadata_intensity(fields), paramId="261001"
@@ -200,8 +218,8 @@ class ComputeIndices:
         t2m = field_values(fields, "2t")  # Kelvin
         t2d = field_values(fields, "2d")  # Kelvin
 
-        ws = self.calc_field("10si", self.calc_ws, fields)[0].values  # m/s
-        mrt = self.calc_field("mrt", self.calc_mrt, fields)[0].values  # Kelvin
+        ws = self.calc_field("10si", self.calc_ws, fields).to_array()  # m/s
+        mrt = self.calc_field("mrt", self.calc_mrt, fields).to_array()  # Kelvin
 
         wbgt = thermofeel.calculate_wbgt(t2m, mrt, ws, t2d)  # Kelvin
 
@@ -213,8 +231,8 @@ class ComputeIndices:
     def calc_gt(self, fields):
         t2m = field_values(fields, "2t")  # Kelvin
 
-        ws = self.calc_field("10si", self.calc_ws, fields)[0].values  # m/s
-        mrt = self.calc_field("mrt", self.calc_mrt, fields)[0].values  # Kelvin
+        ws = self.calc_field("10si", self.calc_ws, fields).to_array()  # m/s
+        mrt = self.calc_field("mrt", self.calc_mrt, fields).to_array()  # Kelvin
 
         gt = thermofeel.calculate_bgt(t2m, mrt, ws)  # Kelvin
 
@@ -222,23 +240,23 @@ class ComputeIndices:
             gt, metadata_intensity(fields), paramId="261015"
         )
 
-    @metered("wbpt", out=logger.debug)
-    def calc_wbpt(self, fields):
+    @metered("wbt", out=logger.debug)
+    def calc_wbt(self, fields):
         t2m = field_values(fields, "2t")  # Kelvin
 
-        rhp = self.calc_field("2r", self.calc_rhp, fields)[0].values  # %
+        rhp = self.calc_field("2r", self.calc_rhp, fields).to_array()  # %
 
-        wbpt = thermofeel.calculate_wbt(t2_k=t2m, rh=rhp)  # Kelvin
+        wbt = thermofeel.calculate_wbt(t2_k=t2m, rh=rhp)  # Kelvin
 
         return self.create_surface_output(
-            wbpt, metadata_intensity(fields), paramId="261022"
+            wbt, metadata_intensity(fields), paramId="261023"
         )
 
     @metered("nefft", out=logger.debug)
     def calc_nefft(self, fields):
         t2m = field_values(fields, "2t")  # Kelvin
-        ws = self.calc_field("10si", self.calc_ws, fields)[0].values  # m/s
-        rhp = self.calc_field("2r", self.calc_rhp, fields)[0].values  # %
+        ws = self.calc_field("10si", self.calc_ws, fields).to_array()  # m/s
+        rhp = self.calc_field("2r", self.calc_rhp, fields).to_array()  # %
 
         nefft = thermofeel.calculate_normal_effective_temperature(
             t2m, ws, rhp
@@ -252,7 +270,7 @@ class ComputeIndices:
     def calc_wcf(self, fields):
         t2m = field_values(fields, "2t")  # Kelvin
 
-        ws = self.calc_field("10si", self.calc_ws, fields)[0].values  # m/s
+        ws = self.calc_field("10si", self.calc_ws, fields).to_array()  # m/s
 
         wcf = thermofeel.calculate_wind_chill(t2m, ws)  # Kelvin
 
@@ -263,8 +281,8 @@ class ComputeIndices:
     @metered("aptmp", out=logger.debug)
     def calc_aptmp(self, fields):
         t2m = field_values(fields, "2t")  # Kelvin
-        rhp = self.calc_field("2r", self.calc_rhp, fields)[0].values  # %
-        ws = self.calc_field("10si", self.calc_ws, fields)[0].values  # m/s
+        rhp = self.calc_field("2r", self.calc_rhp, fields).to_array()  # %
+        ws = self.calc_field("10si", self.calc_ws, fields).to_array()  # m/s
 
         aptmp = thermofeel.calculate_apparent_temperature(
             t2_k=t2m, va=ws, rh=rhp
@@ -277,8 +295,8 @@ class ComputeIndices:
     @metered("mrt", out=logger.debug)
     def calc_mrt(self, fields):
 
-        cossza = self.calc_field("cossza", self.calc_cossza_int, fields)[0].values
-        dsrp = self.calc_field("dsrp", self.calc_dsrp, fields)[0].values
+        cossza = self.calc_field("cossza", self.calc_cossza_int, fields).to_array()
+        dsrp = self.calc_field("dsrp", self.calc_dsrp, fields).to_array()
 
         delta = step_interval(fields)
         seconds_in_time_step = delta * 3600  # steps are in hours

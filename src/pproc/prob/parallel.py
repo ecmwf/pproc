@@ -1,81 +1,78 @@
-import eccodes
+# (C) Copyright 2021- ECMWF.
+#
+# This software is licensed under the terms of the Apache Licence Version 2.0
+# which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# In applying this licence, ECMWF does not waive the privileges and immunities
+# granted to it by virtue of its status as an intergovernmental organisation
+# nor does it submit to any jurisdiction.
+
 from meters import ResourceMeter
-from typing import Dict
+from typing import Union, Optional
+import numpy as np
+import numexpr
 
-from pproc import common
-from pproc.common.grib_helpers import construct_message
-from pproc.prob.math import ensemble_probability
+import eccodes
+
+from pproc.config.param import ParamConfig
+from pproc.config.io import Output
+from pproc.config.recovery import BaseRecovery
+from pproc.common.accumulation import Accumulator
+from pproc.common.io import write_grib
+from pproc.prob.threshold import ThresholdConfig, SingleThreshold
 
 
-def threshold_grib_headers(
-    edition: int, threshold: Dict, climatology_headers: Dict = {}
-) -> Dict:
+def ensemble_probability(data: np.array, thconfig: ThresholdConfig) -> np.array:
+    """Ensemble Probabilities:
+
+    Computes the probability of a given parameter crossing a given threshold,
+    by checking how many times it occurs across all ensembles.
+    e.g. the chance of temperature being less than 0C
+
     """
-    Creates dictionary of threshold related grib headers
-    """
-    threshold_dict = {"paramId": threshold["out_paramid"]}
-    scale_factor = threshold.get("localDecimalScaleFactor", 0)
-    threshold_value = round(threshold["value"] * 10**scale_factor, 0)
-    comparison = threshold["comparison"].strip("=")
-    if edition == 1 and comparison == "<":
-        grib_keys = {
-            "localDecimalScaleFactor": scale_factor,
-            "thresholdIndicator": 2,
-            "upperThreshold": threshold_value,
-        }
-    elif edition == 1 and comparison == ">":
-        grib_keys = {
-            "localDecimalScaleFactor": scale_factor,
-            "thresholdIndicator": 1,
-            "lowerThreshold": threshold_value,
-        }
-    elif edition == 2:
-        # GRIB 2 has probability types above/below upper/lower limits (see Code Table 4.9)
-        # where the threshold value can correspond to either limit. The default limit type
-        # is upper for "<" and lower for ">", consistent with the GRIB 1 to GRIB 2 conversion
-        # assumption.
-        prob_types = {"<": {"upper": 4, "lower": 0}, ">": {"upper": 1, "lower": 3}}
-        if comparison == "<":
-            limit_type = threshold.get("limit_type", "upper")
-            probability_type = prob_types[comparison][limit_type]
-        elif comparison == ">":
-            limit_type = threshold.get("limit_type", "lower")
-            probability_type = prob_types[comparison][limit_type]
-        missing = "Upper" if limit_type == "lower" else "Lower"
-        grib_keys = {
-            f"scaleFactorOf{limit_type.capitalize()}Limit": scale_factor,
-            f"scaledValueOf{limit_type.capitalize()}Limit": threshold_value,
-            "probabilityType": probability_type,
-            f"scaleFactorOf{missing}Limit": "MISSING",
-            f"scaledValueOf{missing}Limit": "MISSING",
-            **climatology_headers,
-        }
-    else:
-        raise ValueError(
-            f"Unsupported threshold comparison {comparison} for grib edition {edition}"
-        )
+    thresholds = thconfig.param_thresholds
+    data = data.reshape((len(thresholds), -1) + data.shape[1:])
+    is_nan = 0
+    comp = 1
+    for index, threshold in enumerate(thresholds):
+        param_data = data[index]
+        # Find all locations where np.nan appears as an ensemble value
+        is_nan |= np.isnan(param_data).any(axis=0)
 
-    threshold_dict.update(grib_keys)
-    threshold_dict.update(threshold.get("grib_set", {}))
-    return threshold_dict
+        # Read threshold configuration and compute probability
+        if isinstance(threshold, SingleThreshold):
+            comp &= numexpr.evaluate(
+                f"data {threshold.comparison} {threshold.value}",
+                local_dict={"data": param_data},
+            )
+        else:
+            comp &= numexpr.evaluate(
+                f"data {threshold.lower_comparison} {threshold.lower_value}",
+                local_dict={"data": param_data},
+            ) & numexpr.evaluate(
+                f"data {threshold.upper_comparison} {threshold.upper_value}",
+                local_dict={"data": param_data},
+            )
+
+    probability = np.where(comp, 100, 0).mean(axis=0)
+    # Put in missing values
+    probability = np.where(is_nan, np.nan, probability)
+    return probability
 
 
 def prob_iteration(
-    param,
-    recovery,
-    out_prob,
-    template_filename,
-    window_id,
-    accum,
-    thresholds,
-    climatology_headers={},
+    param: ParamConfig,
+    recovery: BaseRecovery,
+    out_prob: Output,
+    template: eccodes.GRIBMessage,
+    window_id: str,
+    accum: Accumulator,
+    thresholds: list[ThresholdConfig],
+    clim_metadata: Optional[dict] = None,
 ):
-    with ResourceMeter(f"Window {window_id}, computing threshold probs"):
-        message_template = (
-            template_filename
-            if isinstance(template_filename, eccodes.highlevel.message.GRIBMessage)
-            else common.io.read_template(template_filename)
-        )
+    with ResourceMeter(
+        f"Param {param.name}, window {window_id}, computing threshold probs"
+    ):
 
         ens = accum.values
         assert ens is not None
@@ -83,24 +80,14 @@ def prob_iteration(
         for threshold in thresholds:
             window_probability = ensemble_probability(ens, threshold)
 
-            print(
-                f"Writing probability for input param {param.name} and output "
-                + f"param {threshold['out_paramid']} for step(s) {window_id}"
-            )
-            grib_set = accum.grib_keys()
+            grib_set = accum.grib_keys().copy()
+            grib_set.update(out_prob.metadata)
             grib_set.update(
-                threshold_grib_headers(
-                    grib_set.get("edition", 1), threshold, climatology_headers
+                threshold.grib_keys(
+                    grib_set.get("edition", template["edition"]), clim_metadata
                 )
             )
-            common.write_grib(
-                out_prob,
-                construct_message(
-                    message_template,
-                    grib_set,
-                ),
-                window_probability,
-            )
+            write_grib(out_prob.target, template, window_probability, grib_set)
 
-        out_prob.flush()
-        recovery.add_checkpoint(param.name, window_id)
+        out_prob.target.flush()
+        recovery.add_checkpoint(param=param.name, window=window_id)

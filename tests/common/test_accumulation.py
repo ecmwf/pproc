@@ -1,5 +1,13 @@
+# (C) Copyright 2021- ECMWF.
+#
+# This software is licensed under the terms of the Apache Licence Version 2.0
+# which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# In applying this licence, ECMWF does not waive the privileges and immunities
+# granted to it by virtue of its status as an intergovernmental organisation
+# nor does it submit to any jurisdiction.
+
 import numpy as np
-import xarray as xr
 import pytest
 
 from pproc.common.accumulation import (
@@ -20,6 +28,7 @@ from pproc.common.accumulation import (
     convert_dims,
     convert_range,
     create_accumulation,
+    coords_name,
 )
 
 
@@ -281,14 +290,92 @@ def test_accumulations(config, acc_cls, used_coords, exp_values):
     assert acc.is_complete()
     np.testing.assert_almost_equal(acc.get_values(), exp_values)
 
-    # Test with xr.DataArray inputs
     acc.reset()
     for c in [0, 2, 3, 4]:
         assert not acc.is_complete()
-        assert acc.feed(c, xr.DataArray(data + c)) == (c in used_coords)
+        assert acc.feed(c, data + c) == (c in used_coords)
     assert acc.is_complete()
-    assert isinstance(acc.get_values(), xr.DataArray)
-    xr.testing.assert_allclose(acc.get_values(), xr.DataArray(exp_values))
+    np.testing.assert_almost_equal(acc.get_values(), exp_values)
+
+
+def test_std_zero():
+    acc = create_accumulation(
+        {"operation": "standard_deviation", "coords": {"to": 4, "by": 2}}
+    )
+
+    data = np.ones((2, 3)) * 0.1
+    for c in [0, 2, 4]:
+        acc.feed(c, data)
+    np.testing.assert_almost_equal(acc.get_values(), np.zeros((2, 3)))
+
+
+@pytest.mark.parametrize(
+    "config, exp_values",
+    [
+        pytest.param(
+            {
+                "operation": "filter",
+                "filter_op": "max",
+                "filter_index": 0,
+                "coords": {"from": 1, "to": 3},
+                "sequential": True,
+            },
+            [
+                [[5.0, 9.0, 9.0], [3.0, 8.0, 18.0]],
+                [[1.0, 8.0, 27.0], [6.0, 24.0, 27.0]],
+            ],
+            id="filter-neighbours-0",
+        ),
+        pytest.param(
+            {
+                "operation": "filter",
+                "filter_op": "max",
+                "filter_index": 0,
+                "neighbours": [-1],
+                "neighbours_op": "mean",
+                "coords": {"from": 1, "to": 3},
+                "sequential": True,
+            },
+            [[[3.5, 5.0, 7.0], [2.5, 5.0, 11.5]], [[1.5, 6.0, 22.5], [5, 20.0, 40.5]]],
+            id="filter-neighbours-neg1",
+        ),
+        pytest.param(
+            {
+                "operation": "filter",
+                "filter_op": "min",
+                "filter_index": 0,
+                "neighbours": [1],
+                "neighbours_op": "mean",
+                "coords": {"from": 1, "to": 3},
+                "sequential": True,
+            },
+            [[[1.5, 5.0, 3.0], [1.5, 5.0, 3]], [[2.5, 6.0, 13.5], [3, 20.0, 67.5]]],
+            id="filter-neighbours-pos1",
+        ),
+    ],
+)
+def test_filter_accum(config, exp_values):
+    acc = create_accumulation(config)
+
+    step1 = np.array(
+        [[[5.0, 1.0, 1.0], [1.0, 4.0, 18.0]], [[1.0, 4.0, 9.0], [2.0, 8.0, 27.0]]]
+    )
+    step2 = np.array(
+        [[[2.0, 9.0, 5.0], [2.0, 2.0, 5.0]], [[2.0, 8.0, 18.0], [4.0, 16.0, 54.0]]]
+    )
+    step3 = np.array(
+        [[[1.0, 4.0, 9.0], [3.0, 8.0, 1.0]], [[3.0, 12.0, 27.0], [6.0, 24.0, 81.0]]]
+    )
+    for index, data in enumerate([step1, step2, step3]):
+        acc.feed(index + 1, data)
+    assert acc.is_complete()
+    np.testing.assert_almost_equal(acc.get_values(), exp_values)
+
+    acc.reset()
+    for index, data in enumerate([step1, step2, step3]):
+        acc.feed(index + 1, data)
+    assert acc.is_complete()
+    np.testing.assert_almost_equal(acc.get_values(), exp_values)
 
 
 def test_convert_dim():
@@ -308,6 +395,135 @@ def test_convert_dims():
         convert_dims([Dimension("step", dims["step"]), ("levelist", dims["levelist"])])
         == expected
     )
+
+
+@pytest.mark.parametrize(
+    "coords, name, expected",
+    [
+        [[], {"suffix": "SUFFIX_"}, "SUFFIX_"],
+        [[0], None, "0"],
+        [[0, 2, 4], None, "0-4"],
+        [["0-4"], None, "0-4"],
+        [
+            ["0-4"],
+            {"length": 4, "suffix": "_SUFFIX", "prefix": "PREFIX_"},
+            "PREFIX_0-4_SUFFIX",
+        ],
+        [
+            [2, 4],
+            {"length": 4, "suffix": "_SUFFIX", "prefix": "PREFIX_"},
+            "PREFIX_0-4_SUFFIX",
+        ],
+        [
+            list(range(6, 721, 6)),
+            {
+                "type": "monthly",
+                "date": "20250601",
+                "suffix": "_SUFFIX",
+                "prefix": "PREFIX_",
+            },
+            "PREFIX_0-720_SUFFIX",
+        ],
+    ],
+)
+def test_coords_name(coords, name, expected):
+    assert expected == coords_name(coords, name)
+
+
+@pytest.mark.parametrize(
+    "config, grib_key_values",
+    [
+        pytest.param(
+            {
+                "coords": [1],
+                "operation": "aggregation",
+            },
+            {"step": "1", "timeRangeIndicator": 0},
+            id="inst",
+        ),
+        pytest.param(
+            {
+                "coords": [0],
+                "operation": "aggregation",
+            },
+            {"step": "0", "timeRangeIndicator": 1},
+            id="inst-0",
+        ),
+        pytest.param(
+            {
+                "coords": [260],
+                "operation": "aggregation",
+            },
+            {"step": "260", "timeRangeIndicator": 10},
+            id="inst-260",
+        ),
+        pytest.param(
+            {
+                "coords": [1, 2],
+                "operation": "maximum",
+            },
+            {"stepRange": "1-2", "stepType": "max"},
+            id="range",
+        ),
+        pytest.param(
+            {
+                "coords": list(range(320, 361)),
+                "operation": "maximum",
+            },
+            {"stepRange": "320-360", "stepType": "max", "unitOfTimeRange": 11},
+            id="range-360",
+        ),
+        pytest.param(
+            {
+                "coords": [1, 2],
+                "operation": "mean",
+                "metadata": {"stepType": "avg", "numberIncludedInAverage": 2},
+            },
+            {"numberIncludedInAverage": 2, "stepRange": "1-2", "stepType": "avg"},
+            id="extra",
+        ),
+        pytest.param(
+            {
+                "coords": [1, 2],
+                "operation": "mean",
+                "name": {
+                    "type": "default",
+                    "length": 2,
+                },
+            },
+            {"stepRange": "0-2", "stepType": "max"},
+            id="name",
+        ),
+        pytest.param(
+            {
+                "coords": range(6, 721, 6),
+                "operation": "mean",
+                "name": {
+                    "type": "monthly",
+                    "date": "20250601",
+                },
+            },
+            {"stepRange": "0-720", "stepType": "max", "unitOfTimeRange": 11},
+            id="name-monthly",
+        ),
+        pytest.param(
+            {
+                "coords": ["0-168"],
+            },
+            {"stepRange": "0-168"},
+            id="precomputed",
+        ),
+        pytest.param(
+            {"coords": [6], "name": {"type": "default", "length": 6}},
+            {"stepRange": "0-6", "stepType": "max"},
+            id="single-step-range",
+        ),
+    ],
+)
+def test_grib_header(config, grib_key_values):
+    accum = create_accumulation(config)
+    header = accum.grib_keys("step")
+    assert header == grib_key_values
 
 
 def test_accumulator_contains():
@@ -409,3 +625,20 @@ def test_create_accumulator():
     assert type(acc.dims[1].accumulation) is SimpleAccumulation
     assert acc.dims[1].accumulation.operation is np.maximum
     assert acc.dims[1].accumulation.coords == range(24, 49, 6)
+
+
+def test_multi_accum():
+    accum = create_accumulation({"coords": [1, 2], "operation": "sum"})
+    accum2 = create_accumulation({"coords": [1, 2], "operation": "sum"})
+    step_values = np.array([[1, 2, 3], [2, 4, 6]])
+    accum.feed(1, step_values)
+    accum2.feed(1, step_values)
+    step_values = np.array([[1, 2, 3], [2, 4, 6]])
+    accum.feed(2, step_values * 2)
+    values = accum.get_values()
+    assert values is not None
+    np.testing.assert_equal(values, np.array([[3, 6, 9], [6, 12, 18]]))
+    accum2.feed(2, step_values)
+    values2 = accum2.get_values()
+    assert values2 is not None
+    np.testing.assert_equal(values2, np.array([[2, 4, 6], [4, 8, 12]]))

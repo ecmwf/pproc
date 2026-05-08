@@ -35,3 +35,6 @@ profile_default/
 ipython_config.py
 
 tests/data
+
+
+src/pproc/_version.py

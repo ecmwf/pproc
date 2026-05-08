@@ -1,18 +1,24 @@
+# (C) Copyright 2021- ECMWF.
+#
+# This software is licensed under the terms of the Apache Licence Version 2.0
+# which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# In applying this licence, ECMWF does not waive the privileges and immunities
+# granted to it by virtue of its status as an intergovernmental organisation
+# nor does it submit to any jurisdiction.
 
-import argparse
 import concurrent.futures as fut
 import functools
 import sys
 
+from conflator import Conflator
 import numpy as np
 import numpy.random as npr
 
 from eccodes import FileReader, GRIBMessage
 
-from pproc.clustereps.config import ClusterConfig
 from pproc.clustereps.io import read_steps_grib
-from pproc.common import default_parser
-from pproc.common.io import FileTarget
+from pproc.config.types import ClusterClusterConfig, ClusterClusterStandaloneConfig
 
 
 def disc_stat(xs, ndis):
@@ -42,20 +48,20 @@ def disc_stat(xs, ndis):
     avg = np.mean(xs)
 
     ns = nx // max(1, ndis)
-    var = np.var(xs[:ns * ndis])
+    var = np.var(xs[: ns * ndis])
     xs = xs - avg
-    cov = 0.
+    cov = 0.0
     for i in range(ndis):
         js = i * ns
         je = js + ns - 1
-        cov += np.sum(xs[js:je] * xs[js+1:je+1])
+        cov += np.sum(xs[js:je] * xs[js + 1 : je + 1])
 
     sd = np.sqrt(var)
     ac = cov / (var * (nx - ndis))
     return avg, sd, ac
 
 
-def prepare_data(data: dict, npc: int, factor: float = 1., verbose: bool = False):
+def prepare_data(data: dict, npc: int, factor: float = 1.0, verbose: bool = False):
     """Prepare PCA data
 
     Parameters
@@ -86,21 +92,21 @@ def prepare_data(data: dict, npc: int, factor: float = 1., verbose: bool = False
     numpy array (npc)
         Auto-correlation of the PCs
     """
-    pc = data['pc'][:npc, ...].reshape((npc, -1))
-    eof_sd = data['eof_sd']
+    pc = data["pc"][:npc, ...].reshape((npc, -1))
+    eof_sd = data["eof_sd"]
 
     pc *= eof_sd[:npc, np.newaxis]
 
-    ens_spread = data['ens_spread']
+    ens_spread = data["ens_spread"]
     if verbose:
         print(f"Ensemble spread: {ens_spread}")
     ens_spread *= factor
     if verbose:
         print(f"Ensemble spread after rescaling: {ens_spread}")
 
-    nstep, ngp = data['ens_anom'].shape[-2:]
-    ens_anom = data['ens_anom'].reshape((-1, nstep, ngp))
-    ens_mean = data['ens_mean'].reshape((nstep, ngp))
+    nstep, ngp = data["ens_anom"].shape[-2:]
+    ens_anom = data["ens_anom"].reshape((-1, nstep, ngp))
+    ens_mean = data["ens_mean"].reshape((nstep, ngp))
 
     # Compute PC statistics and subtract mean
     ndis = 1
@@ -246,7 +252,7 @@ def select_seeds(ncl, pc, r2seed, d2seed, rand):
         costmax = 0
         cost1 = 1 / jcl
         for _ in range(10):
-            jseed = indexes[jcl-1]
+            jseed = indexes[jcl - 1]
             while jseed in indexes[:jcl]:
                 jseed = rand.randint(nfld)
 
@@ -254,9 +260,9 @@ def select_seeds(ncl, pc, r2seed, d2seed, rand):
 
             norm = np.sum(np.square(pc[:, jseed]))
             if norm <= r2seed:
-                costf += 1.
+                costf += 1.0
 
-            r2j = pc[0, jseed]**2 + pc[1, jseed]**2
+            r2j = pc[0, jseed] ** 2 + pc[1, jseed] ** 2
 
             for kcl in range(jcl):
                 kseed = indexes[kcl]
@@ -265,7 +271,7 @@ def select_seeds(ncl, pc, r2seed, d2seed, rand):
                     costf += cost1
 
                 dotp = pc[0, jseed] * pc[0, kseed] + pc[1, jseed] * pc[1, kseed]
-                r2k = pc[0, kseed]**2 + pc[1, kseed]**2
+                r2k = pc[0, kseed] ** 2 + pc[1, kseed] ** 2
                 if dotp < cospn * np.sqrt(r2j * r2k):
                     costf += cost1
 
@@ -462,16 +468,17 @@ def full_clustering(ncl, npass, pc, rand, max_iter=100, rseed=1.5, dseed=0.5):
     for i in range(npass):
         indexes[i, :] = select_seeds(ncl, pc, r2seed, d2seed, rand)
         _, _, var, _ = compute_partition_skl(pc, indexes[i, :], max_iter)
-        #print(f"DBG: Pass {i}, variance: {var}")
+        # print(f"DBG: Pass {i}, variance: {var}")
 
         if i == 0 or var < var_opt:
             i_opt = i
             var_opt = var
 
     # Recompute optimal partition
-    ind_cl, n_fields, var, centroids = \
-        compute_partition_skl(pc, indexes[i_opt, :], max_iter)
-    #print(f"DBG: Final variance: {var}")
+    ind_cl, n_fields, var, centroids = compute_partition_skl(
+        pc, indexes[i_opt, :], max_iter
+    )
+    # print(f"DBG: Final variance: {var}")
 
     var_cen = np.sum(n_fields * np.sum(np.square(centroids), axis=1))
     var_ratio = var_cen / var
@@ -479,7 +486,9 @@ def full_clustering(ncl, npass, pc, rand, max_iter=100, rseed=1.5, dseed=0.5):
     return ind_cl, n_fields, (var_cen, var, var_ratio), centroids, indexes
 
 
-def full_clustering_skl(ncl, npass, pc, rand, init="k-means++", max_iter=100, rseed=1.5, dseed=0.5):
+def full_clustering_skl(
+    ncl, npass, pc, rand, init="k-means++", max_iter=100, rseed=1.5, dseed=0.5
+):
     """Partition the data into clusters
 
     Several clustering passes (see `compute_partition`) are run with different
@@ -520,15 +529,20 @@ def full_clustering_skl(ncl, npass, pc, rand, init="k-means++", max_iter=100, rs
         For compatibility only
     """
     from sklearn.cluster import k_means
+
     _, nfld = pc.shape
 
     known_init = ["k-means++", "sector"]
     if init not in known_init:
-        raise ValueError(f"Unknown initial condition generator {init!r}. Should be one of {', '.join(known_init)}")
+        raise ValueError(
+            f"Unknown initial condition generator {init!r}. Should be one of {', '.join(known_init)}"
+        )
     if init == "sector":
         init = functools.partial(sector_init, rseed=rseed, dseed=dseed)
 
-    centroids, ind_cl, var = k_means(pc.T, ncl, init=init, n_init=npass, max_iter=max_iter, random_state=rand)
+    centroids, ind_cl, var = k_means(
+        pc.T, ncl, init=init, n_init=npass, max_iter=max_iter, random_state=rand
+    )
 
     n_fields = np.bincount(ind_cl, minlength=ncl)
 
@@ -597,25 +611,25 @@ def gauss_series(n, avg, sd, ac, ndis, rand):
 
     # Generate a series of n gaussian deviates
     for i in range(0, n, 2):
-        r2 = 0.
-        while r2 > 1. or r2 == 0.:
-            u = 2. * rand.rand() - 1.
-            v = 2. * rand.rand() - 1.
+        r2 = 0.0
+        while r2 > 1.0 or r2 == 0.0:
+            u = 2.0 * rand.rand() - 1.0
+            v = 2.0 * rand.rand() - 1.0
             r2 = u * u + v * v
-        fact = np.sqrt(-2. * np.log(r2) / r2)
+        fact = np.sqrt(-2.0 * np.log(r2) / r2)
         xs[i] = u * fact
         if i < n - 1:
-            xs[i+1] = v * fact
+            xs[i + 1] = v * fact
 
     # Introduce autocorrelation if requested
     if ac is not None:
         ns = n // max(1, ndis)
-        sd2 = np.sqrt(1. - ac * ac)
+        sd2 = np.sqrt(1.0 - ac * ac)
 
         for i in range(ndis):
             js = i * ns
             je = js + ns
-            xs[js+1:je] = ac * xs[js:je-1] + sd2 * xs[js+1:je]
+            xs[js + 1 : je] = ac * xs[js : je - 1] + sd2 * xs[js + 1 : je]
 
     # Set assigned average and standard deviation
     xs *= sd
@@ -652,12 +666,12 @@ def gauss_series_np(n, avg, sd, ac, ndis, rand):
     # Introduce autocorrelation if requested
     if ac is not None:
         ns = n // max(1, ndis)
-        sd2 = np.sqrt(1. - ac * ac)
+        sd2 = np.sqrt(1.0 - ac * ac)
 
         for i in range(ndis):
             js = i * ns
             je = js + ns
-            xs[js+1:je] = ac * xs[js:je-1] + sd2 * xs[js+1:je]
+            xs[js + 1 : je] = ac * xs[js : je - 1] + sd2 * xs[js + 1 : je]
 
     # Set assigned average and standard deviation
     xs *= sd
@@ -666,7 +680,9 @@ def gauss_series_np(n, avg, sd, ac, ndis, rand):
     return xs
 
 
-def red_noise_cluster_iteration(ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand, init="k-means++"):
+def red_noise_cluster_iteration(
+    ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand, init="k-means++"
+):
     """Perform clustering on a red noise sample
 
     Parameters
@@ -696,14 +712,14 @@ def red_noise_cluster_iteration(ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand, i
     ndis = 1
     pc_red = np.empty((npc, nfld))
     for j in range(npc):
-        ts = gauss_series_np(nfld, 0., pc_sd[j], pc_ac[j], ndis, rand)
+        ts = gauss_series_np(nfld, 0.0, pc_sd[j], pc_ac[j], ndis, rand)
         tsm = np.mean(ts)
         pc_red[j, :] = ts - tsm
 
     noise_var = np.zeros(ncl_max - 1)
     for ncl in range(2, ncl_max + 1):
         _, _, var, _, _ = full_clustering_skl(ncl, npass, pc_red, rand, init=init)
-        noise_var[ncl-2] = var[2]
+        noise_var[ncl - 2] = var[2]
     return noise_var
 
 
@@ -718,7 +734,9 @@ def _progress(it, total, pct_step=10, prefix=""):
         yield x
 
 
-def red_noise_cluster(n_samples, ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand, n_par=1, init="k-means++"):
+def red_noise_cluster(
+    n_samples, ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand, n_par=1, init="k-means++"
+):
     """Perform clustering on red noise samples
 
     Parameters
@@ -752,14 +770,31 @@ def red_noise_cluster(n_samples, ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand, 
     if n_par == 1:
         noise_var = np.zeros((n_samples, ncl_max - 1))
         for i in range(n_samples):
-            noise_var[i, :] = red_noise_cluster_iteration(ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand, init=init)
+            noise_var[i, :] = red_noise_cluster_iteration(
+                ncl_max, npass, npc, nfld, pc_sd, pc_ac, rand, init=init
+            )
         return noise_var
     else:
-        sample = functools.partial(red_noise_cluster_iteration, ncl_max, npass, npc, nfld, pc_sd, pc_ac, init=init)
+        sample = functools.partial(
+            red_noise_cluster_iteration,
+            ncl_max,
+            npass,
+            npc,
+            nfld,
+            pc_sd,
+            pc_ac,
+            init=init,
+        )
         seed = rand.randint((1 << 32) - n_samples)
         with fut.ProcessPoolExecutor(max_workers=n_par) as executor:
             rands = (npr.RandomState(seed + i) for i in range(n_samples))
-            noise_var = list(_progress(executor.map(sample, rands), n_samples, prefix="Significance estimation"))
+            noise_var = list(
+                _progress(
+                    executor.map(sample, rands),
+                    n_samples,
+                    prefix="Significance estimation",
+                )
+            )
         return np.array(noise_var)
 
 
@@ -787,27 +822,27 @@ def write_cluster_grib(steps, ind_cl, rep_members, det_index, data, target, keys
     sample = GRIBMessage.from_samples("clusters_grib1").copy()
     for key, val in keys.items():
         sample.set(key, val)
-    sample.set('totalNumberOfClusters', ncl)
-    sample.set('controlForecastCluster', ind_cl[0] + 1)
+    sample.set("totalNumberOfClusters", ncl)
+    sample.set("controlForecastCluster", ind_cl[0] + 1)
     for icl in range(ncl):
         members = np.nonzero(ind_cl == icl)[0]
 
         message = sample.copy()
-        message.set('clusterNumber', icl + 1)
-        message.set('numberOfForecastsInCluster', len(members))
-        message.set_array('ensembleForecastNumbers', members)
-        message.set('operationalForecastCluster', det_index + 1)
-        message.set('representativeMember', rep_members[icl])
+        message.set("clusterNumber", icl + 1)
+        message.set("numberOfForecastsInCluster", len(members))
+        message.set_array("ensembleForecastNumbers", members)
+        message.set("operationalForecastCluster", det_index + 1)
+        message.set("representativeMember", rep_members[icl])
 
         for i, (start, end) in enumerate(steps):
             if end is None:
-                message.set('step', start)
+                message.set("step", start)
             else:
-                message.set('startStep', start)
-                message.set('endStep', end)
-                message.set('stepRange', f"{start}-{end}")
+                message.set("startStep", start)
+                message.set("endStep", end)
+                message.set("stepRange", f"{start}-{end}")
 
-            message.set_array('values', data[i][icl])
+            message.set_array("values", data[i][icl])
 
             target.write(message)
 
@@ -820,7 +855,9 @@ def select_npc(var_th, var_cum) -> int:
     raise ValueError("Not enough PCs to attain the threshold")
 
 
-def compute_variance_thresholds(ncl_max: int, npc: int, pc_sd: np.ndarray, verbose: bool = False) -> np.ndarray:
+def compute_variance_thresholds(
+    ncl_max: int, npc: int, pc_sd: np.ndarray, verbose: bool = False
+) -> np.ndarray:
     """Compute the variance thresholds
 
     Parameters
@@ -849,15 +886,26 @@ def compute_variance_thresholds(ncl_max: int, npc: int, pc_sd: np.ndarray, verbo
     if verbose:
         print(f"Total variance explained by PCs: {tot_var}")
 
-    sig_thr = np.zeros(ncl_max+1)
-    sig_thr[2:] = cum_pc_var[:ncl_max-1] / tot_var
-    sig_thr[2:] *= 4. * (np.arange(1, ncl_max, dtype=sig_thr.dtype)
-                        / np.square(np.arange(2, ncl_max + 1, dtype=sig_thr.dtype)))
+    sig_thr = np.zeros(ncl_max + 1)
+    sig_thr[2:] = cum_pc_var[: ncl_max - 1] / tot_var
+    sig_thr[2:] *= 4.0 * (
+        np.arange(1, ncl_max, dtype=sig_thr.dtype)
+        / np.square(np.arange(2, ncl_max + 1, dtype=sig_thr.dtype))
+    )
 
     return sig_thr
 
 
-def compute_clusters(ens_anom: np.ndarray, ens_mean: np.ndarray, pc: np.ndarray, ncl_max: int, npass: int, rand: npr.RandomState, init: str = "k-means++", verbose: bool = False):
+def compute_clusters(
+    ens_anom: np.ndarray,
+    ens_mean: np.ndarray,
+    pc: np.ndarray,
+    ncl_max: int,
+    npass: int,
+    rand: npr.RandomState,
+    init: str = "k-means++",
+    verbose: bool = False,
+):
     nfld, nstep, ngp = ens_anom.shape
     ind_cl = [None, None]  # [ncl]
     n_fields = [None, None]  # [ncl]
@@ -872,11 +920,17 @@ def compute_clusters(ens_anom: np.ndarray, ens_mean: np.ndarray, pc: np.ndarray,
         step_rep_members_gp = [None, None]  # [ncl][jcl]
         for ncl in range(2, ncl_max + 1):
             if i == 0:
-                cur_ind_cl, cur_n_fields, cur_var_opt, cur_centroids, _ = \
+                cur_ind_cl, cur_n_fields, cur_var_opt, cur_centroids, _ = (
                     full_clustering_skl(ncl, npass, pc, rand, init=init)
-                cur_var_opt = (cur_var_opt[0] / nfld, cur_var_opt[1] / nfld, cur_var_opt[2])
-                cur_n_fields, cur_ind_cl, cur_centroids = \
-                    sort_clusters(cur_n_fields, cur_ind_cl, cur_centroids)
+                )
+                cur_var_opt = (
+                    cur_var_opt[0] / nfld,
+                    cur_var_opt[1] / nfld,
+                    cur_var_opt[2],
+                )
+                cur_n_fields, cur_ind_cl, cur_centroids = sort_clusters(
+                    cur_n_fields, cur_ind_cl, cur_centroids
+                )
                 ind_cl.append(cur_ind_cl)
                 n_fields.append(cur_n_fields)
                 var_opt.append(cur_var_opt)
@@ -895,10 +949,12 @@ def compute_clusters(ens_anom: np.ndarray, ens_mean: np.ndarray, pc: np.ndarray,
                 rmmin = None
                 ifld = None
                 for jfld in range(nfld):
-                    rms = 0.
+                    rms = 0.0
                     if ind_cl[ncl][jfld] == jcl:
                         centgp += (ens_anom[jfld, i, :] + ens_mean[i, :]) * rn
-                        rms = np.sqrt(np.mean(np.square(pc[:, jfld] - centroids[ncl][jcl, :])))
+                        rms = np.sqrt(
+                            np.mean(np.square(pc[:, jfld] - centroids[ncl][jcl, :]))
+                        )
                         if first or rms < rmmin:
                             first = False
                             rmmin = rms
@@ -922,12 +978,19 @@ def compute_clusters(ens_anom: np.ndarray, ens_mean: np.ndarray, pc: np.ndarray,
     return ind_cl, var_opt, centroids, rep_members, centroids_gp, rep_members_gp
 
 
-def select_optimal_partition(config: ClusterConfig, var_opt: list, noise_var: np.ndarray, sig_thr: np.ndarray, ens_spread: float, verbose: bool = False) -> int:
+def select_optimal_partition(
+    config: ClusterClusterConfig,
+    var_opt: list,
+    noise_var: np.ndarray,
+    sig_thr: np.ndarray,
+    ens_spread: float,
+    verbose: bool = False,
+) -> int:
     """Select the optimal partition
 
     Parameters
     ----------
-    config: ClusterConfig
+    config: ClusterClusterConfig
         Configuration
     var_opt: list (ncl_max+1)
         Variances of the partitions as tuples (centroid variance, internal
@@ -953,22 +1016,24 @@ def select_optimal_partition(config: ClusterConfig, var_opt: list, noise_var: np
         var_ratio = var_opt[ncl][2]
 
         for i in range(config.nrsamples):
-            if var_ratio > noise_var[i, ncl-2]:
+            if var_ratio > noise_var[i, ncl - 2]:
                 sig[ncl] += dsig
 
         # TODO: write diagnostics?
         if verbose:
             print(f"Significance of the {ncl}-cluster partition: {sig[ncl]}")
-            print(f"Variance ratio: {var_ratio}, threshold for significance: {sig_thr[ncl]}")
+            print(
+                f"Variance ratio: {var_ratio}, threshold for significance: {sig_thr[ncl]}"
+            )
 
     # Choose the best partition based on significance
     candidates = [
-        ncl for ncl in range(2, config.ncl_max + 1)
-        if var_opt[ncl][1] >= ens_spread
-            and var_opt[ncl][2] >= sig_thr[ncl]
+        ncl
+        for ncl in range(2, config.ncl_max + 1)
+        if var_opt[ncl][1] >= ens_spread and var_opt[ncl][2] >= sig_thr[ncl]
     ]
     best_ncl = 1
-    best_sig = 0.
+    best_sig = 0.0
     for ncl in candidates:
         if best_sig < sig[ncl]:
             best_ncl = ncl
@@ -994,7 +1059,13 @@ def select_optimal_partition(config: ClusterConfig, var_opt: list, noise_var: np
     return best_ncl
 
 
-def find_cluster(fields: np.ndarray, ens_mean: np.ndarray, eof: np.ndarray, weights: np.ndarray, centroids: np.ndarray) -> int:
+def find_cluster(
+    fields: np.ndarray,
+    ens_mean: np.ndarray,
+    eof: np.ndarray,
+    weights: np.ndarray,
+    centroids: np.ndarray,
+) -> int:
     """Find the cluster containing a time series of fields
 
     Parameters
@@ -1015,53 +1086,61 @@ def find_cluster(fields: np.ndarray, ens_mean: np.ndarray, eof: np.ndarray, weig
     int
         Cluster index
     """
-    norm = np.sqrt(np.einsum('ijk,ijk,k->i', eof, eof, weights))
-    fields_proj = np.einsum('jk,ijk,k->i', fields - ens_mean, eof, weights) / norm
+    norm = np.sqrt(np.einsum("ijk,ijk,k->i", eof, eof, weights))
+    fields_proj = np.einsum("jk,ijk,k->i", fields - ens_mean, eof, weights) / norm
     dist2 = np.sum(np.square(fields_proj[np.newaxis, :] - centroids), axis=1)
     return np.argmin(dist2)
 
 
-def get_output_keys(config: ClusterConfig, template: GRIBMessage) -> dict:
+def get_output_keys(config: ClusterClusterConfig, template: GRIBMessage) -> dict:
     """Construct the dictionary of GRIB keys to set on the output files"""
+    lat_n, lat_s, lon_w, lon_e = config.bbox.to_tuple()
     keys = dict(
         clusteringMethod=4,
         startTimeStep=config.step_start,
         endTimeStep=config.step_end,
-        northernLatitudeOfDomain=int(config.lat_n * 1000),
-        southernLatitudeOfDomain=int(config.lat_s * 1000),
-        westernLongitudeOfDomain=int(config.lon_w * 1000),
-        easternLongitudeOfDomain=int(config.lon_e * 1000),
-        clusteringDomain='h',
+        northernLatitudeOfDomain=int(lat_n * 1000),
+        southernLatitudeOfDomain=int(lat_s * 1000),
+        westernLongitudeOfDomain=int(lon_w * 1000),
+        easternLongitudeOfDomain=int(lon_e * 1000),
+        clusteringDomain="h",
     )
 
-    if config.monthly:
-        keys['startTimeStep'] = config.step_start - config.step_del + 24
-
     extract = [
-        'parameter', 'level', 'date', 'time', 'stream', 'Ni', 'Nj',
-        'latitudeOfFirstGridPointInDegrees', 'longitudeOfFirstGridPointInDegrees',
-        'latitudeOfLastGridPointInDegrees', 'longitudeOfLastGridPointInDegrees',
-        'jDirectionIncrementInDegrees', 'iDirectionIncrementInDegrees',
+        "parameter",
+        "level",
+        "date",
+        "time",
+        "stream",
+        "Ni",
+        "Nj",
+        "latitudeOfFirstGridPointInDegrees",
+        "longitudeOfFirstGridPointInDegrees",
+        "latitudeOfLastGridPointInDegrees",
+        "longitudeOfLastGridPointInDegrees",
+        "jDirectionIncrementInDegrees",
+        "iDirectionIncrementInDegrees",
     ]
     for key in extract:
         keys[key] = template[key]
 
-    if config.monthly:
-        steps = [(e - config.step_del + 24, e) for e in config.steps]
-    else:
-        steps = [(s, None) for s in config.steps]
-
-    keys.update(config.out_keys)
+    steps = [(s, None) for s in config.steps]
 
     return keys, steps
 
 
-def do_clustering(config: ClusterConfig, data: dict, npc: int, verbose: bool = False, dump_indexes = None):
+def do_clustering(
+    config: ClusterClusterConfig,
+    data: dict,
+    npc: int,
+    verbose: bool = False,
+    dump_indexes=None,
+):
     """Run the ensemble clustering
 
     Parameters
     ----------
-    config: ClusterConfig
+    config: ClusterClusterConfig
         Clustering configuration
     data: dict
         PCA data
@@ -1087,7 +1166,9 @@ def do_clustering(config: ClusterConfig, data: dict, npc: int, verbose: bool = F
     numpy array (nsteps, npoints)
         Ensemble mean
     """
-    pc, eof_sd, ens_spread, ens_anom, ens_mean, pc_sd, pc_ac = prepare_data(data, npc, config.cluster_factor, verbose=verbose)
+    pc, eof_sd, ens_spread, ens_anom, ens_mean, pc_sd, pc_ac = prepare_data(
+        data, npc, config.cluster_factor, verbose=verbose
+    )
     nfld = ens_anom.shape[0]
 
     # Compute thresholds for cluster significance
@@ -1097,18 +1178,42 @@ def do_clustering(config: ClusterConfig, data: dict, npc: int, verbose: bool = F
     rand = init_rand(pc)
 
     # Perform the clustering
-    ind_cl, var_opt, centroids, rep_members, centroids_gp, rep_members_gp = compute_clusters(ens_anom, ens_mean, pc, config.ncl_max, config.npass, rand, init=config.init, verbose=verbose)
+    ind_cl, var_opt, centroids, rep_members, centroids_gp, rep_members_gp = (
+        compute_clusters(
+            ens_anom,
+            ens_mean,
+            pc,
+            config.ncl_max,
+            config.npass,
+            rand,
+            init=config.init,
+            verbose=verbose,
+        )
+    )
 
     # Write out the indexes
     if dump_indexes is not None:
         ind_cl[1] = np.zeros(nfld, dtype=int)
-        np.savez_compressed(dump_indexes, **{'ind_cl': np.asarray(ind_cl[1:])})
+        np.savez_compressed(dump_indexes, **{"ind_cl": np.asarray(ind_cl[1:])})
 
     # Perform a clustering on red noise
-    noise_var = red_noise_cluster(config.nrsamples, config.ncl_max, config.npass, npc, nfld, pc_sd, pc_ac, rand, config.n_par, init=config.init)
+    noise_var = red_noise_cluster(
+        config.nrsamples,
+        config.ncl_max,
+        config.npass,
+        npc,
+        nfld,
+        pc_sd,
+        pc_ac,
+        rand,
+        config.n_par,
+        init=config.init,
+    )
 
     # Select optimal partition
-    best_ncl = select_optimal_partition(config, var_opt, noise_var, sig_thr, ens_spread, verbose=True)
+    best_ncl = select_optimal_partition(
+        config, var_opt, noise_var, sig_thr, ens_spread, verbose=True
+    )
     if verbose:
         print(f"Optimal partition: {best_ncl} cluster{'s'*(best_ncl>1)}")
 
@@ -1134,80 +1239,63 @@ def do_clustering(config: ClusterConfig, data: dict, npc: int, verbose: bool = F
     return ind_cl, centroids, rep_members, centroids_gp, rep_members_gp, ens_mean
 
 
-def get_parser() -> argparse.ArgumentParser:
-    """initialize command line application argument parser.
-
-    Returns
-    -------
-    argparse.ArgumentParser
-
-    """
-
-    _description='K-Means clustering of ensemble data'
-    parser = default_parser(description=_description)
-
-    group = parser.add_argument_group('Clustering arguments')
-
-    group.add_argument('-d', '--deterministic', default=None, help="Deterministic forecast (GRIB)")
-    group.add_argument('-p', '--pca', required=True, help="PCA data (NPZ)")
-    group.add_argument('-t', '--template', required=True, help="Field to extract keys from (GRIB)")
-    group.add_argument('-C', '--centroids', required=True, help="Cluster centroids output (GRIB)")
-    group.add_argument('-R', '--representative', required=True, help="Cluster representative members output (GRIB)")
-    group.add_argument('-I', '--indexes', required=True, help="Cluster indexes output (NPZ)")
-    group.add_argument('-N', '--ncomp-file', default=None, help="Number of components output (text)")
-    group.add_argument("--deterministic-is-control", default=False, action="store_true", help=argparse.SUPPRESS)
-
-    return parser
-
-
-def main(args=sys.argv[1:]):
+def main():
     sys.stdout.reconfigure(line_buffering=True)
 
-    parser = get_parser()
+    cfg: ClusterClusterStandaloneConfig = Conflator(
+        app_name="pproc-clustereps-cluster", model=ClusterClusterStandaloneConfig
+    ).load()
+    cfg.initialise()
+    cfg.print()
 
-    args = parser.parse_args(args)
-
-    config = ClusterConfig(args)
-
-    data = np.load(args.pca)
+    data = np.load(cfg.pca)
 
     # Compute number of PCs based on the variance threshold
-    var_cum = data['var_cum']
-    npc = config.npc
+    var_cum = data["var_cum"]
+    npc = cfg.npc
     if npc <= 0:
-        npc = select_npc(config.var_th, var_cum)
-        if args.ncomp_file is not None:
-            with open(args.ncomp_file, 'w') as f:
+        npc = select_npc(cfg.var_th, var_cum)
+        if cfg.ncomp_file is not None:
+            with open(cfg.ncomp_file, "w") as f:
                 print(npc, file=f)
 
     print(f"Number of PCs used: {npc}, explained variance: {var_cum[npc-1]} %")
 
-    ind_cl, centroids, rep_members, centroids_gp, rep_members_gp, ens_mean = do_clustering(config, data, npc, verbose=True, dump_indexes=args.indexes)
+    ind_cl, centroids, rep_members, centroids_gp, rep_members_gp, ens_mean = (
+        do_clustering(cfg, data, npc, verbose=True, dump_indexes=cfg.indexes)
+    )
 
     # Find the deterministic forecast
-    if args.deterministic_is_control:
+    if cfg.deterministic_is_control:
         det_index = ind_cl[0]
-    elif args.deterministic is not None:
-        det = read_steps_grib(config.sources, args.deterministic, config.steps, **config.override_input)
-        det_index = find_cluster(det, ens_mean, data['eof'][:npc, ...], data['weights'], centroids)
+    elif cfg.inputs.deterministic.type != "null":
+        det = read_steps_grib(cfg.inputs, "deterministic", cfg.steps)
+        det_index = find_cluster(
+            det, ens_mean, data["eof"][:npc, ...], data["weights"], centroids
+        )
     else:
         det_index = 0
 
     # Write output
-    with FileReader(args.template) as reader:
+    with FileReader(cfg.template) as reader:
         message = next(reader)
-        keys, steps = get_output_keys(config, message)
+        keys, steps = get_output_keys(cfg, message)
 
-    target = FileTarget(args.centroids)
-    keys['type'] = 'cm'
-    write_cluster_grib(steps, ind_cl, rep_members, det_index, centroids_gp, target, keys)
+    target = cfg.outputs.centroids.target
+    metadata = {**cfg.outputs.centroids.metadata, **keys, **cfg.metadata}
+    write_cluster_grib(
+        steps, ind_cl, rep_members, det_index, centroids_gp, target, metadata
+    )
 
-    target = FileTarget(args.representative)
-    keys['type'] = 'cr'
-    write_cluster_grib(steps, ind_cl, rep_members, det_index, rep_members_gp, target, keys)
+    target = cfg.outputs.representative.target
+    metadata = {**cfg.outputs.representative.metadata, **keys, **cfg.metadata}
+    write_cluster_grib(
+        steps, ind_cl, rep_members, det_index, rep_members_gp, target, metadata
+    )
 
+    cfg.clean()
     return 0
 
 
-if __name__ == '__main__':
-    sys.exit(main(sys.argv[1:]))
+if __name__ == "__main__":
+    sys.exit(main())

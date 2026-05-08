@@ -1,3 +1,12 @@
+# (C) Copyright 2021- ECMWF.
+#
+# This software is licensed under the terms of the Apache Licence Version 2.0
+# which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# In applying this licence, ECMWF does not waive the privileges and immunities
+# granted to it by virtue of its status as an intergovernmental organisation
+# nor does it submit to any jurisdiction.
+
 
 from datetime import datetime, timedelta
 from typing import List, Tuple
@@ -63,20 +72,3 @@ class Season:
 
     def __repr__(self) -> str:
         return f"Season ({self.name}) - {self.start:%d/%m/%Y}: {self.end:%d/%m/%Y} ({self.ndays} days)"
-
-
-class SeasonConfig:
-    def __init__(self, months: List[Tuple[int]]):
-        self.months = months
-
-    def get_season(self, date: datetime) -> Season:
-        month = date.month
-        for start, end in self.months:
-            if start <= month <= end:
-                return Season(start, end, date.year)
-            if end < start:
-                if month <= end:
-                    return Season(start, end, date.year)
-                if start <= month:
-                    return Season(start, end, date.year + 1)
-        raise ValueError(f"No season containing month {month}")

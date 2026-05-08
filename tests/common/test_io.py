@@ -1,3 +1,12 @@
+# (C) Copyright 2021- ECMWF.
+#
+# This software is licensed under the terms of the Apache Licence Version 2.0
+# which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# In applying this licence, ECMWF does not waive the privileges and immunities
+# granted to it by virtue of its status as an intergovernmental organisation
+# nor does it submit to any jurisdiction.
+
 import eccodes
 from functools import partial
 import os
@@ -31,12 +40,6 @@ def test_fdb_read(fdb):
     assert not np.any(np.isnan(data))
 
 
-def test_fdb_read_with_template(fdb):
-    template, data = io.fdb_read_with_template(fdb, request)
-    assert len(data) == 6
-    assert isinstance(template, eccodes.highlevel.message.GRIBMessage)
-
-
 def test_fdb_read_to_file(tmpdir, fdb):
     io.fdb_read_to_file(fdb, request, f"{tmpdir}/test.grib")
     data = [msg for msg in eccodes.FileReader(f"{tmpdir}/test.grib")]
@@ -47,7 +50,6 @@ def test_fdb_read_to_file(tmpdir, fdb):
     "func",
     [
         io.fdb_read,
-        io.fdb_read_with_template,
         io.fdb_read_to_file,
     ],
 )
@@ -60,25 +62,18 @@ def test_fdb_no_data(tmpdir, fdb, func):
         func(fdb, no_data)
 
 
-@pytest.mark.parametrize(
-    "func",
-    [
-        io.fdb_read,
-        lambda fdb, req: io.fdb_read_with_template(fdb, req)[1],
-    ],
-)
-def test_fdb_missing_values(fdb, func):
+def test_fdb_missing_values(fdb):
     has_missing = request.copy()
     has_missing.pop("levelist")
     has_missing.update(
         {"stream": "waef", "param": 140232, "step": 12, "levtype": "sfc"}
     )
-    data = func(fdb, has_missing)
+    data = io.fdb_read(fdb, has_missing)
     assert np.any(np.isnan(data))
     assert not np.any(data == 9999)
 
 
-def test_fdb_target(fdb):
+def test_fdb_target():
     target = io.target_from_location("fdb:")
     for msg in eccodes.FileReader(f"{DATA_DIR}/wind.grib"):
         msg.set("type", "em")
@@ -86,13 +81,12 @@ def test_fdb_target(fdb):
     target.flush()
     req = request.copy()
     req["type"] = "em"
-    _, data = io.fdb_read_with_template(target.fdb, req)
+    data = list(eccodes.StreamReader(target.fdb.retrieve(req)))
     assert len(data) == 6
 
 
 def test_file_target(tmpdir):
     target = io.target_from_location(f"file:{tmpdir}/test.grib")
-    target.enable_recovery()
     messages = [
         msg
         for index, msg in enumerate(eccodes.FileReader(f"{DATA_DIR}/wind.grib"))
@@ -104,28 +98,15 @@ def test_file_target(tmpdir):
     data = [msg for msg in eccodes.FileReader(f"{tmpdir}/test.grib")]
     assert len(data) == 5
 
-    # Check files are overwritten
-    for msg in messages:
-        target.write(msg)
-    data = [msg for msg in eccodes.FileReader(f"{tmpdir}/test.grib")]
-    assert len(data) == 5
-
 
 def test_fileset_target(tmpdir):
     target = io.target_from_location(f"fileset:{tmpdir}" + "/test_{step}.grib")
-    target.enable_recovery()
     for msg in eccodes.FileReader(f"{DATA_DIR}/2t_ens.grib"):
         target.write(msg)
     files = os.listdir(tmpdir)
-    assert [x for x in files if x.endswith(".grib")] == [
+    assert set(x for x in files if x.endswith(".grib")) == set(
         f"test_{x}.grib" for x in range(12, 37, 6)
-    ]
-    data = [msg for msg in eccodes.FileReader(f"{tmpdir}/test_12.grib")]
-    assert len(data) == 6
-
-    # Check files are overwritten
-    for msg in eccodes.FileReader(f"{DATA_DIR}/2t_ens.grib"):
-        target.write(msg)
+    )
     data = [msg for msg in eccodes.FileReader(f"{tmpdir}/test_12.grib")]
     assert len(data) == 6
 
@@ -134,44 +115,12 @@ def _write(target, message):
     # Modify parameter to distinguish from data already in FDB
     message.set("paramId", "228")
     target.write(message)
+    target.flush()
 
 
 @pytest.mark.parametrize(
     "loc, out_loc, reqs",
     [
-        [
-            "fdb:",
-            "fdb:test",
-            [
-                {
-                    "class": "od",
-                    "expver": "0001",
-                    "stream": "enfo",
-                    "date": "20240507",
-                    "domain": "g",
-                    "time": 12,
-                    "type": "cf",
-                    "levtype": "sfc",
-                    "param": "167.128",
-                    "step": range(12, 37, 6),
-                    "type": "cf",
-                },
-                {
-                    "class": "od",
-                    "expver": "0001",
-                    "stream": "enfo",
-                    "date": "20240507",
-                    "domain": "g",
-                    "time": 12,
-                    "type": "cf",
-                    "levtype": "sfc",
-                    "param": "167.128",
-                    "step": range(12, 37, 6),
-                    "type": "pf",
-                    "number": range(1, 6),
-                },
-            ],
-        ],
         ["file:TMPDIR/test.grib", None, [{}]],
         [
             "fileset:TMPDIR/test_{step}.grib",
@@ -185,11 +134,15 @@ def test_target_parallel(tmpdir, fdb, loc, out_loc, reqs):
     if out_loc is None:
         out_loc = loc
     target = io.target_from_location(loc)
-    target.enable_parallel(parallel)
+    target.enable_parallel()
     parallel.parallel_processing(
-        _write, [(target, x) for x in eccodes.FileReader(f"{DATA_DIR}/2t_ens.grib")], 4
+        _write,
+        [
+            (target, io.GribMetadata(x._handle))
+            for x in eccodes.FileReader(f"{DATA_DIR}/2t_ens.grib")
+        ],
+        4,
     )
-    target.flush()
 
     type_, path = loc.split(":")
     num_messages = 0

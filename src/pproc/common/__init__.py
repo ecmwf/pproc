@@ -1,7 +1,11 @@
-from .io import fdb_read_to_file, fdb_read, write_grib, target_factory, fdb_retrieve, FDBTarget, fdb_read_with_template
+# (C) Copyright 2021- ECMWF.
+#
+# This software is licensed under the terms of the Apache Licence Version 2.0
+# which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# In applying this licence, ECMWF does not waive the privileges and immunities
+# granted to it by virtue of its status as an intergovernmental organisation
+# nor does it submit to any jurisdiction.
+
 from .config import default_parser, Config
 from .steps import AnyStep, Step, parse_step, step_to_coord
-from .window import create_window
-from .window_manager import WindowManager
-from .recovery import Recovery
-from .parameter import Parameter, create_parameter

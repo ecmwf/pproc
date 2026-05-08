@@ -1,35 +1,42 @@
-import argparse
-from datetime import datetime
+# (C) Copyright 2021- ECMWF.
+#
+# This software is licensed under the terms of the Apache Licence Version 2.0
+# which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# In applying this licence, ECMWF does not waive the privileges and immunities
+# granted to it by virtue of its status as an intergovernmental organisation
+# nor does it submit to any jurisdiction.
+
 import functools
 import sys
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterator, Optional, Tuple
+import signal
 
 import numpy as np
 
 import eccodes
 from meters import ResourceMeter
+from conflator import Conflator
 
 from pproc.common.accumulation import Accumulator
-from pproc.common.config import Config, default_parser
+from pproc.common.accumulation_manager import AccumulationManager
 from pproc.common.dataset import open_multi_dataset
-from pproc.common.grib_helpers import construct_message
 from pproc.common.io import (
-    Target,
     missing_to_nan,
-    nan_to_missing,
-    read_template,
-    target_from_location,
+    write_grib,
+    GribMetadata,
 )
-from pproc.common import parallel
 from pproc.common.parallel import (
-    QueueingExecutor,
-    SynchronousExecutor,
+    create_executor,
     parallel_data_retrieval,
+    sigterm_handler,
 )
-from pproc.common.param_requester import ParamConfig, ParamRequester
-from pproc.common.recovery import Recovery
+from pproc.common.param_requester import ParamRequester
 from pproc.common.steps import AnyStep
-from pproc.common.window_manager import WindowManager
+from pproc.config.types import HistogramConfig, HistParamConfig
+from pproc.config.targets import Target
+from pproc.config.io import InputsCollection, Input
+from pproc.config.recovery import BaseRecovery
 
 
 def write_histogram(
@@ -38,7 +45,6 @@ def write_histogram(
     target: Target,
     normalise: bool = True,
     scale: Optional[float] = None,
-    out_paramid: Optional[str] = None,
     out_keys: Optional[Dict[str, Any]] = None,
 ):
     """Write histogram
@@ -55,8 +61,6 @@ def write_histogram(
         If True, normalise the histogram
     scale: float or None
         If set, multiply values by this number
-    out_paramid: str, optional
-        Parameter ID to set on the output
     out_keys: dict, optional
         Extra GRIB keys to set on the output
     """
@@ -73,34 +77,11 @@ def write_histogram(
             "totalNumber": nbins,
             "perturbationNumber": i + 1,
         }
-        grib_keys.setdefault("type", "pd")
-        if out_paramid is not None:
-            grib_keys["paramId"] = out_paramid
-        message = construct_message(template, grib_keys)
-        message.set_array("values", nan_to_missing(message, hist_bin))
-        target.write(message)
-
-
-def get_parser() -> argparse.ArgumentParser:
-    description = "Compute a histogram of an ensemble"
-    parser = default_parser(description=description)
-    parser.add_argument("--in-ens", required=True, help="Input ensemble source")
-    parser.add_argument("--out-histogram", required=True, help="Output target")
-    return parser
-
-
-class HistParamConfig(ParamConfig):
-    def __init__(self, name, options: Dict[str, Any], overrides: Dict[str, Any] = {}):
-        super().__init__(name, options, overrides)
-        self.bins = np.asarray(options["bins"])
-        self.mod = options.get("mod", None)
-        self.normalise = options.get("normalise", True)
-        self.scale_out = options.get("scale_out", None)
+        write_grib(target, template, hist_bin, grib_keys)
 
 
 def iter_ensemble(
-    sources: dict,
-    loc: str,
+    input: Input,
     dtype=np.float32,
     **kwargs,
 ) -> Iterator[Tuple[eccodes.GRIBMessage, np.ndarray]]:
@@ -108,8 +89,8 @@ def iter_ensemble(
 
     Parameters
     ----------
-    sources: dict
-        Sources configuration
+    input: dict
+        Inputs configuration
     loc: str
         Location of the data (file path, named fdb request, ...)
     dtype: numpy data type
@@ -124,13 +105,13 @@ def iter_ensemble(
     numpy array (npoints)
         Field data
     """
-
-    readers = open_multi_dataset(sources, loc, **kwargs)
+    loc = input.location()
+    readers = open_multi_dataset(input.legacy_config(), loc, **kwargs)
     for reader in readers:
         with reader:
             message = reader.peek()
             if message is None:
-                raise EOFError(f"No data in {loc!r}")
+                raise EOFError(f"No data in {input!r}")
             for message in reader:
                 data = missing_to_nan(message)
                 yield message, data.astype(dtype)
@@ -140,24 +121,24 @@ class HistParamRequester(ParamRequester):
     def __init__(
         self,
         param: HistParamConfig,
-        sources: dict,
-        loc: str,
+        inputs: InputsCollection,
+        total: int,
     ):
-        super().__init__(param, sources, loc, 0)
+        super().__init__(param, inputs, total)
 
     def retrieve_data(
-        self, fdb, step: AnyStep, **kwargs
-    ) -> Tuple[eccodes.GRIBMessage, np.ndarray]:
+        self, step: AnyStep, **kwargs
+    ) -> Tuple[list[GribMetadata], np.ndarray]:
         assert isinstance(self.param, HistParamConfig)
+        inputs = self.param.input_list(self.inputs, "fc", step=str(step), **kwargs)
+        metadata = [src.base_request() for src in inputs]
+
         iterators = tuple(
             iter_ensemble(
-                self.sources,
-                self.loc,
-                update=self._set_number,
+                input,
                 dtype=self.param.dtype,
-                **in_keys,
             )
-            for in_keys in self.param.in_keys(step=str(step), **kwargs)
+            for input in inputs
         )
         nbins = len(self.param.bins) - 1
         template = None
@@ -167,7 +148,8 @@ class HistParamRequester(ParamRequester):
                 template = result_list[0][0]
                 hist = np.zeros((nbins, result_list[0][1].shape[0]))
             data_list = [data for _, data in result_list]
-            data = self.combine_data(data_list) * self.param.scale
+            _, data_list = self.param.preprocessing.apply(metadata, data_list)
+            data = data_list[0]
             if self.param.mod is not None:
                 data %= self.param.mod
             ind = np.digitize(data, self.param.bins) - 1
@@ -176,45 +158,17 @@ class HistParamRequester(ParamRequester):
                 ind[ind >= nbins] = 0
             for i in range(nbins):
                 hist[i, ind == i] += 1
-        return template, hist
-
-
-class HistogramConfig(Config):
-    def __init__(self, args: argparse.Namespace, verbose: bool = True):
-        super().__init__(args, verbose=verbose)
-
-        self.num_members = self.options.get("num_members", 51)
-
-        self.out_keys = self.options.get("out_keys", {})
-
-        self.params = [
-            HistParamConfig(pname, popt, overrides=self.override_input)
-            for pname, popt in self.options["params"].items()
-        ]
-        self.steps = self.options.get("steps", [])
-        self.windows = self.options.get("windows", [])
-
-        self.sources = self.options.get("sources", {})
-
-        date = self.options.get("date")
-        self.date = None if date is None else datetime.strptime(str(date), "%Y%m%d%H")
-        self.root_dir = self.options.get("root_dir", None)
-
-        self.n_par_read = self.options.get("n_par_read", 1)
-        self.n_par_compute = self.options.get("n_par_compute", 1)
-        self.window_queue_size = self.options.get("queue_size", self.n_par_compute)
+        return [GribMetadata(template._handle)], hist
 
 
 def write_iteration(
     param: HistParamConfig,
     target: Target,
-    recovery: Optional[Recovery],
-    template: Union[str, eccodes.GRIBMessage],
+    recovery: BaseRecovery,
+    template: eccodes.GRIBMessage,
     window_id: str,
     accum: Accumulator,
 ):
-    if not isinstance(template, eccodes.GRIBMessage):
-        template = read_template(template)
     with ResourceMeter(f"{param.name}, window {window_id!s}: Write histogram"):
         hist = accum.values
         assert hist is not None
@@ -224,81 +178,54 @@ def write_iteration(
             target,
             param.normalise,
             param.scale_out,
-            param.out_paramid,
             out_keys=accum.grib_keys(),
         )
-    if recovery is not None:
-        recovery.add_checkpoint(param.name, str(window_id))
+    recovery.add_checkpoint(param=param.name, window=str(window_id))
 
 
-def main(args: List[str] = sys.argv[1:]):
+def main():
     sys.stdout.reconfigure(line_buffering=True)
-    parser = get_parser()
-    args = parser.parse_args(args)
-    config = HistogramConfig(args)
-    if config.root_dir is None or config.date is None:
-        print("Recovery disabled. Set root_dir and date in config to enable.")
-        recovery = None
-        last_checkpoint = None
-    else:
-        recovery = Recovery(config.root_dir, args.config, config.date, args.recover)
-        last_checkpoint = recovery.last_checkpoint()
-    target = target_from_location(args.out_histogram, overrides=config.override_output)
-    if config.n_par_compute > 1:
-        target.enable_parallel(parallel)
-    if recovery is not None and args.recover:
-        target.enable_recovery()
+    signal.signal(signal.SIGTERM, sigterm_handler)
 
-    executor = (
-        SynchronousExecutor()
-        if config.n_par_compute == 1
-        else QueueingExecutor(config.n_par_compute, config.window_queue_size)
-    )
+    cfg = Conflator(app_name="pproc-histogram", model=HistogramConfig).load()
+    cfg.initialise()
+    cfg.print()
 
-    with executor:
-        for param in config.params:
+    with create_executor(cfg.parallelisation) as executor:
+        for param in cfg.parameters:
             print(f"Processing {param.name}")
-            window_manager = WindowManager(
-                param.window_config(config.windows, config.steps),
-                param.out_keys(config.out_keys),
+            accum_manager = AccumulationManager.create(
+                param.accumulations,
+                {
+                    **cfg.outputs.histogram.metadata,
+                    **param.metadata,
+                },
             )
-            if last_checkpoint:
-                if param.name not in last_checkpoint:
-                    print(f"Recovery: skipping completed param {param.name}")
-                    continue
-                checkpointed_windows = [
-                    recovery.checkpoint_identifiers(x)[1]
-                    for x in recovery.checkpoints
-                    if param.name in x
-                ]
-                new_start = window_manager.delete_windows(checkpointed_windows)
-                print(
-                    f"Recovery: param {param.name} looping from step {new_start}"
-                )
-                last_checkpoint = None  # All remaining params have not been run
+            checkpointed_windows = [
+                x["window"] for x in cfg.recovery.computed(param=param.name)
+            ]
+            accum_manager.delete(checkpointed_windows)
 
-            requester = HistParamRequester(param, config.sources, args.in_ens)
+            requester = HistParamRequester(param, cfg.inputs, param.total_fields)
             write_partial = functools.partial(
-                write_iteration, param, target, recovery
+                write_iteration, param, cfg.outputs.histogram.target, cfg.recovery
             )
             for keys, data in parallel_data_retrieval(
-                config.n_par_read,
-                window_manager.dims,
+                cfg.parallelisation.n_par_read,
+                accum_manager.dims,
                 [requester],
-                config.n_par_compute > 1,
             ):
                 ids = ", ".join(f"{k}={v}" for k, v in keys.items())
-                template, ens = data[0]
+                metadata, ens = data[0]
                 with ResourceMeter(f"{param.name}, {ids}: Compute accumulation"):
-                    completed_windows = window_manager.update_windows(keys, ens)
+                    completed_windows = accum_manager.feed(keys, ens)
                     del ens
                 for window_id, accum in completed_windows:
-                    executor.submit(write_partial, template, window_id, accum)
+                    executor.submit(write_partial, metadata[0], window_id, accum)
 
             executor.wait()
 
-    if recovery is not None:
-        recovery.clean_file()
+    cfg.clean()
 
 
 if __name__ == "__main__":

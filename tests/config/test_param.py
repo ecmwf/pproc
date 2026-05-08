@@ -1,0 +1,202 @@
+# (C) Copyright 2021- ECMWF.
+#
+# This software is licensed under the terms of the Apache Licence Version 2.0
+# which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# In applying this licence, ECMWF does not waive the privileges and immunities
+# granted to it by virtue of its status as an intergovernmental organisation
+# nor does it submit to any jurisdiction.
+
+import pytest
+
+from pproc.config.param import ParamConfig
+from pproc.config.io import BaseInputModel
+from pproc.config.utils import extract_mars
+
+base_config = {
+    "name": "2t",
+    "accumulations": {
+        "step": {
+            "type": "legacywindow",
+            "windows": [{"operation": "mean"}],
+        }
+    },
+}
+
+
+@pytest.mark.parametrize(
+    "config2, merged",
+    [
+        [
+            {
+                "name": "2t",
+                "accumulations": {
+                    "step": {
+                        "type": "legacywindow",
+                        "windows": [
+                            {"operation": "standard_deviation"},
+                            {"operation": "mean", "include_start_step": True},
+                        ],
+                    }
+                },
+            },
+            {
+                "name": "2t",
+                "accumulations": {
+                    "step": {
+                        "type": "legacywindow",
+                        "windows": [
+                            {"operation": "mean"},
+                            {"operation": "standard_deviation"},
+                            {"operation": "mean", "include_start_step": True},
+                        ],
+                    }
+                },
+            },
+        ],
+        [{**base_config, "name": "tp"}, None],
+        [
+            {
+                "name": "2t",
+                "accumulations": {
+                    "step": {
+                        "type": "legacywindow",
+                        "windows": [{"operation": "standard_deviation"}],
+                    },
+                    "date": {},
+                },
+            },
+            None,
+        ],
+        [base_config, base_config],
+        [
+            {
+                "name": "2t",
+                "accumulations": {
+                    "step": {"operation": "mean", "coords": [[0, 6, 12]]},
+                },
+            },
+            None,
+        ],
+    ],
+    ids=["compatible", "diff_name", "diff_accum", "duplicate", "diff_window"],
+)
+def test_merge(config2, merged):
+    param1 = ParamConfig(**base_config)
+    param2 = ParamConfig(**config2)
+    if merged is None:
+        with pytest.raises(ValueError):
+            param1.merge(param2)
+    else:
+        assert param1.merge(param2) == ParamConfig(**merged)
+
+
+@pytest.mark.parametrize(
+    "config, expected",
+    [
+        [{"inputs": {"fc": {"request": {"levelist": [1, 2]}}}}, 2],
+        [
+            {
+                "inputs": {
+                    "fc": {
+                        "request": {
+                            "levelist": [1, 2],
+                            "param": [138, 155],
+                            "interpolate": {"vod2uv": True},
+                        }
+                    }
+                }
+            },
+            4,
+        ],
+        [{"inputs": {"fc": {"request": {"levelist": [1, 2]}}}, "total_fields": 5}, 5],
+    ],
+    ids=["derived", "wind", "specified"],
+)
+def test_totalfields(config, expected):
+    param = ParamConfig(**{**base_config, **config})
+    inputs = BaseInputModel(fc={"source": {"type": "fdb"}})
+    param.validate_totalfields(inputs)
+    assert param.total_fields == expected
+
+
+@pytest.mark.parametrize(
+    "config, expected",
+    [
+        [
+            {
+                "inputs": {
+                    "fc": {
+                        "request": {
+                            "levelist": [1, 2],
+                            "param": [138, 155],
+                        }
+                    }
+                },
+                "accumulations": {
+                    "step": {"operation": "mean", "coords": [[0, 6, 12]]},
+                },
+            },
+            [
+                {
+                    "param": [138, 155],
+                    "levelist": [1, 2],
+                    "step": ["0-12"],
+                }
+            ],
+        ],
+        [
+            {
+                "inputs": {
+                    "fc": {
+                        "request": {
+                            "levelist": [1, 2],
+                            "param": [138, 155],
+                            "interpolate": {"vod2uv": True},
+                        }
+                    }
+                },
+                "accumulations": {
+                    "step": {"operation": "mean", "coords": [[0, 6, 12]]},
+                },
+            },
+            [
+                {
+                    "param": [131, 132],
+                    "levelist": [1, 2],
+                    "step": ["0-12"],
+                }
+            ],
+        ],
+        [
+            {
+                "inputs": {
+                    "fc": {
+                        "request": {
+                            "levelist": [1, 2],
+                            "param": [138, 155],
+                            "interpolate": {"vod2uv": True},
+                        }
+                    }
+                },
+                "accumulations": {
+                    "step": {"operation": "mean", "coords": [[0, 6, 12]]},
+                },
+                "metadata": {"paramId": 10},
+            },
+            [
+                {
+                    "param": 10,
+                    "levelist": [1, 2],
+                    "step": ["0-12"],
+                }
+            ],
+        ],
+    ],
+    ids=["no-vod2uv", "vod2uv", "vod2uv-with-metadata"],
+)
+def test_vod2uv(config, expected):
+    param = ParamConfig(**{**base_config, **config})
+    inputs = BaseInputModel(fc={"source": {"type": "fdb"}})
+    out_keys = [extract_mars(x) for x in param.out_keys(inputs)]
+    assert out_keys == expected

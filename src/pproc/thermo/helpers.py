@@ -1,10 +1,22 @@
+# (C) Copyright 2021- ECMWF.
+#
+# This software is licensed under the terms of the Apache Licence Version 2.0
+# which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# In applying this licence, ECMWF does not waive the privileges and immunities
+# granted to it by virtue of its status as an intergovernmental organisation
+# nor does it submit to any jurisdiction.
+
 import earthkit.data
+from earthkit.data.encoders import grib
 import logging
 import numpy as np
 import thermofeel
 from meters import metered
+from typing import Optional
 
-from pproc import common
+from pproc.common.io import write_grib
+from pproc.config.targets import Target
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +37,7 @@ units = {
     "hmdx": "K",
     "nefft": "K",
     "wbgt": "K",
-    "wbpt": "K",
+    "wbt": "K",
     "gt": "K",
     "2r": "%",
     "10si": "m/s",
@@ -114,18 +126,13 @@ def validate_utci(utci, misses, lats, lons):
 
 
 def get_datetime(fields: earthkit.data.FieldList):
-    dt = fields.sel(param="2t").datetime()
-    base_time = dt["base_time"][0]
-    valid_time = dt["valid_time"][0]
+    dt = fields[0].datetime()
+    base_time = dt["base_time"]
+    valid_time = dt["valid_time"]
     assert all(
         x == valid_time for x in fields.datetime()["valid_time"]
     ), f"Obtained different valid times {[x for x in fields.datetime()['valid_time']]}"  # verify valid time all same
     return base_time, valid_time
-
-
-def get_step(fields: earthkit.data.FieldList):
-    temp = fields.sel(param="2t")
-    return temp[0].metadata().get("step")
 
 
 def latlon(fields: earthkit.data.FieldList):
@@ -143,7 +150,7 @@ def field_values(fields: earthkit.data.FieldList, param: str) -> np.ndarray:
         raise ValueError(
             f"Field {param} not found in fields {fields.ls(namespace='mars')}"
         )
-    return sel[0].values
+    return sel.to_array()
 
 
 def check_field_sizes(fields: earthkit.data.FieldList):
@@ -170,12 +177,18 @@ def step_interval(fields) -> int:
 
 
 def write(
-    target: common.io.Target,
+    target: Target,
     ds: "earthkit.data.FieldList | earthkit.data.core.fieldlist.Field",
+    metadata: Optional[dict] = None,
 ):
-    if isinstance(ds, earthkit.data.FieldList):
-        if len(ds) != 1:
-            raise ValueError("Expected a single field, got multiple")
-        ds = ds[0]
-    message = ds.metadata()._handle
-    common.io.write_grib(target, message, ds.values)
+    if isinstance(ds, earthkit.data.core.fieldlist.Field):
+        ds = [ds]
+    metadata = metadata or {}
+    for f in ds:
+        field_metadata = f.metadata()
+        updates = metadata.copy()
+        # Handle wrapped metadata
+        if hasattr(field_metadata, "extra"):
+            updates.update(field_metadata.extra)
+        message = f.metadata()._handle
+        write_grib(target, message, f.values, updates)

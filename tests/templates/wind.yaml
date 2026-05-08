@@ -1,32 +1,52 @@
-fc_date: '2024050712'
-grib_set:
-  gribTablesVersionNo: 128
-  indicatorOfParameter: 10
-  mars.expver: '0001'
-iniexpver: '0001'
-interpolation_keys:
-  grid: O640
-  intgrid: none
-  legendre-loader: shmem
-  matrix-loader: file-io
-levelist:
-- 250
-- 850
-members: 5
-n_par: 1
-request:
-  class: od
-  domain: g
-  expver: '0001'
-  levtype: pl
-  param:
-  - 138
-  - 155
-  stream_det: oper
-  stream_ens: enfo
-vod2uv: true
-windows:
-- range:
-  - 0
-  - 6
-  - 3
+parallelisation: 1
+inputs:
+  fc:
+    request:
+      - class: od
+        domain: g
+        expver: '0001'
+        levtype: pl
+        stream: enfo
+        type: cf
+        date: 20240507
+        time: 12
+      - class: od
+        domain: g
+        expver: '0001'
+        levtype: pl
+        stream: enfo
+        type: pf
+        date: 20240507
+        time: 12
+        number: [1, 2, 3, 4, 5]
+    source:
+      type: fdb
+parameters:
+  wind:
+    inputs:
+      fc:
+        request:
+          param: [138, 155]
+          interpolate:
+            grid: O640
+            intgrid: none
+            legendre-loader: shmem
+            matrix-loader: file-io
+            vod2uv: true
+    preprocessing:
+      - operation: reshape
+        shape: 2
+      - operation: norm
+    accumulations:
+      levelist:
+        coords: [[250], [850]]
+      step:
+        coords: [[0], [3], [6]]
+outputs:
+  default:
+    metadata:
+      gribTablesVersionNo: 128
+      indicatorOfParameter: 10
+      mars.expver: '0001'
+    target:
+      type: fdb

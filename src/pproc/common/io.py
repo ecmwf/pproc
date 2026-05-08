@@ -1,10 +1,18 @@
+# (C) Copyright 2021- ECMWF.
+#
+# This software is licensed under the terms of the Apache Licence Version 2.0
+# which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# In applying this licence, ECMWF does not waive the privileges and immunities
+# granted to it by virtue of its status as an intergovernmental organisation
+# nor does it submit to any jurisdiction.
+
 from dataclasses import dataclass
 from io import BytesIO
 import os
-import re
-from typing import Optional, Tuple, Union, List, Dict, Any
+from typing import Optional, Union, List, Dict, Any
+from typing_extensions import Self
 
-from filelock import FileLock
 import numpy as np
 import xarray as xr
 import yaml
@@ -12,6 +20,20 @@ import yaml
 import eccodes
 import pyfdb
 import mir
+import earthkit.data
+from earthkit.data.readers.grib.metadata import StandAloneGribMetadata
+from earthkit.data.readers.grib.codes import GribCodesHandle
+
+from pproc.config.targets import (
+    FDBTarget,
+    FileTarget,
+    FileSetTarget,
+    NullTarget,
+    OverrideTargetWrapper,
+)
+from pproc.config.io import split_location
+from pproc.common.grib_helpers import construct_message
+
 
 @dataclass
 class GRIBFields:
@@ -29,19 +51,25 @@ class GRIBFields:
                 set_coords.add(key_dict[dim])
             dim_sizes[dim] = len(set_coords)
             coords[dim] = sorted(list(set_coords))
-        
+
         # add values dimensions, no coords
-        ndata = self.template.get_size('values')
-        dim_sizes['data'] = ndata
+        ndata = self.template.get_size("values")
+        dim_sizes["data"] = ndata
         dims = self.dims.copy()
-        dims.append('data')
-        
+        dims.append("data")
+
         data_np = np.empty(tuple(dim_sizes.values()))
         for key, value in self.data.items():
             key_dict = eval(key)
             indexes = [coords[dim].index(coord) for dim, coord in key_dict.items()]
             data_np[tuple(indexes)] = value
-        da = xr.DataArray(data_np, name=self.template['shortName'], coords=coords, dims=dims, attrs={'grib_template': self.template})
+        da = xr.DataArray(
+            data_np,
+            name=self.template["shortName"],
+            coords=coords,
+            dims=dims,
+            attrs={"grib_template": self.template},
+        )
 
         return da
 
@@ -64,7 +92,9 @@ def extract(keys, message):
         if isinstance(key, str):
             res[key] = message.get(key)
         else:
-            raise ValueError(f'Key format {type(key)} for {key} not supported, on support strings')
+            raise ValueError(
+                f"Key format {type(key)} for {key} not supported, on support strings"
+            )
             # res.append(key(message))
     return str(res)
 
@@ -85,9 +115,9 @@ def missing_to_nan(message, data=None):
         Data with NaN for missing values
     """
     if data is None:
-        data = message.get_array('values')
-    if message.get('bitmapPresent'):
-        missing = message.get('missingValue')
+        data = message.get_array("values")
+    if message.get("bitmapPresent"):
+        missing = message.get("missingValue")
         data[data == missing] = np.nan
     return data
 
@@ -110,12 +140,12 @@ def nan_to_missing(message, data, missing=None):
         Data with NaN replaced by `missing`
     """
     if missing is None:
-        missing = message.get('missingValue')
+        missing = message.get("missingValue")
     missing_mask = np.isnan(data)
     if np.any(missing_mask):
         data[missing_mask] = missing
-        message.set('missingValue', missing)
-        message.set('bitmapPresent', 1)
+        message.set("missingValue", missing)
+        message.set("bitmapPresent", 1)
     return data
 
 
@@ -141,6 +171,27 @@ def read_grib_messages(messages, dims=()):
     return fields
 
 
+def mir_wind_input(fdb_reader, request, cached_file=None):
+    list_keys = [key for key in request if isinstance(request[key], (list, range))]
+    if not cached_file:
+        cached_file = (
+            "_".join(
+                [
+                    (f"{key}{len(value)}" if key in list_keys else f"{key}{value}")
+                    for key, value in request.items()
+                ]
+            )
+            + ".grb"
+        )
+    fields = earthkit.data.from_source("stream", fdb_reader, read_all=True)
+    # Mir expects vo and d fields to be paired, so param must be last in order
+    fields = fields.order_by([x for x in list_keys if x != "param"])
+    fields.to_target("file", cached_file)
+    if os.path.getsize(cached_file) == 0:
+        raise RuntimeError(f"No data retrieved for request {request}")
+    return mir.MultiDimensionalGribFileInput(cached_file, 2), cached_file
+
+
 def fdb_retrieve(fdb, request, mir_options=None):
     """Retrieve grib messages from FDB from request and returns fdb reader object
     If mir options specified, also performs interpolation
@@ -158,11 +209,18 @@ def fdb_retrieve(fdb, request, mir_options=None):
     """
     fdb_reader = fdb.retrieve(request)
     if mir_options:
+        cached_file = None
+        if mir_options.get("vod2uv", False):
+            mir_options = mir_options.copy()
+            mir_options["vod2uv"] = "1"
+            fdb_reader, cached_file = mir_wind_input(fdb_reader, request)
         job = mir.Job(**mir_options)
         stream = BytesIO()
         job.execute(fdb_reader, stream)
         stream.seek(0)
         fdb_reader = stream
+        if cached_file:
+            os.remove(cached_file)
     return fdb_reader
 
 
@@ -186,43 +244,18 @@ def fdb_read(fdb, request, mir_options=None):
     fdb_reader = fdb_retrieve(fdb, request, mir_options)
     eccodes_reader = eccodes.StreamReader(fdb_reader)
     if not eccodes_reader.peek():
-        raise RuntimeError(f'No data retrieved for request {request}')
+        raise RuntimeError(f"No data retrieved for request {request}")
     fields_dims = [key for key in request if isinstance(request[key], (list, range))]
     fields = read_grib_messages(eccodes_reader, fields_dims)
     if fields is None:
-        raise Exception(f"Could not perform the following retrieve:\n{yaml.dump(request)}")
+        raise Exception(
+            f"Could not perform the following retrieve:\n{yaml.dump(request)}"
+        )
 
     return fields.to_xarray()
 
 
-def fdb_read_with_template(fdb, request, mir_options=None):
-    """Load grib messages from FDB from request and returns Numpy Array
-    If mir options specified, also performs interpolation
-
-    Parameters
-    ----------
-    messages: grib messages
-    dims: tuple of strings
-    mir_options: dict
-
-    Returns
-    -------
-    GribMessage
-        GribMessage object, containing data from first grib message for use as template
-    Numpy Array
-        Numpy Array object, containing the data 
-    """
-
-    fdb_reader = fdb_retrieve(fdb, request, mir_options)
-    eccodes_reader = eccodes.StreamReader(fdb_reader)
-    if not eccodes_reader.peek():
-        raise RuntimeError(f'No data retrieved for request {request}')
-    messages = list(eccodes_reader)
-
-    return messages[0], np.asarray([missing_to_nan(message) for message in messages])
-
-
-def fdb_read_to_file(fdb, request, file_out, mir_options=None, mode='wb'):
+def fdb_read_to_file(fdb, request, file_out, mir_options=None, mode="wb"):
     """Load grib messages from FDB from request and writes to temporary file
 
     Parameters
@@ -241,25 +274,29 @@ def fdb_read_to_file(fdb, request, file_out, mir_options=None, mode='wb'):
     for data in iter((lambda: fdb_reader.read(4096)), b""):
         outfile.write(data)
     if os.path.getsize(file_out) == 0:
-        raise RuntimeError(f'No data retrieved for request {request}')
-    
+        raise RuntimeError(f"No data retrieved for request {request}")
+
 
 def fdb_write_ufunc(data, coords, fdb, template):
 
-    message = template.copy()  # are we always copying the full message with the data values?
+    message = (
+        template.copy()
+    )  # are we always copying the full message with the data values?
 
     for key, value in coords:
         if len(value) > 1:
-            raise Exception("Can't have more than one coordinate in the parallel write function")
+            raise Exception(
+                "Can't have more than one coordinate in the parallel write function"
+            )
         message.set(key, value.values[0])
-    
+
     # Set GRIB data and write to FDB
     message.set_array("values", data)
     nan_to_missing(message, data)
     fdb.write(message)
 
 
-def iterate_xarray(func, args, data_array, core_dims='data'):
+def iterate_xarray(func, args, data_array, core_dims="data"):
     if list(data_array.dims) == list(core_dims):
         return func(data_array, *args)
     else:
@@ -267,12 +304,16 @@ def iterate_xarray(func, args, data_array, core_dims='data'):
             return iterate_xarray(func, args, sub_array, core_dims)
 
 
-def write_message(target, template, data_array): 
-    message = template.copy()  # are we always copying the full message with the data values?
+def write_message(target, template, data_array):
+    message = (
+        template.copy()
+    )  # are we always copying the full message with the data values?
     for key, value in data_array.coords:
         if len(value) > 1:
-            raise Exception("Can't have more than one coordinate in the parallel write function")
-        message.set(key, value.values)  
+            raise Exception(
+                "Can't have more than one coordinate in the parallel write function"
+            )
+        message.set(key, value.values)
     # Set GRIB data and write to FDB
     message.set_array("values", data_array.values)
     nan_to_missing(message, data_array.values)
@@ -285,176 +326,22 @@ def write(target, template, attributes, data_array):
     for key, value in attributes.items():
         message[key] = value
 
-    iterate_xarray(write_message, (target, template), data_array, 'data')
+    iterate_xarray(write_message, (target, template), data_array, "data")
     # xr.apply_ufunc(fdb_write_ufunc, data_array, data_array.coords,
     #                input_core_dims=[['data'], []],
     #                dask='parallelized',
     #                kwargs={'fdb': fdb, 'template': template})
 
 
-def remove_duplicate(path: str, message: eccodes.Message):
-    """
-    Removes existing message in file specified by path if it has mars keys 
-    matching those in message
-    """
-    if os.path.exists(path):
-        mars_keys = ",".join(
-            [f"{key}={value}" for key, value in message.items(namespace="mars")]
-        )
-        file_messages = [
-            ",".join(
-                [f"{key}={value}" for key, value in msg.items(namespace="mars")]
-            )
-            for msg in eccodes.FileReader(path)
-        ]
-        if mars_keys in file_messages:
-            print(f"Deleting duplicate message {mars_keys} in file {path}")
-            duplicate_index = file_messages.index(mars_keys)
-            with open(f"{path}.temp", "wb") as temp_file:
-                for msg_index, msg in enumerate(eccodes.FileReader(path)):
-                    if msg_index == duplicate_index:
-                        continue
-                    msg.write_to(temp_file)
-            os.rename(f"{path}.temp", path)
-
-
-class Target:
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        return
-
-    def flush(self):
-        return
-
-    def write(self, message):
-        raise NotImplementedError
-
-    def enable_recovery(self):
-        pass
-
-    def enable_parallel(self, parallel):
-        pass
-
-
-class NullTarget(Target):
-    def write(self, message):
-        pass
-
-
-class FileTarget(Target):
-    def __init__(self, path, mode="wb"):
-        self.path = path
-        self._mode = mode
-        self.lock = FileLock(self.path + ".lock", thread_local=False)
-        self.track_truncated = []
-        self.overwrite_existing = False
-
-    @property
-    def mode(self):
-        if self.path not in self.track_truncated:
-            self.track_truncated += [self.path]
-            return self._mode
-        return "ab"
-
-    def enable_recovery(self):
-        self._mode = "ab"
-        self.overwrite_existing = True
-
-    def enable_parallel(self, parallel):
-        self.track_truncated = parallel.shared_list()
-
-    def write(self, message):
-        with self.lock:
-            if self.overwrite_existing:
-                remove_duplicate(self.path, message)
-            with open(self.path, self.mode) as file:
-                message.write_to(file)
-
-
-class FileSetTarget(Target):
-    def __init__(self, location, mode="wb"):
-        self.location = location
-        self._mode = mode
-        self.file_locks = {}
-        self.track_truncated = []
-        self.overwrite_existing = False
-
-    def mode(self, path):
-        if path not in self.track_truncated:
-            self.track_truncated += [path]
-            return self._mode
-        return "ab"
-
-    def enable_recovery(self):
-        self._mode = "ab"
-        self.overwrite_existing = True
-
-    def enable_parallel(self, parallel):
-        self.track_truncated = parallel.shared_list()
-
-    def write(self, message):
-        path = self.location.format_map(message)
-        with self.file_locks.get(path, FileLock(path + ".lock")):
-            if self.overwrite_existing:
-                remove_duplicate(path, message)
-            with open(path, self.mode(path)) as file:
-                message.write_to(file)
-
-
-class FDBTarget(Target):
-    def __init__(self, fdb):
-        self._fdb = fdb
-
-    @property
-    def fdb(self):
-        if self._fdb is None:
-            self._fdb = fdb(create=True)
-        return self._fdb
-
-    def write(self, message):
-        self.fdb.archive(message.get_buffer())
-
-    def flush(self):
-        self.fdb.flush()
-
-
-class OverrideTargetWrapper(Target):
-    def __init__(self, wrapped, overrides):
-        self.wrapped = wrapped
-        self.overrides = overrides
-
-    def __enter__(self):
-        self.wrapped.__enter__()
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        return self.wrapped.__exit__(exc_type, exc_value, traceback)
-
-    def flush(self):
-        return self.wrapped.flush()
-
-    def enable_recovery(self):
-        return self.wrapped.enable_recovery()
-
-    def enable_parallel(self, parallel):
-        return self.wrapped.enable_parallel(parallel)
-
-    def write(self, message):
-        message.set(self.overrides)
-        self.wrapped.write(message)
-
-
 def target_factory(target_option, out_file=None, fdb=None, overrides=None):
     if target_option == "fdb":
-        target = FDBTarget(fdb)
+        target = FDBTarget(_fdb=fdb)
     elif target_option == "file":
         assert out_file is not None
-        target = FileTarget(out_file)
+        target = FileTarget(path=out_file)
     elif target_option == "fileset":
         assert out_file is not None
-        target = FileSetTarget(out_file)
+        target = FileSetTarget(path=out_file)
     elif target_option == "null" or target_option is None:
         return NullTarget()
     else:
@@ -462,29 +349,29 @@ def target_factory(target_option, out_file=None, fdb=None, overrides=None):
             f"Target {target_option} not supported, accepted values are 'fdb', 'file', 'fileset', and 'null'"
         )
     if overrides:
-        return OverrideTargetWrapper(target, overrides)
+        return OverrideTargetWrapper(target=target, overrides=overrides)
     return target
 
-    
 
-def write_grib(target, template, data, missing=-9999):
+def write_grib(target, template, data, metadata: dict, missing=None):
+    out_keys = {}
+    if hasattr(template, "extra"):
+        out_keys.update(template.extra)
+    out_keys.update(metadata)
+    bits_per_value = out_keys.pop("bitsPerValue", template["bitsPerValue"])
+    message = construct_message(template, out_keys)
 
-    message = template.copy()
+    data = nan_to_missing(message, data, missing)
+    message.set("bitsPerValue", bits_per_value)
+    message.set_array("values", data)
 
-    # replace missing values if any
-    is_missing = np.isnan(data).any()
-    if is_missing:
-        data[np.isnan(data)] = missing
-        message.set('missingValue', missing)
-        message.set('bitmapPresent', 1)
-    
-    message.set_array('values', data)
-
-    if is_missing:
-        n_missing1 = len(data[data==missing])
-        n_missing2 = message.get('numberOfMissing')
+    if np.isnan(data).any():
+        n_missing1 = len(data[data == missing])
+        n_missing2 = message.get("numberOfMissing")
         if n_missing1 != n_missing2:
-            raise Exception(f'Number of missing values in the message not consistent, is {n_missing1} and should be {n_missing2}')
+            raise Exception(
+                f"Number of missing values in the message not consistent, is {n_missing1} and should be {n_missing2}"
+            )
 
     target.write(message)
 
@@ -494,23 +381,13 @@ class FDBNotOpenError(RuntimeError):
 
 
 def fdb(create: bool = True) -> pyfdb.FDB:
-    instance = getattr(fdb, '_instance', None)
+    instance = getattr(fdb, "_instance", None)
     if instance is None:
         if not create:
             raise FDBNotOpenError("FDB not open")
         instance = pyfdb.FDB()
         fdb._instance = instance
     return instance
-
-
-_LOCATION_RE = re.compile('^([a-z](?:[a-z0-9+-.])*):(.*)$', re.I)
-
-
-def split_location(loc: str, default: Optional[str] = None) -> Tuple[Optional[str], str]:
-    m = _LOCATION_RE.fullmatch(loc)
-    if m is None:
-        return (default, loc)
-    return m.groups()
 
 
 def target_from_location(
@@ -523,14 +400,36 @@ def target_from_location(
     return target_factory(type_, out_file=ident, overrides=overrides)
 
 
-def write_template(filepath, template):
-    """
-    Write grib message, setting all data values to 0
-    """
-    template.set_array("values", np.zeros(template.data.shape))
-    template.write_to(open(os.path.join(filepath), "wb"))
+class GribMetadata(eccodes.Message):
+    def __init__(self, handle, headers_only: bool = False):
+        new_handle = eccodes.codes_clone(handle, headers_only=headers_only)
+        self.extra = {"bitsPerValue": eccodes.codes_get(handle, "bitsPerValue", int)}
+        super().__init__(new_handle)
 
+    def __getstate__(self) -> dict:
+        ret = {"_handle": self.get_buffer(), "extra": self.extra}
+        return ret
 
-def read_template(filepath):
-    assert isinstance(filepath, str)
-    return list(eccodes.FileReader(filepath))[0]
+    def __setstate__(self, state: dict):
+        state["_handle"] = eccodes.MemoryReader(state["_handle"])._next_handle()
+        self.__dict__.update(state)
+
+    def set(self, *args, check_values: bool = True):
+        super().set(*args, check_values=check_values)
+        if isinstance(args[0], dict):
+            for key in self.extra.keys():
+                if key in args[0]:
+                    self.extra[key] = args[0][key]
+        elif args[0] in self.extra:
+            self.extra[args[0]] = args[1]
+
+    def copy(self) -> Self:
+        """Create a copy of the current message"""
+        clone = self.__class__(eccodes.codes_clone(self._handle))
+        clone.extra = self.extra.copy()
+        return clone
+
+    def to_ekmetadata(self) -> StandAloneGribMetadata:
+        return StandAloneGribMetadata(
+            GribCodesHandle(eccodes.codes_clone(self._handle), None, None)
+        )

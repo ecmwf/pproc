@@ -1,16 +1,27 @@
+# (C) Copyright 2021- ECMWF.
+#
+# This software is licensed under the terms of the Apache Licence Version 2.0
+# which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# In applying this licence, ECMWF does not waive the privileges and immunities
+# granted to it by virtue of its status as an intergovernmental organisation
+# nor does it submit to any jurisdiction.
+
 import os
 import pytest
 import shutil
 import tempfile
 import requests
-from typing import List
+from typing import List, Optional
+import yaml
 
 import eccodes
 import pyfdb
 
 TEST_DIR = os.path.dirname(os.path.realpath(__file__))
 DATA_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "data")
-NEXUS = "https://get.ecmwf.int/test-data/pproc/test-data"
+NEXUS = "https://sites.ecmwf.int/repository/pproc/test-data/test-data"
+SCHEMA = os.path.join(TEST_DIR, "schema", "schema.yaml")
 
 
 def download_test_data(
@@ -101,3 +112,9 @@ spaces:
 
     yield temp_fdb
     shutil.rmtree(tmpdir)
+
+
+def schema(section: Optional[str] = None) -> dict:
+    with open(SCHEMA, "r") as f:
+        schema = yaml.safe_load(f)
+    return schema if section is None else schema[section]

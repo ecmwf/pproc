@@ -1,3 +1,12 @@
+# (C) Copyright 2021- ECMWF.
+#
+# This software is licensed under the terms of the Apache Licence Version 2.0
+# which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# In applying this licence, ECMWF does not waive the privileges and immunities
+# granted to it by virtue of its status as an intergovernmental organisation
+# nor does it submit to any jurisdiction.
+
 from typing import Iterator
 
 import numpy as np
@@ -53,7 +62,7 @@ CONFIGS = {
     "factory-legacy": {
         "step": {
             "type": "legacywindow",
-            "windows": [{"periods": [{"range": [24, 24]}, {"range": [48, 48]}]}],
+            "windows": [{"coords": [[24], [48]]}],
         }
     },
     "factory-multidim": {
@@ -61,7 +70,7 @@ CONFIGS = {
         "step": {
             "type": "legacywindow",
             "windows": [
-                {"window_operation": "mean", "periods": [{"range": [0, 24, 6]}]}
+                {"operation": "mean", "coords": [{"from": 0, "to": 24, "by": 6}]}
             ],
         },
     },
@@ -105,13 +114,10 @@ CONFIGS = {
             "sequence": {
                 "type": "monthly",
                 "date": "20241001",
-            },
-            "coords": {
                 "from": 0,
                 "to": 5160,
                 "by": 6,
             },
-            "include_start_step": True,
         }
     },
 }
@@ -143,7 +149,7 @@ EXPECT_ACCUMS = {
     "factory-legacy": {"step": (Aggregation, [[24], [48]])},
     "factory-multidim": {
         "hdate": (Aggregation, [[20220610], [20230610]]),
-        "step": (Mean, [[6, 12, 18, 24]]),
+        "step": (Mean, [range(0, 25, 6)]),
     },
     "factory-dateseq-bracket": {
         "date": (
@@ -195,7 +201,7 @@ EXPECT_COORDS = {
     },
     "factory-default": {"step": {12, 18}},
     "factory-legacy": {"step": {24, 48}},
-    "factory-multidim": {"hdate": {20220610, 20230610}, "step": {6, 12, 18, 24}},
+    "factory-multidim": {"hdate": {20220610, 20230610}, "step": {0, 6, 12, 18, 24}},
     "factory-dateseq-bracket": {
         "date": {
             "20240711",
@@ -265,36 +271,39 @@ def assert_empty(it: Iterator) -> None:
     "config, checkpoints",
     [
         pytest.param(
-            CONFIGS["single-step"], {6: {"6": [6.0, 12.0, 24.0]}}, id="single-step"
+            CONFIGS["single-step"], {6: {"step_6": [6.0, 12.0, 24.0]}}, id="single-step"
         ),
         pytest.param(
             CONFIGS["step-range"],
-            {48: {"24-48": [36.0, 72.0, 144.0]}},
+            {48: {"step_24-48": [36.0, 72.0, 144.0]}},
             id="step-range",
         ),
         pytest.param(
             CONFIGS["multi-step"],
             {
-                6: {"6": [6.0, 12.0, 24.0]},
-                12: {"12": [12.0, 24.0, 48.0]},
-                18: {"18": [18.0, 36.0, 72.0]},
-                24: {"24": [24.0, 48.0, 96.0]},
+                6: {"step_6": [6.0, 12.0, 24.0]},
+                12: {"step_12": [12.0, 24.0, 48.0]},
+                18: {"step_18": [18.0, 36.0, 72.0]},
+                24: {"step_24": [24.0, 48.0, 96.0]},
             },
             id="multi-step",
         ),
         pytest.param(
             CONFIGS["multi-step-range"],
             {
-                24: {"6-24": [15.0, 30.0, 60.0]},
-                36: {"18-36": [27.0, 54.0, 108.0]},
-                48: {"30-48": [39.0, 78.0, 156.0]},
+                24: {"step_6-24": [15.0, 30.0, 60.0]},
+                36: {"step_18-36": [27.0, 54.0, 108.0]},
+                48: {"step_30-48": [39.0, 78.0, 156.0]},
             },
             id="multi-step-range",
         ),
         pytest.param(
             CONFIGS["multi-step-range-sameend"],
             {
-                48: {"12-48": [120.0, 240.0, 480.0], "24-48": [180.0, 360.0, 720.0]},
+                48: {
+                    "step_12-48": [120.0, 240.0, 480.0],
+                    "step_24-48": [180.0, 360.0, 720.0],
+                },
             },
             id="multi-step-range-sameend",
         ),

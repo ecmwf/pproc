@@ -1,93 +1,93 @@
+# (C) Copyright 2021- ECMWF.
+#
+# This software is licensed under the terms of the Apache Licence Version 2.0
+# which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# In applying this licence, ECMWF does not waive the privileges and immunities
+# granted to it by virtue of its status as an intergovernmental organisation
+# nor does it submit to any jurisdiction.
+
 import sys
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Union
+from typing import Optional
+import numpy as np
 
 import eccodes
-from earthkit.time.calendar import MonthInYear
-from earthkit.time.sequence import MonthlySequence
+from conflator import Conflator
 from meters import ResourceMeter
 
-from pproc.accum.config import AccumConfig, AccumParamConfig
+from pproc.config.types import MonthlyStatsConfig, AccumParamConfig
 from pproc.accum.main import main as accum_main
 from pproc.accum.postprocess import postprocess
 from pproc.common.accumulation import Accumulator
-from pproc.common.config import default_parser
-from pproc.common.io import Target, read_template
-from pproc.common.recovery import Recovery
+from pproc.common.stepseq import steprange_to_fcmonth
 
 
-def mstat_keys(fcdate: datetime, step_range: str) -> Dict[str, Any]:
-    start, end = map(int, step_range.split("-"))
-    seq = MonthlySequence(1)
-    first_month = seq.next(fcdate, False)
-    this_month = fcdate + timedelta(hours=int(start))
-
-    assert MonthInYear(this_month.year, this_month.month).length() * 24 == (end - start)
-
-    mindex = (
-        (this_month.year - first_month.year) * 12
-        + this_month.month
-        - first_month.month
-        + 1
-    )
+def mstat_keys(template, out_keys: dict, interval: int):
+    out_keys = out_keys.copy()
+    if out_keys.get("edition", template.get("edition")) == 1:
+        steprange = out_keys.pop("stepRange")
+        start, end = map(int, steprange.split("-"))
+        date = datetime.strptime(template.get("dataDate:str"), "%Y%m%d")
+        this_month = date + timedelta(hours=int(start))
+        return {
+            "localDefinitionNumber": 16,
+            **out_keys,
+            "stepType": "instant",
+            "timeRangeIndicator": 10,
+            "unitOfTimeRange": 1,
+            "forecastMonth": steprange_to_fcmonth(date, steprange),
+            "verifyingMonth": f"{this_month.year:02d}{this_month.month:02d}",
+            "step": end,
+            "averagingPeriod": interval,
+        }
+    out_keys.pop("unitOfTimeRange", None)
+    out_keys.setdefault("indicatorOfUnitForTimeIncrement", 1)
+    out_keys.setdefault("timeIncrement", interval)
+    out_keys.setdefault("typeOfGeneratingProcess", template["typeOfGeneratingProcess"])
+    out_keys.setdefault("typeOfProcessedData", template["type"])
     return {
-        "forecastMonth": mindex,
-        "verifyingMonth": f"{this_month.year:02d}{this_month.month:02d}",
-        "step": end,
+        "localDefinitionNumber": 16,
+        "productDefinitionTemplateNumber": 11,
+        **out_keys,
     }
 
 
 def postproc_iteration(
     param: AccumParamConfig,
-    target: Target,
-    recovery: Optional[Recovery],
-    template: Union[str, eccodes.GRIBMessage],
+    cfg: MonthlyStatsConfig,
+    metadata: list[eccodes.GRIBMessage],
     window_id: str,
     accum: Accumulator,
 ):
-    if not isinstance(template, eccodes.GRIBMessage):
-        template = read_template(template)
-
-    interval = param._accumulations["step"]["steps"][0]["interval"]
-    date = datetime.strptime(template.get("dataDate:str"), "%Y%m%d")
-    accum_keys = accum.grib_keys()
-    steprange = accum_keys.pop("stepRange")
+    intervals = np.diff(accum["step"].coords)
+    assert np.all(intervals == intervals[0]), "Step intervals must be equal"
     out_keys = {
-        "localDefinitionNumber": 16,
-        **accum_keys,
-        "stepType": "instant",
-        "timeRangeIndicator": 10,
-        "unitOfTimeRange": 1,
-        **mstat_keys(date, steprange),
-        "averagingPeriod": interval,
+        **accum.grib_keys(),
+        **cfg.outputs.stats.metadata,
     }
     with ResourceMeter(f"{param.name}, step {window_id}: Post-process"):
         ens = accum.values
         assert ens is not None
         postprocess(
             ens,
-            template,
-            target,
+            metadata,
+            cfg.outputs.stats.target,
             vmin=param.vmin,
             vmax=param.vmax,
-            out_paramid=param.out_paramid,
-            out_keys=out_keys,
+            out_keys=mstat_keys(metadata[0], out_keys, intervals[0]),
         )
-        target.flush()
-    if recovery is not None:
-        recovery.add_checkpoint(param.name, window_id)
+        cfg.outputs.stats.target.flush()
+    cfg.recovery.add_checkpoint(param=param.name, window=window_id)
 
 
-def main(args: List[str] = sys.argv[1:]):
+def main():
     sys.stdout.reconfigure(line_buffering=True)
-    parser = default_parser(description="Compute monthly statistics")
-    parser.add_argument("--in-ens", required=True, help="Input ensemble source")
-    parser.add_argument(
-        "--out-stats", dest="out_accum", required=True, help="Output target"
-    )
-    args = parser.parse_args(args)
-    config = AccumConfig(args)
-    accum_main(args, config, postproc_iteration)
+    cfg = Conflator(app_name="pproc-monthly-stats", model=MonthlyStatsConfig).load()
+    cfg.print()
+    cfg.initialise()
+    accum_main(cfg, postproc_iteration)
+    cfg.clean()
 
 
 if __name__ == "__main__":

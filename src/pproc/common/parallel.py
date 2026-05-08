@@ -1,17 +1,25 @@
-import concurrent.futures as fut
-from typing import List, Union
-import psutil
-import os
-import eccodes
-import sys
+# (C) Copyright 2021- ECMWF.
+#
+# This software is licensed under the terms of the Apache Licence Version 2.0
+# which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# In applying this licence, ECMWF does not waive the privileges and immunities
+# granted to it by virtue of its status as an intergovernmental organisation
+# nor does it submit to any jurisdiction.
+
 import multiprocessing
+import concurrent.futures as fut
+import os
+import sys
+from typing import List
+import signal
+
+import psutil
 from meters import ResourceMeter
 
-from pproc.common import Parameter, io
 from pproc.common.param_requester import ParamRequester
 from pproc.common.utils import delayed_map, dict_product
-
-GenericParam = Union[Parameter, ParamRequester]
+from pproc.config.base import Parallelisation
 
 
 class SynchronousExecutor(fut.Executor):
@@ -34,13 +42,27 @@ class QueueingExecutor(fut.ProcessPoolExecutor):
     required for pending futures can be large.
     """
 
-    def __init__(self, n_par: int, queue_size: int = 0, initializer=None, initargs=()):
+    def __init__(
+        self,
+        n_par: int,
+        queue_size: int = 0,
+        initializer=signal.signal,
+        initargs=(signal.SIGTERM, signal.SIG_DFL),
+        mp_context: str = "forkserver",
+        **executor_kwargs,
+    ):
         """
         :param n_par: number of processes
         :queue_size: maximum number of allowed pending futures, if 0 then
         no queueing is implemented
         """
-        super().__init__(max_workers=n_par, initializer=initializer, initargs=initargs)
+        super().__init__(
+            max_workers=n_par,
+            initializer=initializer,
+            initargs=initargs,
+            mp_context=multiprocessing.get_context(mp_context),
+            **executor_kwargs,
+        )
         self.futures = []
         self.queue_size = queue_size
 
@@ -51,7 +73,10 @@ class QueueingExecutor(fut.ProcessPoolExecutor):
         completion, removes all complete futures and then submits
         new job
         """
-        if self.queue_size > 0 and len(self.futures) >= self.queue_size:
+        if self.queue_size == 0:
+            return super().submit(function, *args, **kwargs)
+
+        if len(self.futures) >= self.queue_size:
             print(
                 f"Queue reached max limit {self.queue_size}. Waiting for a subprocess completion"
             )
@@ -65,6 +90,7 @@ class QueueingExecutor(fut.ProcessPoolExecutor):
             self.futures[:] = new_futures
 
         self.futures.append(super().submit(function, *args, **kwargs))
+        return self.futures[-1]
 
     def wait(self):
         """
@@ -74,7 +100,36 @@ class QueueingExecutor(fut.ProcessPoolExecutor):
             future.result()
 
 
-def parallel_processing(process, plan, n_par, initializer=None, initargs=()):
+def create_executor(
+    options: Parallelisation,
+    initializer=signal.signal,
+    initargs=(signal.SIGTERM, signal.SIG_DFL),
+    mp_context: str = "forkserver",
+    **executor_kwargs,
+) -> fut.Executor:
+    return (
+        SynchronousExecutor()
+        if options.n_par_compute == 1
+        else QueueingExecutor(
+            options.n_par_compute,
+            options.queue_size,
+            initializer=initializer,
+            initargs=initargs,
+            mp_context=mp_context,
+            **executor_kwargs,
+        )
+    )
+
+
+def parallel_processing(
+    process,
+    plan,
+    n_par,
+    initializer=signal.signal,
+    initargs=(signal.SIGTERM, signal.SIG_DFL),
+    mp_context: str = "forkserver",
+    **executor_kwargs,
+):
     """Run a processing function in parallel
 
     Parameters
@@ -94,7 +149,11 @@ def parallel_processing(process, plan, n_par, initializer=None, initargs=()):
         SynchronousExecutor()
         if n_par == 1
         else fut.ProcessPoolExecutor(
-            max_workers=n_par, initializer=initializer, initargs=initargs
+            max_workers=n_par,
+            initializer=initializer,
+            initargs=initargs,
+            mp_context=multiprocessing.get_context(mp_context),
+            **executor_kwargs,
         )
     )
     with executor:
@@ -104,58 +163,42 @@ def parallel_processing(process, plan, n_par, initializer=None, initargs=()):
             future.result()
 
 
-def fdb_retrieve(
-    data_requesters: List[GenericParam], grib_to_file: bool = False, **kwargs
-):
+def _retrieve(data_requesters: List[ParamRequester], **kwargs):
     """
     Retrieve data function for multiple data requests
     with retrieve_data method. If requested, grib template messages are written to
     file and their filename returned
 
     :param data_requesters: list of objects with retrieve_data method
-    accepting arguments (fdb, **kwargs)
-    :param grib_to_file: boolean specifying whether to write grib messages to file and return filename
     :param kwargs: keys to retrieve data for (must include step)
-    :return: list of retrieved (template, data) tuples
+    :return: list of retrieved (metadata, data) tuples
     """
     ids = ", ".join(f"{k}={v}" for k, v in kwargs.items())
     with ResourceMeter(f"Retrieve {ids}"):
         collated_data = []
-        fdb = io.fdb()
         for requester in data_requesters:
-            template, data = requester.retrieve_data(fdb, **kwargs)
-            if grib_to_file and isinstance(
-                template, eccodes.highlevel.message.GRIBMessage
-            ):
-                labels = "_".join(f"{k}{v}" for k, v in kwargs.items()).replace(
-                    "/", "_"
-                )
-                filename = f"template_{requester.name}_{labels}.grib"
-                io.write_template(filename, template)
-                collated_data.append([filename, data])
-            else:
-                collated_data.append([template, data])
+            collated_data.append(requester.retrieve_data(**kwargs))
         return collated_data
 
 
 def parallel_data_retrieval(
     num_processes: int,
     dims: dict,
-    data_requesters: List[GenericParam],
-    grib_to_file: bool = False,
-    initializer=None,
-    initargs=(),
+    data_requesters: List[ParamRequester],
+    initializer=signal.signal,
+    initargs=(signal.SIGTERM, signal.SIG_DFL),
+    mp_context: str = "forkserver",
+    **executor_kwargs,
 ):
     """
     Multiprocess retrieve data function from multiple data requests
-    with retrieve_data method. If grib_to_file is true then message templates from the fdb requests are
+    with retrieve_data method. If grib_to_file is true then message templates from the requests are
     written to file and the filename returned with the data, else the message template itself is returned.
     If extra_dims is not empty each tuple produced will have the dict of extra keys as its first element.
 
     :param num_processes: number of processes to use for data retrieval
     :param dims: dimensions to iterate over (must include step)
     :param data_requesters: list of Parameter instances
-    :param grib_to_file: boolean specifying whether to write grib template to file
     :param initializer: function to call on the creation of each worker
     :param initargs: arguments to initializer
     :return: iterator over dims, retrieved data
@@ -164,23 +207,22 @@ def parallel_data_retrieval(
         SynchronousExecutor()
         if num_processes == 1
         else fut.ProcessPoolExecutor(
-            max_workers=num_processes, initializer=initializer, initargs=initargs
+            max_workers=num_processes,
+            initializer=initializer,
+            initargs=initargs,
+            mp_context=multiprocessing.get_context(mp_context),
+            **executor_kwargs,
         )
     )
     with executor:
         delay = 0 if num_processes == 1 else num_processes
         submit = lambda keys: (
             keys,
-            executor.submit(fdb_retrieve, data_requesters, True, **keys),
+            executor.submit(_retrieve, data_requesters, **keys),
         )
         requests = dict_product(dims)
         for keys, future in delayed_map(delay, submit, requests):
-            data_results = future.result()
-            if num_processes != 1 and not grib_to_file:
-                for result_index, result in enumerate(data_results):
-                    if isinstance(result[0], str):
-                        data_results[result_index][0] = io.read_template(result[0])
-            yield keys, data_results
+            yield keys, future.result()
 
 
 def sigterm_handler(signum, handler):
@@ -193,13 +235,3 @@ def sigterm_handler(signum, handler):
     for process in children:
         process.terminate()
     sys.exit()
-
-
-_manager = None
-
-
-def shared_list():
-    global _manager
-    if _manager is None:
-        _manager = multiprocessing.Manager()
-    return _manager.list()
