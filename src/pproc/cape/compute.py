@@ -7,11 +7,12 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-"""Compute MUCAPE and MUCIN from pressure-level and surface data.
+"""Compute CAPE and CIN from pressure-level and surface data.
 
-Wraps :func:`earthkit.meteo.thermo.cape_cin` (parcel_type="mu").
-Until the function is available in earthkit-meteo, a dummy
-implementation is used for testing.
+Wraps :func:`earthkit.meteo.thermo.cape_cin` with configurable
+parcel type (``"mu"`` for most-unstable, ``"ml"`` for mixed-layer)
+and optional layer depth.  Until the function is available in
+earthkit-meteo, a dummy implementation is used for testing.
 """
 
 from typing import Tuple
@@ -53,7 +54,7 @@ def _get_cape_cin_func():
         return _dummy_cape_cin
 
 
-def compute_mucape_mucin(
+def compute_cape_cin(
     t: ArrayLike,
     q: ArrayLike,
     zh: ArrayLike,
@@ -62,8 +63,10 @@ def compute_mucape_mucin(
     q_sfc: ArrayLike,
     zh_sfc: ArrayLike,
     p_sfc: ArrayLike,
+    parcel_type: str = "mu",
+    layer_depth: float | None = None,
 ) -> Tuple[ArrayLike, ArrayLike]:
-    """Compute most-unstable CAPE and CIN on pressure levels.
+    """Compute CAPE and CIN on pressure levels.
 
     Parameters
     ----------
@@ -84,13 +87,20 @@ def compute_mucape_mucin(
         Surface geopotential height (m), shape ``(n_points,)``.
     p_sfc : array-like
         Surface pressure (Pa), shape ``(n_points,)``.
+    parcel_type : str
+        Parcel type for the CAPE/CIN computation.  ``"mu"`` for
+        most-unstable, ``"mixed"`` for mixed-layer, ``"surface"``
+        for surface parcel.
+    layer_depth : float or None
+        Depth of the layer in Pa (e.g. 5000.0 for 50 hPa).
+        Used by ``"mixed"`` and ``"mu"`` parcel types.
 
     Returns
     -------
-    mucape : array-like
-        Most-unstable CAPE (J/kg), shape ``(n_points,)``.
-    mucin : array-like
-        Most-unstable CIN (J/kg), shape ``(n_points,)``.
+    cape : array-like
+        CAPE (J/kg), shape ``(n_points,)``.
+    cin : array-like
+        CIN (J/kg), shape ``(n_points,)``.
     """
     t = np.asarray(t, dtype=np.float64)
     q = np.asarray(q, dtype=np.float64)
@@ -108,7 +118,8 @@ def compute_mucape_mucin(
     p = np.broadcast_to(p_pa[:, np.newaxis], (n_levels, n_points))
 
     cape_cin_func = _get_cape_cin_func()
-    mucape, mucin = cape_cin_func(
+
+    kwargs = dict(
         p=p,
         zh=zh,
         t=t,
@@ -117,7 +128,11 @@ def compute_mucape_mucin(
         zh_sfc=zh_sfc,
         t_sfc=t_sfc,
         q_sfc=q_sfc,
-        parcel_type="mu",
+        parcel_type=parcel_type,
         vertical_axis=0,
     )
-    return mucape, mucin
+    if layer_depth is not None:
+        kwargs["layer_depth"] = layer_depth
+
+    cape, cin = cape_cin_func(**kwargs)
+    return cape, cin

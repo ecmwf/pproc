@@ -155,10 +155,10 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
                 "date": 20260201,
                 "time": 0,
                 "model": "aifs-single",
-                "param": [228235, 228236],
+                "param": [228231, 228232, 228233, 228234, 228235, 228236],
                 "step": [0, 6],
             },
-            4,
+            12,
         ],
     ],
     ids=[

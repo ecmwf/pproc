@@ -776,6 +776,15 @@ class WindConfig(BaseConfig):
         return req
 
 
+class CapeProductConfig(ConfigModel):
+    """Configuration for a single CAPE/CIN product variant."""
+
+    parcel_type: str = "mu"
+    layer_depth: float | None = None
+    cape_output: str
+    cin_output: str
+
+
 class CapeConfig(BaseConfig):
     parallelisation: int = 1
     inputs: io.CapeInputModel
@@ -783,6 +792,13 @@ class CapeConfig(BaseConfig):
     parameters: list[ParamConfig]
     pressure_levels: list[int]
     model: str = "aifs"
+    cape_products: list[CapeProductConfig] = [
+        CapeProductConfig(
+            parcel_type="mu",
+            cape_output="mucape",
+            cin_output="mucin",
+        ),
+    ]
 
     @model_validator(mode="after")
     def validate_split_params(self) -> Self:
@@ -803,6 +819,22 @@ class CapeConfig(BaseConfig):
                 raise ValueError(
                     f"pressure_levels {self.pressure_levels} must match "
                     f"levelist {levelist} in pl input request"
+                )
+        return self
+
+    @model_validator(mode="after")
+    def validate_cape_product_outputs(self) -> Self:
+        output_names = set(self.outputs.names)
+        for product in self.cape_products:
+            if product.cape_output not in output_names:
+                raise ValueError(
+                    f"cape_output '{product.cape_output}' not in outputs: "
+                    f"{output_names}"
+                )
+            if product.cin_output not in output_names:
+                raise ValueError(
+                    f"cin_output '{product.cin_output}' not in outputs: "
+                    f"{output_names}"
                 )
         return self
 

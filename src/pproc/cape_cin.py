@@ -21,7 +21,7 @@ from meters import ResourceMeter
 from earthkit.meteo import constants
 from earthkit.meteo.thermo import specific_humidity_from_dewpoint
 
-from pproc.cape.compute import compute_mucape_mucin
+from pproc.cape.compute import compute_cape_cin
 from pproc.common.accumulation_manager import AccumulationManager
 from pproc.common.io import write_grib
 from pproc.common.parallel import parallel_processing, sigterm_handler
@@ -32,17 +32,13 @@ from pproc.config.types import CapeConfig
 
 logger = logging.getLogger(__name__)
 
-# GRIB paramId for MUCAPE and MUCIN
-MUCAPE_PARAM_ID = 228235
-MUCIN_PARAM_ID = 228236
-
 
 def cape_iteration(
     config: CapeConfig,
     pconfig: ParamConfig,
     dims: dict,
 ) -> None:
-    """Process one (step, …) slice: retrieve data, compute MUCAPE/MUCIN, write output."""
+    """Process one (step, …) slice: retrieve data, compute CAPE/CIN, write output."""
     ids = ", ".join(f"{k}={v}" for k, v in dims.items())
 
     fields = SimpleFieldList()
@@ -87,7 +83,6 @@ def cape_iteration(
             zh_sfc_vals = z_sfc_vals / constants.g  # m
             q_sfc_vals = specific_humidity_from_dewpoint(td_sfc_vals, p_sfc_vals)
 
-
             # PL arrays
             n_points = p_sfc_vals.shape[0]
             n_levels = len(levels_sorted)
@@ -105,49 +100,49 @@ def cape_iteration(
                 q_arr[lev_idx] = q_field[member].values
                 zh_arr[lev_idx] = z_field[member].values / constants.g  # geopotential → height
 
-            # Compute MUCAPE / MUCIN
-            mucape, mucin = compute_mucape_mucin(
-                t=t_arr,
-                q=q_arr,
-                zh=zh_arr,
-                p_levels_hpa=levels_sorted,
-                t_sfc=t_sfc_vals,
-                q_sfc=q_sfc_vals,
-                zh_sfc=zh_sfc_vals,
-                p_sfc=p_sfc_vals,
-            )
-
-            # Write GRIB output
+            # Compute and write all configured CAPE/CIN products
             template = sfc_template._handle
+            for product in config.cape_products:
+                cape, cin = compute_cape_cin(
+                    t=t_arr,
+                    q=q_arr,
+                    zh=zh_arr,
+                    p_levels_hpa=levels_sorted,
+                    t_sfc=t_sfc_vals,
+                    q_sfc=q_sfc_vals,
+                    zh_sfc=zh_sfc_vals,
+                    p_sfc=p_sfc_vals,
+                    parcel_type=product.parcel_type,
+                    layer_depth=product.layer_depth,
+                )
 
-            out_mucape = config.outputs.mucape
-            write_grib(
-                out_mucape.target,
-                template,
-                mucape.astype(np.float32),
-                {
-                    **out_mucape.metadata,
-                    **pconfig.metadata,
-                    "paramId": MUCAPE_PARAM_ID,
-                    **dims,
-                },
-            )
+                out_cape = getattr(config.outputs, product.cape_output)
+                write_grib(
+                    out_cape.target,
+                    template,
+                    cape.astype(np.float32),
+                    {
+                        **out_cape.metadata,
+                        **pconfig.metadata,
+                        **dims,
+                    },
+                )
 
-            out_mucin = config.outputs.mucin
-            write_grib(
-                out_mucin.target,
-                template,
-                mucin.astype(np.float32),
-                {
-                    **out_mucin.metadata,
-                    **pconfig.metadata,
-                    "paramId": MUCIN_PARAM_ID,
-                    **dims,
-                },
-            )
+                out_cin = getattr(config.outputs, product.cin_output)
+                write_grib(
+                    out_cin.target,
+                    template,
+                    cin.astype(np.float32),
+                    {
+                        **out_cin.metadata,
+                        **pconfig.metadata,
+                        **dims,
+                    },
+                )
 
-    config.outputs.mucape.target.flush()
-    config.outputs.mucin.target.flush()
+    for product in config.cape_products:
+        getattr(config.outputs, product.cape_output).target.flush()
+        getattr(config.outputs, product.cin_output).target.flush()
     config.recovery.add_checkpoint(param=pconfig.name, **dims)
 
 

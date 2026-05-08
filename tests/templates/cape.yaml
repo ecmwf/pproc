@@ -56,14 +56,52 @@ parameters:
     accumulations:
       step:
         coords: [[0], [6]]
+cape_products:
+  - parcel_type: mu
+    cape_output: mucape
+    cin_output: mucin
+  - parcel_type: mixed
+    layer_depth: 5000
+    cape_output: mlcape50
+    cin_output: mlcin50
+  - parcel_type: mixed
+    layer_depth: 10000
+    cape_output: mlcape100
+    cin_output: mlcin100
 outputs:
   mucape:
     target:
       type: fdb
     metadata:
       edition: 2
+      paramId: 228235
   mucin:
     target:
       type: fdb
     metadata:
       edition: 2
+      paramId: 228236
+  mlcape50:
+    target:
+      type: fdb
+    metadata:
+      edition: 2
+      paramId: 228231
+  mlcin50:
+    target:
+      type: fdb
+    metadata:
+      edition: 2
+      paramId: 228232
+  mlcape100:
+    target:
+      type: fdb
+    metadata:
+      edition: 2
+      paramId: 228233
+  mlcin100:
+    target:
+      type: fdb
+    metadata:
+      edition: 2
+      paramId: 228234
