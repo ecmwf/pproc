@@ -246,6 +246,51 @@ class TestSSOCLIConfigFile:
 # ---------------------------------------------------------------------------
 
 
+class TestSSOCLIBitsPerValue:
+    """``--bits-per-value N`` propagates through to GRIB ``bitsPerValue``
+    on the four outputs. The flag is rejected if ``N`` is not a positive
+    integer (pydantic ``gt=0`` constraint)."""
+
+    OUTPUT_NAMES = ("stdgwd", "slogwd", "anggwd", "isogwd")
+
+    def test_bits_per_value_32(self, tmp_path):
+        sso_main(_canonical_argv(tmp_path) + ["--bits-per-value", "32"])
+        for name in self.OUTPUT_NAMES:
+            _, meta = decode_grib((tmp_path / name).read_bytes())
+            assert meta["bitsPerValue"] == 32, name
+
+    def test_bits_per_value_16(self, tmp_path):
+        sso_main(_canonical_argv(tmp_path) + ["--bits-per-value", "16"])
+        for name in self.OUTPUT_NAMES:
+            _, meta = decode_grib((tmp_path / name).read_bytes())
+            assert meta["bitsPerValue"] == 16, name
+
+    def test_absent_flag_uses_eccodes_default(self, tmp_path):
+        # No flag: pproc does not write bitsPerValue, so eccodes picks
+        # the grid_simple default (24).
+        sso_main(_canonical_argv(tmp_path))
+        for name in self.OUTPUT_NAMES:
+            _, meta = decode_grib((tmp_path / name).read_bytes())
+            assert meta["bitsPerValue"] == 24, name
+
+    def test_zero_rejected(self, tmp_path, capsys):
+        with pytest.raises(SystemExit) as exc:
+            sso_main(_canonical_argv(tmp_path) + ["--bits-per-value", "0"])
+        assert exc.value.code != 0
+        # pydantic ValidationError carries the "greater than 0" constraint
+        # text; we don't pin the exact phrasing but require some signal
+        # that this was a constraint violation rather than an unrelated
+        # crash.
+        captured = capsys.readouterr()
+        combined = (captured.out + captured.err + str(exc.value)).lower()
+        assert (
+            "greater than" in combined
+            or "bits_per_value" in combined
+            or "bitspervalue" in combined
+            or "validation" in combined
+        ), f"expected a constraint-related error, got: {combined!r}"
+
+
 class TestSSOCLIErrors:
     def test_missing_required_args(self):
         with pytest.raises(SystemExit):
@@ -268,6 +313,7 @@ class TestSSOCLIErrors:
             "--output-dir",
             "--grib-roundtrip",
             "--dump-intermediates",
+            "--bits-per-value",
             "--config",
         ):
             assert flag in out, f"--help output missing flag: {flag}"

@@ -29,7 +29,7 @@ YAML field. The YAML keys must match the snake-case
 :class:`SSOConfig` field names (``orography``, ``land_mask``,
 ``target_grid``, ``model_grid_type``, ``model_resolution``, ``output_grid``,
 ``effective_resolution``, ``source_orography``, ``output_dir``,
-``grib_roundtrip``, ``dump_intermediates``).
+``grib_roundtrip``, ``dump_intermediates``, ``bits_per_value``).
 
 Boolean flags (``--grib-roundtrip``, ``--dump-intermediates``) use
 ``action="store_true"`` and default to ``False``. They can be enabled either
@@ -53,6 +53,7 @@ from pathlib import Path
 from typing import Any, Iterable, List, Optional
 
 import yaml
+from pydantic import ValidationError
 
 from pproc.climate.sso.config import SSOConfig
 from pproc.climate.sso.pipeline import compute_sso
@@ -84,6 +85,7 @@ _CONFIG_FIELDS = (
     "output_dir",
     "grib_roundtrip",
     "dump_intermediates",
+    "bits_per_value",
 )
 
 
@@ -191,6 +193,19 @@ def _build_parser() -> argparse.ArgumentParser:
             "no user-controlled path component is involved."
         ),
     )
+    parser.add_argument(
+        "--bits-per-value",
+        dest="bits_per_value",
+        metavar="N",
+        type=int,
+        help=(
+            "If set, override the GRIB bitsPerValue on the four output "
+            "fields (stdgwd, slogwd, anggwd, isogwd). When omitted, "
+            "bitsPerValue is not written by pproc -- eccodes uses its own "
+            "default for the packing (24 for grid_simple). Use 32 to match "
+            "the legacy ksh script's output precision."
+        ),
+    )
 
     # --- YAML config ----------------------------------------------------
     parser.add_argument(
@@ -282,7 +297,15 @@ def _build_config(ns: argparse.Namespace) -> SSOConfig:
         kwargs["output_dir"] = Path(ns.output_dir)
     kwargs["grib_roundtrip"] = bool(ns.grib_roundtrip)
     kwargs["dump_intermediates"] = bool(ns.dump_intermediates)
-    return SSOConfig(**kwargs).resolve()
+    if ns.bits_per_value is not None:
+        kwargs["bits_per_value"] = int(ns.bits_per_value)
+    try:
+        return SSOConfig(**kwargs).resolve()
+    except ValidationError as e:
+        # Surface a clean non-zero exit with the pydantic constraint
+        # message rather than a raw traceback. Matches the error channel
+        # ``_require`` uses for argparse-level validation.
+        raise SystemExit(f"pproc-sso: error: {e}") from e
 
 
 def main(argv: Optional[List[str]] = None) -> None:

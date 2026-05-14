@@ -60,7 +60,13 @@ class SSOConfig(BaseModel):
     ``output_grid``            ``$OUT_RES``
     ``effective_resolution``   ``$MIR_ERES_SET`` (derived)
     ``output_dir``             ``$OUTPUT_DIR``
+    ``bits_per_value``         (no env-var counterpart)
     =========================  ===========================
+
+    ``bits_per_value`` has no legacy env-var: the ksh script never set
+    ``bitsPerValue`` explicitly. The ``bitsPerValue=32`` observed on its
+    outputs is inherited from the mir-compute encoding chain
+    (``grid_simple`` end-to-end), not from a user-supplied knob.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -138,6 +144,17 @@ class SSOConfig(BaseModel):
     dump_intermediates: bool = Field(
         default=False,
         description="Write the 16 named intermediate files to disk for debugging.",
+    )
+    bits_per_value: int | None = Field(
+        default=None,
+        gt=0,
+        description=(
+            "If set, override the GRIB ``bitsPerValue`` on the four output "
+            "fields (stdgwd, slogwd, anggwd, isogwd). When ``None`` (default), "
+            "``bitsPerValue`` is not written: eccodes inherits/defaults the "
+            "value from the packing in use (24 for ``grid_simple``). Set to "
+            "32 to match the legacy ksh script's output precision."
+        ),
     )
 
     # ------------------------------------------------------------------

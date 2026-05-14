@@ -242,3 +242,45 @@ class TestDefaults:
     def test_resolve_returns_sso_config_instance(self, minimal_kwargs):
         cfg = SSOConfig(**minimal_kwargs).resolve()
         assert isinstance(cfg, SSOConfig)
+
+
+class TestBitsPerValue:
+    """The ``bits_per_value`` knob controls GRIB ``bitsPerValue`` on the
+    four output fields. ``None`` (default) means "don't write it" so
+    eccodes inherits/defaults the value from the packing in use."""
+
+    def test_default_is_none(self, minimal_kwargs):
+        cfg = SSOConfig(**minimal_kwargs)
+        assert cfg.bits_per_value is None
+
+    def test_explicit_32_constructs(self, minimal_kwargs):
+        cfg = SSOConfig(**minimal_kwargs, bits_per_value=32)
+        assert cfg.bits_per_value == 32
+
+    def test_explicit_16_constructs(self, minimal_kwargs):
+        cfg = SSOConfig(**minimal_kwargs, bits_per_value=16)
+        assert cfg.bits_per_value == 16
+
+    def test_zero_rejected(self, minimal_kwargs):
+        with pytest.raises(ValidationError):
+            SSOConfig(**minimal_kwargs, bits_per_value=0)
+
+    def test_negative_rejected(self, minimal_kwargs):
+        with pytest.raises(ValidationError):
+            SSOConfig(**minimal_kwargs, bits_per_value=-1)
+
+    def test_yaml_round_trip_with_explicit_value(self, minimal_kwargs):
+        cfg = SSOConfig(**minimal_kwargs, bits_per_value=32).resolve()
+        dumped = yaml.safe_dump(cfg.model_dump(mode="json"))
+        loaded = yaml.safe_load(dumped)
+        cfg2 = SSOConfig(**loaded).resolve()
+        assert cfg2.bits_per_value == 32
+        assert cfg == cfg2
+
+    def test_yaml_round_trip_with_default_none(self, minimal_kwargs):
+        cfg = SSOConfig(**minimal_kwargs).resolve()
+        dumped = yaml.safe_dump(cfg.model_dump(mode="json"))
+        loaded = yaml.safe_load(dumped)
+        cfg2 = SSOConfig(**loaded).resolve()
+        assert cfg2.bits_per_value is None
+        assert cfg == cfg2

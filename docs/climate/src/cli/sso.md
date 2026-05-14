@@ -34,6 +34,7 @@ pproc-sso [--orography PATH] [--land-mask PATH] [--target-grid GRID]
 | `--output-dir` | `DIR` | Directory in which to write the four output files (default: `.`). Created on demand. |
 | `--grib-roundtrip` | — | Encode/decode every numpy intermediate through GRIB to reproduce the per-step quantisation of the original ksh script. |
 | `--dump-intermediates` | — | Write the sixteen named intermediate GRIB files to `--output-dir` in addition to the four final outputs. |
+| `--bits-per-value` | `N` | Set the GRIB `bitsPerValue` on the four output fields. When omitted, `bitsPerValue` is not written by pproc — eccodes uses its own default for the packing (24 for `grid_simple`). Use `32` to match the legacy ksh script's output precision. |
 | `--config` | `FILE` | Optional YAML config file. Keys must match `SSOConfig` field names (snake_case). CLI arguments override YAML values. |
 | `-h`, `--help` | — | Show argparse help and exit. |
 
@@ -80,6 +81,21 @@ drift against the reference outputs but cannot close the float32 vs
 float64 arithmetic gap; see [D-F1 tolerance posture](#d-f1-tolerance-posture)
 below.
 
+### `--bits-per-value`
+
+Sets the GRIB `bitsPerValue` on the four output fields (`stdgwd`,
+`slogwd`, `anggwd`, `isogwd`). When omitted, pproc does **not** write
+`bitsPerValue` at all — eccodes inherits/defaults it from the packing
+in use, which is `24` for `grid_simple`.
+
+Why the legacy outputs land at `bitsPerValue=32` while pproc's default
+is `24`: the legacy ksh chain runs `grid_simple` end-to-end via
+`mir-compute`, which carries `bitsPerValue=32` forward through every
+re-encode. The pproc chain stays in `grid_ieee` for the numpy
+intermediates and only switches to `grid_simple` at the final encode,
+so absent an explicit knob the eccodes default applies. Pass
+`--bits-per-value 32` to reproduce the legacy precision exactly.
+
 ### `--dump-intermediates`
 
 Writes the sixteen named intermediate GRIB files to `--output-dir`. The
@@ -125,6 +141,7 @@ source_orography: data/input/255_4/orog
 output_dir: ./out
 grib_roundtrip: false
 dump_intermediates: true
+bits_per_value: 32
 ```
 
 Unknown keys raise an error rather than being silently ignored.

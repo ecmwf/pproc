@@ -345,6 +345,43 @@ class TestGribRoundtrip:
 
 
 # ---------------------------------------------------------------------------
+# bits_per_value flag
+# ---------------------------------------------------------------------------
+
+
+class TestBitsPerValue:
+    """Verify the ``bits_per_value`` config knob is honoured by the four
+    final outputs. With ``None`` (default), the GRIB metadata must NOT
+    contain a pproc-supplied ``bitsPerValue`` (eccodes picks its own
+    default for ``grid_simple``, currently 24). With an explicit value,
+    every output must report that value."""
+
+    OUTPUT_NAMES = ("stdgwd", "slogwd", "anggwd", "isogwd")
+
+    def test_default_none_uses_eccodes_default(self, canonical_config):
+        # Default: pproc does not write bitsPerValue, so eccodes returns
+        # its own default for grid_simple, which is 24.
+        result = compute_sso(canonical_config)
+        for name in self.OUTPUT_NAMES:
+            _, meta = decode_grib(result[name])
+            assert meta["bitsPerValue"] == 24, name
+
+    def test_explicit_32(self, canonical_config):
+        cfg = canonical_config.model_copy(update={"bits_per_value": 32})
+        result = compute_sso(cfg)
+        for name in self.OUTPUT_NAMES:
+            _, meta = decode_grib(result[name])
+            assert meta["bitsPerValue"] == 32, name
+
+    def test_explicit_16(self, canonical_config):
+        cfg = canonical_config.model_copy(update={"bits_per_value": 16})
+        result = compute_sso(cfg)
+        for name in self.OUTPUT_NAMES:
+            _, meta = decode_grib(result[name])
+            assert meta["bitsPerValue"] == 16, name
+
+
+# ---------------------------------------------------------------------------
 # Temp-file hygiene
 # ---------------------------------------------------------------------------
 

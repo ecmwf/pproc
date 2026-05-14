@@ -110,6 +110,20 @@ def _encode_on_template(values: np.ndarray, template: bytes) -> bytes:
     return encode_grib(values, template)
 
 
+def _output_metadata(short_name: str, config: SSOConfig) -> dict:
+    """Build the output metadata dict, optionally pinning bitsPerValue.
+
+    When ``config.bits_per_value`` is ``None`` (the default), the returned
+    dict omits the ``bitsPerValue`` key entirely so that eccodes inherits
+    or defaults the value from the packing in use (``grid_simple``). When
+    set, the value is added so the user gets the precision they asked for.
+    """
+    metadata: dict = {"shortName": short_name, "packingType": "grid_simple"}
+    if config.bits_per_value is not None:
+        metadata["bitsPerValue"] = config.bits_per_value
+    return metadata
+
+
 # ---------------------------------------------------------------------------
 # Stage helpers — one per row of the ten-stage table
 # ---------------------------------------------------------------------------
@@ -245,7 +259,7 @@ def _stage_stdgwd(
     return encode_grib(
         stdgwd,
         template,
-        metadata={"shortName": "sdor", "packingType": "grid_simple"},
+        metadata=_output_metadata("sdor", config),
     )
 
 
@@ -307,7 +321,7 @@ def _stage_slogwd(
     return encode_grib(
         slogwd,
         template,
-        metadata={"shortName": "slor", "packingType": "grid_simple"},
+        metadata=_output_metadata("slor", config),
     )
 
 
@@ -340,7 +354,7 @@ def _stage_isogwd(
     return encode_grib(
         isogwd,
         template,
-        metadata={"shortName": "isor", "packingType": "grid_simple"},
+        metadata=_output_metadata("isor", config),
     )
 
 
@@ -362,7 +376,7 @@ def _stage_anggwd(
     return encode_grib(
         anggwd,
         template,
-        metadata={"shortName": "anor", "packingType": "grid_simple"},
+        metadata=_output_metadata("anor", config),
     )
 
 
