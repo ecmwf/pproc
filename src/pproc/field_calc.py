@@ -23,14 +23,20 @@ optional ``argv`` list for unit testing without spawning subprocesses.
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
+import time
 from typing import List, Optional, Tuple
 
+from pproc.climate._logging import configure_logging
 from pproc.climate.field_calc import evaluate_formula, parse_variables
 from pproc.common.io import decode_grib, decode_multi_grib, encode_grib
 
 
 __all__ = ["main"]
+
+
+logger = logging.getLogger("pproc.field_calc")
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -91,6 +97,17 @@ def _build_parser() -> argparse.ArgumentParser:
         help=(
             "One or more INPUT GRIB files followed by a single OUTPUT GRIB "
             "file. With --multi-dimensional N, exactly one INPUT is allowed."
+        ),
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        default=0,
+        help=(
+            "Increase logging verbosity to stdout: -v shows INFO "
+            "(per-sub-formula evaluation); -vv shows DEBUG. "
+            "Absent: silent (WARNING)."
         ),
     )
     return parser
@@ -243,6 +260,8 @@ def main(argv: Optional[List[str]] = None) -> None:
     raw_argv = list(sys.argv[1:] if argv is None else argv)
     args = parser.parse_args(_normalise_argv(raw_argv))
 
+    configure_logging(args.verbose)
+
     # ----- validate / parse the structural arguments -----
     try:
         input_paths, output_path = _split_inputs_output(args.paths)
@@ -299,9 +318,22 @@ def main(argv: Optional[List[str]] = None) -> None:
 
     bindings = dict(zip(var_names, arrays))
 
+    start_msg = (
+        "pproc-field-calc start"
+        f" formula={args.formula!r}"
+        f" variables={var_names}"
+        f" inputs={input_paths}"
+        f" output={output_path}"
+        f" multi_dimensional={args.multi_dimensional}"
+    )
+    logger.info(start_msg)
+    t0 = time.monotonic()
+
     # ----- evaluate each sub-formula and concatenate the encoded messages -----
     out_chunks: List[bytes] = []
-    for sub in sub_formulae:
+    total = len(sub_formulae)
+    for i, sub in enumerate(sub_formulae, start=1):
+        logger.info("evaluating formula %d/%d: %s", i, total, sub)
         result = evaluate_formula(sub, bindings)
         encoded = encode_grib(result, template_bytes, metadata=metadata)
         out_chunks.append(encoded)
@@ -310,6 +342,8 @@ def main(argv: Optional[List[str]] = None) -> None:
     with open(output_path, "wb") as fh:
         for chunk in out_chunks:
             fh.write(chunk)
+
+    logger.info("pproc-field-calc done elapsed=%.3f", time.monotonic() - t0)
 
 
 if __name__ == "__main__":  # pragma: no cover

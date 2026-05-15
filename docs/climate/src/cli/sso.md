@@ -125,7 +125,34 @@ All three messages surface as clean non-zero exits from the CLI
 | `--dump-intermediates` | — | Write the sixteen named intermediate GRIB files to `--output-dir` in addition to the four final outputs. |
 | `--bits-per-value` | `N` | Set the GRIB `bitsPerValue` on the four output fields. When omitted, `bitsPerValue` is not written by pproc — eccodes uses its own default for the packing (24 for `grid_simple`). Use `32` to match the legacy ksh script's output precision. |
 | `--config` | `FILE` | Optional YAML config file. Keys must match `SSOConfig` field names (snake_case). CLI arguments override YAML values. |
+| `-v`, `--verbose` | — | Count flag. Absent: silent (WARNING). `-v`: INFO logging to stdout (pipeline stages, mir invocations, file reads/writes). `-vv`: DEBUG (array shapes, byte sizes, Stage 1 decision details, cache writeback, roundtrip operations). See [Logging and verbosity](#logging-and-verbosity). |
 | `-h`, `--help` | — | Show argparse help and exit. |
+
+## Logging and verbosity
+
+`pproc-sso` is silent by default; pass `-v` (or `--verbose`) to surface
+pipeline progress on **stdout** with terse `[<logger>] <message>` lines,
+or `-vv` to add timestamped DEBUG lines covering array shapes, Stage 1
+decision details, GRIB roundtrip operations, and cache writeback. The
+log lines are produced by Python's standard :mod:`logging` and stream
+to stdout so they interleave cleanly with shell pipelines.
+
+A representative `-v` excerpt looks like:
+
+```text
+[pproc.sso] pproc-sso start orography=… orography_grid=N256 target_grid=N256 effective_resolution=N48 output_dir=…
+[pproc.climate.sso.pipeline] stage 1 source → orography grid
+[pproc.climate.sso.pipeline] stage 1 fast path (input on N256)
+[pproc.climate.sso.pipeline] stage 1 complete elapsed=0.012
+[pproc.climate.sso.pipeline] stage 2 orography grid → effective resolution
+[pproc.climate.mir_ops] interpolate grid=N48 method=grid-box-average input=348528 pts → output=13280 pts
+…
+[pproc.sso] pproc-sso done elapsed=12.351
+```
+
+Verbosity is driven by argparse's `action='count'`, so `-vvv` and
+above clamp to DEBUG. The level → format mapping is documented in
+`pproc.climate._logging`.
 
 ## Pipeline overview
 

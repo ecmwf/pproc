@@ -24,6 +24,7 @@ pproc-field-calc --formula EXPR [--variables a;b;...] [--multi-dimensional N]
 | `--multi-dimensional` | `N` | Treat the (single) input file as `N` consecutive GRIB messages. Incompatible with multiple input files. |
 | `--metadata` | `KEY=VAL [KEY=VAL ...]` | GRIB metadata overrides applied to the output, e.g. `--metadata shortName=sdor packingType=grid_simple`. May be repeated. |
 | `paths` | `INPUT_OR_OUTPUT [INPUT_OR_OUTPUT ...]` | One or more INPUT GRIB files followed by a single OUTPUT GRIB file. With `--multi-dimensional N`, exactly one INPUT is allowed. |
+| `-v`, `--verbose` | — | Count flag. Absent: silent (WARNING). `-v`: INFO logging to stdout (per-sub-formula evaluation and start/end summary). `-vv`: DEBUG. See [Logging and verbosity](#logging-and-verbosity). |
 | `-h`, `--help` | — | Show argparse help and exit. |
 
 ## Formula grammar
@@ -102,6 +103,21 @@ pproc-field-calc --formula "f1-f2;f1+f2" a.grib b.grib both.grib
 
 The output file `both.grib` contains two GRIB messages, one per
 sub-formula.
+
+## Logging and verbosity
+
+`pproc-field-calc` is silent by default; pass `-v` (or `--verbose`) to
+surface per-sub-formula evaluation on **stdout**, or `-vv` for
+timestamped DEBUG lines. A representative `-v` excerpt:
+
+```text
+[pproc.field_calc] pproc-field-calc start formula='f1 - f2' variables=['f1', 'f2'] inputs=['a.grib', 'b.grib'] output=diff.grib multi_dimensional=None
+[pproc.field_calc] evaluating formula 1/1: f1 - f2
+[pproc.field_calc] pproc-field-calc done elapsed=0.034
+```
+
+Verbosity is driven by argparse's `action='count'`, so `-vvv` and
+above clamp to DEBUG.
 
 > **Note — CPython argparse and `--metadata`**
 >

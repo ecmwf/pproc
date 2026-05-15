@@ -40,7 +40,10 @@ Sequential execution; no implicit threading at the pipeline layer.
 
 from __future__ import annotations
 
-from typing import Tuple
+import logging
+import time
+from contextlib import contextmanager
+from typing import Iterator, Tuple
 
 import numpy as np
 
@@ -49,6 +52,38 @@ from pproc.climate.sso.config import SSOConfig
 from pproc.common.io import decode_grib, encode_grib
 
 __all__ = ["compute_sso"]
+
+
+logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def _stage(label: str) -> Iterator[None]:
+    """Emit ``stage <label>`` on entry and ``stage <label> complete elapsed=...``
+    on exit. Uses :func:`time.monotonic` so the delta is unaffected by wall-clock
+    jitter or NTP adjustments mid-run."""
+    logger.info("stage %s", label)
+    t0 = time.monotonic()
+    try:
+        yield
+    finally:
+        # Trim the label to the stage-number prefix for the completion line:
+        # the human label is already in the entry line, the completion line
+        # just needs an identifier + the elapsed measurement.
+        stage_id = label.split(" ", 1)[0]
+        logger.info("stage %s complete elapsed=%.3f", stage_id, time.monotonic() - t0)
+
+
+def _log_array(stage_name: str, arr: np.ndarray) -> None:
+    """DEBUG-only sketch of a numpy intermediate: shape, dtype, byte size."""
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug(
+            "%s array shape=%s dtype=%s bytes=%d",
+            stage_name,
+            tuple(arr.shape),
+            arr.dtype,
+            int(arr.nbytes),
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -70,7 +105,11 @@ def _decode(grib_bytes: bytes) -> Tuple[np.ndarray, bytes]:
 
 
 def _maybe_roundtrip(
-    values: np.ndarray, template: bytes, config: SSOConfig
+    values: np.ndarray,
+    template: bytes,
+    config: SSOConfig,
+    *,
+    stage: str = "",
 ) -> np.ndarray:
     """Apply per-step GRIB quantisation when ``grib_roundtrip`` is on.
 
@@ -82,6 +121,13 @@ def _maybe_roundtrip(
     """
     if not config.grib_roundtrip:
         return values
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug(
+            "roundtrip stage=%s array shape=%s bytes=%d",
+            stage or "?",
+            tuple(values.shape),
+            int(values.nbytes),
+        )
     encoded = encode_grib(values, template)
     decoded, _ = decode_grib(encoded)
     return decoded
@@ -99,7 +145,9 @@ def _write_intermediate(name: str, payload: bytes, config: SSOConfig) -> None:
     if not config.dump_intermediates:
         return
     config.output_dir.mkdir(parents=True, exist_ok=True)
-    (config.output_dir / name).write_bytes(payload)
+    target = config.output_dir / name
+    target.write_bytes(payload)
+    logger.info("wrote intermediate %s → %s (%d bytes)", name, target, len(payload))
 
 
 def _encode_on_template(values: np.ndarray, template: bytes) -> bytes:
@@ -158,9 +206,23 @@ def _stage_source_to_orography_grid(config: SSOConfig) -> bytes:
     """
     if config.orography.is_file():
         grib_bytes = config.orography.read_bytes()
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "stage 1 reading %s (%d bytes)",
+                config.orography,
+                len(grib_bytes),
+            )
         _, metadata = decode_grib(grib_bytes)
         input_grid = metadata.get("gridName")
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "stage 1 decoded gridName=%s; comparing against "
+                "config.orography_grid=%s",
+                input_grid,
+                config.orography_grid,
+            )
         if input_grid == config.orography_grid:
+            logger.info("stage 1 fast path (input on %s)", config.orography_grid)
             return grib_bytes
         raise ValueError(
             f"orography file '{config.orography}' is on grid "
@@ -176,7 +238,19 @@ def _stage_source_to_orography_grid(config: SSOConfig) -> bytes:
                 f"Neither orography file '{config.orography}' nor the "
                 f"alternative orography file '{config.alt_orography}' exist."
             )
+        logger.info(
+            "stage 1 alt-orography fallback (regridding to %s, caching to %s)",
+            config.orography_grid,
+            config.orography,
+        )
         alt_bytes = config.alt_orography.read_bytes()
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "stage 1 alt-orography %s exists; reading %d bytes; "
+                "regridding via mir_ops.interpolate",
+                config.alt_orography,
+                len(alt_bytes),
+            )
         regridded = mir_ops.interpolate(
             alt_bytes, grid=config.orography_grid, method="grid-box-average"
         )
@@ -187,6 +261,12 @@ def _stage_source_to_orography_grid(config: SSOConfig) -> bytes:
         # their cache directory (matching ``${XDATA_IFS}``). No atomic
         # rename: concurrent runs are out of scope, as in the ksh.
         config.orography.write_bytes(regridded)
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "stage 1 writing %d bytes back to cache %s",
+                len(regridded),
+                config.orography,
+            )
         return regridded
 
     raise FileNotFoundError(
@@ -227,10 +307,12 @@ def _stage_difference_and_squared_difference(
     orog_egrid_og_arr, _ = _decode(orog_egrid_og)
 
     diff = orog_5km_arr - orog_egrid_og_arr
-    diff = _maybe_roundtrip(diff, template, config)
+    _log_array("stage 4 diff", diff)
+    diff = _maybe_roundtrip(diff, template, config, stage="4 diff")
 
     diff_sq = (orog_5km_arr - orog_egrid_og_arr) ** 2
-    diff_sq = _maybe_roundtrip(diff_sq, template, config)
+    _log_array("stage 4 diff_sq", diff_sq)
+    diff_sq = _maybe_roundtrip(diff_sq, template, config, stage="4 diff_sq")
 
     diff_bytes = _encode_on_template(diff, template)
     diff_sq_bytes = _encode_on_template(diff_sq, template)
@@ -252,13 +334,16 @@ def _stage_gradient_products(
     grady, _ = _decode(grady_bytes)
 
     gxx = gradx * gradx
-    gxx = _maybe_roundtrip(gxx, template, config)
+    _log_array("stage 6 gxx", gxx)
+    gxx = _maybe_roundtrip(gxx, template, config, stage="6 gxx")
 
     gyy = grady * grady
-    gyy = _maybe_roundtrip(gyy, template, config)
+    _log_array("stage 6 gyy", gyy)
+    gyy = _maybe_roundtrip(gyy, template, config, stage="6 gyy")
 
     gxy = gradx * grady
-    gxy = _maybe_roundtrip(gxy, template, config)
+    _log_array("stage 6 gxy", gxy)
+    gxy = _maybe_roundtrip(gxy, template, config, stage="6 gxy")
 
     return (
         _encode_on_template(gxx, template),
@@ -299,7 +384,8 @@ def _stage_stdgwd(
     """Stage 9.1 — ``stdgwd = sqrt(orog_mgrid_diff_sq) * land_mask``."""
     diff_sq, template = _decode(orog_mgrid_diff_sq)
     stdgwd = np.sqrt(diff_sq) * land_mask
-    stdgwd = _maybe_roundtrip(stdgwd, template, config)
+    _log_array("stage 9.1 stdgwd", stdgwd)
+    stdgwd = _maybe_roundtrip(stdgwd, template, config, stage="9.1 stdgwd")
     return encode_grib(
         stdgwd,
         template,
@@ -342,10 +428,14 @@ def _stage_klmlprime_lsm(
     M = gradxy
     Lprime = np.sqrt((0.5 * (gradxx - gradyy)) ** 2 + gradxy**2)
 
-    K = _maybe_roundtrip(K, template, config)
-    L = _maybe_roundtrip(L, template, config)
-    M = _maybe_roundtrip(M, template, config)
-    Lprime = _maybe_roundtrip(Lprime, template, config)
+    _log_array("stage 9.2.a K", K)
+    _log_array("stage 9.2.a L", L)
+    _log_array("stage 9.2.a M", M)
+    _log_array("stage 9.2.a Lprime", Lprime)
+    K = _maybe_roundtrip(K, template, config, stage="9.2.a K")
+    L = _maybe_roundtrip(L, template, config, stage="9.2.a L")
+    M = _maybe_roundtrip(M, template, config, stage="9.2.a M")
+    Lprime = _maybe_roundtrip(Lprime, template, config, stage="9.2.a Lprime")
     # land_mask is already on disk as GRIB; no further roundtrip is needed.
     _ = land_mask_bytes  # kept in signature for symmetry / future hooks
 
@@ -361,7 +451,8 @@ def _stage_slogwd(
 ) -> bytes:
     """Stage 9.2.b — ``slogwd = sqrt(K + Lprime) * land_mask``."""
     slogwd = np.sqrt(K + Lprime) * land_mask
-    slogwd = _maybe_roundtrip(slogwd, template, config)
+    _log_array("stage 9.2.b slogwd", slogwd)
+    slogwd = _maybe_roundtrip(slogwd, template, config, stage="9.2.b slogwd")
     return encode_grib(
         slogwd,
         template,
@@ -394,7 +485,8 @@ def _stage_isogwd(
     numerator = (K - Lprime) * k_lprime_gt_0
     denominator = (K + Lprime) * k_lprime_gt_eps + epsilon
     isogwd = np.sqrt(numerator / denominator) * land_mask
-    isogwd = _maybe_roundtrip(isogwd, template, config)
+    _log_array("stage 9.2.c isogwd", isogwd)
+    isogwd = _maybe_roundtrip(isogwd, template, config, stage="9.2.c isogwd")
     return encode_grib(
         isogwd,
         template,
@@ -416,7 +508,8 @@ def _stage_anggwd(
     flag this as a D-F1 candidate if outputs drift.
     """
     anggwd = 0.5 * np.arctan2(M, L) * land_mask
-    anggwd = _maybe_roundtrip(anggwd, template, config)
+    _log_array("stage 9.2.d anggwd", anggwd)
+    anggwd = _maybe_roundtrip(anggwd, template, config, stage="9.2.d anggwd")
     return encode_grib(
         anggwd,
         template,
@@ -468,51 +561,58 @@ def compute_sso(config: SSOConfig) -> dict[str, bytes]:
         and the corresponding ``shortName``.
     """
     # ------- Stage 1: source → orography_grid (or pass through) ---------
-    orog_5km_bytes = _stage_source_to_orography_grid(config)
+    with _stage("1 source → orography grid"):
+        orog_5km_bytes = _stage_source_to_orography_grid(config)
 
     # ------- Stage 2: → effective resolution ---------------------------
-    orog_egrid_bytes = _stage_conservative_to_eres(orog_5km_bytes, config)
+    with _stage("2 orography grid → effective resolution"):
+        orog_egrid_bytes = _stage_conservative_to_eres(orog_5km_bytes, config)
     _write_intermediate("orog_egrid", orog_egrid_bytes, config)
 
     # ------- Stage 3: ← bilinear back to orography_grid ----------------
-    orog_egrid_og_bytes = _stage_bilinear_back_to_orography_grid(
-        orog_egrid_bytes, config
-    )
+    with _stage("3 effective resolution → orography grid (bilinear)"):
+        orog_egrid_og_bytes = _stage_bilinear_back_to_orography_grid(
+            orog_egrid_bytes, config
+        )
     _write_intermediate(
         f"orog_egrid_{config.orography_grid}", orog_egrid_og_bytes, config
     )
 
     # ------- Stage 4: difference + squared difference ------------------
-    orog_egrid_diff_bytes, orog_egrid_diff_sq_bytes = (
-        _stage_difference_and_squared_difference(
-            orog_5km_bytes, orog_egrid_og_bytes, config
+    with _stage("4 diff and diff²"):
+        orog_egrid_diff_bytes, orog_egrid_diff_sq_bytes = (
+            _stage_difference_and_squared_difference(
+                orog_5km_bytes, orog_egrid_og_bytes, config
+            )
         )
-    )
     _write_intermediate("orog_egrid_diff", orog_egrid_diff_bytes, config)
 
     # ------- Stage 5: scalar gradient ----------------------------------
-    gradx_bytes, grady_bytes = _stage_gradient(orog_egrid_diff_bytes)
+    with _stage("5 scalar gradient"):
+        gradx_bytes, grady_bytes = _stage_gradient(orog_egrid_diff_bytes)
     if config.dump_intermediates:
         _write_intermediate("orog_egrid_diff_grad", gradx_bytes + grady_bytes, config)
 
     # ------- Stage 6: gradient products --------------------------------
-    gradx_sq_bytes, grady_sq_bytes, gradxy_bytes = _stage_gradient_products(
-        gradx_bytes, grady_bytes, config
-    )
+    with _stage("6 gradient products"):
+        gradx_sq_bytes, grady_sq_bytes, gradxy_bytes = _stage_gradient_products(
+            gradx_bytes, grady_bytes, config
+        )
     _write_intermediate("orog_egrid_diff_gradx_sq", gradx_sq_bytes, config)
     _write_intermediate("orog_egrid_diff_grady_sq", grady_sq_bytes, config)
     _write_intermediate("orog_egrid_diff_gradxy", gradxy_bytes, config)
 
     # ------- Stage 7: aggregate to eres --------------------------------
-    eres_bundle = _stage_aggregate_to_eres(
-        (
-            orog_egrid_diff_sq_bytes,
-            gradx_sq_bytes,
-            grady_sq_bytes,
-            gradxy_bytes,
-        ),
-        config,
-    )
+    with _stage("7 aggregate to effective resolution"):
+        eres_bundle = _stage_aggregate_to_eres(
+            (
+                orog_egrid_diff_sq_bytes,
+                gradx_sq_bytes,
+                grady_sq_bytes,
+                gradxy_bytes,
+            ),
+            config,
+        )
     (
         orog_eff_diff_sq_bytes,
         orog_eff_diff_gradx_sq_bytes,
@@ -525,7 +625,8 @@ def compute_sso(config: SSOConfig) -> dict[str, bytes]:
     _write_intermediate("orog_eff_diff_gradxy", orog_eff_diff_gradxy_bytes, config)
 
     # ------- Stage 8: aggregate to target ------------------------------
-    target_bundle = _stage_aggregate_to_target(eres_bundle, config)
+    with _stage("8 aggregate to target grid"):
+        target_bundle = _stage_aggregate_to_target(eres_bundle, config)
     (
         orog_mgrid_diff_sq_bytes,
         orog_mgrid_diff_gradx_sq_bytes,
@@ -542,32 +643,33 @@ def compute_sso(config: SSOConfig) -> dict[str, bytes]:
     _write_intermediate("orog_mgrid_diff_gradxy", orog_mgrid_diff_gradxy_bytes, config)
 
     # ------- Stage 9.1: stdgwd ----------------------------------------
-    land_mask_bytes = config.land_mask.read_bytes()
-    land_mask, _ = decode_grib(land_mask_bytes)
-    stdgwd_bytes = _stage_stdgwd(orog_mgrid_diff_sq_bytes, land_mask, config)
+    with _stage("9.1 stdgwd"):
+        land_mask_bytes = config.land_mask.read_bytes()
+        land_mask, _ = decode_grib(land_mask_bytes)
+        stdgwd_bytes = _stage_stdgwd(orog_mgrid_diff_sq_bytes, land_mask, config)
 
-    # ------- Stage 9.2.a: K, L, M, Lprime bundle ----------------------
-    K, L, M, Lprime, lsm, mgrid_template = _stage_klmlprime_lsm(
-        orog_mgrid_diff_gradx_sq_bytes,
-        orog_mgrid_diff_grady_sq_bytes,
-        orog_mgrid_diff_gradxy_bytes,
-        land_mask_bytes,
-        land_mask,
-        config,
-    )
-    if config.dump_intermediates:
-        # Concatenate K, L, M, Lprime, land_mask in that order to match
-        # ``--variables=K;L;M;Lprime;land_mask`` in the ksh — formula 10
-        # references f1/f4 positionally, so this order is load-bearing.
-        bundle = b"".join(
-            encode_grib(arr, mgrid_template) for arr in (K, L, M, Lprime, lsm)
+    # ------- Stage 9.2: KLMLprime / slogwd / isogwd / anggwd ----------
+    with _stage("9.2 KLMLprime / slogwd / isogwd / anggwd"):
+        K, L, M, Lprime, lsm, mgrid_template = _stage_klmlprime_lsm(
+            orog_mgrid_diff_gradx_sq_bytes,
+            orog_mgrid_diff_grady_sq_bytes,
+            orog_mgrid_diff_gradxy_bytes,
+            land_mask_bytes,
+            land_mask,
+            config,
         )
-        _write_intermediate("KLMLprime_lsm", bundle, config)
+        if config.dump_intermediates:
+            # Concatenate K, L, M, Lprime, land_mask in that order to match
+            # ``--variables=K;L;M;Lprime;land_mask`` in the ksh — formula 10
+            # references f1/f4 positionally, so this order is load-bearing.
+            bundle = b"".join(
+                encode_grib(arr, mgrid_template) for arr in (K, L, M, Lprime, lsm)
+            )
+            _write_intermediate("KLMLprime_lsm", bundle, config)
 
-    # ------- Stage 9.2.b–d: slogwd, isogwd, anggwd --------------------
-    slogwd_bytes = _stage_slogwd(K, Lprime, lsm, mgrid_template, config)
-    isogwd_bytes = _stage_isogwd(K, Lprime, lsm, mgrid_template, config)
-    anggwd_bytes = _stage_anggwd(L, M, lsm, mgrid_template, config)
+        slogwd_bytes = _stage_slogwd(K, Lprime, lsm, mgrid_template, config)
+        isogwd_bytes = _stage_isogwd(K, Lprime, lsm, mgrid_template, config)
+        anggwd_bytes = _stage_anggwd(L, M, lsm, mgrid_template, config)
 
     return {
         "stdgwd": stdgwd_bytes,

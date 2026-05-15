@@ -309,3 +309,59 @@ class TestFieldCalcCLIErrors:
                     str(out),
                 ]
             )
+
+
+class TestFieldCalcCLIVerbose:
+    """Smoke tests for the ``-v`` / ``--verbose`` count flag.
+
+    See :class:`TestGradientCLIVerbose` for the rationale (silent by
+    default, monotonic increase in stdout with verbosity).
+    """
+
+    @pytest.fixture(autouse=True)
+    def _reset_root_logger(self):
+        import logging as _logging
+
+        from pproc.climate._logging import _HANDLER_TAG
+
+        root = _logging.getLogger()
+        saved = list(root.handlers)
+        level = root.level
+        root.handlers = [
+            h for h in root.handlers if not getattr(h, _HANDLER_TAG, False)
+        ]
+        try:
+            yield
+        finally:
+            root.handlers = saved
+            root.setLevel(level)
+
+    def test_silent_by_default(self, tmp_path, capsys):
+        out = tmp_path / "diff.grib"
+        field_calc_main(
+            [
+                "--formula",
+                "f1 - f2",
+                str(_OROG_5KM),
+                str(_OROG_EGRID_N2000),
+                str(out),
+            ]
+        )
+        captured = capsys.readouterr()
+        assert captured.out == ""
+
+    def test_verbose_emits_to_stdout(self, tmp_path, capsys):
+        out = tmp_path / "diff.grib"
+        field_calc_main(
+            [
+                "-v",
+                "--formula",
+                "f1 - f2",
+                str(_OROG_5KM),
+                str(_OROG_EGRID_N2000),
+                str(out),
+            ]
+        )
+        captured = capsys.readouterr()
+        assert captured.out, "expected -v to produce stdout output"
+        assert "[pproc.field_calc]" in captured.out

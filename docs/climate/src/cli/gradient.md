@@ -22,6 +22,7 @@ pproc-gradient [--operation {scalar-gradient,scalar-laplacian}]
 | `OUTPUT` | path | Output GRIB file. |
 | `--operation` | `scalar-gradient` \| `scalar-laplacian` | mir nabla operation. Default: `scalar-gradient`. |
 | `--no-poles-missing-values` | — | Disable flagging values at lat=±90° as missing in the output. Default behaviour (enabled) matches the legacy SSO ksh pipeline's `--nabla-poles-missing-values` flag. |
+| `-v`, `--verbose` | — | Count flag. Absent: silent (WARNING). `-v`: INFO logging to stdout (the mir invocation and start/end summary). `-vv`: DEBUG. See [Logging and verbosity](#logging-and-verbosity). |
 | `-h`, `--help` | — | Show argparse help and exit. |
 
 ## Output format
@@ -56,6 +57,21 @@ intermediate `orog_egrid_diff_grad` at `rtol=1e-5` with max abs diff
 0.0 — a true bit-identical match. The byte exactness comes from
 `mir_ops.gradient` using `eccodes.MemoryReader` to split the multi-message
 mir output without a decode/re-encode round-trip.
+
+## Logging and verbosity
+
+`pproc-gradient` is silent by default; pass `-v` (or `--verbose`) to
+surface the mir invocation and start/end summary on **stdout**, or
+`-vv` for timestamped DEBUG lines. A representative `-v` excerpt:
+
+```text
+[pproc.gradient] pproc-gradient start operation=scalar-gradient input=orog_egrid_diff output=/tmp/grad.grib
+[pproc.climate.mir_ops] gradient poles_missing_values=True input=348528 pts → 2 messages
+[pproc.gradient] pproc-gradient done elapsed=0.812
+```
+
+Verbosity is driven by argparse's `action='count'`, so `-vvv` and
+above clamp to DEBUG.
 
 ## Example
 

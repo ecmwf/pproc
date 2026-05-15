@@ -513,3 +513,63 @@ class TestSSOCLIGridMismatch:
         # writes outputs only after ``compute_sso`` returns).
         for name in OUTPUT_NAMES:
             assert not (out_dir / name).exists(), f"unexpected output: {name}"
+
+
+# ---------------------------------------------------------------------------
+# --verbose / -v
+# ---------------------------------------------------------------------------
+
+
+class TestSSOCLIVerbose:
+    """Smoke tests for the ``-v`` / ``--verbose`` count flag.
+
+    Asserts only presence/absence and a non-empty count — the precise log
+    message text is intentionally not pinned so future log-line additions
+    don't churn these tests. See ``pproc.climate._logging`` for the
+    level-mapping contract that these tests exercise via ``sso_main``.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _reset_root_logger(self):
+        import logging as _logging
+
+        from pproc.climate._logging import _HANDLER_TAG
+
+        root = _logging.getLogger()
+        saved = list(root.handlers)
+        level = root.level
+        root.handlers = [
+            h for h in root.handlers if not getattr(h, _HANDLER_TAG, False)
+        ]
+        try:
+            yield
+        finally:
+            root.handlers = saved
+            root.setLevel(level)
+
+    def test_silent_by_default(self, tmp_path, capsys):
+        sso_main(_canonical_argv(tmp_path))
+        captured = capsys.readouterr()
+        assert captured.out == "", (
+            f"expected silent CLI without -v, got: {captured.out!r}"
+        )
+
+    def test_verbose_emits_to_stdout(self, tmp_path, capsys):
+        sso_main(_canonical_argv(tmp_path) + ["-v"])
+        captured = capsys.readouterr()
+        assert captured.out, "expected -v to produce stdout output"
+        # Marker we know is present in the start line and end line.
+        assert "[pproc.sso]" in captured.out
+        # The pipeline logger should also be visible.
+        assert "[pproc.climate.sso.pipeline]" in captured.out
+
+    def test_double_verbose_emits_more(self, tmp_path, capsys):
+        sso_main(_canonical_argv(tmp_path) + ["-v"])
+        single = capsys.readouterr().out
+        sso_main(_canonical_argv(tmp_path) + ["--verbose", "--verbose"])
+        double = capsys.readouterr().out
+        # DEBUG adds array-shape lines and stage-1 decision details on top
+        # of every INFO line, so the byte volume should be strictly larger.
+        assert len(double) > len(single), (
+            f"expected -vv volume ({len(double)}) > -v volume ({len(single)})"
+        )

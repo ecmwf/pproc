@@ -147,3 +147,56 @@ class TestGradientCLIErrors:
         # Surface check that the help text mentions the key flags.
         assert "--operation" in captured.out
         assert "--no-poles-missing-values" in captured.out
+
+
+class TestGradientCLIVerbose:
+    """Smoke tests for the ``-v`` / ``--verbose`` count flag.
+
+    Verifies the silent-by-default contract and the monotonic increase
+    in stdout volume as verbosity is bumped from 0 → 1 → 2. We do not
+    pin log-message text — operators only care that *something* shows
+    up, and that ``-vv`` is louder than ``-v``.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _reset_root_logger(self):
+        import logging as _logging
+
+        from pproc.climate._logging import _HANDLER_TAG
+
+        root = _logging.getLogger()
+        saved = list(root.handlers)
+        level = root.level
+        root.handlers = [
+            h for h in root.handlers if not getattr(h, _HANDLER_TAG, False)
+        ]
+        try:
+            yield
+        finally:
+            root.handlers = saved
+            root.setLevel(level)
+
+    def test_silent_by_default(self, tmp_path, capsys):
+        gradient_main([str(_OROG_EGRID_DIFF), str(tmp_path / "out.grib")])
+        captured = capsys.readouterr()
+        assert captured.out == ""
+
+    def test_verbose_emits_to_stdout(self, tmp_path, capsys):
+        gradient_main(["-v", str(_OROG_EGRID_DIFF), str(tmp_path / "out.grib")])
+        captured = capsys.readouterr()
+        assert captured.out, "expected -v to produce stdout output"
+        assert "[pproc.gradient]" in captured.out
+
+    def test_double_verbose_emits_more(self, tmp_path, capsys):
+        gradient_main(["-v", str(_OROG_EGRID_DIFF), str(tmp_path / "out1.grib")])
+        single = capsys.readouterr().out
+        gradient_main(
+            [
+                "--verbose",
+                "--verbose",
+                str(_OROG_EGRID_DIFF),
+                str(tmp_path / "out2.grib"),
+            ]
+        )
+        double = capsys.readouterr().out
+        assert len(double) >= len(single)

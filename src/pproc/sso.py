@@ -49,17 +49,23 @@ directory is created on demand.
 from __future__ import annotations
 
 import argparse
+import logging
+import time
 from pathlib import Path
 from typing import Any, Iterable, List, Optional
 
 import yaml
 from pydantic import ValidationError
 
+from pproc.climate._logging import configure_logging
 from pproc.climate.sso.config import SSOConfig
 from pproc.climate.sso.pipeline import compute_sso
 
 
 __all__ = ["main"]
+
+
+logger = logging.getLogger("pproc.sso")
 
 
 # Names of the four output GRIB files written under ``--output-dir``. Order
@@ -227,6 +233,23 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    # --- Verbosity ------------------------------------------------------
+    # ``-v`` increments ``verbose`` by 1; ``-vv`` (or ``--verbose --verbose``)
+    # promotes to DEBUG. See ``pproc.climate._logging.configure_logging``
+    # for the count → level mapping. Default of 0 keeps the CLI silent.
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        default=0,
+        help=(
+            "Increase logging verbosity to stdout: -v shows INFO "
+            "(pipeline stages and mir invocations); -vv shows DEBUG "
+            "(array shapes, byte sizes, decode/cache decisions). "
+            "Absent: silent (WARNING)."
+        ),
+    )
+
     return parser
 
 
@@ -321,6 +344,12 @@ def main(argv: Optional[List[str]] = None) -> None:
     parser = _build_parser()
     ns = parser.parse_args(argv)
 
+    # Logging is configured *before* YAML parsing so that --verbose alone
+    # also surfaces argparse-level YAML/config errors at INFO. We only
+    # ever read ``ns.verbose`` here; argparse default=0 keeps things
+    # silent unless the operator opts in.
+    configure_logging(ns.verbose)
+
     if ns.config:
         yaml_data = _load_yaml_config(ns.config)
         _merge_yaml_into_namespace(ns, yaml_data)
@@ -328,6 +357,20 @@ def main(argv: Optional[List[str]] = None) -> None:
     _require(ns, ("orography", "land_mask", "target_grid", "orography_grid"))
 
     config = _build_config(ns)
+
+    # Build the start line as a single concatenated string (per spec —
+    # avoid percent-formatting for free-form summary lines).
+    start_msg = (
+        "pproc-sso start"
+        f" orography={config.orography}"
+        f" alt_orography={config.alt_orography}"
+        f" orography_grid={config.orography_grid}"
+        f" target_grid={config.target_grid}"
+        f" effective_resolution={config.effective_resolution}"
+        f" output_dir={config.output_dir}"
+    )
+    logger.info(start_msg)
+    t0 = time.monotonic()
 
     try:
         results = compute_sso(config)
@@ -343,7 +386,12 @@ def main(argv: Optional[List[str]] = None) -> None:
 
     config.output_dir.mkdir(parents=True, exist_ok=True)
     for name in _OUTPUT_NAMES:
-        (config.output_dir / name).write_bytes(results[name])
+        out_path = config.output_dir / name
+        payload = results[name]
+        out_path.write_bytes(payload)
+        logger.info("wrote output %s → %s (%d bytes)", name, out_path, len(payload))
+
+    logger.info("pproc-sso done elapsed=%.3f", time.monotonic() - t0)
 
 
 if __name__ == "__main__":  # pragma: no cover

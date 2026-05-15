@@ -28,8 +28,9 @@ acceptance criterion).
 from __future__ import annotations
 
 import io
+import logging
 import re
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import eccodes
 import mir
@@ -41,6 +42,30 @@ __all__ = [
     "interpolate",
     "gradient",
 ]
+
+
+logger = logging.getLogger(__name__)
+
+
+def _decode_point_count(grib_bytes: bytes) -> Optional[int]:
+    """Return ``numberOfDataPoints`` of the first message, or ``None`` on error.
+
+    Used only for INFO-level log lines; failures are silently mapped to
+    ``None`` so logging never raises a user-visible error.
+    """
+    handle = None
+    try:
+        reader = eccodes.MemoryReader(grib_bytes)
+        msg = next(iter(reader), None)
+        if msg is None:
+            return None
+        # earthkit/eccodes message API: ``get`` retrieves a single key.
+        return int(msg.get("numberOfDataPoints"))
+    except Exception:  # noqa: BLE001 — logging must never raise
+        return None
+    finally:
+        # ``MemoryReader`` does not need explicit close, but be defensive.
+        del handle
 
 
 # ---------------------------------------------------------------------------
@@ -205,11 +230,25 @@ def interpolate(
     options.update(kwargs)
 
     job = _build_job(**options)
-    return _execute_job(
+    result = _execute_job(
         job,
         payload,
         context=f"interpolate(grid={grid!r}, method={method!r}) failed",
     )
+    # Operator-visibility line. Decoding ``numberOfDataPoints`` is cheap
+    # (header read only) and runs only when INFO is enabled, so the
+    # overhead is bounded to verbose runs.
+    if logger.isEnabledFor(logging.INFO):
+        n_in = _decode_point_count(payload)
+        n_out = _decode_point_count(result)
+        logger.info(
+            "interpolate grid=%s method=%s input=%s pts → output=%s pts",
+            grid,
+            method,
+            n_in if n_in is not None else "?",
+            n_out if n_out is not None else "?",
+        )
+    return result
 
 
 def gradient(
@@ -257,6 +296,13 @@ def gradient(
         "nabla_poles_missing_values": poles_missing_values,
     }
     job = _build_job(**options)
+    if logger.isEnabledFor(logging.INFO):
+        n_in = _decode_point_count(payload)
+        logger.info(
+            "gradient poles_missing_values=%s input=%s pts → 2 messages",
+            poles_missing_values,
+            n_in if n_in is not None else "?",
+        )
     multi = _execute_job(
         job,
         payload,

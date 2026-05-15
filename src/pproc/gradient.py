@@ -35,10 +35,13 @@ from __future__ import annotations
 
 import argparse
 import io
+import logging
+import time
 from typing import List, Optional
 
 import mir
 
+from pproc.climate._logging import configure_logging
 from pproc.climate.mir_ops import (
     MirJobError,
     gradient as _mir_gradient,
@@ -46,6 +49,9 @@ from pproc.climate.mir_ops import (
 
 
 __all__ = ["main"]
+
+
+logger = logging.getLogger("pproc.gradient")
 
 
 _VALID_OPERATIONS = ("scalar-gradient", "scalar-laplacian")
@@ -92,6 +98,16 @@ def _build_parser() -> argparse.ArgumentParser:
             "ksh pipeline's --nabla-poles-missing-values option."
         ),
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        default=0,
+        help=(
+            "Increase logging verbosity to stdout: -v shows INFO "
+            "(mir invocations); -vv shows DEBUG. Absent: silent (WARNING)."
+        ),
+    )
     return parser
 
 
@@ -124,6 +140,17 @@ def main(argv: Optional[List[str]] = None) -> None:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
+    configure_logging(args.verbose)
+
+    start_msg = (
+        "pproc-gradient start"
+        f" operation={args.operation}"
+        f" input={args.input}"
+        f" output={args.output}"
+    )
+    logger.info(start_msg)
+    t0 = time.monotonic()
+
     # Read input as bytes (raises FileNotFoundError on a missing file —
     # the CLI surface specifies that as acceptable error handling).
     with open(args.input, "rb") as f:
@@ -146,6 +173,8 @@ def main(argv: Optional[List[str]] = None) -> None:
 
     with open(args.output, "wb") as f:
         f.write(output_bytes)
+
+    logger.info("pproc-gradient done elapsed=%.3f", time.monotonic() - t0)
 
 
 if __name__ == "__main__":  # pragma: no cover
