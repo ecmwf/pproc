@@ -129,29 +129,71 @@ def _output_metadata(short_name: str, config: SSOConfig) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def _stage_conservative_to_n2000(config: SSOConfig) -> bytes:
-    """Stage 1 — orography on the working (N2000/N256) grid.
+def _stage_source_to_orography_grid(config: SSOConfig) -> bytes:
+    """Stage 1 — source orography lifted onto ``config.orography_grid``.
 
-    If ``config.orography`` already exists on disk, this is a no-op pass
-    through. Otherwise the canonical raw ``source_orography`` is
-    interpolated via ``grid-box-average`` to ``output_grid``.
+    Three cases, matching the legacy ksh's ``inFile`` / ``inFile_alt``
+    two-file pattern (lines 101–114 of the original script):
 
-    The conditional matches the ksh script:
+    1. **Fast path / pass through** — ``config.orography`` exists on
+       disk and its ``gridName`` already equals
+       ``config.orography_grid``. The bytes pass through unchanged.
+    2. **Grid mismatch (configuration error)** — ``config.orography``
+       exists but is on a different grid than ``config.orography_grid``.
+       This is treated as a configuration error: ``--orography`` is the
+       authoritative declaration "this file is on
+       ``--orography-grid``"; if it is not, raise ``ValueError`` rather
+       than silently regridding. Operators who knowingly want to
+       regrid-and-cache should move the file to ``--alt-orography``.
+    3. **Fallback with cache writeback** — ``config.orography`` does
+       NOT exist. If ``config.alt_orography`` is supplied (and exists),
+       the alternative is regridded to ``config.orography_grid`` and the
+       result is written to the ``config.orography`` path so subsequent
+       runs hit case 1. Mirrors the legacy ksh's
+       ``cp $fileName ${XDATA_IFS}/$fileName`` (line 109).
 
-        if [[ ! -f ${inFile} ]] ; then
-           run_mir --grid=$OUT_RES --interpolation=grid-box-average \\
-               ${inFile_alt} $fileName
-        fi
+    If neither file exists, or ``config.orography`` is missing and no
+    alternative was supplied, a ``FileNotFoundError`` is raised with a
+    message pointing the operator at ``--alt-orography``.
     """
     if config.orography.is_file():
-        return config.orography.read_bytes()
-    if config.source_orography is None:
-        raise FileNotFoundError(
-            f"orography {config.orography!s} does not exist and no "
-            "source_orography fallback is configured"
+        grib_bytes = config.orography.read_bytes()
+        _, metadata = decode_grib(grib_bytes)
+        input_grid = metadata.get("gridName")
+        if input_grid == config.orography_grid:
+            return grib_bytes
+        raise ValueError(
+            f"orography file '{config.orography}' is on grid "
+            f"'{input_grid}' but --orography-grid is "
+            f"'{config.orography_grid}'; supply an orography on "
+            f"'{config.orography_grid}', or move this file to "
+            f"--alt-orography to have it regridded."
         )
-    raw = config.source_orography.read_bytes()
-    return mir_ops.interpolate(raw, grid=config.output_grid, method="grid-box-average")
+
+    if config.alt_orography is not None:
+        if not config.alt_orography.is_file():
+            raise FileNotFoundError(
+                f"Neither orography file '{config.orography}' nor the "
+                f"alternative orography file '{config.alt_orography}' exist."
+            )
+        alt_bytes = config.alt_orography.read_bytes()
+        regridded = mir_ops.interpolate(
+            alt_bytes, grid=config.orography_grid, method="grid-box-average"
+        )
+        # Cache writeback: matches legacy ksh's
+        # ``cp $fileName ${XDATA_IFS}/$fileName`` at line 109. If the
+        # parent directory does not exist or is not writable, let the
+        # OS error propagate -- operators are expected to pre-create
+        # their cache directory (matching ``${XDATA_IFS}``). No atomic
+        # rename: concurrent runs are out of scope, as in the ksh.
+        config.orography.write_bytes(regridded)
+        return regridded
+
+    raise FileNotFoundError(
+        f"orography file '{config.orography}' does not exist; "
+        f"pass --alt-orography to fall back to an alternative orography "
+        f"input, which will be regridded to --orography-grid"
+    )
 
 
 def _stage_conservative_to_eres(orog_5km: bytes, config: SSOConfig) -> bytes:
@@ -161,16 +203,18 @@ def _stage_conservative_to_eres(orog_5km: bytes, config: SSOConfig) -> bytes:
     )
 
 
-def _stage_bilinear_back_to_n2000(orog_egrid: bytes, config: SSOConfig) -> bytes:
-    """Stage 3 — orog_egrid bilinearly interpolated back to N2000."""
+def _stage_bilinear_back_to_orography_grid(
+    orog_egrid: bytes, config: SSOConfig
+) -> bytes:
+    """Stage 3 — orog_egrid bilinearly interpolated back to the working grid."""
     return mir_ops.interpolate(
-        orog_egrid, grid=config.output_grid, method="structured-bilinear"
+        orog_egrid, grid=config.orography_grid, method="structured-bilinear"
     )
 
 
 def _stage_difference_and_squared_difference(
     orog_5km: bytes,
-    orog_egrid_n2000: bytes,
+    orog_egrid_og: bytes,
     config: SSOConfig,
 ) -> Tuple[bytes, bytes]:
     """Stage 4 — produce ``orog_egrid_diff`` and ``orog_egrid_diff_sq``.
@@ -180,12 +224,12 @@ def _stage_difference_and_squared_difference(
     ``orog_5km`` (the first concatenated message), matching the ksh order.
     """
     orog_5km_arr, template = _decode(orog_5km)
-    orog_egrid_n2000_arr, _ = _decode(orog_egrid_n2000)
+    orog_egrid_og_arr, _ = _decode(orog_egrid_og)
 
-    diff = orog_5km_arr - orog_egrid_n2000_arr
+    diff = orog_5km_arr - orog_egrid_og_arr
     diff = _maybe_roundtrip(diff, template, config)
 
-    diff_sq = (orog_5km_arr - orog_egrid_n2000_arr) ** 2
+    diff_sq = (orog_5km_arr - orog_egrid_og_arr) ** 2
     diff_sq = _maybe_roundtrip(diff_sq, template, config)
 
     diff_bytes = _encode_on_template(diff, template)
@@ -388,10 +432,30 @@ def _stage_anggwd(
 def compute_sso(config: SSOConfig) -> dict[str, bytes]:
     """Run the ten-stage SSO pipeline end-to-end.
 
+    The pipeline implements the three-grid operational model:
+
+    * ``source`` — the grid the input ``config.orography`` arrives on
+      (auto-detected from the GRIB's ``gridName``).
+    * ``config.orography_grid`` — the high-resolution working grid where
+      SSO statistics are computed (operationally N2000 ≈ 5 km; tests
+      use N256).
+    * ``config.effective_resolution`` — the coarse aggregation grid
+      (eres) derived from the model grid via Unit C.
+    * ``config.target_grid`` — the final IFS model grid on which the
+      four outputs are written.
+
+    Stage 1 treats ``config.orography`` as authoritative: the bytes
+    pass through if the input is on ``config.orography_grid``; if it
+    is on a different grid, a ``ValueError`` is raised (configuration
+    error — supply a matching file or move it to ``alt_orography`` to
+    have it regridded). The ``alt_orography`` fallback path is the
+    only place that performs a silent regrid, and only when
+    ``config.orography`` is missing on disk.
+
     Parameters
     ----------
     config:
-        A resolved :class:`SSOConfig` instance. ``output_grid``,
+        A resolved :class:`SSOConfig` instance.
         ``effective_resolution``, ``model_grid_type`` and
         ``model_resolution`` are expected to be filled in (call
         ``config.resolve()`` first).
@@ -403,21 +467,25 @@ def compute_sso(config: SSOConfig) -> dict[str, bytes]:
         a single-message GRIB byte buffer with ``packingType=grid_simple``
         and the corresponding ``shortName``.
     """
-    # ------- Stage 1: source → working grid (or pass through) -----------
-    orog_5km_bytes = _stage_conservative_to_n2000(config)
+    # ------- Stage 1: source → orography_grid (or pass through) ---------
+    orog_5km_bytes = _stage_source_to_orography_grid(config)
 
     # ------- Stage 2: → effective resolution ---------------------------
     orog_egrid_bytes = _stage_conservative_to_eres(orog_5km_bytes, config)
     _write_intermediate("orog_egrid", orog_egrid_bytes, config)
 
-    # ------- Stage 3: ← bilinear back to N2000 -------------------------
-    orog_egrid_n2000_bytes = _stage_bilinear_back_to_n2000(orog_egrid_bytes, config)
-    _write_intermediate("orog_egrid_N2000", orog_egrid_n2000_bytes, config)
+    # ------- Stage 3: ← bilinear back to orography_grid ----------------
+    orog_egrid_og_bytes = _stage_bilinear_back_to_orography_grid(
+        orog_egrid_bytes, config
+    )
+    _write_intermediate(
+        f"orog_egrid_{config.orography_grid}", orog_egrid_og_bytes, config
+    )
 
     # ------- Stage 4: difference + squared difference ------------------
     orog_egrid_diff_bytes, orog_egrid_diff_sq_bytes = (
         _stage_difference_and_squared_difference(
-            orog_5km_bytes, orog_egrid_n2000_bytes, config
+            orog_5km_bytes, orog_egrid_og_bytes, config
         )
     )
     _write_intermediate("orog_egrid_diff", orog_egrid_diff_bytes, config)

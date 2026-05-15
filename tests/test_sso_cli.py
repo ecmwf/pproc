@@ -52,7 +52,7 @@ OUTPUT_NAMES = ("stdgwd", "slogwd", "anggwd", "isogwd")
 # 16 named intermediates emitted when --dump-intermediates is set.
 INTERMEDIATE_NAMES = (
     "orog_egrid",
-    "orog_egrid_N2000",
+    "orog_egrid_N256",
     "orog_egrid_diff",
     "orog_egrid_diff_grad",
     "orog_egrid_diff_gradx_sq",
@@ -104,7 +104,7 @@ def _canonical_argv(out_dir: Path) -> list[str]:
         "O",
         "--model-resolution",
         "80",
-        "--output-grid",
+        "--orography-grid",
         "N256",
         "--output-dir",
         str(out_dir),
@@ -199,7 +199,7 @@ class TestSSOCLIConfigFile:
             "target_grid": "N256",
             "model_grid_type": "O",
             "model_resolution": 80,
-            "output_grid": "N256",
+            "orography_grid": "N256",
             "output_dir": str(tmp_path),
         }
 
@@ -296,6 +296,28 @@ class TestSSOCLIErrors:
         with pytest.raises(SystemExit):
             sso_main([])
 
+    def test_missing_orography_grid_clean_exit(self, tmp_path, capsys):
+        """``--orography-grid`` is required; omitting it must exit non-zero
+        with a clear error message referencing the missing flag."""
+        argv = [
+            "--orography",
+            str(_OROG_5KM),
+            "--land-mask",
+            str(_LAND_MASK),
+            "--target-grid",
+            "N256",
+            "--output-dir",
+            str(tmp_path),
+        ]
+        with pytest.raises(SystemExit) as exc:
+            sso_main(argv)
+        assert exc.value.code != 0
+        captured = capsys.readouterr()
+        combined = (captured.err + captured.out + str(exc.value)).lower()
+        assert "orography-grid" in combined or "orography_grid" in combined, (
+            f"expected an error mentioning --orography-grid, got: {combined!r}"
+        )
+
     def test_help_exits_zero(self, capsys):
         with pytest.raises(SystemExit) as exc:
             sso_main(["--help"])
@@ -303,13 +325,13 @@ class TestSSOCLIErrors:
         out = capsys.readouterr().out
         for flag in (
             "--orography",
+            "--alt-orography",
             "--land-mask",
             "--target-grid",
-            "--source-orography",
+            "--orography-grid",
             "--model-grid-type",
             "--model-resolution",
             "--effective-resolution",
-            "--output-grid",
             "--output-dir",
             "--grib-roundtrip",
             "--dump-intermediates",
@@ -317,3 +339,177 @@ class TestSSOCLIErrors:
             "--config",
         ):
             assert flag in out, f"--help output missing flag: {flag}"
+
+
+# ---------------------------------------------------------------------------
+# Stage 1 grid mismatch (source ≠ orography_grid → clean ValueError exit)
+# ---------------------------------------------------------------------------
+
+
+_RAW_O256_OROG = REPO_ROOT / "data" / "input" / "255_4" / "orog"
+
+
+@pytest.mark.skipif(
+    not _RAW_O256_OROG.exists(),
+    reason=f"raw O256 orography not available at {_RAW_O256_OROG}",
+)
+class TestSSOCLIAltOrography:
+    """`--alt-orography` is the fallback orography input used when
+    `--orography` is missing on disk. Verifies the CLI threads the flag
+    through, that YAML config supports `alt_orography`, and that the
+    error path on a fully-missing input is a clean non-zero exit (no
+    traceback)."""
+
+    def test_alt_orography_flag_used_when_orography_missing(self, tmp_path):
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+        cached = cache_dir / "orog_5km"
+        out_dir = tmp_path / "out"
+        argv = [
+            "--orography",
+            str(cached),
+            "--alt-orography",
+            str(_RAW_O256_OROG),
+            "--land-mask",
+            str(_LAND_MASK),
+            "--target-grid",
+            "N256",
+            "--model-grid-type",
+            "O",
+            "--model-resolution",
+            "80",
+            "--orography-grid",
+            "N256",
+            "--output-dir",
+            str(out_dir),
+        ]
+        sso_main(argv)
+        for name in OUTPUT_NAMES:
+            assert (out_dir / name).is_file(), f"missing output: {name}"
+        # Cache writeback happened: the previously-missing orography
+        # path now exists on disk.
+        assert cached.is_file(), "expected cache file to be written"
+
+    def test_alt_orography_in_yaml_config(self, tmp_path):
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+        cached = cache_dir / "orog_5km"
+        out_dir = tmp_path / "out"
+        yaml_doc = {
+            "orography": str(cached),
+            "alt_orography": str(_RAW_O256_OROG),
+            "land_mask": str(_LAND_MASK),
+            "target_grid": "N256",
+            "model_grid_type": "O",
+            "model_resolution": 80,
+            "orography_grid": "N256",
+            "output_dir": str(out_dir),
+        }
+        cfg_file = tmp_path / "cfg.yaml"
+        cfg_file.write_text(yaml.safe_dump(yaml_doc))
+        sso_main(["--config", str(cfg_file)])
+        for name in OUTPUT_NAMES:
+            assert (out_dir / name).is_file(), f"missing output: {name}"
+        assert cached.is_file()
+
+    def test_orography_missing_no_alt_clean_exit(self, tmp_path, capsys):
+        cached = tmp_path / "nonexistent" / "orog_5km"
+        out_dir = tmp_path / "out"
+        argv = [
+            "--orography",
+            str(cached),
+            "--land-mask",
+            str(_LAND_MASK),
+            "--target-grid",
+            "N256",
+            "--model-grid-type",
+            "O",
+            "--model-resolution",
+            "80",
+            "--orography-grid",
+            "N256",
+            "--output-dir",
+            str(out_dir),
+        ]
+        with pytest.raises(SystemExit) as exc:
+            sso_main(argv)
+        assert exc.value.code != 0
+        combined = str(exc.value)
+        # The clean error message starts with the pproc-sso prefix and
+        # mentions the missing file plus the helpful hint pointing
+        # operators at --alt-orography.
+        assert combined.startswith(
+            f"pproc-sso: error: orography file '{cached}' does not exist;"
+        ), f"unexpected error message: {combined!r}"
+        assert "--alt-orography" in combined
+
+
+@pytest.mark.skipif(
+    not _RAW_O256_OROG.exists(),
+    reason=f"raw O256 orography not available at {_RAW_O256_OROG}",
+)
+class TestSSOCLIGridMismatch:
+    """When ``--orography`` is on a different grid from ``--orography-grid``,
+    Stage 1 raises ``ValueError`` (configuration error). The CLI wrapper
+    converts that to a clean non-zero ``SystemExit`` carrying the
+    ``pproc-sso: error: ...`` prefix; no Python traceback escapes. The
+    operator hint must point at ``--alt-orography``."""
+
+    def test_grid_mismatch_clean_exit(self, tmp_path):
+        argv = [
+            "--orography",
+            str(_RAW_O256_OROG),
+            "--land-mask",
+            str(_LAND_MASK),
+            "--target-grid",
+            "N256",
+            "--model-grid-type",
+            "O",
+            "--model-resolution",
+            "80",
+            "--orography-grid",
+            "N256",
+            "--output-dir",
+            str(tmp_path),
+        ]
+        with pytest.raises(SystemExit) as exc:
+            sso_main(argv)
+        # Non-zero exit (string codes are truthy => non-zero shell exit).
+        assert exc.value.code != 0
+        # The SystemExit was raised with the message as its argument; the
+        # original ValueError is chained via ``from exc`` so any
+        # Python-level traceback would surface that, not bypass the
+        # wrapper. We check the user-facing message text directly.
+        msg = str(exc.value)
+        assert msg.startswith(
+            f"pproc-sso: error: orography file '{_RAW_O256_OROG}' is on grid 'O256' "
+            f"but --orography-grid is 'N256';"
+        ), f"unexpected error message: {msg!r}"
+        assert "supply an orography on 'N256'" in msg
+        assert "move this file to --alt-orography to have it regridded" in msg
+
+    def test_grid_mismatch_does_not_write_outputs(self, tmp_path):
+        """A failed Stage 1 must not leave partial outputs behind."""
+        out_dir = tmp_path / "out"
+        argv = [
+            "--orography",
+            str(_RAW_O256_OROG),
+            "--land-mask",
+            str(_LAND_MASK),
+            "--target-grid",
+            "N256",
+            "--model-grid-type",
+            "O",
+            "--model-resolution",
+            "80",
+            "--orography-grid",
+            "N256",
+            "--output-dir",
+            str(out_dir),
+        ]
+        with pytest.raises(SystemExit):
+            sso_main(argv)
+        # The output directory must not have been populated (the CLI
+        # writes outputs only after ``compute_sso`` returns).
+        for name in OUTPUT_NAMES:
+            assert not (out_dir / name).exists(), f"unexpected output: {name}"

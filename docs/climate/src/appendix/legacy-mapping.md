@@ -5,13 +5,47 @@ root. Line numbers below cite that file. The decomposition follows the
 "Stage ordering" and "mir-compute formulae" sections of
 `.weave/learnings/sso-migration.md`.
 
+## Working-grid parameterisation (the `N2000` hardcode)
+
+The legacy ksh script hardcodes `N2000` as the high-resolution working
+grid at lines 106 and 128 — there is no env-var or CLI flag for it.
+The pproc port treats this value as the required `--orography-grid`
+flag (or `orography_grid` field on `SSOConfig`), so the operator can
+override it (e.g. set `N256` for the lightweight test fixtures) without
+patching source.
+
+Stage 1 keeps the legacy two-file fallback semantic with clearer
+plumbing. The pproc port exposes both files as CLI flags:
+
+* `--orography` (ksh `$inFile`) — the preferred, working-grid-resolution
+  cache file, treated as authoritative for `--orography-grid`. If
+  present and its `gridName` matches `--orography-grid`, it is used
+  directly; if the `gridName` differs, Stage 1 raises a configuration
+  error (`ValueError`) rather than silently regridding.
+* `--alt-orography` (ksh `$inFile_alt`) — the fallback raw orography
+  and the **only** path that regrids. Used when `--orography` is
+  missing on disk (or when the operator deliberately routes a
+  wrong-grid file through it); regridded to `--orography-grid` and
+  the result is cached at the `--orography` path so subsequent runs
+  hit the fast path. Matches the legacy
+  `cp $fileName ${XDATA_IFS}/$fileName` step (line 109).
+
+See [pproc-sso § Cached vs alternative orography input](../cli/sso.md#cached-vs-alternative-orography-input).
+
+The legacy intermediate filename `orog_egrid_N2000` (written verbatim
+by the ksh script at line 128) is parameterised in the pproc port as
+`orog_egrid_<orography_grid>` — e.g. `orog_egrid_N2000` operationally,
+`orog_egrid_N256` against the test fixtures. The verbatim filename is
+quoted as-is in the per-formula sections below to accurately reproduce
+the ksh source.
+
 ## Ten-stage mapping
 
 | # | Stage (snake_case ID) | ksh comment | ksh tool | Python counterpart |
 |---|---|---|---|---|
-| 1 | `conservative_to_n2000` | "Interpolate source data to N2000 (5 km) if input file does not exist" | `run_mir --grid=$OUT_RES --interpolation=grid-box-average` | `pproc.climate.mir_ops.interpolate(src, grid=OUT_RES, method="grid-box-average")` inside `pproc.climate.sso.pipeline.compute_sso` (Stage 1; conditional on input-file presence). |
+| 1 | `source_to_orography_grid` | "Interpolate source data to N2000 (5 km) if input file does not exist" | `run_mir --grid=$OUT_RES --interpolation=grid-box-average` (hardcoded `N2000`) on `$inFile_alt`, followed by `cp $fileName ${XDATA_IFS}/$fileName` to cache the result at `$inFile` | `pproc.climate.mir_ops.interpolate(src, grid=orography_grid, method="grid-box-average")` inside `pproc.climate.sso.pipeline.compute_sso` (Stage 1): if `--orography` exists and its `gridName` equals `orography_grid`, the bytes pass through; if they differ, a `ValueError` is raised (configuration error — `--orography` is authoritative). If `--orography` is missing, fall back to `--alt-orography`, regrid, and cache the bytes back to the `--orography` path. The regrid-and-cache flow lives exclusively on the `--alt-orography` path. |
 | 2 | `conservative_to_eres` | "Interpolate N2000 (5 km) to effective resolution" | `run_mir --grid=${MIR_ERES_SET} --interpolation=grid-box-average` | `interpolate(orog_5km, grid=eres, method="grid-box-average")` |
-| 3 | `bilinear_back_to_n2000` | "Interpolate effective resolution back to N2000 with bilinear interpolation" | `run_mir --grid=$OUT_RES --interpolation=structured-bilinear` | `interpolate(orog_egrid, grid=OUT_RES, method="structured-bilinear")` |
+| 3 | `bilinear_back_to_orography_grid` | "Interpolate effective resolution back to N2000 with bilinear interpolation" | `run_mir --grid=$OUT_RES --interpolation=structured-bilinear` (hardcoded `N2000`) | `interpolate(orog_egrid, grid=orography_grid, method="structured-bilinear")` |
 | 4 | `compute_diff_and_diff_sq` | "Take difference and squared difference between N2000 (input from step 1) and N2000 from step 2" | `cat $inFile orog_egrid_N2000 > tmp; mir_compute ...` ×2 | `evaluate_formula` ×2 in `compute_sso` (in-memory bundle, no `cat`). |
 | 5 | `compute_gradient` | "Compute derivatives of difference" | `run_mir --nabla=scalar-gradient --nabla-poles-missing-values` | `pproc.climate.mir_ops.gradient(orog_egrid_diff, poles_missing_values=True)` |
 | 6 | `square_gradients` | "Square/multiply derivatives from step 4" | `mir_compute` ×3 (multiDimensional 2) | `evaluate_formula` ×3 |

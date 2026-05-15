@@ -5,7 +5,6 @@ table (see ``.weave/learnings/sso-migration.md``) and that ``resolve()``:
 
 - infers ``model_grid_type`` / ``model_resolution`` from ``target_grid``
   when not explicitly supplied,
-- defaults ``output_grid`` to ``target_grid`` when empty,
 - computes ``effective_resolution`` via Unit C
   (``compute_effective_resolution``),
 - honours user overrides of the model grid/resolution (the ksh test-run case
@@ -13,12 +12,14 @@ table (see ``.weave/learnings/sso-migration.md``) and that ``resolve()``:
 - is idempotent,
 - preserves the value via YAML/dict round-trip,
 - rejects malformed and extra fields,
-- does not mutate the caller's input dict.
+- does not mutate the caller's input dict,
+- requires ``orography_grid`` (no default).
 """
 
 from __future__ import annotations
 
 import copy
+from pathlib import Path
 
 import pytest
 import yaml
@@ -37,6 +38,7 @@ def minimal_kwargs(tmp_path):
         "orography": str(orog),
         "land_mask": str(lsm),
         "target_grid": "N256",
+        "orography_grid": "N256",
     }
 
 
@@ -45,7 +47,6 @@ class TestResolveInference:
         cfg = SSOConfig(**minimal_kwargs).resolve()
         assert cfg.model_grid_type == "N"
         assert cfg.model_resolution == 256
-        assert cfg.output_grid == "N256"
         assert cfg.effective_resolution == "N256"
 
     def test_target_grid_only_O80(self, minimal_kwargs):
@@ -53,7 +54,6 @@ class TestResolveInference:
         cfg = SSOConfig(**minimal_kwargs).resolve()
         assert cfg.model_grid_type == "O"
         assert cfg.model_resolution == 80
-        assert cfg.output_grid == "O80"
         assert cfg.effective_resolution == "N48"
 
     def test_target_grid_F128(self, minimal_kwargs):
@@ -61,7 +61,6 @@ class TestResolveInference:
         cfg = SSOConfig(**minimal_kwargs).resolve()
         assert cfg.model_grid_type == "F"
         assert cfg.model_resolution == 128
-        assert cfg.output_grid == "F128"
         assert cfg.effective_resolution == "F128"
 
     def test_explicit_overrides_inference_ksh_test_run(self, minimal_kwargs):
@@ -79,17 +78,7 @@ class TestResolveInference:
         assert cfg.model_grid_type == "O"
         assert cfg.model_resolution == 80
         assert cfg.target_grid == "N256"
-        assert cfg.output_grid == "N256"  # defaults to target
         assert cfg.effective_resolution == "N48"  # eres from model O80
-
-    def test_output_grid_defaults_to_target_grid_when_empty(self, minimal_kwargs):
-        cfg = SSOConfig(**minimal_kwargs).resolve()
-        assert cfg.output_grid == cfg.target_grid
-
-    def test_explicit_output_grid_preserved(self, minimal_kwargs):
-        cfg = SSOConfig(**minimal_kwargs, output_grid="O1280").resolve()
-        assert cfg.output_grid == "O1280"
-        assert cfg.target_grid == "N256"
 
     def test_partial_explicit_only_grid_type_falls_back_to_inference(
         self, minimal_kwargs
@@ -107,6 +96,36 @@ class TestResolveInference:
         cfg = SSOConfig(**minimal_kwargs, model_resolution=80).resolve()
         assert cfg.model_grid_type == "N"
         assert cfg.model_resolution == 256
+
+
+class TestOrographyGrid:
+    """``orography_grid`` is required and distinct from ``target_grid``."""
+
+    def test_required_missing_raises(self, tmp_path):
+        with pytest.raises(ValidationError):
+            SSOConfig(
+                orography=str(tmp_path / "orog"),
+                land_mask=str(tmp_path / "lsm"),
+                target_grid="N256",
+            )
+
+    def test_empty_orography_grid_raises(self, minimal_kwargs):
+        minimal_kwargs["orography_grid"] = ""
+        with pytest.raises(ValidationError):
+            SSOConfig(**minimal_kwargs)
+
+    def test_distinct_from_target_grid(self, minimal_kwargs):
+        # Operational pattern: target_grid != orography_grid.
+        minimal_kwargs["target_grid"] = "O1280"
+        minimal_kwargs["orography_grid"] = "N2000"
+        cfg = SSOConfig(**minimal_kwargs).resolve()
+        assert cfg.target_grid == "O1280"
+        assert cfg.orography_grid == "N2000"
+
+    def test_preserved_through_resolve(self, minimal_kwargs):
+        minimal_kwargs["orography_grid"] = "N2000"
+        cfg = SSOConfig(**minimal_kwargs).resolve()
+        assert cfg.orography_grid == "N2000"
 
 
 class TestIdempotency:
@@ -170,17 +189,23 @@ class TestEnvVarMapping:
         for required in (
             "orography",
             "land_mask",
-            "source_orography",
             "target_grid",
             "model_grid_type",
             "model_resolution",
-            "output_grid",
+            "orography_grid",
             "effective_resolution",
             "output_dir",
             "grib_roundtrip",
             "dump_intermediates",
         ):
             assert required in fields, f"missing field: {required}"
+
+    def test_dropped_fields_absent(self):
+        # ``output_grid`` and ``source_orography`` were dropped in the
+        # three-grid refactor; make sure they don't sneak back in.
+        fields = SSOConfig.model_fields.keys()
+        assert "output_grid" not in fields
+        assert "source_orography" not in fields
 
     def test_mir_version_not_exposed(self):
         # MIR_VERSION / MIR_COMPUTE_VERSION are tool config, not pipeline
@@ -215,18 +240,39 @@ class TestErrors:
 
     def test_missing_required_orography_raises(self, tmp_path):
         with pytest.raises(ValidationError):
-            SSOConfig(land_mask=str(tmp_path / "lsm"), target_grid="N256")
+            SSOConfig(
+                land_mask=str(tmp_path / "lsm"),
+                target_grid="N256",
+                orography_grid="N256",
+            )
 
     def test_missing_required_land_mask_raises(self, tmp_path):
         with pytest.raises(ValidationError):
-            SSOConfig(orography=str(tmp_path / "orog"), target_grid="N256")
+            SSOConfig(
+                orography=str(tmp_path / "orog"),
+                target_grid="N256",
+                orography_grid="N256",
+            )
 
     def test_missing_required_target_grid_raises(self, tmp_path):
         with pytest.raises(ValidationError):
             SSOConfig(
                 orography=str(tmp_path / "orog"),
                 land_mask=str(tmp_path / "lsm"),
+                orography_grid="N256",
             )
+
+    def test_dropped_output_grid_rejected_as_extra(self, minimal_kwargs):
+        # ``output_grid`` no longer exists on the model; ``extra="forbid"``
+        # means passing it is a hard error rather than a silent ignore.
+        minimal_kwargs["output_grid"] = "N256"
+        with pytest.raises(ValidationError):
+            SSOConfig(**minimal_kwargs)
+
+    def test_dropped_source_orography_rejected_as_extra(self, minimal_kwargs):
+        minimal_kwargs["source_orography"] = "/tmp/whatever"
+        with pytest.raises(ValidationError):
+            SSOConfig(**minimal_kwargs)
 
 
 class TestDefaults:
@@ -235,13 +281,52 @@ class TestDefaults:
         assert cfg.grib_roundtrip is False
         assert cfg.dump_intermediates is False
 
-    def test_source_orography_defaults_to_none(self, minimal_kwargs):
-        cfg = SSOConfig(**minimal_kwargs)
-        assert cfg.source_orography is None
-
     def test_resolve_returns_sso_config_instance(self, minimal_kwargs):
         cfg = SSOConfig(**minimal_kwargs).resolve()
         assert isinstance(cfg, SSOConfig)
+
+
+class TestAltOrography:
+    """The ``alt_orography`` field is the fallback orography input used
+    when ``orography`` is missing on disk. Optional, defaults to None,
+    survives YAML round-trip, coexists with ``orography``."""
+
+    def test_default_is_none(self, minimal_kwargs):
+        cfg = SSOConfig(**minimal_kwargs)
+        assert cfg.alt_orography is None
+
+    def test_explicit_path_constructs(self, tmp_path, minimal_kwargs):
+        alt = tmp_path / "alt_orog"
+        alt.touch()
+        cfg = SSOConfig(**minimal_kwargs, alt_orography=str(alt))
+        assert cfg.alt_orography == alt
+
+    def test_coexists_with_orography(self, tmp_path, minimal_kwargs):
+        alt = tmp_path / "alt_orog"
+        alt.touch()
+        cfg = SSOConfig(**minimal_kwargs, alt_orography=str(alt))
+        # Both fields set and independent.
+        assert cfg.orography == Path(minimal_kwargs["orography"])
+        assert cfg.alt_orography == alt
+        assert cfg.orography != cfg.alt_orography
+
+    def test_yaml_round_trip_with_explicit_path(self, tmp_path, minimal_kwargs):
+        alt = tmp_path / "alt_orog"
+        alt.touch()
+        cfg = SSOConfig(**minimal_kwargs, alt_orography=str(alt)).resolve()
+        dumped = yaml.safe_dump(cfg.model_dump(mode="json"))
+        loaded = yaml.safe_load(dumped)
+        cfg2 = SSOConfig(**loaded).resolve()
+        assert cfg2.alt_orography == alt
+        assert cfg == cfg2
+
+    def test_yaml_round_trip_default_none(self, minimal_kwargs):
+        cfg = SSOConfig(**minimal_kwargs).resolve()
+        dumped = yaml.safe_dump(cfg.model_dump(mode="json"))
+        loaded = yaml.safe_load(dumped)
+        cfg2 = SSOConfig(**loaded).resolve()
+        assert cfg2.alt_orography is None
+        assert cfg == cfg2
 
 
 class TestBitsPerValue:

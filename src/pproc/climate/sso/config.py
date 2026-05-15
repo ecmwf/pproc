@@ -12,14 +12,33 @@ it never mutates ``self`` or the caller's input dict. Instead it returns a
 This makes idempotency a natural consequence of equality on the dumped
 fields rather than a hand-rolled "already resolved" flag.
 
+Three-grid operational model
+----------------------------
+The SSO pipeline reasons about three distinct grids:
+
+* ``source``: the grid the input orography arrives on (often O256 raw IFS
+  output). Read off the GRIB; not a configuration field.
+* ``orography_grid``: the high-resolution working grid where SSO
+  statistics are computed (operationally N2000 ≈ 5 km; in tests we use
+  N256 to keep reference fixtures small). Required input.
+* ``effective_resolution`` (``eres``): the coarse aggregation grid
+  derived from the model grid (e.g. N48 for an O80 model). Computed by
+  ``resolve()`` via Unit C.
+* ``target_grid``: the final IFS model grid the four outputs land on.
+  Required input.
+
+The legacy ksh script conflated ``orography_grid`` with ``target_grid``
+through a single ``$OUT_RES`` variable, which broke as soon as ops tried
+to compute SSO for a target grid different from the working grid.
+``SSOConfig`` keeps them separate.
+
 Inference precedence in ``resolve()``:
 
 1. If the caller supplied **both** ``model_grid_type`` and
    ``model_resolution`` explicitly, those win.
 2. Otherwise both are inferred from ``target_grid`` via
    :func:`pproc.climate.sso.effective_resolution.infer_grid_params`.
-3. ``output_grid`` defaults to ``target_grid`` when empty.
-4. ``effective_resolution`` is always recomputed from the resolved
+3. ``effective_resolution`` is always recomputed from the resolved
    ``model_grid_type``/``model_resolution`` via
    :func:`pproc.climate.sso.effective_resolution.compute_effective_resolution`.
 
@@ -48,20 +67,22 @@ class SSOConfig(BaseModel):
 
     Field-to-env-var mapping (see ``.weave/learnings/sso-migration.md``):
 
-    =========================  ===========================
-    SSOConfig field            ksh env var
-    =========================  ===========================
+    =========================  ==========================================
+    SSOConfig field            ksh env var / source
+    =========================  ==========================================
     ``orography``              ``$inFile``
+    ``alt_orography``          ``$inFile_alt``
     ``land_mask``              ``$maskFile``
-    ``source_orography``       ``$inFile_alt``
     ``target_grid``            ``$MIR_GTYPE_SET``
     ``model_grid_type``        ``$GTYPE_SET``
     ``model_resolution``       ``$ORES``
-    ``output_grid``            ``$OUT_RES``
+    ``orography_grid``         hardcoded ``N2000`` at lines 106 and 128 of
+                               ``generate_subgrid_orography_sso.ksh`` (no
+                               variable in the legacy script)
     ``effective_resolution``   ``$MIR_ERES_SET`` (derived)
     ``output_dir``             ``$OUTPUT_DIR``
     ``bits_per_value``         (no env-var counterpart)
-    =========================  ===========================
+    =========================  ==========================================
 
     ``bits_per_value`` has no legacy env-var: the ksh script never set
     ``bitsPerValue`` explicitly. The ``bitsPerValue=32`` observed on its
@@ -76,17 +97,19 @@ class SSOConfig(BaseModel):
         ...,
         description="Source orography GRIB file (ksh: $inFile).",
     )
+    alt_orography: Path | None = Field(
+        default=None,
+        description=(
+            "Alternative orography input. Used as a fallback when "
+            "``orography`` does not exist on disk: the alternative is "
+            "regridded to ``orography_grid`` and the result is cached at "
+            "the ``orography`` path so subsequent runs hit the fast path. "
+            "Matches the legacy ksh script's ``inFile_alt`` variable."
+        ),
+    )
     land_mask: Path = Field(
         ...,
         description="Land mask GRIB on target grid (ksh: $maskFile).",
-    )
-    source_orography: Path | None = Field(
-        default=None,
-        description=(
-            "Fallback raw orography used to (re)generate the 5 km "
-            "intermediate when ``orography`` does not exist (ksh: "
-            "$inFile_alt)."
-        ),
     )
 
     # --- Grid configuration --------------------------------------------
@@ -112,11 +135,15 @@ class SSOConfig(BaseModel):
             "are left at their defaults."
         ),
     )
-    output_grid: str = Field(
-        default="",
+    orography_grid: str = Field(
+        ...,
+        min_length=1,
         description=(
-            "Output grid for working stages (ksh: $OUT_RES). Defaults to "
-            "``target_grid`` when empty."
+            "High-resolution working grid where SSO statistics are computed. "
+            "Operationally ``N2000`` (≈ 5 km, hardcoded at lines 106 and 128 "
+            "of the legacy ``generate_subgrid_orography_sso.ksh``); in tests "
+            "we use ``N256`` to keep reference fixtures small. Required: the "
+            "user must always supply this explicitly."
         ),
     )
     effective_resolution: str = Field(
@@ -178,14 +205,12 @@ class SSOConfig(BaseModel):
         else:
             grid_type, resolution = infer_grid_params(self.target_grid)
 
-        output_grid = self.output_grid or self.target_grid
         effective_resolution = compute_effective_resolution(grid_type, resolution)
 
         return self.model_copy(
             update={
                 "model_grid_type": grid_type,
                 "model_resolution": resolution,
-                "output_grid": output_grid,
                 "effective_resolution": effective_resolution,
             }
         )

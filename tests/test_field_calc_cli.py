@@ -29,7 +29,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 # Pre-compute the paths and skip the whole module if the reference fixtures
 # are missing (e.g. running outside the climate-fields working tree).
 _OROG_5KM = REPO_ROOT / "data" / "input" / "ifs" / "orog_5km"
-_OROG_EGRID_N2000 = REPO_ROOT / "orog_egrid_N2000"
+_OROG_EGRID_N2000 = REPO_ROOT / "orog_egrid_N256"
 _OROG_EGRID_DIFF = REPO_ROOT / "orog_egrid_diff"
 _OROG_EGRID_DIFF_GRAD = REPO_ROOT / "orog_egrid_diff_grad"
 _OROG_EGRID_DIFF_GRADXY = REPO_ROOT / "orog_egrid_diff_gradxy"

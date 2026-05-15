@@ -38,7 +38,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 _REQUIRED_DATA: tuple[Path, ...] = (
     REPO_ROOT / "data" / "input" / "ifs" / "orog_5km",
     REPO_ROOT / "orog_egrid",
-    REPO_ROOT / "orog_egrid_N2000",
+    REPO_ROOT / "orog_egrid_N256",
     REPO_ROOT / "orog_egrid_diff",
 )
 
@@ -74,7 +74,7 @@ def orog_egrid_bytes() -> bytes:
 @pytest.fixture
 def orog_egrid_N2000_bytes() -> bytes:
     """Reference N256 bilinear-interpolated orography (348 528 points)."""
-    return (REPO_ROOT / "orog_egrid_N2000").read_bytes()
+    return (REPO_ROOT / "orog_egrid_N256").read_bytes()
 
 
 @pytest.fixture

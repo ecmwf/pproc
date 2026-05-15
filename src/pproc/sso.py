@@ -26,9 +26,9 @@ YAML config support
 fields into the parsed argparse namespace. CLI arguments take precedence:
 any value the user passes on the command line overrides the corresponding
 YAML field. The YAML keys must match the snake-case
-:class:`SSOConfig` field names (``orography``, ``land_mask``,
-``target_grid``, ``model_grid_type``, ``model_resolution``, ``output_grid``,
-``effective_resolution``, ``source_orography``, ``output_dir``,
+:class:`SSOConfig` field names (``orography``, ``alt_orography``,
+``land_mask``, ``target_grid``, ``model_grid_type``, ``model_resolution``,
+``orography_grid``, ``effective_resolution``, ``output_dir``,
 ``grib_roundtrip``, ``dump_intermediates``, ``bits_per_value``).
 
 Boolean flags (``--grib-roundtrip``, ``--dump-intermediates``) use
@@ -75,13 +75,13 @@ _OUTPUT_NAMES = ("stdgwd", "slogwd", "anggwd", "isogwd")
 # than silently picked up.
 _CONFIG_FIELDS = (
     "orography",
+    "alt_orography",
     "land_mask",
-    "source_orography",
     "target_grid",
     "model_grid_type",
     "model_resolution",
+    "orography_grid",
     "effective_resolution",
-    "output_grid",
     "output_dir",
     "grib_roundtrip",
     "dump_intermediates",
@@ -120,15 +120,31 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="GRID",
         help="Target/output grid spec, e.g. 'N256' or 'O1280'.",
     )
+    parser.add_argument(
+        "--orography-grid",
+        dest="orography_grid",
+        metavar="GRID",
+        help=(
+            "High-resolution working grid where SSO statistics are computed. "
+            "Operationally 'N2000' (≈ 5 km); tests use 'N256'. Required: "
+            "--orography is treated as authoritative for this grid -- if "
+            "its gridName differs, Stage 1 raises a configuration error. "
+            "Pass the mismatched file as --alt-orography to have it "
+            "regridded and cached."
+        ),
+    )
 
     # --- Optional inputs ------------------------------------------------
     parser.add_argument(
-        "--source-orography",
-        dest="source_orography",
+        "--alt-orography",
+        dest="alt_orography",
         metavar="PATH",
         help=(
-            "Optional fallback raw orography. Used by Stage 1 to (re)generate "
-            "the working-grid orography when --orography does not exist."
+            "Alternative orography input used as a fallback when "
+            "--orography does not exist on disk. The alternative is "
+            "regridded to --orography-grid and the result is cached at "
+            "the --orography path so subsequent runs skip the regrid. "
+            "Matches the legacy ksh script's $inFile_alt variable."
         ),
     )
     parser.add_argument(
@@ -158,12 +174,6 @@ def _build_parser() -> argparse.ArgumentParser:
             "Override the auto-computed effective-resolution grid spec "
             "(e.g. 'N48'). Defaults to the value derived from the model grid."
         ),
-    )
-    parser.add_argument(
-        "--output-grid",
-        dest="output_grid",
-        metavar="GRID",
-        help="Output grid (OUT_RES) for working stages. Defaults to --target-grid.",
     )
     parser.add_argument(
         "--output-dir",
@@ -282,17 +292,16 @@ def _build_config(ns: argparse.Namespace) -> SSOConfig:
         "orography": Path(ns.orography),
         "land_mask": Path(ns.land_mask),
         "target_grid": ns.target_grid,
+        "orography_grid": ns.orography_grid,
     }
-    if ns.source_orography is not None:
-        kwargs["source_orography"] = Path(ns.source_orography)
+    if ns.alt_orography is not None:
+        kwargs["alt_orography"] = Path(ns.alt_orography)
     if ns.model_grid_type is not None:
         kwargs["model_grid_type"] = ns.model_grid_type
     if ns.model_resolution is not None:
         kwargs["model_resolution"] = int(ns.model_resolution)
     if ns.effective_resolution is not None:
         kwargs["effective_resolution"] = ns.effective_resolution
-    if ns.output_grid is not None:
-        kwargs["output_grid"] = ns.output_grid
     if ns.output_dir is not None:
         kwargs["output_dir"] = Path(ns.output_dir)
     kwargs["grib_roundtrip"] = bool(ns.grib_roundtrip)
@@ -316,11 +325,21 @@ def main(argv: Optional[List[str]] = None) -> None:
         yaml_data = _load_yaml_config(ns.config)
         _merge_yaml_into_namespace(ns, yaml_data)
 
-    _require(ns, ("orography", "land_mask", "target_grid"))
+    _require(ns, ("orography", "land_mask", "target_grid", "orography_grid"))
 
     config = _build_config(ns)
 
-    results = compute_sso(config)
+    try:
+        results = compute_sso(config)
+    except (FileNotFoundError, ValueError) as exc:
+        # Surface a clean non-zero exit (no Python traceback) for the
+        # common operator mistakes: pointing at a missing orography or
+        # alternative-orography file (``FileNotFoundError``), or
+        # declaring ``--orography`` as authoritative for a grid it is
+        # not actually on (``ValueError`` from Stage 1's grid-mismatch
+        # check). Both messages are already operator-facing and mention
+        # ``--alt-orography``. Kept narrow: no broader catch is needed.
+        raise SystemExit(f"pproc-sso: error: {exc}") from exc
 
     config.output_dir.mkdir(parents=True, exist_ok=True)
     for name in _OUTPUT_NAMES:

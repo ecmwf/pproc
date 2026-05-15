@@ -1,7 +1,7 @@
 # pproc-sso
 
 `pproc-sso` is the monolithic CLI driving the sub-grid orography
-pipeline end-to-end. It reads a 5 km orography GRIB and a land-mask GRIB
+pipeline end-to-end. It reads an orography GRIB and a land-mask GRIB
 on the target grid, runs the ten-stage SSO computation
 (`pproc.climate.sso.pipeline.compute_sso`), and writes the four output
 GRIB files (`stdgwd`, `slogwd`, `anggwd`, `isogwd`) into
@@ -10,27 +10,116 @@ GRIB files (`stdgwd`, `slogwd`, `anggwd`, `isogwd`) into
 ## Synopsis
 
 ```
-pproc-sso [--orography PATH] [--land-mask PATH] [--target-grid GRID]
-          [--source-orography PATH]
+pproc-sso --orography PATH --land-mask PATH --target-grid GRID
+          --orography-grid GRID
+          [--alt-orography PATH]
           [--model-grid-type TYPE] [--model-resolution RES]
-          [--effective-resolution GRID] [--output-grid GRID]
+          [--effective-resolution GRID]
           [--output-dir DIR]
           [--grib-roundtrip] [--dump-intermediates]
+          [--bits-per-value N]
           [--config FILE]
 ```
+
+## Three-grid model
+
+The SSO pipeline reasons about three distinct grids plus the
+effective-resolution aggregation grid:
+
+| Role | Where it comes from | Operational value |
+|------|----------------------|-------------------|
+| `source` | The `gridName` of the input `--orography` GRIB (auto-detected). | Whatever the upstream producer emits (often O256 raw IFS output). |
+| `orography_grid` | `--orography-grid` flag (required). | `N2000` (≈ 5 km); the legacy ksh script hardcoded this at lines 106 and 128. Tests use `N256`. |
+| `effective_resolution` (eres) | Derived from the model grid via Unit C. | E.g. `N48` for an `O80` model. |
+| `target_grid` | `--target-grid` flag (required). | The IFS model grid the four outputs land on. |
+
+The legacy ksh script conflated `orography_grid` with `target_grid`
+through a single `$OUT_RES` variable. `pproc-sso` keeps them separate
+so the operator can compute SSO statistics on a high-resolution
+working grid and aggregate to any target grid they need.
+
+## Stage 1 grid handling
+
+Stage 1 reads the input GRIB's `gridName` via `decode_grib` and
+compares it to `--orography-grid`. `--orography` is treated as
+**authoritative**: the operator declares "this file is on
+`--orography-grid`". If the file's actual grid matches, the bytes
+pass through unchanged. If it differs, that is a configuration error
+and Stage 1 raises `ValueError` — the pipeline does **not** silently
+regrid `--orography`.
+
+If you have an orography on a different grid than `--orography-grid`,
+pass it as `--alt-orography` and the pipeline will regrid and cache
+it for you (see
+[Cached vs alternative orography input](#cached-vs-alternative-orography-input)).
+
+## Cached vs alternative orography input
+
+`--orography` is the preferred input: a pre-staged GRIB on the
+working grid. The pipeline supports a two-file fallback workflow
+that mirrors the legacy ksh's `orog_5km` / `orog` (`$inFile` /
+`$inFile_alt`) pattern:
+
+1. **Fast path / pass through** — `--orography` exists and its
+   `gridName` already equals `--orography-grid`. The bytes pass
+   straight through Stage 1.
+2. **Grid mismatch (configuration error)** — `--orography` exists
+   but is on a different grid than `--orography-grid`. Stage 1
+   raises `ValueError`; the CLI surfaces this as a clean non-zero
+   exit. The on-disk file is **not** modified. To fix: either
+   replace the file with one already on `--orography-grid`, or
+   move this file to `--alt-orography` to have it regridded (case
+   3 below). The regrid step happens only via `--alt-orography`,
+   never silently from `--orography`.
+3. **Fallback with cache writeback** — `--orography` does *not* exist
+   and `--alt-orography` is supplied. The alternative is regridded to
+   `--orography-grid` via `grid-box-average` and the result is
+   written to the `--orography` path. Subsequent runs find the
+   cached file and take the fast path.
+
+This caching behaviour is part of the contract: it mirrors the legacy
+ksh's `cp $fileName ${XDATA_IFS}/$fileName` step (line 109 of
+`generate_subgrid_orography_sso.ksh`). Operators are expected to
+pre-create the parent directory of `--orography`; if it does not
+exist, the underlying `write_bytes` call propagates the OS
+`FileNotFoundError`. Concurrent runs writing the same cache file are
+out of scope (matching the ksh).
+
+Cache writeback only happens on case 3.
+
+### Error behaviour
+
+* `--orography` exists but is on a different grid than
+  `--orography-grid` → `ValueError`:
+  `orography file '<path>' is on grid '<input-grid>' but
+  --orography-grid is '<orography-grid>'; supply an orography on
+  '<orography-grid>', or move this file to --alt-orography to have
+  it regridded.`
+* `--orography` missing, `--alt-orography` not supplied →
+  `FileNotFoundError`:
+  `orography file '<path>' does not exist; pass --alt-orography to
+  fall back to an alternative orography input, which will be
+  regridded to --orography-grid`.
+* `--orography` missing, `--alt-orography` supplied but also missing →
+  `FileNotFoundError`:
+  `Neither orography file '<orography-path>' nor the alternative
+  orography file '<alt-path>' exist.`
+
+All three messages surface as clean non-zero exits from the CLI
+(`pproc-sso: error: <message>`), without a Python traceback.
 
 ## Flags
 
 | Flag | Argument | Description |
 |------|----------|-------------|
-| `--orography` | `PATH` | Path to source orography GRIB on the working grid. Required (CLI or YAML). |
+| `--orography` | `PATH` | Path to orography GRIB; treated as authoritative for `--orography-grid`. If the file's actual grid differs, Stage 1 raises a configuration error — pass the file as `--alt-orography` instead to have it regridded. Required (CLI or YAML). |
+| `--alt-orography` | `PATH` | Alternative orography input, used as a fallback when `--orography` does not exist on disk; the result is regridded to `--orography-grid` and cached at the `--orography` path. See [Cached vs alternative orography input](#cached-vs-alternative-orography-input). |
 | `--land-mask` | `PATH` | Path to land-mask GRIB on the target grid. Required (CLI or YAML). |
-| `--target-grid` | `GRID` | Target/output grid spec, e.g. `N256` or `O1280`. Required (CLI or YAML). |
-| `--source-orography` | `PATH` | Optional fallback raw orography. Used by Stage 1 to (re)generate the working-grid orography when `--orography` does not exist. |
+| `--target-grid` | `GRID` | Final target/output grid spec, e.g. `N256` or `O1280`. Required (CLI or YAML). |
+| `--orography-grid` | `GRID` | High-resolution working grid where SSO statistics are computed. Operationally `N2000`; tests use `N256`. Required (CLI or YAML). |
 | `--model-grid-type` | `TYPE` | Model grid family code (`O`, `N`, `F`). Auto-inferred from `--target-grid` when omitted. |
 | `--model-resolution` | `RES` | Model nominal resolution (integer, e.g. 80). Auto-inferred from `--target-grid` when omitted. |
 | `--effective-resolution` | `GRID` | Override the auto-computed effective-resolution grid spec (e.g. `N48`). Defaults to the value derived from the model grid (see [Effective resolution mapping](#effective-resolution-mapping)). |
-| `--output-grid` | `GRID` | Output grid (`OUT_RES`) for working stages. Defaults to `--target-grid`. |
 | `--output-dir` | `DIR` | Directory in which to write the four output files (default: `.`). Created on demand. |
 | `--grib-roundtrip` | — | Encode/decode every numpy intermediate through GRIB to reproduce the per-step quantisation of the original ksh script. |
 | `--dump-intermediates` | — | Write the sixteen named intermediate GRIB files to `--output-dir` in addition to the four final outputs. |
@@ -45,9 +134,9 @@ pproc-sso [--orography PATH] [--land-mask PATH] [--target-grid GRID]
 are stable and are also the keys used internally in
 `pproc.climate.sso.pipeline`:
 
-1. `conservative_to_n2000` — interpolate source orography to N2000 (5 km).
+1. `source_to_orography_grid` — interpolate (or pass through) source orography onto `orography_grid`.
 2. `conservative_to_eres` — interpolate to effective resolution.
-3. `bilinear_back_to_n2000` — bilinear back to N2000.
+3. `bilinear_back_to_orography_grid` — bilinear back to `orography_grid`.
 4. `compute_diff_and_diff_sq` — difference and squared difference.
 5. `compute_gradient` — `mir.Job(nabla='scalar-gradient')`.
 6. `square_gradients` — element-wise products of the gradient components.
@@ -99,16 +188,17 @@ so absent an explicit knob the eccodes default applies. Pass
 ### `--dump-intermediates`
 
 Writes the sixteen named intermediate GRIB files to `--output-dir`. The
-filenames are hard-coded (no user-controlled component) and match the
-intermediate filenames the legacy ksh script wrote to the working
-directory:
+filenames are hard-coded with one exception: the bilinear-back-to-working-grid
+intermediate is parameterised on `--orography-grid` and lands at
+`orog_egrid_<orography_grid>` (e.g. `orog_egrid_N2000` operationally,
+`orog_egrid_N256` in tests). The full list:
 
 ```
-orog_egrid                     orog_egrid_N2000              orog_egrid_diff
-orog_egrid_diff_grad           orog_egrid_diff_gradx_sq      orog_egrid_diff_grady_sq
-orog_egrid_diff_gradxy         orog_eff_diff_sq              orog_eff_diff_gradx_sq
-orog_eff_diff_grady_sq         orog_eff_diff_gradxy          orog_mgrid_diff_sq
-orog_mgrid_diff_gradx_sq       orog_mgrid_diff_grady_sq      orog_mgrid_diff_gradxy
+orog_egrid                       orog_egrid_<orography_grid>   orog_egrid_diff
+orog_egrid_diff_grad             orog_egrid_diff_gradx_sq      orog_egrid_diff_grady_sq
+orog_egrid_diff_gradxy           orog_eff_diff_sq              orog_eff_diff_gradx_sq
+orog_eff_diff_grady_sq           orog_eff_diff_gradxy          orog_mgrid_diff_sq
+orog_mgrid_diff_gradx_sq         orog_mgrid_diff_grady_sq      orog_mgrid_diff_gradxy
 KLMLprime_lsm
 ```
 
@@ -131,13 +221,13 @@ names:
 
 ```yaml
 orography: data/input/ifs/orog_5km
+alt_orography: data/input/ifs/orog   # optional fallback; see workflow above
 land_mask: data/input/ifs/land_mask
 target_grid: N256
 model_grid_type: O
 model_resolution: 80
-output_grid: N256
+orography_grid: N2000
 effective_resolution: N48
-source_orography: data/input/255_4/orog
 output_dir: ./out
 grib_roundtrip: false
 dump_intermediates: true
@@ -199,9 +289,12 @@ pproc-sso \
   --target-grid N256 \
   --model-grid-type O \
   --model-resolution 80 \
+  --orography-grid N256 \
   --output-dir ./out
 ```
 
-This matches the legacy test run (`GTYPE_SET=O, ORES=80, OUT_RES=N256,
+This matches the legacy test run (`GTYPE_SET=O, ORES=80,
 MIR_GTYPE_SET=N256, MIR_ERES_SET=N48`) and produces the four final
 files `out/stdgwd`, `out/slogwd`, `out/anggwd`, `out/isogwd`.
+Operationally, set `--orography-grid N2000` instead, matching the
+N2000 working grid hardcoded by the legacy script.
