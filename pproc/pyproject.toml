@@ -22,7 +22,6 @@ dependencies = [
     "earthkit-utils >= 0.2.1",
     "eccodes >= 1.6.1",
     "filelock >= 3.12.0",
-    "mir-python",
     "numexpr",
     "numpy >= 1.21.2",
     "pandas >= 1.3.3",
