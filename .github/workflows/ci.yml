@@ -1,0 +1,125 @@
+name: ci
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  quality_assurance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install ruff
+      - run: ruff check
+  ppruntime_test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12', '3.13']
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt', '**/pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install pproc-runtime
+      run: |
+        cd pproc-runtime
+        pip install -e .
+
+    - name: Run pproc-runtime tests
+      run: |
+        cd pproc-runtime
+        if [ -d "tests" ]; then
+          python -m pytest tests/ -v
+        fi
+  ppcore_test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12', '3.13']
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt', '**/pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install pproc-core
+      run: |
+        cd pproc-core
+        pip install -e .
+      
+    - name: Run pproc-core tests
+      run: |
+        cd pproc-core
+        if [ -d "tests" ]; then
+          python -m pytest tests/ -v
+        fi
+  pproc_test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12', '3.13']
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt', '**/pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install pproc-runtime
+      run: |
+        cd pproc-runtime
+        pip install -e .
+    
+    - name: Install pproc-core
+      run: |
+        cd pproc-core
+        pip install -e .
+    
+    - name: Install pproc
+      run: |
+        cd pproc
+        pip install -e .
+        pip install -r requirements.txt
+  
+    - name: Run pproc tests
+      run: |
+        cd pproc
+        if [ -d "tests" ]; then
+          python -m pytest tests/ -v 
+        fi
