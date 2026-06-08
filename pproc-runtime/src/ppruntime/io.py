@@ -9,11 +9,12 @@
 
 import shutil
 from io import BytesIO
+from typing import Optional
 
 import mir
 from earthkit.data import FieldList, settings
 from earthkit.data.readers.grib.metadata import StandAloneGribMetadata
-from earthkit.data.sources import Source, from_source
+from earthkit.data.sources import from_source
 from earthkit.data.sources.file import FileSource
 from earthkit.data.sources.stream import StreamSource
 from meters import ResourceMeter
@@ -23,21 +24,12 @@ from meters import ResourceMeter
 settings.set("cache-policy", "temporary")
 
 
-def _source_from_location(loc, sources) -> tuple[str, list[dict]]:
-    type_, ident = split_location(loc, default="file")
-    requests = sources.get(type_, {}).get(ident, None)
-    assert (
-        requests is not None
-    ), f"Not requests listed for location {loc} in sources {sources}"
-    if isinstance(requests, dict):
-        requests = [requests]
-    return type_, requests
-
-
 def mir_job(
-    input: mir.MultiDimensionalGribFileInput, mir_options: dict, cache: str = None
-) -> Source:
-    job = mir.Job(**mir_options)
+    input: mir.MultiDimensionalGribFileInput,
+    mir_options: dict,
+    cache: Optional[str] = None,  # type: ignore[ty:unresolved-attribute]
+) -> FieldList:
+    job = mir.Job(**mir_options)  # type: ignore[ty:unresolved-attribute]
     stream = BytesIO()
     job.execute(input, stream)
     stream.seek(0)
@@ -49,40 +41,41 @@ def mir_job(
     return FileSource(cache).mutate()
 
 
-def fdb_retrieve(request: dict, *, stream: bool = True) -> Source:
+def fdb_retrieve(request: dict, *, stream: bool = True) -> FieldList:
     mir_options = request.pop("interpolate", None)
     if mir_options is None:
-        return from_source("fdb", request, read_all=True, stream=stream)
+        return from_source("fdb", request, read_all=True, stream=stream)  # type: ignore[ty:invalid-return-type]
 
-    reader = from_source("fdb", request, stream=stream)
+    if mir_options.get("vod2uv", "0") == "1":
+        stream = False
+
+    reader: FieldList = from_source("fdb", request, stream=stream)  # type: ignore[ty:invalid-assignment]
     if stream:
-        if mir_options.get("vod2uv", "0") == "1":
-            raise ValueError("Wind vod2uv not supported for stream=True")
-        return mir_job(reader._source._stream, mir_options)
+        return mir_job(reader._source._stream, mir_options)  # type: ignore[ty:unresolved-attribute]
 
     if mir_options.get("vod2uv", "0") == "1":
         if len(request["param"]) != 2:
             raise ValueError("Wind vod2uv requires two parameters")
-        inp = mir.MultiDimensionalGribFileInput(reader.path, 2)
+        inp = mir.MultiDimensionalGribFileInput(reader.path, 2)  # type: ignore[ty:unresolved-attribute]
     else:
-        inp = mir.GribFileInput(reader.path)
+        inp = mir.GribFileInput(reader.path)  # type: ignore[ty:unresolved-attribute]
     return mir_job(inp, mir_options)
 
 
-def mars_retrieve(request: dict) -> Source:
+def mars_retrieve(request: dict) -> FieldList:
     mir_options = request.pop("interpolate", None)
     cache = request.pop("cache", None)
     cache_path = None if cache is None else cache.format_map(request)
-    ds = from_source("mars", request)
+    ds: FieldList = from_source("mars", request)  # type: ignore[ty:invalid-assignment]
     if mir_options is None:
         return ds
 
     if mir_options.get("vod2uv", "0") == "1":
         if len(request["param"]) != 2:
             raise ValueError("Wind vod2uv requires two parameters")
-        inp = mir.MultiDimensionalGribFileInput(ds.path, 2)
+        inp = mir.MultiDimensionalGribFileInput(ds.path, 2)  # type: ignore[ty:unresolved-attribute]
     else:
-        inp = mir.GribFileInput(ds.path)
+        inp = mir.GribFileInput(ds.path)  # type: ignore[ty:unresolved-attribute]
     return mir_job(inp, mir_options, cache_path)
 
 
@@ -109,12 +102,12 @@ def _transform_request(request: dict, step_type: type = str):
     return request
 
 
-def file_retrieve(path: str, request: dict) -> Source:
+def file_retrieve(path: str, request: dict) -> FieldList:
     mir_options = request.pop("interpolate", None)
     if mir_options is not None:
         raise NotImplementedError()
     location = path.format_map(request)
-    file_ds = from_source("file", location)
+    file_ds: FieldList = from_source("file", location)  # type: ignore[ty:invalid-assignment]
     if len(request) > 0:
         treq = _transform_request(request)
         ds = file_ds.sel(treq)
@@ -149,7 +142,7 @@ def retrieve_single_source(request: dict, **kwargs) -> FieldList:
         ret_sources = mars_retrieve(req)
     elif source == "fileset":
         path = req.pop("location")
-        ret_sources = file_retrieve(path, req)
+        ret_sources = file_retrieve(path, req).order_by("paramId")
     else:
         raise NotImplementedError(f"Source {source} not supported.")
     assert len(ret_sources) > 0, f"No data retrieved from {source} for request {req}"
@@ -167,6 +160,7 @@ def retrieve(request: dict | list[dict], **kwargs):
             [StandAloneGribMetadata(metadata._handle) for metadata in res.metadata()],
         )
         return ret
+
 
 def write(data: FieldList, target: dict) -> dict:
     if target["name"] == "null":

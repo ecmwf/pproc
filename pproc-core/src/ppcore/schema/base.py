@@ -7,13 +7,17 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-import yaml
 import copy
-from typing import Callable, Any, Optional, Iterator
-from typing_extensions import Self
 import logging
+from typing import Any
+from typing import Callable
+from typing import Iterator
+from typing import Optional
 
-from ppcore.utils.helpers import deep_update
+import yaml
+from typing_extensions import Self
+
+from ppcore.utils.dicts import deep_update
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +83,7 @@ class BaseSchema:
             raise ValueError(
                 f"Filter value {filter_value} not found in schema {schema}, and no default provided"
             )
-        assert isinstance(ret, dict), f"Subschema must be a dictionary."
+        assert isinstance(ret, dict), "Subschema must be a dictionary."
         return ret
 
     @classmethod

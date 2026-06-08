@@ -7,14 +7,20 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-from pydantic import BaseModel, Field, RootModel
-from typing import Literal, Optional, Annotated, Union
-import numpy as np
 import bisect
+from typing import Annotated
+from typing import Literal
+from typing import Optional
+from typing import Union
 
-# from pproc.common.stepseq import stepseq_monthly, steprange_to_fcmonth
+import numpy as np
+from pydantic import BaseModel
+from pydantic import Field
+from pydantic import RootModel
 
 from ppcore.schema.base import BaseSchema
+from ppcore.utils.stepseq import steprange_to_fcmonth
+from ppcore.utils.stepseq import stepseq_monthly
 
 
 class Instantaneous(BaseModel):
@@ -46,7 +52,7 @@ class Range(BaseModel):
     width: int
     dim: Literal["step"] = "step"
 
-    def generate_steps(self, steps: list[int | str]) -> list[str]:
+    def generate_steps(self, steps: list[int] | list[str]) -> list[str]:
         if all(isinstance(x, str) for x in steps):
             return steps
         assert all(
@@ -103,38 +109,35 @@ class StepSchema(BaseSchema):
         return self._create_steps(config.get("in_steps", []))
 
     def out_steps(
-        self, request_or_name: dict | str, steps: Optional[list[int]] = None
-    ) -> tuple[str, list[int | str]]:
-        if isinstance(request_or_name, str):
-            step_configs = self.schema.get("defs", {}).get(request_or_name, [])
-        else:
-            for dim in ["step", "fcmonth"]:
-                if dim in request_or_name:
-                    return dim, [request_or_name[dim]]
+        self, request: dict, steps: Optional[list[int]] = None
+    ) -> tuple[str, list[Union[int, str]]]:
+        for dim in ["step", "fcmonth"]:
+            if dim in request:
+                return dim, [request[dim]]
 
-            config = self.traverse(request_or_name, {})
-            steps = steps or self._create_steps(config.get("in_steps", []))
-            step_configs = config.get("out_steps", None)
-            if step_configs is None:
-                raise ValueError(f"No output steps defined {request_or_name}")
+        config = self.traverse(request, {})
+        in_steps: list[int] = steps or self._create_steps(config.get("in_steps", []))
+        step_configs = config.get("out_steps", None)
+        if step_configs is None:
+            raise ValueError(f"No output steps defined {request}")
 
         if isinstance(step_configs, dict):
             step_configs = [step_configs]
 
         out = []
-        dim = None
+        dim: str = ""
         for step_config in step_configs:
             if isinstance(step_config, str):
-                if all(x in steps for x in map(int, step_config.split("-"))):
+                if all(x in in_steps for x in map(int, step_config.split("-"))):
                     out.append(step_config)
                 continue
             step_config = {
-                k: v.format_map(request_or_name) if isinstance(v, str) else v
+                k: v.format_map(request) if isinstance(v, str) else v
                 for k, v in step_config.items()
             }
             step_type = StepType(**step_config).root
-            if dim is None:
+            if not dim:
                 dim = step_type.dim
             assert dim == step_type.dim, "All steps must be of the same dimension"
-            out.extend([x for x in step_type.generate_steps(steps) if x not in out])
+            out.extend([x for x in step_type.generate_steps(in_steps) if x not in out])
         return dim, out

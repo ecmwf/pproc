@@ -8,28 +8,28 @@
 # nor does it submit to any jurisdiction.
 
 import pytest
-
-from ppcore.utils.requests import expand, update_request
-from ppcore.schema.input import (
-    InputSchema,
-    ForecastConfig,
-    ForecastInput,
-)
-from ppcore.schema.step import StepSchema
-
 from conftest import schema
+
+from ppcore.schema.input import ForecastConfig
+from ppcore.schema.input import ForecastInput
+from ppcore.schema.input import InputSchema
+from ppcore.schema.step import StepSchema
+from ppcore.utils.requests import expand
+from ppcore.utils.requests import update_request
 
 INPUTS = {
     "ensms": [
         {
-            "stream": "enfo",
+            "class": "od",
+            "stream": "oper",
             "levtype": "sfc",
             "param": "167",
             "step": 3,
-            "type": "cf",
+            "type": "fc",
             "time": "0000",
         },
         {
+            "class": "od",
             "stream": "enfo",
             "levtype": "sfc",
             "param": "167",
@@ -41,24 +41,27 @@ INPUTS = {
     ],
     "thermofeel": [
         {
-            "stream": "enfo",
+            "class": "od",
+            "stream": "oper",
             "levtype": "sfc",
             "param": ["169", "175", "176", "177", "228021", "47"],
             "step": [2, 3],
-            "type": "cf",
+            "type": "fc",
             "time": "0000",
         },
         {
-            "stream": "enfo",
+            "class": "od",
+            "stream": "oper",
             "levtype": "sfc",
             "param": ["165", "166", "167", "168"],
             "step": 3,
-            "type": "cf",
+            "type": "fc",
             "time": "0000",
         },
     ],
     "thermo_pf": [
         {
+            "class": "od",
             "stream": "enfo",
             "levtype": "sfc",
             "param": ["169", "175", "176", "177", "228021", "47"],
@@ -68,6 +71,7 @@ INPUTS = {
             "number": [1, 2, 3],
         },
         {
+            "class": "od",
             "stream": "enfo",
             "levtype": "sfc",
             "param": ["165", "166", "167", "168"],
@@ -79,19 +83,21 @@ INPUTS = {
     ],
     "t850": [
         {
-            "stream": "enfo",
+            "class": "od",
+            "stream": "oper",
             "param": "130",
-            "step": list(range(120, 169, 12)),
-            "type": "cf",
+            "step": list(range(120, 169, 6)),
+            "type": "fc",
             "date": "20250314",
             "time": "1200",
             "levtype": "pl",
             "levelist": 250,
         },
         {
+            "class": "od",
             "stream": "enfo",
             "param": "130",
-            "step": list(range(120, 169, 12)),
+            "step": list(range(120, 169, 6)),
             "type": "pf",
             "number": list(range(1, 51)),
             "date": "20250314",
@@ -100,9 +106,10 @@ INPUTS = {
             "levelist": 250,
         },
         {
+            "class": "od",
             "stream": "efhs",
             "param": "130",
-            "step": list(range(132, 181, 12)),
+            "step": list(range(132, 181, 6)),
             "type": "em",
             "date": "20250313",
             "time": "0000",
@@ -111,9 +118,10 @@ INPUTS = {
             "climatology": True,
         },
         {
+            "class": "od",
             "stream": "efhs",
             "param": "130",
-            "step": list(range(132, 181, 12)),
+            "step": list(range(132, 181, 6)),
             "type": "es",
             "date": "20250313",
             "time": "0000",
@@ -124,6 +132,7 @@ INPUTS = {
     ],
     "efi": [
         {
+            "class": "od",
             "stream": "eefo",
             "levtype": "sfc",
             "param": "167",
@@ -134,6 +143,7 @@ INPUTS = {
             "time": "0000",
         },
         {
+            "class": "od",
             "stream": "eehs",
             "levtype": "sfc",
             "param": "228004",
@@ -147,6 +157,7 @@ INPUTS = {
     ],
     "monthly": [
         {
+            "class": "od",
             "stream": "mmsf",
             "levtype": "sfc",
             "param": ["165", "166"],
@@ -159,6 +170,16 @@ INPUTS = {
     ],
     "prob": [
         {
+            "class": "od",
+            "stream": "oper",
+            "levtype": "sfc",
+            "param": "228",
+            "step": [0, 24],
+            "type": "fc",
+            "time": "0000",
+        },
+        {
+            "class": "od",
             "stream": "enfo",
             "levtype": "sfc",
             "param": "228",
@@ -170,15 +191,17 @@ INPUTS = {
     ],
     "sfc-pl": [
         {
-            "stream": "enfo",
+            "class": "od",
+            "stream": "oper",
             "levtype": "pl",
             "levelist": [250, 850],
             "param": "130",
             "step": 6,
-            "type": "cf",
+            "type": "fc",
             "time": "0000",
         },
         {
+            "class": "od",
             "stream": "enfo",
             "levtype": "pl",
             "levelist": [250, 850],
@@ -189,14 +212,16 @@ INPUTS = {
             "time": "0000",
         },
         {
-            "stream": "enfo",
+            "class": "od",
+            "stream": "oper",
             "levtype": "sfc",
             "param": "167",
             "step": 6,
-            "type": "cf",
+            "type": "fc",
             "time": "0000",
         },
         {
+            "class": "od",
             "stream": "enfo",
             "levtype": "sfc",
             "param": "167",
@@ -298,6 +323,7 @@ def test_forecast_config(inputs, expected_num_inputs):
     "output",
     [
         {
+            "class": "od",
             "stream": "enfo",
             "type": "em",
             "time": "0000",
@@ -306,14 +332,16 @@ def test_forecast_config(inputs, expected_num_inputs):
             "levtype": "sfc",
         },
         {
-            "stream": "enfo",
-            "type": "cf",
+            "class": "od",
+            "stream": "oper",
+            "type": "fc",
             "param": "261001",
             "step": 3,
             "levtype": "sfc",
             "time": "0000",
         },
         {
+            "class": "od",
             "stream": "enfo",
             "type": "pf",
             "param": "261001",
@@ -323,6 +351,7 @@ def test_forecast_config(inputs, expected_num_inputs):
             "number": [1, 2, 3],
         },
         {
+            "class": "od",
             "stream": "enfo",
             "type": "ep",
             "param": "131020",
@@ -333,6 +362,7 @@ def test_forecast_config(inputs, expected_num_inputs):
             "levelist": 250,
         },
         {
+            "class": "od",
             "stream": "eefo",
             "levtype": "sfc",
             "type": "efi",
@@ -342,6 +372,7 @@ def test_forecast_config(inputs, expected_num_inputs):
             "time": "0000",
         },
         {
+            "class": "od",
             "stream": "msmm",
             "levtype": "sfc",
             "type": "fcmean",
@@ -352,6 +383,7 @@ def test_forecast_config(inputs, expected_num_inputs):
             "time": "0000",
         },
         {
+            "class": "od",
             "stream": "enfo",
             "levtype": "sfc",
             "type": "ep",
@@ -380,7 +412,7 @@ def test_inputs(request, output):
 
 @pytest.mark.parametrize(
     "out_type, num_outputs",
-    [["em", 1], ["cf", 12], ["ep", 52], ["efi", 1], ["fcmean", 3], ["ep", 7]],
+    [["em", 1], ["fc", 11], ["ep", 52], ["efi", 1], ["fcmean", 3], ["ep", 7]],
     ids=["ensms", "thermofeel", "t850", "efi", "monthly", "prob"],
 )
 def test_outputs(request, out_type, num_outputs):
@@ -410,6 +442,7 @@ def test_input_format():
     )
     expected_outputs = [
         {
+            "class": "od",
             "stream": "enfo",
             "levtype": "pl",
             "levelist": [250, 850],
@@ -419,6 +452,7 @@ def test_input_format():
             "time": "0000",
         },
         {
+            "class": "od",
             "stream": "enfo",
             "levtype": "sfc",
             "param": "167",
@@ -440,6 +474,7 @@ def test_input_format():
         [
             [
                 {
+                    "class": "od",
                     "stream": "oper",
                     "param": [
                         "165",
@@ -461,32 +496,36 @@ def test_input_format():
                 }
             ],
             {"type": "fc"},
-            20,
+            18,
         ],
         [
             [
                 {
-                    "stream": "enfo",
+                    "class": "od",
+                    "stream": "oper",
                     "param": ["228246", "228247"],
-                    "type": "cf",
+                    "type": "fc",
                     "levtype": "sfc",
                     "time": "0000",
+                    "step": 3,
                 }
             ],
-            {"type": "cf"},
+            {"type": "fc"},
             0,
         ],
         [
             [
                 {
-                    "stream": "enfo",
+                    "class": "od",
+                    "stream": "oper",
                     "param": "129",
-                    "type": "cf",
+                    "type": "fc",
                     "levtype": "sfc",
                     "step": 3,
                     "time": "0000",
                 },
                 {
+                    "class": "od",
                     "stream": "enfo",
                     "param": "129",
                     "type": "pf",
@@ -496,15 +535,17 @@ def test_input_format():
                     "time": "0000",
                 },
                 {
-                    "stream": "enfo",
+                    "class": "od",
+                    "stream": "oper",
                     "param": "129",
-                    "type": "cf",
+                    "type": "fc",
                     "levtype": "pl",
                     "levelist": [50, 100],
                     "step": 3,
                     "time": "0000",
                 },
                 {
+                    "class": "od",
                     "stream": "enfo",
                     "param": "129",
                     "type": "pf",
@@ -544,12 +585,14 @@ def test_fcstat_inputs(number, updates):
     input_schema = InputSchema(schema("inputs"))
     step_schema = StepSchema(schema("windows"))
     output = {
+        "class": "od",
         "stream": "eefo",
         "type": "fcmean",
         "number": number,
         "param": "167",
         "step": "0-168",
         "time": "0000",
+        "levtype": "sfc",
     }
     inputs = input_schema.inputs(output, step_schema)
     base_input = output.copy()

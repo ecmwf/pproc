@@ -7,44 +7,54 @@
 # nor does it submit to any jurisdiction.
 
 [build-system]
-requires = ["setuptools>=65", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
+
+requires = [ "setuptools>=65", "setuptools-scm[toml]>=6.2" ]
 
 [project]
 name = "pproc-runtime"
 description = "Runtime dependencies of PProc"
+readme = "README.md"
 license = "Apache-2.0"
-license-files = ["LICENSE"]
+license-files = [ "LICENSE" ]
 authors = [
   { name = "European Centre for Medium-Range Weather Forecasts (ECMWF)", email = "software.support@ecmwf.int" },
 ]
 requires-python = ">=3.10"
-readme = "README.md"
+classifiers = [
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
 dynamic = [ "version" ]
 
 dependencies = [
-    "earthkit-data[mars,fdb]", 
-    "earthkit-meteo", 
-    "thermofeel",
-    "code-meters",
-    "eccodes",
-    "mir-python", 
-    "fdblibs",
-    "numpy",
-    "array_api_compat",
+  "array-api-compat",
+  "code-meters",
+  "earthkit-data[mars,fdb]",
+  "earthkit-meteo",
+  "eccodes",
+  "fdb5lib",
+  "mir-python",
+  "numpy",
+  "thermofeel",
 ]
 
-
-[project.optional-dependencies]
-tests = ["pytest"]
-lint = ["black", "isort", "flake8"]
-
-[tool.setuptools.packages.find]
-where = ["src"]
+[dependency-groups]
+dev = [
+  "prek>=0.4.4",
+  "pytest>=9.0.3",
+  "ty>=0.0.44",
+]
 
 [tool.setuptools]
 include-package-data = true
 zip-safe = false
+
+[tool.setuptools.packages.find]
+where = [ "src" ]
 
 [tool.setuptools_scm]
 write_to = "src/ppruntime/_version.py"
@@ -53,14 +63,12 @@ __version__ = "{version}"
 '''
 local_scheme = "no-local-version"
 
-[tool.pytest.ini_options]
-log_cli = true
-log_cli_level = "DEBUG"
-testpaths = ["tests/"]
-addopts = "-n8"
+[tool.ruff]
+lint.ignore = [ "E722", "E731", "E741" ]
 
 [tool.isort]
 profile = "black"
 
-[tool.ruff.lint]
-ignore = ["E722", "E731", "E741"]
+[tool.pytest.ini_options]
+log_cli = true
+testpaths = [ "tests/" ]

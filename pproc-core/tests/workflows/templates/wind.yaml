@@ -1,140 +1,123 @@
 - class: od
   stream: enfo
-  type: ep
+  type: em
   levtype: sfc
   domain: g
-  param: "131060"
+  param: "10"
   date: "20230914"
   time: 12
   expver: "0001"
-  step: 0-24
+  step: 0
 - class: od
   stream: enfo
-  type: ep
+  type: em
   levtype: sfc
   domain: g
-  param: "131060"
+  param: "10"
   date: "20230914"
   time: 12
   expver: "0001"
-  step: 12-36
+  step: 3
 - class: od
   stream: enfo
-  type: ep
+  type: em
   levtype: sfc
   domain: g
-  param: "131061"
+  param: "10"
   date: "20230914"
   time: 12
   expver: "0001"
-  step: 0-24
+  step: 6
 - class: od
   stream: enfo
-  type: ep
+  type: es
   levtype: sfc
   domain: g
-  param: "131061"
+  param: "10"
   date: "20230914"
   time: 12
   expver: "0001"
-  step: 12-36
+  step: 0
 - class: od
   stream: enfo
-  type: ep
+  type: es
   levtype: sfc
   domain: g
-  param: "131098"
+  param: "10"
   date: "20230914"
   time: 12
   expver: "0001"
-  step: 0-24
+  step: 3
 - class: od
   stream: enfo
-  type: ep
+  type: es
   levtype: sfc
   domain: g
-  param: "131098"
+  param: "207"
   date: "20230914"
   time: 12
   expver: "0001"
-  step: 12-36
+  step: 6
 - class: od
   stream: enfo
-  type: ep
+  type: cf
   levtype: sfc
   domain: g
-  param: "131068"
-  date: 20230914
+  param: "10"
+  date: "20230914"
   time: 12
   expver: "0001"
-  step: 12
+  step: 0
 - class: od
   stream: enfo
-  type: ep
+  type: cf
   levtype: sfc
   domain: g
-  param: "131068"
-  date: 20230914
+  param: "10"
+  date: "20230914"
   time: 12
   expver: "0001"
-  step: 24
+  step: 3
 - class: od
   stream: enfo
-  type: ep
+  type: cf
   levtype: sfc
   domain: g
-  param: "131069"
-  date: 20230914
+  param: "10"
+  date: "20230914"
   time: 12
   expver: "0001"
-  step: 12
+  step: 6
 - class: od
   stream: enfo
-  type: ep
+  type: pf
+  number: [1, 2, 3, 4, 5]
   levtype: sfc
   domain: g
-  param: "131069"
-  date: 20230914
+  param: "10"
+  date: "20230914"
   time: 12
   expver: "0001"
-  step: 24
+  step: 0
 - class: od
   stream: enfo
-  type: ep
+  type: pf
+  number: [1, 2, 3, 4, 5]
   levtype: sfc
   domain: g
-  param: "131073"
-  date: 20230914
+  param: "10"
+  date: "20230914"
   time: 12
   expver: "0001"
-  step: 120-168
+  step: 3
 - class: od
   stream: enfo
-  type: ep
+  type: pf
+  number: [1, 2, 3, 4, 5]
   levtype: sfc
   domain: g
-  param: "131073"
-  date: 20230914
+  param: "10"
+  date: "20230914"
   time: 12
   expver: "0001"
-  step: 120-240
-- class: od
-  stream: enfo
-  type: ep
-  levtype: sfc
-  domain: g
-  param: "131073"
-  date: 20230914
-  time: 12
-  expver: "0001"
-  step: 168-240
-- class: od
-  stream: enfo
-  type: ep
-  levtype: sfc
-  domain: g
-  param: "131073"
-  date: 20230914
-  time: 12
-  expver: "0001"
-  step: 126
+  step: 6

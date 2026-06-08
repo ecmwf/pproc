@@ -16,110 +16,65 @@ jobs:
   ppruntime_test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: true
       matrix:
         python-version: ['3.11', '3.12', '3.13']
-    
     steps:
     - uses: actions/checkout@v4
-    
+    - uses: astral-sh/setup-uv@v7
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
-    
-    - name: Cache pip dependencies
-      uses: actions/cache@v3
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt', '**/pyproject.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
-    
-    - name: Install pproc-runtime
+    - name: Run checks and tests
       run: |
         cd pproc-runtime
-        pip install -e .
-
-    - name: Run pproc-runtime tests
-      run: |
-        cd pproc-runtime
+        export UV_FROZEN=1
+        uv sync --prerelease allow --python "${{ matrix.python_version }}" --all-packages
+        uv run --prerelease allow prek --directory . --config ../.pre-commit-config.yaml
+        uv run --prerelease allow ty check
         if [ -d "tests" ]; then
-          python -m pytest tests/ -v
+          uv run --prerelease allow -m pytest tests/ -v
         fi
+
   ppcore_test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: true
       matrix:
         python-version: ['3.11', '3.12', '3.13']
-    
     steps:
     - uses: actions/checkout@v4
-    
+    - uses: astral-sh/setup-uv@v7
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
-    
-    - name: Cache pip dependencies
-      uses: actions/cache@v3
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt', '**/pyproject.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
-    
-    - name: Install pproc-core
+    - name: Run checks and tests
       run: |
         cd pproc-core
-        pip install -e .
-      
-    - name: Run pproc-core tests
-      run: |
-        cd pproc-core
+        export UV_FROZEN=1
+        uv sync --python "${{ matrix.python_version }}" --all-packages
+        uv run prek --directory . --config ../.pre-commit-config.yaml
         if [ -d "tests" ]; then
-          python -m pytest tests/ -v
+          uv run -m pytest tests/ -v
         fi
+
   pproc_test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: true
       matrix:
         python-version: ['3.11', '3.12', '3.13']
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+    - uses: astral-sh/setup-uv@v7
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
-    
-    - name: Cache pip dependencies
-      uses: actions/cache@v3
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt', '**/pyproject.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
-    
-    - name: Install pproc-runtime
-      run: |
-        cd pproc-runtime
-        pip install -e .
-    
-    - name: Install pproc-core
-      run: |
-        cd pproc-core
-        pip install -e .
-    
-    - name: Install pproc
-      run: |
-        cd pproc
-        pip install -e .
-        pip install -r requirements.txt
-  
     - name: Run pproc tests
       run: |
         cd pproc
         if [ -d "tests" ]; then
-          python -m pytest tests/ -v 
+          uv run --active --locked --prerelease allow --with pytest -m tests/ -v
         fi

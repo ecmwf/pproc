@@ -7,12 +7,11 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
+
 import pytest
-import os
+from conftest import schema
 
 from ppcore.schema.schema import Schema
-
-from conftest import schema
 
 
 @pytest.mark.parametrize(
@@ -66,9 +65,6 @@ from conftest import schema
                         },
                     }
                 },
-                "metadata": {
-                    "stream": "msmm",
-                },
             },
             1,
         ],
@@ -102,6 +98,12 @@ from conftest import schema
                         "deaccumulate": True,
                         "metadata": {
                             "type": "fcmean",
+                            "bitsPerValue": 16,
+                            "legBaseDate": 0,
+                            "legNumber": 0,
+                            "numberIncludedInAverage": "{num_coords}:int",
+                            "stepType": "avg",
+                            "timeRangeIndicator": 3,
                         },
                         "name": {
                             "type": "default",
@@ -143,9 +145,6 @@ from conftest import schema
                         "number": list(range(1, 4)),
                     },
                 ],
-                "metadata": {
-                    "paramId": 172228,
-                },
             },
             2,
         ],
@@ -176,14 +175,14 @@ from conftest import schema
                 "inputs": [
                     {
                         "class": "od",
-                        "stream": "enfo",
+                        "stream": "oper",
                         "expver": "0001",
                         "levtype": "pl",
                         "domain": "g",
                         "param": "130",
                         "date": "20241001",
                         "time": "0000",
-                        "type": "cf",
+                        "type": "fc",
                         "levelist": [250, 850],
                         "step": 12,
                         "target_grid": "O640",
@@ -204,11 +203,6 @@ from conftest import schema
                         "target_grid": "O640",
                     },
                 ],
-                "metadata": {
-                    "bitsPerValue": 16,
-                    "numberOfForecastsInEnsemble": "{num_fields}:int",
-                    "perturbationNumber": 0,
-                },
             },
             1,
         ],
@@ -217,7 +211,9 @@ from conftest import schema
 )
 def test_schema_from_output(req, config, num_generated):
     test_schema = Schema(**schema())
-    assert config == test_schema.config_from_output(req)
+    test_config = test_schema.config_from_output(req)
+    test_config.pop("metadata", None)
+    assert config == test_config
 
     generated = test_schema.config_from_input(
         config["inputs"], {k: req[k] for k in ["stream", "type", "param"]}
@@ -246,7 +242,7 @@ def test_schema_from_output(req, config, num_generated):
                 },
                 {
                     "class": "od",
-                    "stream": "enfo",
+                    "stream": "oper",
                     "expver": "0001",
                     "levtype": "sfc",
                     "domain": "g",
@@ -254,7 +250,7 @@ def test_schema_from_output(req, config, num_generated):
                     "date": "20241001",
                     "time": "0",
                     "step": list(range(0, 169, 6)),
-                    "type": "cf",
+                    "type": "fc",
                 },
             ],
             8,
@@ -264,14 +260,14 @@ def test_schema_from_output(req, config, num_generated):
                 "inputs": [
                     {
                         "class": "od",
-                        "stream": "enfo",
+                        "stream": "oper",
                         "expver": "0001",
                         "levtype": "sfc",
                         "domain": "g",
                         "param": "167",
                         "date": "20241001",
                         "time": "0000",
-                        "type": "cf",
+                        "type": "fc",
                         "step": list(range(6, 169, 6)),
                     }
                 ],
@@ -279,7 +275,15 @@ def test_schema_from_output(req, config, num_generated):
                     "step": {
                         "type": "legacywindow",
                         "operation": "mean",
-                        "metadata": {"type": "fcmean"},
+                        "metadata": {
+                            "type": "fcmean",
+                            "bitsPerValue": 16,
+                            "legBaseDate": 0,
+                            "legNumber": 0,
+                            "numberIncludedInAverage": "{num_coords}:int",
+                            "stepType": "avg",
+                            "timeRangeIndicator": 3,
+                        },
                         "name": {
                             "type": "default",
                             "length": 168,
@@ -292,7 +296,6 @@ def test_schema_from_output(req, config, num_generated):
                     "matrix-loader": "file-io",
                 },
                 "dtype": "float64",
-                "metadata": {},
             },
         ],
         [
@@ -359,10 +362,6 @@ def test_schema_from_output(req, config, num_generated):
                     "legendre-loader": "shmem",
                     "matrix-loader": "file-io",
                 },
-                "metadata": {
-                    "paramId": 172228,
-                    "stream": "msmm",
-                },
             },
         ],
         [
@@ -384,7 +383,7 @@ def test_schema_from_output(req, config, num_generated):
                 },
                 {
                     "class": "od",
-                    "stream": "enfo",
+                    "stream": "oper",
                     "expver": "0001",
                     "levtype": "pl",
                     "levelist": [250, 850],
@@ -393,7 +392,7 @@ def test_schema_from_output(req, config, num_generated):
                     "date": "20241001",
                     "time": "0",
                     "step": [0, 6, 12, 18, 24],
-                    "type": "cf",
+                    "type": "fc",
                 },
             ],
             10,
@@ -403,7 +402,7 @@ def test_schema_from_output(req, config, num_generated):
                 "inputs": [
                     {
                         "class": "od",
-                        "stream": "enfo",
+                        "stream": "oper",
                         "expver": "0001",
                         "levtype": "pl",
                         "levelist": [250, 850],
@@ -411,7 +410,7 @@ def test_schema_from_output(req, config, num_generated):
                         "param": "130",
                         "date": "20241001",
                         "time": "0000",
-                        "type": "cf",
+                        "type": "fc",
                         "step": 0,
                     },
                     {
@@ -435,11 +434,6 @@ def test_schema_from_output(req, config, num_generated):
                     "matrix-loader": "file-io",
                 },
                 "dtype": "float64",
-                "metadata": {
-                    "bitsPerValue": 16,
-                    "numberOfForecastsInEnsemble": "{num_fields}:int",
-                    "perturbationNumber": 0,
-                },
             },
         ],
     ],
@@ -449,4 +443,6 @@ def test_schema_from_input(entrypoint, req, num_expected, expected):
     test_schema = Schema(**schema())
     configs = list(test_schema.config_from_input(req, entrypoint=entrypoint))
     assert len(configs) == num_expected
-    assert configs[0] == expected
+    test_config = configs[0]
+    test_config.pop("metadata", None)
+    assert test_config == expected

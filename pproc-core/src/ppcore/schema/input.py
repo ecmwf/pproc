@@ -7,33 +7,38 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-from typing import Optional, Union, Iterator, Any
-from typing_extensions import Self
-from pydantic import BaseModel, model_validator, field_validator
 import copy
-import pandas as pd
-import numpy as np
 import logging
+from typing import Any
+from typing import Iterator
+from typing import Optional
+from typing import Union
+
+import numpy as np
+import pandas as pd
+from pydantic import BaseModel
+from pydantic import field_validator
+from pydantic import model_validator
+from typing_extensions import Self
 
 from ppcore.schema.base import BaseSchema
-from ppcore.schema.deriver import (
-    ForecastStepDeriver,
-    DefaultStepDeriver,
-    ClimDateDeriver,
-    ClimStepDeriver,
-    HindcastDatesDeriver,
-)
-from ppcore.schema.filters import _steplength, _steptype, _selection, _members
+from ppcore.schema.deriver import ClimDateDeriver
+from ppcore.schema.deriver import ClimStepDeriver
+from ppcore.schema.deriver import DefaultStepDeriver
+from ppcore.schema.deriver import ForecastStepDeriver
+from ppcore.schema.deriver import HindcastDatesDeriver
+from ppcore.schema.filters import _members
+from ppcore.schema.filters import _selection
+from ppcore.schema.filters import _steplength
+from ppcore.schema.filters import _steptype
 from ppcore.schema.step import StepSchema
-from ppcore.schema.utils import validate_request
-from ppcore.utils.requests import (
-    update_request,
-    expand,
-    squeeze,
-    extract_mars,
-)
 from ppcore.utils.dicts import deep_update
 from ppcore.utils.helpers import to_list
+from ppcore.utils.requests import expand
+from ppcore.utils.requests import extract_mars
+from ppcore.utils.requests import squeeze
+from ppcore.utils.requests import update_request
+from ppcore.utils.requests import validate_request
 
 logger = logging.getLogger(__name__)
 
@@ -337,9 +342,7 @@ class InputSchema(BaseSchema):
     custom_match = {"forecast": _match_forecast, "climatology": _match_forecast}
 
     @classmethod
-    def _format_output_request(
-        cls, request: dict, pop: Optional[list[str]] = []
-    ) -> dict:
+    def _format_output_request(cls, request: dict, pop: list[str] = []) -> dict:
         out = copy.deepcopy(request)
         ignore_inheritance = {
             "number": lambda req: (
@@ -389,7 +392,7 @@ class InputSchema(BaseSchema):
             yield validate_request(inp)
 
     def reconstruct(
-        self, output_template: Optional[dict] = None, **matching
+        self, output_template: dict[str, Any] = {}, **matching
     ) -> Iterator[tuple[dict, InputConfig]]:
         inherit = ["levelist", "levtype"]
         base_request = {
@@ -436,15 +439,13 @@ class InputSchema(BaseSchema):
         self,
         input_requests: list[dict],
         step_schema: Optional[StepSchema] = None,
-        output_template: Optional[dict] = None,
+        output_template: dict[str, Any] = {},
     ) -> Iterator[tuple[dict, list[dict]]]:
         """
         Assumes inputs are from the same forecast for a single date and time
         """
         input_requests = list(expand([validate_request(req) for req in input_requests]))
-        output_template = (
-            None if output_template is None else validate_request(output_template)
-        )
+        output_template = validate_request(output_template)
         for base_output, config in self.reconstruct(
             output_template=output_template,
             forecast={"inputs": input_requests},

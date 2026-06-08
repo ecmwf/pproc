@@ -28,4 +28,3 @@ def window(operation: str, coords: list[Any], include_init: bool) -> dict:
     ret.setdefault("stepType", "max")
     ret["stepRange"] = f"{coords[0]}-{coords[-1]}"
     return ret
-    

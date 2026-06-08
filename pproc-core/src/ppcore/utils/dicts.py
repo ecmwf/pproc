@@ -9,7 +9,12 @@
 
 import collections
 import itertools
-from typing import Callable, Dict, Iterable, Iterator, TypeVar, TypeAlias
+from typing import Callable
+from typing import Dict
+from typing import Iterable
+from typing import Iterator
+from typing import TypeAlias
+from typing import TypeVar
 
 K = TypeVar("K")
 T = TypeVar("T")
@@ -18,7 +23,7 @@ V = TypeVar("V")
 NestedDict: TypeAlias = Dict[K, V | "NestedDict"]
 
 
-def dict_product(dic: Dict[K, Iterable[V]]) -> Iterator[Dict[K, V]]:
+def dict_product(dic: collections.abc.Mapping[K, Iterable[V]]) -> Iterator[Dict[K, V]]:
     keys = list(dic.keys())
     its = tuple(dic.values())
     for vals in itertools.product(*its):
@@ -37,7 +42,7 @@ def dict_apply(func: Callable[[V], V], dic: NestedDict) -> NestedDict:
 
 def deep_update(original: NestedDict, update: NestedDict) -> NestedDict:
     for key, value in update.items():
-        if isinstance(value, NestedDict) and isinstance(original.get(key, None), NestedDict):
+        if isinstance(value, dict) and isinstance(original.get(key, None), dict):
             original[key] = deep_update(original[key], value)
         else:
             original[key] = value

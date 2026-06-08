@@ -31,4 +31,4 @@ The workflows defined in this plugin depend on PProc. Please follow the instruct
 pip install git+https://github.com/ecmwf/earthkit-workflows-pproc.git
 ```
 
-For development, you can use `pip install -e .` 
+For development, you can use `pip install -e .`

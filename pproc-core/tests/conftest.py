@@ -9,11 +9,12 @@
 
 import os
 from typing import Optional
+
 import yaml
 
-
 TEST_DIR = os.path.dirname(os.path.realpath(__file__))
-SCHEMA = os.path.join(TEST_DIR, "schema", "schema.yaml")
+SCHEMA = os.path.join(TEST_DIR, "schema.yaml")
+
 
 def schema(section: Optional[str] = None) -> dict:
     with open(SCHEMA, "r") as f:

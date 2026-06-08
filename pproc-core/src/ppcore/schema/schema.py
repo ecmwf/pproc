@@ -7,17 +7,20 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-from typing import Iterator, Optional
-from typing_extensions import Self
-import copy
+from typing import Iterator
+from typing import Optional
+
 import numpy as np
 import pandas as pd
 import yaml
+from typing_extensions import Self
 
 from ppcore.schema.config import ConfigSchema
 from ppcore.schema.input import InputSchema
 from ppcore.schema.step import StepSchema
-from ppcore.utils.requests import METADATA_KEYS, VALUE_TYPES, expand, validate_request
+from ppcore.utils.requests import METADATA_KEYS
+from ppcore.utils.requests import VALUE_TYPES
+from ppcore.utils.requests import validate_request
 
 
 class Schema:
