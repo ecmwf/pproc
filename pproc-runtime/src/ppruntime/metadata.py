@@ -7,10 +7,14 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-from typing import Any
+from typing import Any, Optional
+
 
 from earthkit.data import FieldList
-from pproc.prob.parallel import threshold_grib_headers
+
+
+def resolve_metadata(metadata: Optional[dict]) -> dict:
+    return metadata if metadata is not None else {}
 
 
 def window(operation: str, coords: list[Any], include_init: bool) -> dict:
@@ -145,33 +149,8 @@ def sot(ens: FieldList, clim: FieldList, metadata: dict, number: int) -> dict:
     return ret
 
 
-def threshold(
-    edition: int, comparison: str, threshold: float, local_scale_factor: int | None
-) -> dict:
-    threshold_config = {
-        "value": float(threshold),
-        "comparison": comparison,
-        "out_paramid": 0,
-    }
-    if local_scale_factor:
-        threshold_config["local_scale_factor"] = local_scale_factor
-    ret = threshold_grib_headers(
-        edition,
-        threshold_config,
-    )
-    ret.pop("paramId")
-    return ret
-
-
-def anomaly_clim(clim: FieldList) -> dict:
-    """
-    Get required information from climatology metadata. Note,
-    only required for GRIB edition 2 threshold probability products
-    """
-    return {
-        key: clim.metadata()[0].get(key)
-        for key in ["climateDateFrom", "climateDateTo", "referenceDate"]
-    }
+def extract(fields: FieldList, keys: list[str]) -> dict:
+    return {key: fields.metadata()[0].get(key) for key in keys}
 
 
 def quantiles(

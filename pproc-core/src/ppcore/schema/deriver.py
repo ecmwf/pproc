@@ -7,16 +7,24 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-from typing import Literal, Any, Optional, Annotated, Union
-import datetime
 import bisect
-from pydantic import BaseModel, Field, model_validator, ConfigDict
+import datetime
+from typing import Annotated
+from typing import Any
+from typing import Literal
+from typing import Optional
+from typing import Union
+
 import numpy as np
-
 from earthkit.time import Sequence
-from earthkit.time.climatology import RelativeYear, date_range
+from earthkit.time.climatology import RelativeYear
+from earthkit.time.climatology import date_range
+from pydantic import BaseModel
+from pydantic import ConfigDict
+from pydantic import Field
+from pydantic import model_validator
 
-# from pproc.common.stepseq import fcmonth_to_steprange
+from ppcore.utils.stepseq import fcmonth_to_steprange
 
 
 class DefaultStepDeriver(BaseModel):
@@ -66,7 +74,7 @@ class DeaccumulateStepDeriver(BaseModel):
 
     def _inst_step(self, step: int, fc_steps: list[int]) -> list[int]:
         if step == 0:
-            raise ValueError(f"Cannot perform de-accumulation for step 0")
+            raise ValueError("Cannot perform de-accumulation for step 0")
         if step == fc_steps[0]:
             return [step]
         start = fc_steps[fc_steps.index(step) - 1]
@@ -254,7 +262,6 @@ class HindcastDatesDeriver(BaseModel):
 
     def derive(self, fc_request: dict) -> list[str]:
         date = datetime.datetime.strptime(str(fc_request["date"]), "%Y%m%d").date()
-        kwargs = self.model_dump()
         start = RelativeYear(self.rstart).relative_to(date)
         end = RelativeYear(self.rend).relative_to(date)
         return [

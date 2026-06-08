@@ -1,123 +1,124 @@
 - class: od
   stream: enfo
-  type: em
+  type: efi
   levtype: sfc
   domain: g
-  param: "10"
+  param: "132228"
   date: "20230914"
   time: 12
   expver: "0001"
-  step: 0
+  step: 12-36
 - class: od
   stream: enfo
-  type: em
+  type: efi
   levtype: sfc
   domain: g
-  param: "10"
+  param: "132228"
   date: "20230914"
   time: 12
   expver: "0001"
-  step: 3
+  step: 36-60
 - class: od
   stream: enfo
-  type: em
+  type: efi
   levtype: sfc
   domain: g
-  param: "10"
+  param: "132228"
   date: "20230914"
   time: 12
   expver: "0001"
-  step: 6
+  step: 12-84
 - class: od
   stream: enfo
-  type: es
+  type: efic
   levtype: sfc
   domain: g
-  param: "10"
+  param: "132228"
   date: "20230914"
   time: 12
   expver: "0001"
-  step: 0
+  step: 12-36
 - class: od
   stream: enfo
-  type: es
+  type: efic
   levtype: sfc
   domain: g
-  param: "10"
+  param: "132228"
   date: "20230914"
   time: 12
   expver: "0001"
-  step: 3
+  step: 36-60
 - class: od
   stream: enfo
-  type: es
+  type: efic
   levtype: sfc
   domain: g
-  param: "207"
+  param: "132228"
   date: "20230914"
   time: 12
   expver: "0001"
-  step: 6
+  step: 12-84
 - class: od
   stream: enfo
-  type: cf
+  type: sot
+  number: [90]
   levtype: sfc
   domain: g
-  param: "10"
+  param: "132228"
   date: "20230914"
   time: 12
   expver: "0001"
-  step: 0
+  step: 12-36
 - class: od
   stream: enfo
-  type: cf
+  type: sot
+  number: [90]
   levtype: sfc
   domain: g
-  param: "10"
+  param: "132228"
   date: "20230914"
   time: 12
   expver: "0001"
-  step: 3
+  step: 36-60
 - class: od
   stream: enfo
-  type: cf
+  type: sot
+  number: [90]
   levtype: sfc
   domain: g
-  param: "10"
+  param: "132228"
   date: "20230914"
   time: 12
   expver: "0001"
-  step: 6
+  step: 12-84
 - class: od
   stream: enfo
-  type: pf
-  number: [1, 2, 3, 4, 5]
+  type: efi
   levtype: sfc
   domain: g
-  param: "10"
+  param: "132044"
   date: "20230914"
   time: 12
   expver: "0001"
-  step: 0
+  step: 12-36
 - class: od
   stream: enfo
-  type: pf
-  number: [1, 2, 3, 4, 5]
+  type: efic
   levtype: sfc
   domain: g
-  param: "10"
+  param: "132044"
   date: "20230914"
   time: 12
   expver: "0001"
-  step: 3
+  step: 12-36
 - class: od
   stream: enfo
-  type: pf
-  number: [1, 2, 3, 4, 5]
+  type: sot
+  number: [90]
   levtype: sfc
   domain: g
-  param: "10"
+  param: "132044"
   date: "20230914"
   time: 12
   expver: "0001"
-  step: 6
+  step: 12-36

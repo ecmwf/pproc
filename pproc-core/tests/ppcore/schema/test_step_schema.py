@@ -8,10 +8,10 @@
 # nor does it submit to any jurisdiction.
 
 import pytest
-
-from ppcore.schema.step import StepType, StepSchema
-
 from conftest import schema
+
+from ppcore.schema.step import StepSchema
+from ppcore.schema.step import StepType
 
 
 @pytest.mark.parametrize(

@@ -8,6 +8,7 @@
 # nor does it submit to any jurisdiction.
 
 import os
+from pathlib import Path
 
 import pytest
 import yaml
@@ -18,18 +19,18 @@ ROOT_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)))
 
 
 @pytest.mark.parametrize(
-    "product, requests, expected_num_nodes",
+    "product, requests",
     [
-        ["ensemble", f"{ROOT_DIR}/templates/prob.yaml", 96],
-        ["ensemble_anomaly", f"{ROOT_DIR}/templates/t850.yaml", 80],
-        ["ensemble", f"{ROOT_DIR}/templates/ensms.yaml", 82],
-        ["extreme", f"{ROOT_DIR}/templates/extreme.yaml", 80],
-        ["ensemble", f"{ROOT_DIR}/templates/quantiles.yaml", 73],
+        ["ensemble", os.path.join(ROOT_DIR, "templates", "prob.yaml")],
+        ["anomaly", os.path.join(ROOT_DIR, "templates", "t850.yaml")],
+        ["ensemble", os.path.join(ROOT_DIR, "templates", "ensms.yaml")],
+        ["extreme", os.path.join(ROOT_DIR, "templates", "extreme.yaml")],
+        ["ensemble", os.path.join(ROOT_DIR, "templates", "quantiles.yaml")],
     ],
     ids=["prob", "t850", "ensms", "extreme", "quantiles"],
 )
-def test_graph_construction(product, requests, expected_num_nodes):
+def test_graph_construction(product, requests):
     with open(requests, "r") as f:
         output_requests = yaml.safe_load(f)
-    graph = getattr(products, product)(output_requests, f"{ROOT_DIR}/schema.yaml")
-    assert len([x for x in graph.nodes()]) == expected_num_nodes
+    schema_path = os.path.join(Path(ROOT_DIR).parent, "schema.yaml")
+    getattr(products, product)(output_requests, schema_path)

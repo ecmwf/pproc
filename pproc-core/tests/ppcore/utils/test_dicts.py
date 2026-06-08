@@ -1,13 +1,12 @@
 from ppcore.utils.dicts import dict_product
 
+
 def test_dictprod():
     assert list(dict_product({})) == [{}]
 
     assert list(dict_product({"x": range(3), "empty": []})) == []
 
-    assert list(dict_product({"foo": [1, 2, 3]})) == [
-        {"foo": n} for n in [1, 2, 3]
-    ]
+    assert list(dict_product({"foo": [1, 2, 3]})) == [{"foo": n} for n in [1, 2, 3]]
 
     dic = {"a": [5, 12], "b": range(3), "c": ("a", "b")}
     assert list(dict_product(dic)) == [

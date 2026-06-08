@@ -7,6 +7,7 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
+import os
 from datetime import datetime, timedelta
 
 import pytest
@@ -16,18 +17,21 @@ from ppruntime.io import retrieve
 request = {
     "class": "od",
     "expver": "0001",
-    "stream": "enfo",
-    "type": "cf",
+    "stream": "oper",
+    "type": "fc",
     "date": (datetime.today() - timedelta(days=1)).strftime("%Y%m%d"),
     "time": "12",
     "domain": "g",
     "levtype": "sfc",
     "step": "12",
     "param": 228,
-    "source": "mars",
 }
 
 
+@pytest.mark.parametrize(
+    "source",
+    ["mars", "fdb"],
+)
 @pytest.mark.parametrize(
     "overrides",
     [
@@ -42,13 +46,9 @@ request = {
     ],
     ids=["default", "interpolate", "wind"],
 )
-def test_retrieve(overrides):
+def test_retrieve(source, overrides):
+    os.environ["FDB_HOME"] = "/home/fdbprod"
     test_request = request.copy()
+    test_request["source"] = source
     test_request.update(overrides)
     retrieve(test_request)
-
-
-def test_retrieve_multi():
-    fdb_request = request.copy()
-    fdb_request["source"] = "fdb"
-    retrieve([request, fdb_request])

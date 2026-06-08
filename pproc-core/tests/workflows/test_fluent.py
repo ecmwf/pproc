@@ -8,13 +8,17 @@
 # nor does it submit to any jurisdiction.
 
 import os
+import tempfile
+
 import pytest
 import xarray as xr
-from earthkit.workflows.fluent import Node, Payload
+from earthkit.workflows.fluent import Node
+from earthkit.workflows.fluent import Payload
+from earthkit.workflows.graph import Graph
+from earthkit.workflows.graph import deduplicate_nodes
+from earthkit.workflows.nodetree import nodetree_from_dict
 
-from earthkit.workflows import Graph, deduplicate_nodes
 from earthkit.workflows.plugins.pproc.fluent import Action
-import tempfile
 
 
 @pytest.mark.parametrize(
@@ -27,12 +31,17 @@ import tempfile
 )
 def test_thermal(inputs, nnodes):
     action = Action(
-        xr.DataArray(
-            data=[
-                Node(Payload(print, [x]), name=str(x)) for x in range(len(inputs[0]))
-            ],
-            dims=["param"],
-            coords={"param": inputs[0]},
+        nodetree_from_dict(
+            {
+                "/": xr.DataArray(
+                    data=[
+                        Node(Payload(print, [x]), name=str(x))
+                        for x in range(len(inputs[0]))
+                    ],
+                    dims=["param"],
+                    coords={"param": inputs[0]},
+                )
+            }
         )
     )
     graph = Graph([])

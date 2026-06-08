@@ -1,7 +1,14 @@
-from typing import Any, Iterator, Optional
 import copy
-import pandas as pd
+import itertools
+from typing import Iterator
+from typing import Optional
+
 import numpy as np
+import pandas as pd
+
+from ppcore.utils.dicts import deep_update
+from ppcore.utils.dicts import dict_product
+from ppcore.utils.helpers import to_list
 
 METADATA_KEYS = {"param": "paramId", "date": "dataDate"}
 
@@ -128,7 +135,7 @@ def update_request(
     return deduplicated
 
 
-def extract_mars(keys: dict, additional: list[str] = None) -> dict:
+def extract_mars(keys: dict, additional: Optional[list[str]] = None) -> dict:
     additional = additional or []
     for key, metadata_key in METADATA_KEYS.items():
         if metadata_key in keys:

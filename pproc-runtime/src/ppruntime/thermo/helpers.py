@@ -8,12 +8,11 @@
 # nor does it submit to any jurisdiction.
 
 import earthkit.data
-from earthkit.data.encoders import grib
+from earthkit.data.core.metadata import Metadata
 import logging
 import numpy as np
 import thermofeel
 from meters import metered
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +102,6 @@ def find_utci_missing_values(t2m, va, mrt, ehPa, utci, print_misses=True):
 
 
 def validate_utci(utci, misses, lats, lons):
-
     out_of_bounds = 0
     nans = 0
     for i in range(len(utci)):
@@ -128,7 +126,9 @@ def get_datetime(fields: earthkit.data.FieldList):
     valid_time = dt["valid_time"]
     assert all(
         x == valid_time for x in fields.datetime()["valid_time"]
-    ), f"Obtained different valid times {[x for x in fields.datetime()['valid_time']]}"  # verify valid time all same
+    ), (
+        f"Obtained different valid times {[x for x in fields.datetime()['valid_time']]}"
+    )  # verify valid time all same
     return base_time, valid_time
 
 
@@ -173,12 +173,12 @@ def step_interval(fields) -> int:
     return delta
 
 
-def create_output(values: np.ndarray, template: earthkit.data.Metadata, metadata: dict):
-        template = [x.override(**metadata) for x in template]
-        return earthkit.data.FieldList.from_array(values, template)
+def create_output(values: np.ndarray, template: list[Metadata], metadata: dict):
+    template = [x.override(**metadata) for x in template]
+    return earthkit.data.FieldList.from_array(values, template)
 
 
-def create_surface_output(values: np.ndarray, template: earthkit.data.Metadata, metadata: dict):
+def create_surface_output(values: np.ndarray, template: list[Metadata], metadata: dict):
     template = [x.override(**metadata) for x in template]
     template = [
         x.override(

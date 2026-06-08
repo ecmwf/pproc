@@ -1,12 +1,15 @@
 import re
 from typing import Any
 
+import numpy as np
+
 _TEMPLATE_RE = re.compile("^{([a-z_]*)}:?([a-z]*)$", re.I)
 _TYPES = {
     "int": int,
     "str": str,
     "float": float,
 }
+
 
 def to_list(value: Any) -> list[Any]:
     if np.ndim(value) == 0:

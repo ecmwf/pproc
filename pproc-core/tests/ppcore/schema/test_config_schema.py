@@ -8,10 +8,9 @@
 # nor does it submit to any jurisdiction.
 
 import pytest
+from conftest import schema
 
 from ppcore.schema.config import ConfigSchema
-
-from conftest import schema
 
 
 def test_reconstruct():
@@ -31,6 +30,7 @@ def test_reconstruct():
     [
         [
             {
+                "class": "od",
                 "stream": "enfo",
                 "date": "20250101",
                 "time": "00",
@@ -38,11 +38,13 @@ def test_reconstruct():
                 "number": 90,
                 "param": "132167",
                 "step": "0-24",
+                "levtype": "sfc",
             },
             {"sot": [90]},
         ],
         [
             {
+                "class": "od",
                 "stream": "enfo",
                 "date": "20250101",
                 "time": "00",
@@ -50,11 +52,13 @@ def test_reconstruct():
                 "number": [10, 90],
                 "param": "132167",
                 "step": "0-24",
+                "levtype": "sfc",
             },
             {"sot": [10, 90]},
         ],
         [
             {
+                "class": "od",
                 "stream": "enfo",
                 "date": "20250101",
                 "time": "00",
@@ -62,11 +66,13 @@ def test_reconstruct():
                 "quantile": "1:100",
                 "param": "167",
                 "step": "0-24",
+                "levtype": "sfc",
             },
             {"quantiles": [0.01]},
         ],
         [
             {
+                "class": "od",
                 "stream": "enfo",
                 "date": "20250101",
                 "time": "00",
@@ -74,6 +80,7 @@ def test_reconstruct():
                 "quantile": ["1:100", "2:100"],
                 "param": "167",
                 "step": "0-24",
+                "levtype": "sfc",
             },
             {"quantiles": [0.01, 0.02]},
         ],

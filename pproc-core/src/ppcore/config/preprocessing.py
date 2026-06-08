@@ -7,15 +7,22 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-from abc import ABC, abstractmethod
-from typing import Annotated, Any, List, Literal, Optional, Tuple, Union
-from typing_extensions import Self
+from abc import ABC
+from typing import Annotated
+from typing import Any
+from typing import List
+from typing import Literal
+from typing import Optional
+from typing import Union
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel
+from pydantic import Field
+from pydantic import model_validator
 
 
 class Preprocessing(BaseModel, ABC):
-    output: Optional[dict] = None
+    metadata: Optional[dict] = None
+
 
 class Scaling(Preprocessing):
     #   - operation: scale
@@ -43,16 +50,18 @@ class Expression(Preprocessing):
 
 
 class MaskExpression(BaseModel):
-    lhs: Union[float, dict]
-    cmp: Literal["<", ">", ">=", "<=", "==", "!="]
-    rhs: Union[float, dict]
+    select: dict
+    comparison: Literal["<", ">", ">=", "<=", "==", "!="]
+    value: float
 
     @model_validator(mode="before")
     @classmethod
     def validate_model(cls, data: Any) -> Any:
         if isinstance(data, list):
-            assert len(data) == 3, "Mask expression should be a [lhs, cmp, rhs] list"
-            return {"lhs": data[0], "cmp": data[1], "rhs": data[2]}
+            assert (
+                len(data) == 3
+            ), "Mask expression should be a [select, comparison, value] list"
+            return {"select": data[0], "comparison": data[1], "value": data[2]}
         return data
 
 

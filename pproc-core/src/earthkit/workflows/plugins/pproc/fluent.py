@@ -7,21 +7,27 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-import functools
 import inspect
 from typing import Any
 
 import numpy as np
 from earthkit.workflows.backends.earthkit import FieldListBackend
+from earthkit.workflows.nodetree import nodetree_size
 
 from earthkit.workflows import fluent
-from earthkit.workflows.plugins.pproc.utils.request import MultiSourceRequest, Request
+from earthkit.workflows.plugins.pproc.utils.request import MultiSourceRequest
+from earthkit.workflows.plugins.pproc.utils.request import Request
+from ppcore.config.preprocessing import MaskExpression
+from ppcore.config.threshold import ThresholdConfig
 
 
 class Action(fluent.Action):
     # TODO: migrate to schema
     _THERMAL_CONFIG = {
-        "utci": {"operation": "ppcore.thermal_indices.calc_utci", "params": ["2t", "2d", "10si", "mrt"]},
+        "utci": {
+            "operation": "ppcore.thermal_indices.calc_utci",
+            "params": ["2t", "2d", "10si", "mrt"],
+        },
         "10si": {
             "operation": "norm",
             "metadata": {"paramId": 207},
@@ -31,16 +37,43 @@ class Action(fluent.Action):
             "operation": "ppcore.thermal_indices.calc_mrt",
             "params": ["cossza", "dsrp", "ssrd", "fdir", "strd", "str", "ssr"],
         },
-        "cossza": {"operation": "ppcore.thermal_indices.calc_cossza", "params": ["2t", "fdir"]},
-        "dsrp": {"operation": "ppcore.thermal_indices.calc_dsrp", "params": ["fdir", "cossza"]},
-        "hmdx": {"operation": "ppcore.thermal_indices.calc_hmdx", "params": ["2t", "2d"]},
+        "cossza": {
+            "operation": "ppcore.thermal_indices.calc_cossza",
+            "params": ["2t", "fdir"],
+        },
+        "dsrp": {
+            "operation": "ppcore.thermal_indices.calc_dsrp",
+            "params": ["fdir", "cossza"],
+        },
+        "hmdx": {
+            "operation": "ppcore.thermal_indices.calc_hmdx",
+            "params": ["2t", "2d"],
+        },
         "2r": {"operation": "ppcore.thermal_indices.calc_rhp", "params": ["2t", "2d"]},
-        "heatx": {"operation": "ppcore.thermal_indices.calc_heatx", "params": ["2t", "2d"]},
-        "wbgt": {"operation": "ppcore.thermal_indices.calc_wbgt", "params": ["2t", "2d", "10si", "mrt"]},
-        "gt": {"operation": "ppcore.thermal_indices.calc_gt", "params": ["2t", "10si", "mrt"]},
-        "nefft": {"operation": "ppcore.thermal_indices.calc_nefft", "params": ["2t", "10si", "2r"]},
-        "wcf": {"operation": "ppcore.thermal_indices.calc_wcf", "params": ["2t", "10si"]},
-        "aptmp": {"operation": "ppcore.thermal_indices.calc_aptmp", "params": ["2t", "2r", "10si"]},
+        "heatx": {
+            "operation": "ppcore.thermal_indices.calc_heatx",
+            "params": ["2t", "2d"],
+        },
+        "wbgt": {
+            "operation": "ppcore.thermal_indices.calc_wbgt",
+            "params": ["2t", "2d", "10si", "mrt"],
+        },
+        "gt": {
+            "operation": "ppcore.thermal_indices.calc_gt",
+            "params": ["2t", "10si", "mrt"],
+        },
+        "nefft": {
+            "operation": "ppcore.thermal_indices.calc_nefft",
+            "params": ["2t", "10si", "2r"],
+        },
+        "wcf": {
+            "operation": "ppcore.thermal_indices.calc_wcf",
+            "params": ["2t", "10si"],
+        },
+        "aptmp": {
+            "operation": "ppcore.thermal_indices.calc_aptmp",
+            "params": ["2t", "2r", "10si"],
+        },
     }
 
     def _reduction_with_metadata(
@@ -343,8 +376,7 @@ class Action(fluent.Action):
         ------
         Action
         """
-        if metadata is None:
-            metadata = {}
+        metadata = metadata or {}
         mean = self.mean(
             dim=dim, batch_size=batch_size, metadata={"type": "em", **metadata}
         )
@@ -361,17 +393,31 @@ class Action(fluent.Action):
         batch_size: int = 0,
         metadata: dict | None = None,
     ) -> "Action":
-        payload = fluent.Payload(
-            "ppcore.stats.threshold",
-            (
-                fluent.Node.input_name(0),
-                threshold,
-            ),
-        )
-        return (
-            self.map(payload)
-            .multiply(100)
-            .mean(dim=dim, batch_size=batch_size, metadata=metadata)
+        thresholds = ThresholdConfig(**threshold)
+        combined = None
+        for threshold in thresholds.param_thresholds:
+            selected = self.sel(threshold.select) if threshold.select else self
+            selected.map(
+                fluent.Payload(
+                    "ppcore.stats.mask",
+                    (fluent.Node.input_name(0),),
+                    threshold.model_dump(
+                        exclude=("select", "lower_scale_factor", "upper_scale_factor")
+                    ),
+                )
+            )
+            if combined is None:
+                combined = selected
+            else:
+                combined = combined.join(dim="param").reduce(
+                    "ppruntime.stats.logical_and", dim="param"
+                )
+
+        metadata = metadata or {}
+        threshold_metadata = thresholds.grib_keys(edition=metadata.get("edition", 1))
+        threshold_metadata.update(metadata)
+        return combined.multiply(100).mean(
+            dim=dim, batch_size=batch_size, metadata=threshold_metadata
         )
 
     def anomaly(
@@ -447,11 +493,7 @@ class Action(fluent.Action):
                 return op(dim=dim, metadata=metadata, **kwargs)
             if metadata is not None:
                 kwargs.setdefault("metadata", {}).update(metadata)
-            op_function = getattr(FieldListBackend, operation, None) or getattr(
-                math, operation, None
-            )
-            if op_function is None:
-                raise ValueError(f"Operation {operation} not found")
+            op_function = getattr(FieldListBackend, operation, None) or operation
             operation = fluent.Payload(
                 op_function,
                 kwargs=kwargs,
@@ -482,9 +524,9 @@ class Action(fluent.Action):
             return self.multiply(kwargs["value"], metadata=metadata)
         return self._wrapped_reduction(operation, dim, batch_size, metadata, **kwargs)
 
-    # TODO: turn this into more general param operation that scans schema to look for 
-    # computation method of missing parameters. Or should it be that in the creation of the 
-    # configuration returned by the schema, we list configuration for creating all required 
+    # TODO: turn this into more general param operation that scans schema to look for
+    # computation method of missing parameters. Or should it be that in the creation of the
+    # configuration returned by the schema, we list configuration for creating all required
     # intermediate parameters
     def thermal_index(
         self, param: str, dim: str = "param", metadata: dict | None = None
@@ -515,20 +557,29 @@ class Action(fluent.Action):
     def mask(
         self,
         select: dict,
-        mask: tuple[dict, str, float],
+        mask: dict,
         replacement: float = 0.0,
         dim: str = "param",
         metadata: dict | None = None,
     ) -> "Action":
-        filter_selection, comparison, threshold = mask
-        selected_nodes = self.sel(select).join(self.sel(filter_selection), dim=dim)
-        return selected_nodes._wrapped_reduction(
-            "filter",
-            dim=dim,
-            metadata=metadata,
-            comparison=comparison,
-            threshold=threshold,
-            replacement=replacement,
+        mask = MaskExpression(**mask)
+        mask_action = self.sel(mask.select, drop=True) if select else self
+        mask_action = mask_action.map(
+            fluent.Payload(
+                "ppcore.stats.mask",
+                (fluent.Node.input_name(0),),
+                {"lower_comparison": mask.comparison, "lower_value": mask.value},
+            )
+        )
+        return (
+            self.sel(select, drop=True)
+            .join(mask_action, dim=dim)
+            ._wrapped_reduction(
+                FieldListBackend.filter,
+                dim=dim,
+                metadata=metadata,
+                replacement=replacement,
+            )
         )
 
     def ensemble_operation(
@@ -726,8 +777,8 @@ def from_source(
             request = Request(request)
         payloads = np.empty(tuple(request.dims.values()), dtype=object)
         for indices, new_request in request.expand():
-            payloads[indices] = functools.partial(
-                "ppcore.io.retrieve", new_request, **backend_kwargs
+            payloads[indices] = fluent.Payload(
+                "ppruntime.io.retrieve", [new_request], backend_kwargs
             )
         new_action = fluent.from_source(
             payloads,
