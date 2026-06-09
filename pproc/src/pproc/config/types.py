@@ -9,7 +9,7 @@
 
 import copy
 import os
-from typing import Literal, Optional, List, Any, Annotated, ClassVar, Iterator
+from typing import Literal, Optional, List, Any, Annotated, Iterator
 from typing_extensions import Self, Union
 from pydantic import (
     field_validator,
@@ -38,7 +38,7 @@ from pproc.config.utils import (
     _get,
 )
 from pproc.config.preprocessing import Reshape, Expression
-from pproc.common.stepseq import steprange_to_fcmonth
+from ppcore.utils.stepseq import steprange_to_fcmonth
 from pproc.extremes.indices import Index, SUPPORTED_INDICES, create_indices
 from pproc.flightlevel.mapping import FLIGHT_TO_PRESSURE_LEVEL
 
@@ -590,7 +590,7 @@ class ProbConfig(BaseConfig):
         if clim_step is not None:
             assert len(fc_step) == len(
                 clim_step
-            ), f"Forecast and clim steps must be of the same length"
+            ), "Forecast and clim steps must be of the same length"
             for clim_inp in sorted_requests.get("clim", []):
                 clim_inp["step"] = {
                     fc_step[x]: clim_step[x] for x in range(len(fc_step))
@@ -936,7 +936,7 @@ class ThermoConfig(BaseConfig):
                     nsteps = list(map(lambda x: len(str(x).split("-")), steps))
                     assert np.all(
                         np.asarray(nsteps) == 1
-                    ), f"Accumulation inputs required for step ranges."
+                    ), "Accumulation inputs required for step ranges."
         return self
 
     @classmethod

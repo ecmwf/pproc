@@ -150,7 +150,7 @@ def test_targets(tmpdir, config, cli, expected, target_type):
     with patch("sys.argv", ["", "-f", f"{tmpdir}/config.yaml"] + cli):
         cfg = Conflator(app_name="targets", model=targets_model).load()
         assert cfg.model_dump(by_alias=True) == expected
-        assert type(cfg.test.target) == target_type
+        assert type(cfg.test.target) is target_type
 
 
 @pytest.mark.parametrize(

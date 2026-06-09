@@ -217,10 +217,13 @@ def parallel_data_retrieval(
     )
     with executor:
         delay = 0 if num_processes == 1 else num_processes
-        submit = lambda keys: (
-            keys,
-            executor.submit(_retrieve, data_requesters, **keys),
-        )
+
+        def submit(keys):
+            return (
+                keys,
+                executor.submit(_retrieve, data_requesters, **keys),
+            )
+
         requests = dict_product(dims)
         for keys, future in delayed_map(delay, submit, requests):
             yield keys, future.result()

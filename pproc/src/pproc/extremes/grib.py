@@ -13,7 +13,6 @@ from pproc.common.grib_helpers import construct_message
 
 
 def extreme_template(accum, template_fc, template_clim, allow_grib1_to_grib2=False):
-
     template_ext = construct_message(template_fc, accum.grib_keys())
     grib_keys = {}
 

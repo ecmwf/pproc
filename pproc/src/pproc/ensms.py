@@ -58,7 +58,6 @@ def ensms_iteration(
     accum: Accumulator,
     template_ens: eccodes.GRIBMessage,
 ):
-
     ens = accum.values
     assert ens is not None
 

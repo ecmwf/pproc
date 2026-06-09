@@ -66,7 +66,7 @@ def _to_mars(requests: list[dict]) -> str:
     for req in requests:
         source = req.pop("source", None)
         target = req.pop("target", None)
-        # Reverse source/target keys so request can be used to 
+        # Reverse source/target keys so request can be used to
         # create/extract from the input/output files
         if source and source not in ["fdb", "mars", "fdbmars"]:
             req["target"] = f"'{source}'"

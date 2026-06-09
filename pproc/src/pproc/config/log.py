@@ -8,8 +8,9 @@
 # nor does it submit to any jurisdiction.
 
 import logging
+from typing import Literal
 
-from annotated_types import Annotated, Literal
+from annotated_types import Annotated
 from conflator import CLIArg, ConfigModel, EnvVar
 from pydantic import Field
 

@@ -7,13 +7,7 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-from typing import Any, Optional, Iterator
-import copy
-import numpy as np
-import pandas as pd
-import itertools
-
-from ppcore.utils.dicts import dict_product
+from typing import Any
 
 
 def parse_vars(items):

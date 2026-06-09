@@ -29,6 +29,7 @@ jobs:
       run: |
         cd pproc-runtime
         export UV_FROZEN=1
+        export SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0
         uv sync --prerelease allow --python "${{ matrix.python_version }}" --all-packages
         uv run --prerelease allow prek --directory . --config ../.pre-commit-config.yaml
         uv run --prerelease allow ty check
@@ -75,6 +76,9 @@ jobs:
     - name: Run pproc tests
       run: |
         cd pproc
+        export UV_FROZEN=1
+        uv sync --python "${{ matrix.python_version }}" --all-packages
+        uv run prek --directory . --config ../.pre-commit-config.yaml
         if [ -d "tests" ]; then
-          uv run --active --locked --prerelease allow --with pytest -m tests/ -v
+          uv run --prerelease allow -m tests/ -v
         fi

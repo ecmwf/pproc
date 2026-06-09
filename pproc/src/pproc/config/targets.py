@@ -13,7 +13,6 @@ from typing import Any, Literal, Optional, Union
 from typing_extensions import Self
 import yaml
 
-import eccodes
 import pyfdb
 from annotated_types import Annotated
 from conflator import ConfigModel

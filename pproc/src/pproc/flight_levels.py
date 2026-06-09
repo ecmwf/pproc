@@ -20,7 +20,6 @@
 import functools
 import signal
 import sys
-import earthkit
 import logging
 
 import numpy as np

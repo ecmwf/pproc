@@ -16,7 +16,6 @@ import signal
 import logging
 import numexpr
 
-import eccodes
 from meters import ResourceMeter
 from conflator import Conflator
 import earthkit.data
@@ -281,7 +280,6 @@ def ecpoint_iteration(
                 config.parallelisation.n_par_compute,
             )
         ):
-
             # Scale outputs, needed for grib 2 rainfall in metres
             if config.scale_outputs is not None:
                 pt_bc_allwt *= config.scale_outputs

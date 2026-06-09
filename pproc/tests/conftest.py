@@ -21,13 +21,12 @@ import pyfdb
 TEST_DIR = os.path.dirname(os.path.realpath(__file__))
 DATA_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "data")
 NEXUS = "https://sites.ecmwf.int/repository/pproc/test-data/test-data"
-SCHEMA = os.path.join(TEST_DIR, "schema", "schema.yaml")
+SCHEMA = os.path.join(TEST_DIR, "schema.yaml")
 
 
 def download_test_data(
     test_files: List[str], dir_url: str = NEXUS, local_dir: str = DATA_DIR
 ) -> List[str]:
-
     local_files = []
     for file in test_files:
         if not os.path.exists(local_dir):

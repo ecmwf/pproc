@@ -9,6 +9,7 @@
 
 import numpy as np
 
+
 def gen_steps(start, end, delta, monthly=False):
     """Generate the list of steps
 

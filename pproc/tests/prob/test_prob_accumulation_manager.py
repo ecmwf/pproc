@@ -273,7 +273,7 @@ def test_create_threshold(config, expected, exp_coords):
         assert accum.name == name
         assert len(accum.dims) == 1
         assert accum.dims[0].key == "step"
-        assert type(accum.dims[0].accumulation) == expected[name][0]
+        assert type(accum.dims[0].accumulation) is expected[name][0]
         assert acc_mgr._thresholds[name] == expected[name][1]
     assert set(acc_mgr.coords.keys()) == {"step"}
     assert acc_mgr.coords["step"] == exp_coords
@@ -428,7 +428,7 @@ def test_create_anomaly(config, expected, exp_coords):
         assert accum.name == name
         assert len(accum.dims) == 1
         assert accum.dims[0].key == "step"
-        assert type(accum.dims[0].accumulation) == expected[name][0]
+        assert type(accum.dims[0].accumulation) is expected[name][0]
         assert acc_mgr._thresholds[name] == expected[name][1]
     assert set(acc_mgr.coords.keys()) == {"step"}
     assert acc_mgr.coords["step"] == exp_coords

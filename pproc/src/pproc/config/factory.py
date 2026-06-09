@@ -8,11 +8,9 @@
 # nor does it submit to any jurisdiction.
 
 import os
-import pandas as pd
-import numpy as np
 import logging
 
-from ppcore.utils.requests import expand, squeeze
+from ppcore.utils.requests import expand
 from ppcore.schema.schema import Schema
 
 from pproc.config import types

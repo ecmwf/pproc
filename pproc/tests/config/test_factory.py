@@ -7,11 +7,10 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-import os
 import pytest
 
 from ppcore.utils.dicts import deep_update
-from ppcore.utils.requests import expand, extract_mars
+from ppcore.utils.requests import extract_mars
 from ppcore.schema.schema import Schema
 
 from pproc.config import types
@@ -58,8 +57,9 @@ def default_config(name: str, param: str):
                         "request": [
                             {
                                 **DEFAULT_REQUEST,
+                                "stream": "oper",
                                 "param": param,
-                                "type": "cf",
+                                "type": "fc",
                             },
                             {
                                 **DEFAULT_REQUEST,
@@ -85,20 +85,22 @@ TEST_CASES = {
             },
             "parameters": {
                 "130_pl": {
-                    "total_fields": 102,
+                    "total_fields": 202,
                     "dtype": "float64",
                     "inputs": {
                         "fc": {
                             "request": [
                                 {
                                     **DEFAULT_REQUEST,
+                                    "stream": "eefo",
                                     "type": "cf",
                                     "levelist": [250, 500],
                                 },
                                 {
                                     **DEFAULT_REQUEST,
+                                    "stream": "eefo",
                                     "type": "pf",
-                                    "number": list(range(1, 51)),
+                                    "number": list(range(1, 101)),
                                     "levelist": [250, 500],
                                 },
                             ],
@@ -110,7 +112,15 @@ TEST_CASES = {
                             "windows": [
                                 {
                                     "operation": "mean",
-                                    "metadata": {"type": "fcmean"},
+                                    "metadata": {
+                                        "bitsPerValue": 16,
+                                        "legBaseDate": 0,
+                                        "legNumber": 0,
+                                        "numberIncludedInAverage": "{num_coords}:int",
+                                        "stepType": "avg",
+                                        "timeRangeIndicator": 3,
+                                        "type": "fcmean",
+                                    },
                                     "coords": [
                                         {"from": 12, "to": 168, "by": 12},
                                         {"from": 36, "to": 192, "by": 12},
@@ -122,7 +132,15 @@ TEST_CASES = {
                                 },
                                 {
                                     "operation": "standard_deviation",
-                                    "metadata": {"type": "fcstdev"},
+                                    "metadata": {
+                                        "bitsPerValue": 16,
+                                        "legBaseDate": 0,
+                                        "legNumber": 0,
+                                        "numberIncludedInAverage": "{num_coords}:int",
+                                        "stepType": "avg",
+                                        "timeRangeIndicator": 3,
+                                        "type": "fcstdev",
+                                    },
                                     "coords": [
                                         {"from": 12, "to": 168, "by": 12},
                                         {"from": 36, "to": 192, "by": 12},
@@ -134,7 +152,15 @@ TEST_CASES = {
                                 },
                                 {
                                     "operation": "minimum",
-                                    "metadata": {"type": "fcmin"},
+                                    "metadata": {
+                                        "bitsPerValue": 16,
+                                        "legBaseDate": 0,
+                                        "legNumber": 0,
+                                        "numberIncludedInAverage": "{num_coords}:int",
+                                        "stepType": "avg",
+                                        "timeRangeIndicator": 3,
+                                        "type": "fcmin",
+                                    },
                                     "coords": [
                                         {"from": 12, "to": 168, "by": 12},
                                         {"from": 36, "to": 192, "by": 12},
@@ -146,7 +172,15 @@ TEST_CASES = {
                                 },
                                 {
                                     "operation": "maximum",
-                                    "metadata": {"type": "fcmax"},
+                                    "metadata": {
+                                        "bitsPerValue": 16,
+                                        "legBaseDate": 0,
+                                        "legNumber": 0,
+                                        "numberIncludedInAverage": "{num_coords}:int",
+                                        "stepType": "avg",
+                                        "timeRangeIndicator": 3,
+                                        "type": "fcmax",
+                                    },
                                     "coords": [
                                         {"from": 12, "to": 168, "by": 12},
                                         {"from": 36, "to": 192, "by": 12},
@@ -181,8 +215,14 @@ TEST_CASES = {
                     "dtype": "float64",
                     "metadata": {
                         "bitsPerValue": 16,
+                        "legBaseDate": 20241001,
+                        "legBaseTime": 0,
+                        "legNumber": 1,
+                        "localDefinitionNumber": 30,
                         "numberOfForecastsInEnsemble": "{num_fields}:int",
+                        "oceanAtmosphereCoupling": 2,
                         "perturbationNumber": 0,
+                        "stream": "enfo",
                     },
                     "accumulations": {
                         "levelist": {"coords": [[250], [500]]},
@@ -306,7 +346,8 @@ TEST_CASES = {
                                 {
                                     **DEFAULT_REQUEST,
                                     "expver": "9998",
-                                    "type": "cf",
+                                    "stream": "oper",
+                                    "type": "fc",
                                     "levelist": [250, 500],
                                 },
                                 {
@@ -320,13 +361,22 @@ TEST_CASES = {
                         }
                     },
                     "dtype": "float64",
+                    "metadata": {"stream": "enfo"},
                     "accumulations": {
                         "step": {
                             "type": "legacywindow",
                             "windows": [
                                 {
                                     "operation": "mean",
-                                    "metadata": {"type": "fcmean"},
+                                    "metadata": {
+                                        "bitsPerValue": 16,
+                                        "legBaseDate": 0,
+                                        "legNumber": 0,
+                                        "numberIncludedInAverage": "{num_coords}:int",
+                                        "stepType": "avg",
+                                        "timeRangeIndicator": 3,
+                                        "type": "fcmean",
+                                    },
                                     "coords": [
                                         {"from": 12, "to": 168, "by": 12},
                                         {"from": 36, "to": 192, "by": 12},
@@ -338,7 +388,15 @@ TEST_CASES = {
                                 },
                                 {
                                     "operation": "standard_deviation",
-                                    "metadata": {"type": "fcstdev"},
+                                    "metadata": {
+                                        "bitsPerValue": 16,
+                                        "legBaseDate": 0,
+                                        "legNumber": 0,
+                                        "numberIncludedInAverage": "{num_coords}:int",
+                                        "stepType": "avg",
+                                        "timeRangeIndicator": 3,
+                                        "type": "fcstdev",
+                                    },
                                     "coords": [
                                         {"from": 12, "to": 168, "by": 12},
                                         {"from": 36, "to": 192, "by": 12},
@@ -350,7 +408,15 @@ TEST_CASES = {
                                 },
                                 {
                                     "operation": "minimum",
-                                    "metadata": {"type": "fcmin"},
+                                    "metadata": {
+                                        "bitsPerValue": 16,
+                                        "legBaseDate": 0,
+                                        "legNumber": 0,
+                                        "numberIncludedInAverage": "{num_coords}:int",
+                                        "stepType": "avg",
+                                        "timeRangeIndicator": 3,
+                                        "type": "fcmin",
+                                    },
                                     "coords": [
                                         {"from": 12, "to": 168, "by": 12},
                                         {"from": 36, "to": 192, "by": 12},
@@ -362,7 +428,15 @@ TEST_CASES = {
                                 },
                                 {
                                     "operation": "maximum",
-                                    "metadata": {"type": "fcmax"},
+                                    "metadata": {
+                                        "bitsPerValue": 16,
+                                        "legBaseDate": 0,
+                                        "legNumber": 0,
+                                        "numberIncludedInAverage": "{num_coords}:int",
+                                        "stepType": "avg",
+                                        "timeRangeIndicator": 3,
+                                        "type": "fcmax",
+                                    },
                                     "coords": [
                                         {"from": 12, "to": 168, "by": 12},
                                         {"from": 36, "to": 192, "by": 12},
@@ -388,10 +462,11 @@ TEST_CASES = {
         [
             {
                 **DEFAULT_REQUEST,
+                "stream": "eefo",
                 "levelist": [250, 500],
                 "step": ["0-168", "24-192"],
                 "type": ["fcmean", "fcstdev", "fcmin", "fcmax"],
-                "number": list(range(0, 51)),
+                "number": list(range(0, 101)),
             },
             "130",
         ],
@@ -434,7 +509,7 @@ def test_from_outputs(request, output_request, input_param):
 
     overrides, cfg_type, updates = TEST_CASES[request.node.callspec.id]
     config = ConfigFactory.from_outputs(test_schema, [output_request], **overrides)
-    assert type(config) == cfg_type
+    assert type(config) is cfg_type
     check = default_config(f"{input_param}_{output_request['levtype']}", input_param)
     deep_update(check, updates)
     assert config.model_dump(by_alias=True) == cfg_type(**check).model_dump(
@@ -467,16 +542,18 @@ def test_from_outputs(request, output_request, input_param):
             [
                 {
                     **DEFAULT_REQUEST,
+                    "stream": "eefo",
                     "levelist": [250, 500],
                     "step": list(range(0, 193, 6)),
                     "type": "cf",
                 },
                 {
                     **DEFAULT_REQUEST,
+                    "stream": "eefo",
                     "levelist": [250, 500],
                     "step": list(range(0, 193, 6)),
                     "type": "pf",
-                    "number": list(range(1, 51)),
+                    "number": list(range(1, 101)),
                 },
             ],
             {
@@ -484,43 +561,15 @@ def test_from_outputs(request, output_request, input_param):
                 "windows": [
                     {
                         "operation": "mean",
-                        "metadata": {"type": "fcmean"},
-                        "coords": [
-                            {"from": 12, "to": 168, "by": 12},
-                            {"from": 36, "to": 192, "by": 12},
-                        ],
-                        "name": {
-                            "type": "default",
-                            "length": 168,
+                        "metadata": {
+                            "bitsPerValue": 16,
+                            "legBaseDate": 0,
+                            "legNumber": 0,
+                            "numberIncludedInAverage": "{num_coords}:int",
+                            "stepType": "avg",
+                            "timeRangeIndicator": 3,
+                            "type": "fcmean",
                         },
-                    },
-                    {
-                        "operation": "standard_deviation",
-                        "metadata": {"type": "fcstdev"},
-                        "coords": [
-                            {"from": 12, "to": 168, "by": 12},
-                            {"from": 36, "to": 192, "by": 12},
-                        ],
-                        "name": {
-                            "type": "default",
-                            "length": 168,
-                        },
-                    },
-                    {
-                        "operation": "minimum",
-                        "metadata": {"type": "fcmin"},
-                        "coords": [
-                            {"from": 12, "to": 168, "by": 12},
-                            {"from": 36, "to": 192, "by": 12},
-                        ],
-                        "name": {
-                            "type": "default",
-                            "length": 168,
-                        },
-                    },
-                    {
-                        "operation": "maximum",
-                        "metadata": {"type": "fcmax"},
                         "coords": [
                             {"from": 12, "to": 168, "by": 12},
                             {"from": 36, "to": 192, "by": 12},
@@ -540,9 +589,10 @@ def test_from_outputs(request, output_request, input_param):
             [
                 {
                     **DEFAULT_REQUEST,
+                    "stream": "oper",
                     "levelist": [250, 500],
                     "step": list(range(0, 193, 6)),
-                    "type": "cf",
+                    "type": "fc",
                 },
                 {
                     **DEFAULT_REQUEST,
@@ -633,7 +683,7 @@ def test_from_inputs(
     config = ConfigFactory.from_inputs(
         test_schema, entrypoint, input_request, **overrides
     )
-    assert type(config) == cfg_type
+    assert type(config) is cfg_type
     param = input_request[0]["param"]
     levtype = input_request[0]["levtype"]
     check = default_config(f"{param}_{levtype}", param)
@@ -667,9 +717,10 @@ def test_wind():
     input_request = [
         {
             **DEFAULT_REQUEST,
+            "stream": "oper",
             "levelist": [250, 500],
             "step": list(range(0, 193, 6)),
-            "type": "cf",
+            "type": "fc",
             "param": [165, 166],
         },
         {
@@ -697,7 +748,7 @@ def test_wind():
                     }
                     for tp in ["em", "es"]
                 ]
-                for param in [207, 165, 166]
+                for param in [165, 166]
             ],
             [],
         ),
