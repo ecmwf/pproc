@@ -278,7 +278,6 @@ def fdb_read_to_file(fdb, request, file_out, mir_options=None, mode="wb"):
 
 
 def fdb_write_ufunc(data, coords, fdb, template):
-
     message = (
         template.copy()
     )  # are we always copying the full message with the data values?
@@ -321,7 +320,6 @@ def write_message(target, template, data_array):
 
 
 def write(target, template, attributes, data_array):
-
     message = template.copy()
     for key, value in attributes.items():
         message[key] = value

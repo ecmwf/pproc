@@ -17,7 +17,6 @@ from pproc.probabilities import main as prob_main
 from pproc.ensms import main as ensms_main
 from pproc.extreme import main as extreme_main
 from pproc.quantiles import main as quantiles_main
-from pproc.wind import main as wind_main
 from pproc.thermal_indices import main as thermo_main
 from pproc.clustereps.__main__ import main as clustereps_main
 from conftest import DATA_DIR
@@ -80,7 +79,7 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
         ],
         [
             "wind",
-            wind_main,
+            ensms_main,
             [],
             {
                 "type": "es",

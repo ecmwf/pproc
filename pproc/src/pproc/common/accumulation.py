@@ -49,7 +49,7 @@ def coords_name(coords: Coords, name_config: Optional[dict] = None) -> str:
         fcdate = datetime.datetime.strptime(name_config["date"], "%Y%m%d")
         end = int(end)
         seq = MonthlySequence(1)
-        first_month = seq.next(fcdate, False)
+        seq.next(fcdate, False)
         this_month = fcdate + datetime.timedelta(hours=end - 1)
         month_length = MonthInYear(this_month.year, this_month.month).length() * 24
         start = end - month_length
@@ -126,7 +126,7 @@ class Accumulation(metaclass=ABCMeta):
                     )  # Don't override if set in config
                 grib_header["stepRange"] = steprange
             else:
-                assert end == start, f"Start step can not be greater than end step"
+                assert end == start, "Start step can not be greater than end step"
                 if "timeRangeIndicator" not in grib_header:
                     if end >= 256:
                         grib_header["timeRangeIndicator"] = 10

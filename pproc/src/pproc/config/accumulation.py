@@ -17,7 +17,7 @@ from earthkit.time.calendar import parse_date
 from earthkit.time.sequence import Sequence
 from ppcore.utils.requests import extract_mars
 
-from pproc.common.stepseq import stepseq_ranges, stepseq_monthly
+from ppcore.utils.stepseq import stepseq_ranges, stepseq_monthly
 from pproc.common.accumulation import convert_coords, coords_name
 from pproc.config.utils import _get
 
@@ -109,7 +109,7 @@ class LegacyWindowConfig(BaseModel):
             name = coords_name(coord, self.name)
             try:
                 name = int(name)
-            except:
+            except ValueError:
                 pass
             base[dim].append(name)
         if hasattr(self, "thresholds"):
@@ -231,7 +231,7 @@ class DefaultAccumulation(BaseAccumulation):
             name = coords_name(coord, self.name)
             try:
                 name = int(name)
-            except:
+            except ValueError:
                 pass
             base[dim].append(name)
         return [base]

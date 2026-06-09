@@ -9,7 +9,6 @@
 
 import sys
 from datetime import datetime, timedelta
-from typing import Optional
 import numpy as np
 
 import eccodes

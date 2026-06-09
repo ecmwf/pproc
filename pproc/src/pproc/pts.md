@@ -85,4 +85,3 @@ Filtering
 ---
 
 For filtering wind, check if *any* of the start/end track segment points exceed a minimum.
-

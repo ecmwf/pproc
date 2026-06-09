@@ -742,7 +742,7 @@ from pproc.config.accumulation import LegacyWindowConfig, LegacyStepAccumulation
                     ],
                     "name": {
                         "type": "default",
-                        "suffix": f"_2",
+                        "suffix": "_2",
                         "prefix": "",
                     },
                     "metadata": {
@@ -811,7 +811,7 @@ from pproc.config.accumulation import LegacyWindowConfig, LegacyStepAccumulation
                     "name": {
                         "type": "default",
                         "prefix": "",
-                        "suffix": f"_0",
+                        "suffix": "_0",
                     },
                     "metadata": {},
                     "sequential": True,

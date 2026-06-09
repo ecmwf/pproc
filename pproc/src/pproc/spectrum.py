@@ -33,8 +33,8 @@ def spectrum(T, sh):
 
     def norm(m, n, r, i):
         zmet = zlam * (1 if m == 0 else 2)
-        zfact = 1.0 if n == 0 else ra ** 2 / (n * (n + 1))
-        return zmet * zfact * (r ** 2 if m == 0 else (r ** 2 + i ** 2))
+        zfact = 1.0 if n == 0 else ra**2 / (n * (n + 1))
+        return zmet * zfact * (r**2 if m == 0 else (r**2 + i**2))
 
     sp = np.zeros(T + 1)
     i = 0
@@ -78,7 +78,7 @@ def main():
 
                     rot = spectrum(T, sh_vo)
                     div = spectrum(T, sh_d)
-                    ke = (rot + div) * np.array([n ** 1.6666 for n in range(T + 1)])
+                    ke = (rot + div) * np.array([n**1.6666 for n in range(T + 1)])
                     if not args.linear:
                         rot = np.log10(rot)
                         div = np.log10(div)

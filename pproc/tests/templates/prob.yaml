@@ -20,7 +20,7 @@ parameters:
             metadata:
               paramId: 131073
             value: 273.15
-inputs:  
+inputs:
   fc:
     request:
       class: od
@@ -41,5 +41,5 @@ outputs:
       localDefinitionNumber: 5
       mars.expver: '0001'
       type: ep
-    target: 
+    target:
       type: "fdb"

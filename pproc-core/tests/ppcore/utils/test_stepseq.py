@@ -10,7 +10,7 @@
 import pytest
 from datetime import datetime
 
-from pproc.common import stepseq
+from ppcore.utils import stepseq
 
 
 @pytest.mark.parametrize(

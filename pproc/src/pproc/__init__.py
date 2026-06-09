@@ -7,7 +7,7 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-from . import clustereps
+from . import clustereps  # noqa: F401
 
 try:
     from ._version import __version__

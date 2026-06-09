@@ -8,7 +8,7 @@
 # nor does it submit to any jurisdiction.
 
 from meters import ResourceMeter
-from typing import Union, Optional
+from typing import Optional
 import numpy as np
 import numexpr
 
@@ -73,7 +73,6 @@ def prob_iteration(
     with ResourceMeter(
         f"Param {param.name}, window {window_id}, computing threshold probs"
     ):
-
         ens = accum.values
         assert ens is not None
 

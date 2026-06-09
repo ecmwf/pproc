@@ -248,7 +248,7 @@ def test_create(config, accums, coords):
                 matched = False
                 continue
             for dim in acc.dims:
-                if type(dim.accumulation) != accums[dim.key][0]:
+                if type(dim.accumulation) is not accums[dim.key][0]:
                     matched = False
                     break
                 if dim.accumulation.coords != acc_coords[dim.key]:

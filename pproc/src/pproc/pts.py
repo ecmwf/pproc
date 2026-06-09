@@ -241,7 +241,8 @@ def main(args=None):
             }
 
             # regex: fixed size (n) " "-padded right-flushed integers
-            rd = lambda n: "|".join(" " * i + r"\d" * (n - i) for i in range(n))
+            def rd(n):
+                return "|".join(" " * i + r"\d" * (n - i) for i in range(n))
 
             re_filename = re.compile(r"^....(\d{10})_(\d{3}|..)_\d+_.{3}$")
             re_split = re.compile(r"^..... ( TD| TS|HR\d)$")

@@ -116,9 +116,7 @@ def main():
                 cfg.inputs,
                 param.total_fields,
             )
-            quantiles_partial = functools.partial(
-                quantiles_iteration, cfg, param
-            )
+            quantiles_partial = functools.partial(quantiles_iteration, cfg, param)
             for keys, data in parallel_data_retrieval(
                 cfg.parallelisation.n_par_read,
                 accum_manager.dims,

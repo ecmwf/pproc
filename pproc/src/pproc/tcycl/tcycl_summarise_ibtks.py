@@ -26,7 +26,7 @@ class IBtracksSummary:
     ibtracks_file = "ibtracs.last3years.list.v04r00.csv"
 
     ibtracks_url = os.path.join(noaa_url, ibtracks_sub_url, ibtracks_file)
-    
+
     winds = [
         "WMO_WIND",
         "USA_WIND",
@@ -41,7 +41,7 @@ class IBtracksSummary:
         "NEUMANN_WIND",
         "MLC_WIND",
     ]
-    
+
     pres = [
         "WMO_PRES",
         "USA_PRES",
@@ -72,9 +72,9 @@ class IBtracksSummary:
         "LAT",
         "LON",
         "wind",
-        "pres"
+        "pres",
     ]
-    
+
     def __init__(self, df):
         self.df = df
 
@@ -92,7 +92,7 @@ class IBtracksSummary:
     def from_file(cls, file_name):
         df = cls.readIBTracs(file_name)
         return cls(df)
-    
+
     @classmethod
     def readIBTracs(cls, file):
         """
@@ -113,9 +113,9 @@ class IBtracksSummary:
 
         # sort fields by time
         df.sort_values(by=["ISO_TIME"])
-        
+
         return df
-    
+
     @classmethod
     def has_numbers(cls, input_string):
         return any(char.isdigit() for char in input_string)
@@ -136,7 +136,7 @@ class IBtracksSummary:
                 break
 
         return pd.Series(dict(wind=result))
-    
+
     @classmethod
     def bestPres(cls, row):
         """
@@ -153,7 +153,7 @@ class IBtracksSummary:
                 break
 
         return pd.Series(dict(pres=result))
-    
+
     def save(self, csv_filename, only_time=None):
         """
         Saves to CSV
@@ -161,18 +161,27 @@ class IBtracksSummary:
 
         if only_time:
             time_ = pd.to_datetime(only_time)
-            self.df.loc[pd.to_datetime(self.df['ISO_TIME']) == time_].to_csv(csv_filename, index=None, header=True)
+            self.df.loc[pd.to_datetime(self.df["ISO_TIME"]) == time_].to_csv(
+                csv_filename, index=None, header=True
+            )
         else:
             self.df.to_csv(csv_filename, index=None, header=True)
 
-    
-def main():    
+
+def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--ibtracks_file", help=f"Path to downloaded CSV file", default="ibtracks.csv")
-    parser.add_argument("--output", help=f"Path to summary CSV file", default="ibtracks-summary.csv")
-    parser.add_argument("--only_time", help=f"Data only at date/time (format 'YYYYMMDD TT', e.g. '20211004 00')")
+    parser.add_argument(
+        "--ibtracks_file", help="Path to downloaded CSV file", default="ibtracks.csv"
+    )
+    parser.add_argument(
+        "--output", help="Path to summary CSV file", default="ibtracks-summary.csv"
+    )
+    parser.add_argument(
+        "--only_time",
+        help="Data only at date/time (format 'YYYYMMDD TT', e.g. '20211004 00')",
+    )
     args = parser.parse_args()
-    
+
     # Make summary file
     IBtracksSummary.download(args.ibtracks_file)
     IBtracksSummary.from_file(args.ibtracks_file).save(args.output, args.only_time)

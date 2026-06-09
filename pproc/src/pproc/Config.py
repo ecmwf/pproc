@@ -55,7 +55,7 @@ class ParamId:
             p, t = map(int, "{:.3f}".format(float(key)).split("."))
             assert 0 <= p < 1000 and t < 1000
             return p if t == 128 else (1000 * t + p)
-        except:
+        except:  # noqa: E722
             pass
 
         # from shortName
@@ -120,7 +120,7 @@ def main():
     args = parser.parse_args()
 
     tree = VariableTree(args.file)
-    node = [int(p) if p.isdigit() else p for p in args.config_node]
+    [int(p) if p.isdigit() else p for p in args.config_node]
     print(tree.variables(*args.config_node))
 
 
