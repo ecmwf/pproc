@@ -95,8 +95,8 @@ def requests(args):
         inputs.extend(product.in_mars(args.source))
         outputs.extend(product.out_mars(args.target))
 
-    inputs = expand(datacubes(inputs), dim="type")
-    outputs = expand(datacubes(outputs), dim="type")
+    inputs = list(expand(datacubes(inputs), dim="type"))
+    outputs = list(expand(datacubes(outputs), dim="type"))
 
     # TODO: Add method to simplify requests
     if args.inputs:
