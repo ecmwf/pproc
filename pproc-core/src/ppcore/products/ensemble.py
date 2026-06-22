@@ -19,6 +19,7 @@ from ppcore.utils.requests import (
     squeeze,
     validate_request,
 )
+from ppcore.utils.mars import extract_mars
 from ppcore.configs.product.ensemble import Config
 from ppcore.products.base import Product
 
@@ -95,6 +96,7 @@ class Ensemble(Product):
             source = inputs.sources[0]
             for input in inputs.requests:
                 overridden = input.copy()
+                overridden = extract_mars(overridden)
                 if source.name == "file":
                     overridden["source"] = source.path
                 elif source.name == "file-pattern":
@@ -113,6 +115,7 @@ class Ensemble(Product):
         ):
             target = output.targets[0]
             overridden = output.request.copy()
+            overridden = extract_mars(overridden)
             if target.name == "file":
                 overridden["target"] = target.file
             elif target.name == "file-pattern":

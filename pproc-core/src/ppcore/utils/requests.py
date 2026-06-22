@@ -5,6 +5,7 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+from qubed import Qube
 
 from ppcore.utils.dicts import deep_update
 from ppcore.utils.dicts import dict_product
@@ -96,6 +97,18 @@ def squeeze(reqs: list[dict], dims: list[str]) -> Iterator[dict]:
             if isinstance(val, str) or not np.isnan(val):
                 req[dim] = sorted(list({x[dim] for x in cond_reqs}))
         yield req
+
+
+def datacubes(reqs: list[dict]) -> list[dict]:
+    qube = Qube.empty()
+    for req in reqs:
+        qube = qube | Qube.from_datacube(req)
+    result = []
+    for dataqube in qube.datacubes():
+        result.append(
+            {key: val if len(val) > 1 else val[0] for key, val in dataqube.items()}
+        )
+    return result
 
 
 def update_request(
