@@ -14,11 +14,7 @@ from earthkit.workflows.plugins.pproc.fluent import Action
 from earthkit.workflows.plugins.pproc.fluent import from_source
 from earthkit.workflows.plugins.pproc.utils.request import Request
 
-from ppcore.utils.requests import (
-    expand,
-    squeeze,
-    validate_request,
-)
+from ppcore.utils.requests import validate_request
 from ppcore.utils.mars import extract_mars
 from ppcore.configs.product.ensemble import Config
 from ppcore.products.base import Product
@@ -36,16 +32,7 @@ class Ensemble(Product):
         input_config = self.config.inputs.fc
         ensemble_dim = ensemble_dim or self.ensemble_dim
         requests = []
-        for x in squeeze(
-            sum(
-                [
-                    list(expand(dict(x, **self.input_overrides)))
-                    for x in input_config.requests
-                ],
-                [],
-            ),
-            ["step", "number", "param", "levelist"],
-        ):
+        for x in [dict(x, **self.input_overrides) for x in input_config.requests]:
             req = Request(validate_request(x), no_expand=("levelist"))
             if "number" not in req and ensemble_dim == "number":
                 req.make_dim("number", 0)
