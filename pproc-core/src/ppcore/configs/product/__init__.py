@@ -57,6 +57,6 @@ def from_schema(
             accum["coords"] = inputs[0][dim]
         config["accumulations"] = accums
 
-    logger.info("Schema config", config)
+    logger.info(f"Schema config: {config}")
     base = ProductConfig(**config)
     return ProductConfig(**{**base.model_dump(), **overrides})

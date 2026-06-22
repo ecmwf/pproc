@@ -38,7 +38,7 @@ def from_outputs(args):
         output_requests = yaml.safe_load(f)
 
     entrypoint_config = EntrypointConfig(
-        products=config_from_outputs(output_requests, args.schema), **overrides
+        products=list(config_from_outputs(output_requests, args.schema)), **overrides
     )
     with open(args.config, "w") as f:
         yaml.dump(
