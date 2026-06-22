@@ -43,10 +43,13 @@ def from_schema(
 
     config = {
         "name": name,
-        "requests": inputs,
+        "requests": {
+            "original": request,
+            "inputs": inputs,
+        },
         "dtype": dtype,
         "sources": request.pop("sources", None),
-        "outputs": request.pop("outputs", None),
+        "targets": request.pop("targets", None),
         "metadata": metadata,
         **schema,
     }

@@ -99,16 +99,12 @@ def squeeze(reqs: list[dict], dims: list[str]) -> Iterator[dict]:
         yield req
 
 
-def datacubes(reqs: list[dict]) -> list[dict]:
+def datacubes(reqs: list[dict]) -> Iterator[dict]:
     qube = Qube.empty()
     for req in reqs:
         qube = qube | Qube.from_datacube(req)
-    result = []
     for dataqube in qube.datacubes():
-        result.append(
-            {key: val if len(val) > 1 else val[0] for key, val in dataqube.items()}
-        )
-    return result
+        yield {key: val if len(val) > 1 else val[0] for key, val in dataqube.items()}
 
 
 def update_request(
