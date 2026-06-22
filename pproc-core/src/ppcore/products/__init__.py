@@ -2,6 +2,7 @@ from typing import Optional
 
 from earthkit.workflows.graph import Graph, deduplicate_nodes
 
+from ppcore.utils.requests import expand
 from ppcore.configs import from_outputs as config_from_outputs
 from ppcore.configs.product import ProductConfig
 from ppcore.products.base import Product
@@ -23,8 +24,8 @@ def product_from_config(
     )
 
 
-def product_from_output(
-    request: dict,
+def product_from_outputs(
+    requests: list[dict],
     pproc_schema: str,
     metadata: Optional[dict] = None,
 ) -> Product:
@@ -32,7 +33,10 @@ def product_from_output(
     Returns fluent.Action for computing the product specified by the output request
     and PProc schema
     """
-    config = list(config_from_outputs([request], pproc_schema, metadata=metadata))[0]
+    requests = list(
+        expand(requests, exclude=["levelist", "number", "quantile", "hdate"])
+    )
+    config = list(config_from_outputs(requests, pproc_schema, metadata=metadata))[0]
     return product_from_config(config)
 
 
@@ -45,9 +49,11 @@ def graph_from_outputs(
     Returns fluent.Action for computing the product specified by the output request
     and PProc schema
     """
-    graph = Graph([])
-    for request in requests:
-        graph += product_from_output(request, pproc_schema, metadata).action().graph()
+    graph = (
+        product_from_outputs(requests, pproc_schema=pproc_schema, metadata=metadata)
+        .action()
+        .graph()
+    )
     return deduplicate_nodes(graph)
 
 

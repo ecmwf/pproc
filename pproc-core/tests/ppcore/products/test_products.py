@@ -16,7 +16,7 @@ from earthkit.workflows.graph import Graph
 
 from earthkit.workflows.plugins.pproc.fluent import from_source
 from earthkit.workflows.plugins.pproc.utils.request import Request
-from ppcore.products import product_from_output, graph_from_outputs
+from ppcore.products import product_from_outputs, graph_from_outputs
 from conftest import SCHEMA
 
 
@@ -49,7 +49,7 @@ def test_custom_source(requests):
 
     graph = Graph([])
     for req in output_requests:
-        product = product_from_output(req, SCHEMA, metadata={"edition": 2})
+        product = product_from_outputs([req], SCHEMA, metadata={"edition": 2})
         requests = []
         for request in product.config.inputs.fc.requests:
             req = Request(request)

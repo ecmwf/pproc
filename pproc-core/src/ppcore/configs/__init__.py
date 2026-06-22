@@ -2,6 +2,7 @@ from typing import Iterator, Optional
 
 from ppcore.schema.schema import Schema
 from ppcore.configs.product import from_schema, ProductConfig
+from ppcore.utils.requests import expand
 
 
 def config_from_output(
@@ -27,7 +28,9 @@ def from_outputs(
     Returns product configuration from output request and PProc schema
     """
     schema = Schema.from_file(pproc_schema)
-    for request in requests:
+    for request in expand(
+        requests, exclude=["levelist", "number", "quantile", "hdate"]
+    ):
         schema_config = schema.config_from_output(request, inputs=inputs)
         yield from_schema(schema_config, request, metadata, **overrides)
 
