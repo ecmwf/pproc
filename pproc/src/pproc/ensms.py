@@ -25,7 +25,7 @@ import eccodes
 import numpy as np
 from conflator import Conflator
 from meters import ResourceMeter
-from ppcore.utils.helpers import fill_template_values
+from earthkit.workflows.plugins.pproc.utils.metadata import fill_template_values
 
 from pproc.common.io import write_grib
 from pproc.common.accumulation import Accumulator

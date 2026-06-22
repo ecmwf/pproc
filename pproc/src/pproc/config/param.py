@@ -17,7 +17,8 @@ import numpy as np
 import pandas as pd
 from pydantic import BaseModel, Field, model_validator
 from ppcore.utils.dicts import deep_update
-from ppcore.utils.requests import expand, extract_mars, update_request
+from ppcore.utils.requests import expand, update_request
+from ppcore.utils.mars import extract_mars
 
 from pproc.config.preprocessing import PreprocessingConfig
 from pproc.config.accumulation import AccumulationConfig

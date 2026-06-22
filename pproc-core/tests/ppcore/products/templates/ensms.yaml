@@ -9,6 +9,7 @@
   time: 12
   expver: "0001"
   step: 0
+  sources: "fdb:"
 - class: od
   stream: enfo
   type: em
@@ -20,6 +21,7 @@
   time: 12
   expver: "0001"
   step: 3
+  sources: "fdb:"
 - class: od
   stream: enfo
   type: em
@@ -31,6 +33,7 @@
   time: 12
   expver: "0001"
   step: 6
+  sources: "fdb:"
 - class: od
   stream: enfo
   type: es
@@ -42,6 +45,7 @@
   time: 12
   expver: "0001"
   step: 0
+  sources: "fdb:"
 - class: od
   stream: enfo
   type: es
@@ -53,6 +57,7 @@
   time: 12
   expver: "0001"
   step: 3
+  sources: "fdb:"
 - class: od
   stream: enfo
   type: es
@@ -64,6 +69,7 @@
   time: 12
   expver: "0001"
   step: 6
+  sources: "fdb:"
 - class: od
   stream: enfo
   type: em
@@ -74,6 +80,7 @@
   time: 12
   expver: "0001"
   step: 0-6
+  sources: "fdb:"
 - class: od
   stream: enfo
   type: em
@@ -84,6 +91,7 @@
   time: 12
   expver: "0001"
   step: 6-12
+  sources: "fdb:"
 - class: od
   stream: enfo
   type: es
@@ -94,6 +102,7 @@
   time: 12
   expver: "0001"
   step: 0-6
+  sources: "fdb:"
 - class: od
   stream: enfo
   type: es
@@ -104,3 +113,4 @@
   time: 12
   expver: "0001"
   step: 6-12
+  sources: "fdb:"

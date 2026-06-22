@@ -47,14 +47,14 @@ from pproc.config.types import FlightLevelsConfig
                                     {
                                         "stream": "oper",
                                         "type": "fc",
-                                        "param": 260290,
+                                        "param": "260290",
                                         "levtype": "ml",
                                         "levelist": list(range(1, 138)),
                                     },
                                     {
                                         "stream": "enfo",
                                         "type": "pf",
-                                        "param": 260290,
+                                        "param": "260290",
                                         "levtype": "ml",
                                         "levelist": list(range(1, 138)),
                                         "number": [1, 2, 3],
@@ -66,14 +66,14 @@ from pproc.config.types import FlightLevelsConfig
                                     {
                                         "stream": "oper",
                                         "type": "fc",
-                                        "param": 152,
+                                        "param": "152",
                                         "levtype": "ml",
                                         "levelist": 1,
                                     },
                                     {
                                         "stream": "enfo",
                                         "type": "pf",
-                                        "param": 152,
+                                        "param": "152",
                                         "levtype": "ml",
                                         "levelist": 1,
                                         "number": [1, 2, 3],
@@ -92,7 +92,7 @@ from pproc.config.types import FlightLevelsConfig
                     "parameters": {
                         "cat": {
                             "inputs": {
-                                "fc": {"request": {"param": 130}},
+                                "fc": {"request": {"param": "130"}},
                             }
                         }
                     }
@@ -107,14 +107,14 @@ from pproc.config.types import FlightLevelsConfig
                                     {
                                         "stream": "oper",
                                         "type": "fc",
-                                        "param": 260290,
+                                        "param": "260290",
                                         "levtype": "ml",
                                         "levelist": list(range(1, 138)),
                                     },
                                     {
                                         "stream": "oper",
                                         "type": "fc",
-                                        "param": 130,
+                                        "param": "130",
                                         "levtype": "ml",
                                         "levelist": list(range(1, 138)),
                                     },
@@ -125,7 +125,7 @@ from pproc.config.types import FlightLevelsConfig
                                     {
                                         "stream": "oper",
                                         "type": "fc",
-                                        "param": 152,
+                                        "param": "152",
                                         "levtype": "ml",
                                         "levelist": 1,
                                     },
@@ -164,7 +164,7 @@ def test_merge(configs, merged_or_error):
                         "request": {
                             "stream": "oper",
                             "type": "fc",
-                            "param": 260290,
+                            "param": "260290",
                             "levtype": "ml",
                             "levelist": list(range(1, 138)),
                         },
@@ -173,7 +173,7 @@ def test_merge(configs, merged_or_error):
                         "request": {
                             "stream": "oper",
                             "type": "fc",
-                            "param": 152,
+                            "param": "152",
                             "levtype": "ml",
                             "levelist": 1,
                         },
@@ -213,7 +213,7 @@ def test_merge(configs, merged_or_error):
                 {
                     "stream": "oper",
                     "type": "fc",
-                    "param": [260290],
+                    "param": ["260290"],
                     "levtype": "ml",
                     "levelist": list(range(1, 138)),
                 },
@@ -222,7 +222,7 @@ def test_merge(configs, merged_or_error):
                 {
                     "stream": "oper",
                     "type": "fc",
-                    "param": [260290],
+                    "param": ["260290"],
                     "levtype": "fl",
                     "levelist": [110, 200, 300, 340, 380],
                     "target": "fdb",
@@ -234,14 +234,14 @@ def test_merge(configs, merged_or_error):
                 {
                     "stream": "oper",
                     "type": "fc",
-                    "param": [260290],
+                    "param": ["260290"],
                     "levtype": "ml",
                     "levelist": list(range(1, 138)),
                 },
                 {
                     "stream": "enfo",
                     "type": "pf",
-                    "param": [260290],
+                    "param": ["260290"],
                     "levtype": "ml",
                     "levelist": list(range(1, 138)),
                     "number": [1, 2, 3],
@@ -251,7 +251,7 @@ def test_merge(configs, merged_or_error):
                 {
                     "stream": "oper",
                     "type": "fc",
-                    "param": [260290],
+                    "param": ["260290"],
                     "levtype": "fl",
                     "levelist": [110, 200, 300, 340, 380],
                     "target": "fdb",
@@ -259,7 +259,7 @@ def test_merge(configs, merged_or_error):
                 {
                     "stream": "enfo",
                     "type": "pf",
-                    "param": [260290],
+                    "param": ["260290"],
                     "levtype": "fl",
                     "levelist": [110, 200, 300, 340, 380],
                     "number": [1, 2, 3],
@@ -272,14 +272,14 @@ def test_merge(configs, merged_or_error):
                 {
                     "stream": "oper",
                     "type": "fc",
-                    "param": [130, 260290],
+                    "param": ["130", "260290"],
                     "levtype": "ml",
                     "levelist": list(range(1, 138)),
                 },
                 {
                     "stream": "enfo",
                     "type": "pf",
-                    "param": [130, 260290],
+                    "param": ["130", "260290"],
                     "levtype": "ml",
                     "levelist": list(range(1, 138)),
                     "number": [1, 2, 3],
@@ -289,7 +289,7 @@ def test_merge(configs, merged_or_error):
                 {
                     "stream": "oper",
                     "type": "fc",
-                    "param": [130, 260290],
+                    "param": ["130", "260290"],
                     "levtype": "fl",
                     "levelist": [110, 200, 300, 340, 380],
                     "target": "fdb",
@@ -297,7 +297,7 @@ def test_merge(configs, merged_or_error):
                 {
                     "stream": "enfo",
                     "type": "pf",
-                    "param": [130, 260290],
+                    "param": ["130", "260290"],
                     "levtype": "fl",
                     "levelist": [110, 200, 300, 340, 380],
                     "number": [1, 2, 3],
@@ -316,7 +316,9 @@ def test_outputs(inputs, expected):
                 "inputs": {
                     "fc": {"request": inputs},
                     "lnsp": {
-                        "request": [{**x, "param": 152, "levelist": 1} for x in inputs]
+                        "request": [
+                            {**x, "param": "152", "levelist": 1} for x in inputs
+                        ]
                     },
                 },
                 "num_inputs": 1,
@@ -334,7 +336,7 @@ def test_outputs(inputs, expected):
             for param in inputs[0]["param"]
         ],
         [],
-    ) + [{**x, "param": 152, "levelist": 1, "source": "fdb"} for x in inputs] == list(
+    ) + [{**x, "param": "152", "levelist": 1, "source": "fdb"} for x in inputs] == list(
         config.in_mars(sources=["fdb"])
     )
     outputs = list(config.out_mars(targets=["fdb"]))
@@ -348,14 +350,14 @@ def test_from_schema():
                 {
                     "stream": "oper",
                     "type": "fc",
-                    "param": 260290,
+                    "param": "260290",
                     "levtype": "ml",
                     "levelist": list(range(1, 138)),
                 },
                 {
                     "stream": "oper",
                     "type": "fc",
-                    "param": 152,
+                    "param": "152",
                     "levtype": "ml",
                     "levelist": 1,
                 },
@@ -372,7 +374,7 @@ def test_from_schema():
                         "request": {
                             "stream": "oper",
                             "type": "fc",
-                            "param": 260290,
+                            "param": "260290",
                             "levtype": "ml",
                             "levelist": list(range(1, 138)),
                         },
@@ -381,7 +383,7 @@ def test_from_schema():
                         "request": {
                             "stream": "oper",
                             "type": "fc",
-                            "param": 152,
+                            "param": "152",
                             "levtype": "ml",
                             "levelist": 1,
                         },

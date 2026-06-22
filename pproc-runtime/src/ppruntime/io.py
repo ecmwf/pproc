@@ -10,6 +10,7 @@
 import shutil
 from io import BytesIO
 from typing import Optional
+import logging
 
 import mir
 from earthkit.data import FieldList, settings
@@ -23,6 +24,8 @@ from meters import ResourceMeter
 # for wind when executing across multiple workers
 settings.set("cache-policy", "temporary")
 
+logger = logging.getLogger(__name__)
+
 
 def mir_job(
     input: mir.MultiDimensionalGribFileInput,
@@ -34,22 +37,24 @@ def mir_job(
     job.execute(input, stream)
     stream.seek(0)
     if cache is None:
-        return StreamSource(stream, read_all=True).mutate()
+        return StreamSource(stream, read_all=True).mutate().to_fieldlist()
 
     with open(cache, "wb") as o, stream as i:
         shutil.copyfileobj(i, o)
     return FileSource(cache).mutate()
 
 
-def fdb_retrieve(request: dict, *, stream: bool = True) -> FieldList:
+def fdb_retrieve(request: dict, stream: bool = False, **kwargs) -> FieldList:
     mir_options = request.pop("interpolate", None)
     if mir_options is None:
-        return from_source("fdb", request, read_all=True, stream=stream)  # type: ignore[ty:invalid-return-type]
+        return from_source("fdb", request, stream=stream, read_all=True, **kwargs)  # type: ignore[ty:invalid-return-type]
 
     if mir_options.get("vod2uv", "0") == "1":
         stream = False
 
-    reader: FieldList = from_source("fdb", request, stream=stream)  # type: ignore[ty:invalid-assignment]
+    reader: FieldList = from_source(
+        "fdb", request, stream=stream, read_all=False, **kwargs
+    )  # type: ignore[ty:invalid-assignment]
     if stream:
         return mir_job(reader._source._stream, mir_options)  # type: ignore[ty:unresolved-attribute]
 
@@ -62,11 +67,11 @@ def fdb_retrieve(request: dict, *, stream: bool = True) -> FieldList:
     return mir_job(inp, mir_options)
 
 
-def mars_retrieve(request: dict) -> FieldList:
+def mars_retrieve(request: dict, **kwargs) -> FieldList:
     mir_options = request.pop("interpolate", None)
     cache = request.pop("cache", None)
     cache_path = None if cache is None else cache.format_map(request)
-    ds: FieldList = from_source("mars", request)  # type: ignore[ty:invalid-assignment]
+    ds: FieldList = from_source("mars", request, **kwargs)  # type: ignore[ty:invalid-assignment]
     if mir_options is None:
         return ds
 
@@ -102,12 +107,11 @@ def _transform_request(request: dict, step_type: type = str):
     return request
 
 
-def file_retrieve(path: str, request: dict) -> FieldList:
+def file_retrieve(name: str, request: dict, **kwargs) -> FieldList:
     mir_options = request.pop("interpolate", None)
     if mir_options is not None:
         raise NotImplementedError()
-    location = path.format_map(request)
-    file_ds: FieldList = from_source("file", location)  # type: ignore[ty:invalid-assignment]
+    file_ds: FieldList = from_source(name, **kwargs)  # type: ignore[ty:invalid-assignment]
     if len(request) > 0:
         treq = _transform_request(request)
         ds = file_ds.sel(treq)
@@ -121,49 +125,53 @@ def file_retrieve(path: str, request: dict) -> FieldList:
     return file_ds
 
 
-def retrieve_multi_sources(requests: list[dict], **kwargs) -> FieldList:
-    ret = None
-    for req in requests:
-        try:
-            ret = retrieve_single_source(req, **kwargs)
-            break
-        except AssertionError:
-            continue
-    assert ret is not None, f"No data retrieved from requests: {requests}"
-    return ret
-
-
-def retrieve_single_source(request: dict, **kwargs) -> FieldList:
-    req = request.copy()
-    source = req.pop("source")
-    if source == "fdb":
-        ret_sources = fdb_retrieve(req, **kwargs)
-    elif source == "mars":
-        ret_sources = mars_retrieve(req)
-    elif source == "fileset":
-        path = req.pop("location")
-        ret_sources = file_retrieve(path, req).order_by("paramId")
-    else:
-        raise NotImplementedError(f"Source {source} not supported.")
-    assert len(ret_sources) > 0, f"No data retrieved from {source} for request {req}"
-    return ret_sources
-
-
-def retrieve(request: dict | list[dict], **kwargs):
-    with ResourceMeter(f"retrieve {request}, {kwargs}"):
-        if isinstance(request, dict):
-            res = retrieve_single_source(request, **kwargs)
-        else:
-            res = retrieve_multi_sources(request, **kwargs)
-        ret = FieldList.from_array(
-            res.values,
-            [StandAloneGribMetadata(metadata._handle) for metadata in res.metadata()],
+def retrieve(
+    sources: list[dict],
+    requests: list[dict],
+    dtype: Optional[str] = None,
+) -> FieldList:
+    ds = from_source("empty")
+    for request in requests:
+        with ResourceMeter(f"Retrieve {request}"):
+            for source in sources:
+                if isinstance(source, str):
+                    source = {"name": source}
+                name = source.pop("name")
+                try:
+                    logger.debug(f"Trying source {name}")
+                    if name == "fdb":
+                        ds = fdb_retrieve(request=request, **source)
+                    elif name == "mars":
+                        ds = mars_retrieve(request=request, **source)
+                    elif name in ["file", "file-pattern"]:
+                        ds = file_retrieve(name, request=request, **source).order_by(
+                            "paramId"
+                        )
+                    else:
+                        raise NotImplementedError(f"Source {source} not supported.")
+                    assert (
+                        len(ds) > 0
+                    ), f"No data retrieved from {source} for request {request}"
+                    break
+                except AssertionError:
+                    logger.info(
+                        f"No data retrieved from source {source} for request {request}"
+                    )
+                    continue
+            if len(ds) == 0:
+                raise ValueError(
+                    f"No data retrieved from sources {sources} for request {request}"
+                )
+        ds += FieldList.from_array(
+            ds.to_array(flatten=True, dtype=dtype),
+            [StandAloneGribMetadata(metadata._handle) for metadata in ds.metadata()],
         )
-        return ret
+    return ds
 
 
-def write(data: FieldList, target: dict) -> dict:
-    if target["name"] == "null":
-        return target
-    data.to_target(**target)
-    return target
+def write(data: FieldList, name: str, **kwargs):
+    if name == "null":
+        return
+
+    with ResourceMeter(f"Write {data.ls()} to {name}"):
+        data.to_target(target=name, **kwargs)

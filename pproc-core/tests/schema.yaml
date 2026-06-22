@@ -28,7 +28,6 @@ config:
             timeRangeIndicator: 2
           accumulations:
             step:
-              type: legacywindow
               name:
                 type: default
                 length: "{steplength}:int"
@@ -155,61 +154,72 @@ config:
                     hdate: {}
                 "*": {}
     em/es:
-      entrypoint: pproc-ensms
+      entrypoint: "pproc-ensms"
+      metadata_from_output: ["param", "stream", "date", "type"]
+      filter:type:
+        em:
+          statistics:
+            operation: mean
+        es:
+          statistics:
+            operation: std
       filter:stream:
         enfo/waef/eefo/weef:
           dtype: float64
-          metadata:
-            localDefinitionNumber: 30
-            oceanAtmosphereCoupling: 2
-            legBaseDate: "{date}:int"
-            legBaseTime: "{time}:int"
-            legNumber: 1
-            perturbationNumber: 0
-            bitsPerValue: 16
-            numberOfForecastsInEnsemble: "{num_fields}:int"
+          statistics:
+            metadata:
+              localDefinitionNumber: 30
+              oceanAtmosphereCoupling: 2
+              legBaseDate: "{date}:int"
+              legBaseTime: "{time}:int"
+              legNumber: 1
+              perturbationNumber: 0
+              bitsPerValue: 16
+              numberOfForecastsInEnsemble: "{num_fields}:int"
           filter:param:
             "10":
-              metadata:
-                bitsPerValue: 24
+              statistics:
+                metadata:
+                  bitsPerValue: 24
             "*": {}
         efhs/wehs/eehs:
           filter:steptype:
             range:
-              total_fields: 220
-              outputs:
-                default:
-                  metadata:
-                    localDefinitionNumber: 19
-              metadata:
-                bitsPerValue: 12
-                sampleSizeOfModelClimate: "{num_fields}:int"
-                versionOfModelClimate: 0
-                efiOrder: 0
-                numberOfReforecastYearsInModelClimate: 20
+              statistics:
+                metadata:
+                  localDefinitionNumber: 19
+                  bitsPerValue: 12
+                  sampleSizeOfModelClimate: "{num_fields}:int"
+                  versionOfModelClimate: 0
+                  efiOrder: 0
+                  numberOfReforecastYearsInModelClimate: 20
               accumulations:
                 date:
                   operation: "aggregation"
               filter:steplength:
                 "*":
-                  metadata:
-                    numberOfDaysInClimateSamplingWindow: 31
+                  statistics:
+                    metadata:
+                      numberOfDaysInClimateSamplingWindow: 31
                 "168":
-                  metadata:
-                    numberOfDaysInClimateSamplingWindow: 7
+                  statistics:
+                    metadata:
+                      numberOfDaysInClimateSamplingWindow: 7
             instantaneous:
               dtype: float64
-              metadata:
-                perturbationNumber: 0
-                numberOfForecastsInEnsemble: "{num_fields}:int"
-                bitsPerValue: 16
-                dataDate: "{date}:int"
+              statistics:
+                metadata:
+                  perturbationNumber: 0
+                  numberOfForecastsInEnsemble: "{num_fields}:int"
+                  bitsPerValue: 16
+                  dataDate: "{date}:int"
               accumulations:
                 step: {}
               filter:param:
                 "129":
-                  metadata:
-                    bitsPerValue: 24
+                  statistics:
+                    metadata:
+                      bitsPerValue: 24
                 "*": {}
     efi/sot/efic:
       entrypoint: pproc-extreme

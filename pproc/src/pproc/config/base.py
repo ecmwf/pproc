@@ -20,10 +20,11 @@ from pydantic import Field, field_validator, model_validator
 from typing_extensions import Self
 from ppcore.utils.dicts import deep_update
 from ppcore.utils.helpers import to_list
-from ppcore.utils.requests import extract_mars, update_request
+from ppcore.utils.requests import update_request
+from ppcore.utils.mars import extract_mars
+from ppcore.configs.entrypoint.log import LoggingConfig
 
 from pproc.config import io
-from pproc.config.log import LoggingConfig
 from pproc.config.param import ParamConfig, partial_equality
 from pproc.config.utils import (
     _get,

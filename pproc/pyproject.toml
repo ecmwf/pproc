@@ -56,6 +56,8 @@ scripts.pproc-histogram = "pproc.histogram:main"
 scripts.pproc-interpol = "pproc.interpol:main"
 scripts.pproc-monthly-stats = "pproc.monthly_stats:main"
 scripts.pproc-probabilities = "pproc.probabilities:main"
+scripts.pproc-product = "ppcore.product:main"
+
 scripts.pproc-pts = "pproc.pts:main"
 scripts.pproc-quantiles = "pproc.quantiles:main"
 scripts.pproc-significance = "pproc.significance:main"
@@ -90,6 +92,9 @@ scm.git.describe_command = [ 'git', 'describe', '--dirty', '--tags', '--long', '
 [tool.pytest.ini_options]
 minversion = "6.0"
 testpaths = [ "tests" ]
+
+[tool.uv]
+package = true
 
 [tool.uv.sources]
 pproc-core = { workspace = true }

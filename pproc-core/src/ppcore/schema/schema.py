@@ -18,7 +18,7 @@ from typing_extensions import Self
 from ppcore.schema.config import ConfigSchema
 from ppcore.schema.input import InputSchema
 from ppcore.schema.step import StepSchema
-from ppcore.utils.requests import METADATA_KEYS
+from ppcore.utils.mars import METADATA_KEYS
 from ppcore.utils.requests import VALUE_TYPES
 from ppcore.utils.requests import validate_request
 

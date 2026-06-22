@@ -32,12 +32,15 @@ dynamic = [ "version" ]
 
 dependencies = [
   "code-meters",
+  "conflator>=0.1.8",
   "earthkit-time",
   "earthkit-workflows",
   "numpy",
   "pandas",
   "pydantic",
 ]
+
+scripts.ppcore-config = "ppcore.config:main"
 
 [dependency-groups]
 dev = [
@@ -66,3 +69,6 @@ lint.ignore = [ "E722", "E731", "E741" ]
 [tool.pytest.ini_options]
 log_cli = true
 testpaths = [ "tests/" ]
+
+[tool.uv]
+package = true

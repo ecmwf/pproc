@@ -19,6 +19,7 @@ from pproc.extreme import main as extreme_main
 from pproc.quantiles import main as quantiles_main
 from pproc.thermal_indices import main as thermo_main
 from pproc.clustereps.__main__ import main as clustereps_main
+from ppcore.product import main as ppcore_main
 from conftest import DATA_DIR
 
 TEST_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -154,9 +155,9 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
         "clustereps",
     ],
 )
-def test_products(tmpdir, monkeypatch, fdb, product, main, custom_args, req, length):
+def test_products_v2(tmpdir, monkeypatch, fdb, product, main, custom_args, req, length):
     monkeypatch.chdir(tmpdir)  # To avoid polluting cwd with grib templates
-    args = [product, "--config", f"{TEST_DIR}/templates/{product}.yaml"] + [
+    args = [product, "--config", f"{TEST_DIR}/templates/v2/{product}.yaml"] + [
         x.format_map(
             {
                 "test_dir": str(tmpdir),
@@ -168,6 +169,39 @@ def test_products(tmpdir, monkeypatch, fdb, product, main, custom_args, req, len
     ]
     monkeypatch.setattr("sys.argv", args)
     main()
+    test_fdb = pyfdb.FDB()
+    request = {
+        "class": "od",
+        "expver": "0001",
+        "stream": "enfo",
+        "date": 20240507,
+        "time": 12,
+        "levtype": "sfc",
+        "domain": "g",
+    }
+    request.update(req)
+    messages = list(eccodes.StreamReader(test_fdb.retrieve(request)))
+    assert len(messages) == length
+
+
+@pytest.mark.parametrize(
+    "product, req, length",
+    [
+        [
+            "ensms",
+            {"type": "em", "param": 167, "step": [12, 36]},
+            2,
+        ],
+    ],
+    ids=[
+        "ensms",
+    ],
+)
+def test_products_v3(tmpdir, monkeypatch, fdb, product, req, length):
+    monkeypatch.chdir(tmpdir)  # To avoid polluting cwd with grib templates
+    args = [product, "--config", f"{TEST_DIR}/templates/v3/{product}.yaml"]
+    monkeypatch.setattr("sys.argv", args)
+    ppcore_main()
     test_fdb = pyfdb.FDB()
     request = {
         "class": "od",

@@ -172,6 +172,19 @@ from ppcore.schema.schema import Schema
                     "matrix-loader": "file-io",
                 },
                 "dtype": "float64",
+                "statistics": {
+                    "metadata": {
+                        "bitsPerValue": 16,
+                        "legBaseDate": 20241001,
+                        "legBaseTime": 0,
+                        "legNumber": 1,
+                        "localDefinitionNumber": 30,
+                        "numberOfForecastsInEnsemble": "{num_fields}:int",
+                        "oceanAtmosphereCoupling": 2,
+                        "perturbationNumber": 0,
+                    },
+                    "operation": "mean",
+                },
                 "inputs": [
                     {
                         "class": "od",
@@ -434,6 +447,19 @@ def test_schema_from_output(req, config, num_generated):
                     "matrix-loader": "file-io",
                 },
                 "dtype": "float64",
+                "statistics": {
+                    "metadata": {
+                        "bitsPerValue": 16,
+                        "legBaseDate": 20241001,
+                        "legBaseTime": 0,
+                        "legNumber": 1,
+                        "localDefinitionNumber": 30,
+                        "numberOfForecastsInEnsemble": "{num_fields}:int",
+                        "oceanAtmosphereCoupling": 2,
+                        "perturbationNumber": 0,
+                    },
+                    "operation": "mean",
+                },
             },
         ],
     ],

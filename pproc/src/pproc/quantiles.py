@@ -18,7 +18,7 @@ import eccodes
 from earthkit.meteo.stats import iter_quantiles
 from meters import ResourceMeter
 from conflator import Conflator
-from ppcore.utils.helpers import fill_template_values
+from earthkit.workflows.plugins.pproc.utils.metadata import fill_template_values
 
 from pproc.common.accumulation import Accumulator
 from pproc.common.accumulation_manager import AccumulationManager

@@ -8,24 +8,33 @@
 # nor does it submit to any jurisdiction.
 
 import inspect
-from typing import Any
+from typing import Optional, Union
 
 import numpy as np
 from earthkit.workflows.backends.earthkit import FieldListBackend
 from earthkit.workflows.nodetree import nodetree_size
 
 from earthkit.workflows import fluent
+from earthkit.workflows.nodetree import nodetree_arrays
 from earthkit.workflows.plugins.pproc.utils.request import MultiSourceRequest
 from earthkit.workflows.plugins.pproc.utils.request import Request
-from ppcore.config.preprocessing import MaskExpression
-from ppcore.config.threshold import ThresholdConfig
+from earthkit.workflows.plugins.pproc.utils.metadata import fill_template_values
+from earthkit.workflows.plugins.pproc.config.mask import MaskExpression
+from earthkit.workflows.plugins.pproc.config.threshold import Threshold
+from earthkit.workflows.plugins.pproc.config.accumulation import (
+    Coords,
+    Default,
+    Monthly,
+)
+from earthkit.workflows.plugins.pproc.metadata.accumulation import accumulation_metadata
+from earthkit.workflows.plugins.pproc.metadata.threshold import threshold_metadata
 
 
 class Action(fluent.Action):
     # TODO: migrate to schema
     _THERMAL_CONFIG = {
         "utci": {
-            "operation": "ppcore.thermal_indices.calc_utci",
+            "operation": "ppruntime.thermal_indices.calc_utci",
             "params": ["2t", "2d", "10si", "mrt"],
         },
         "10si": {
@@ -34,44 +43,47 @@ class Action(fluent.Action):
             "params": ["10u", "10v"],
         },
         "mrt": {
-            "operation": "ppcore.thermal_indices.calc_mrt",
+            "operation": "ppruntime.thermal_indices.calc_mrt",
             "params": ["cossza", "dsrp", "ssrd", "fdir", "strd", "str", "ssr"],
         },
         "cossza": {
-            "operation": "ppcore.thermal_indices.calc_cossza",
+            "operation": "ppruntime.thermal_indices.calc_cossza",
             "params": ["2t", "fdir"],
         },
         "dsrp": {
-            "operation": "ppcore.thermal_indices.calc_dsrp",
+            "operation": "ppruntime.thermal_indices.calc_dsrp",
             "params": ["fdir", "cossza"],
         },
         "hmdx": {
-            "operation": "ppcore.thermal_indices.calc_hmdx",
+            "operation": "ppruntime.thermal_indices.calc_hmdx",
             "params": ["2t", "2d"],
         },
-        "2r": {"operation": "ppcore.thermal_indices.calc_rhp", "params": ["2t", "2d"]},
+        "2r": {
+            "operation": "ppruntime.thermal_indices.calc_rhp",
+            "params": ["2t", "2d"],
+        },
         "heatx": {
-            "operation": "ppcore.thermal_indices.calc_heatx",
+            "operation": "ppruntime.thermal_indices.calc_heatx",
             "params": ["2t", "2d"],
         },
         "wbgt": {
-            "operation": "ppcore.thermal_indices.calc_wbgt",
+            "operation": "ppruntime.thermal_indices.calc_wbgt",
             "params": ["2t", "2d", "10si", "mrt"],
         },
         "gt": {
-            "operation": "ppcore.thermal_indices.calc_gt",
+            "operation": "ppruntime.thermal_indices.calc_gt",
             "params": ["2t", "10si", "mrt"],
         },
         "nefft": {
-            "operation": "ppcore.thermal_indices.calc_nefft",
+            "operation": "ppruntime.thermal_indices.calc_nefft",
             "params": ["2t", "10si", "2r"],
         },
         "wcf": {
-            "operation": "ppcore.thermal_indices.calc_wcf",
+            "operation": "ppruntime.thermal_indices.calc_wcf",
             "params": ["2t", "10si"],
         },
         "aptmp": {
-            "operation": "ppcore.thermal_indices.calc_aptmp",
+            "operation": "ppruntime.thermal_indices.calc_aptmp",
             "params": ["2t", "2r", "10si"],
         },
     }
@@ -85,18 +97,47 @@ class Action(fluent.Action):
         metadata: dict | None = None,
     ) -> "Action":
         batched = batch_size > 1 and self.nodes.sizes[dim] > batch_size
-        op = getattr(super(), operation)
+
         if not batched or metadata is None:
-            return op(
+            if isinstance(operation, str):
+                if hasattr(super(), operation):
+                    return getattr(super(), operation)(
+                        dim=dim,
+                        batch_size=batch_size,
+                        keep_dim=keep_dim,
+                        backend_kwargs={"metadata": metadata},
+                    )
+                else:
+                    operation = (
+                        fluent.Payload(operation, kwargs={"metadata": metadata}),
+                    )
+            else:
+                operation.kwargs.setdefault("metadata", {}).update(metadata or {})
+            return super().reduce(
+                operation,
                 dim=dim,
                 batch_size=batch_size,
                 keep_dim=keep_dim,
-                backend_kwargs={"metadata": metadata},
             )
 
+        if isinstance(operation, str):
+            if hasattr(super(), operation):
+                batched_action = getattr(super(), operation)(
+                    dim=dim, batch_size=batch_size, keep_dim=keep_dim
+                )
+            else:
+                batched_action = super().reduce(
+                    fluent.Payload(operation),
+                    dim=dim,
+                    batch_size=batch_size,
+                    keep_dim=keep_dim,
+                )
+        else:
+            batched_action = super().reduce(
+                operation, dim=dim, batch_size=batch_size, keep_dim=keep_dim
+            )
         # If batched, add additional node for setting window operation metadata. Doing this in a separate tasks
         # allows batched operations for overlapping windows to be identified and only computed once
-        batched_action = op(dim=dim, batch_size=batch_size, keep_dim=keep_dim)
         return batched_action.map(
             fluent.Payload(
                 FieldListBackend.set_metadata, [fluent.Node.input_name(0), metadata]
@@ -173,6 +214,21 @@ class Action(fluent.Action):
             "prod", dim=dim, batch_size=batch_size, keep_dim=keep_dim, metadata=metadata
         )
 
+    def norm(
+        self,
+        dim: str = "",
+        batch_size: int = 0,
+        keep_dim: bool = False,
+        metadata: dict | None = None,
+    ) -> "Action":
+        return self._reduction_with_metadata(
+            fluent.Payload(FieldListBackend.norm),
+            dim=dim,
+            batch_size=batch_size,
+            keep_dim=keep_dim,
+            metadata=metadata,
+        )
+
     def subtract(
         self, other: "Action | float", metadata: dict | None = None
     ) -> "Action":
@@ -189,57 +245,13 @@ class Action(fluent.Action):
     ) -> "Action":
         return super().multiply(other, backend_kwargs={"metadata": metadata})
 
+    def scale(self, value: float, metadata: dict | None = None) -> "Action":
+        return super().multiply(value, backend_kwargs={"metadata": metadata})
+
     def power(self, other: "Action | float", metadata: dict | None = None) -> "Action":
         return super().power(other, backend_kwargs={"metadata": metadata})
 
     def extreme(
-        self,
-        climatology: fluent.Action,
-        step_ranges: list[str],
-        sot: list[int],
-        eps: float,
-        efi_control: dict | None = None,
-        ensemble_dim: str = "number",
-        step_dim: str = "step",
-        new_dim: str = "type",
-        metadata: dict | None = None,
-    ) -> "Action":
-        """
-        Create nodes computing the EFI and SOT
-
-        Parameters
-        ----------
-        climatology: Action, nodes containing climatology data
-        step_ranges: list of str, list of step ranges
-        sot: list of ints, Shift-Of-Tail values
-        eps: float
-        efi_control: dict, selection for control member. If None, efi is not
-        computed for the control member
-        ensemble_dim: str, name of dimension for ensemble members
-        step_dim: str, name of dimension for steps
-        new_dim: str, name of new dimension corresponding to EFI/SOT nodes.
-
-        Return
-        ------
-        Action
-        """
-        eps = float(eps)
-        concat = self.concatenate(dim=ensemble_dim)
-        efi = concat.efi(climatology, step_ranges, eps, step_dim, metadata)
-        efi._add_dimension(new_dim, "efi")
-        if efi_control is not None:
-            control = self.select(efi_control, drop=True).efi(
-                climatology, step_ranges, eps, step_dim, metadata
-            )
-            control._add_dimension(new_dim, "efic")
-            efi = efi.join(control, new_dim)
-        sot = concat.sot(
-            climatology, step_ranges, eps, sot, step_dim, new_dim, metadata
-        )
-        ret = efi.join(sot, dim=new_dim)
-        return ret
-
-    def ensemble_extreme(
         self,
         operation: str,
         climatology: fluent.Action,
@@ -248,14 +260,6 @@ class Action(fluent.Action):
         step_dim: str = "step",
         **kwargs,
     ) -> "Action":
-        if operation == "extreme":
-            return self.extreme(
-                climatology,
-                step_ranges,
-                ensemble_dim=ensemble_dim,
-                step_dim=step_dim,
-                **kwargs,
-            )
         return self.concatenate(ensemble_dim).__getattribute__(operation)(
             climatology, step_ranges, dim=step_dim, **kwargs
         )
@@ -288,7 +292,7 @@ class Action(fluent.Action):
             if len(step_ranges) != 1:
                 raise ValueError("Single node, but multiple step ranges")
             payload = fluent.Payload(
-                "ppcore.stats.efi",
+                "ppruntime.stats.efi",
                 (fluent.Node.input_name(1), fluent.Node.input_name(0), eps),
                 {"metadata": metadata},
             )
@@ -351,55 +355,22 @@ class Action(fluent.Action):
             ).transform(_sot_window_transform, params, dim)
         return ret
 
-    def ensms(
-        self,
-        dim: str = "number",
-        new_dim: str | tuple[str, list] = ("type", ["mean", "std"]),
-        batch_size: int = 0,
-        metadata: dict | None = None,
-    ) -> "Action":
-        """
-        Creates nodes computing the mean and standard deviation along the specified dimension. A new dimension
-        is created joining the mean and standard deviation. If batch_size > 1 and less than the size
-        of the named dimension, the reduction will be computed first in
-        batches and then aggregated, otherwise no batching will be performed.
-
-        Parameters
-        ----------
-        dim: str, dimension to compute mean and standard deviation along
-        new_dim: str or tuple, name of new dimension or tuple specifying new dimension name and
-        coordinate values
-        batch_size: int, size of batches to split reduction into. If 0,
-        computation is not batched
-
-        Return
-        ------
-        Action
-        """
-        metadata = metadata or {}
-        mean = self.mean(
-            dim=dim, batch_size=batch_size, metadata={"type": "em", **metadata}
-        )
-        std = self.std(
-            dim=dim, batch_size=batch_size, metadata={"type": "es", **metadata}
-        )
-        res = mean.join(std, new_dim)
-        return res
-
     def threshold_prob(
         self,
-        threshold: dict,
+        thresholds: list[Union[Threshold, dict]],
         dim: str = "number",
         batch_size: int = 0,
-        metadata: dict | None = None,
+        metadata: Optional[dict] = None,
+        clim_metadata: Optional[dict] = None,
     ) -> "Action":
-        thresholds = ThresholdConfig(**threshold)
         combined = None
-        for threshold in thresholds.param_thresholds:
+        for threshold in thresholds:
+            if isinstance(threshold, dict):
+                threshold = Threshold(**threshold)
             selected = self.sel(threshold.select) if threshold.select else self
             selected.map(
                 fluent.Payload(
-                    "ppcore.stats.mask",
+                    "ppruntime.stats.mask",
                     (fluent.Node.input_name(0),),
                     threshold.model_dump(
                         exclude=("select", "lower_scale_factor", "upper_scale_factor")
@@ -413,11 +384,11 @@ class Action(fluent.Action):
                     "ppruntime.stats.logical_and", dim="param"
                 )
 
-        metadata = metadata or {}
-        threshold_metadata = thresholds.grib_keys(edition=metadata.get("edition", 1))
-        threshold_metadata.update(metadata)
+        thr_metadata = threshold_metadata(
+            threshold=thresholds[0], metadata=metadata, clim_metadata=clim_metadata
+        )
         return combined.multiply(100).mean(
-            dim=dim, batch_size=batch_size, metadata=threshold_metadata
+            dim=dim, batch_size=batch_size, metadata=thr_metadata
         )
 
     def anomaly(
@@ -453,22 +424,6 @@ class Action(fluent.Action):
         ret = self.concatenate(dim).transform(_quantiles_transform, params, new_dim)
         return ret
 
-    def wind_speed(
-        self, vod2uv: bool, dim: str = "param", metadata: dict | None = None
-    ) -> "Action":
-        kwargs = {"metadata": metadata}
-        if vod2uv:
-            ret = self.map(
-                fluent.Payload(
-                    FieldListBackend.norm, (fluent.Node.input_name(0),), kwargs
-                )
-            )
-        else:
-            ret = self.reduce(
-                fluent.Payload(FieldListBackend.norm, kwargs=kwargs), dim=dim
-            )
-        return ret
-
     def _wrapped_reduction(
         self,
         operation: str | fluent.Payload | None,
@@ -490,7 +445,9 @@ class Action(fluent.Action):
                 ]
                 if "batch_size" in args:
                     kwargs["batch_size"] = batch_size
-                return op(dim=dim, metadata=metadata, **kwargs)
+                if "dim" in args:
+                    kwargs["dim"] = dim
+                return op(metadata=metadata, **kwargs)
             if metadata is not None:
                 kwargs.setdefault("metadata", {}).update(metadata)
             op_function = getattr(FieldListBackend, operation, None) or operation
@@ -500,7 +457,7 @@ class Action(fluent.Action):
             )
         return self.reduce(operation, dim=dim, batch_size=batch_size)
 
-    def param_operation(
+    def preprocessing(
         self,
         operation: str | fluent.Payload | None,
         dim: str = "param",
@@ -520,8 +477,6 @@ class Action(fluent.Action):
         ------
         Action
         """
-        if "operation" == "scale":
-            return self.multiply(kwargs["value"], metadata=metadata)
         return self._wrapped_reduction(operation, dim, batch_size, metadata, **kwargs)
 
     # TODO: turn this into more general param operation that scans schema to look for
@@ -557,16 +512,17 @@ class Action(fluent.Action):
     def mask(
         self,
         select: dict,
-        mask: dict,
+        mask: Union[MaskExpression, dict],
         replacement: float = 0.0,
         dim: str = "param",
         metadata: dict | None = None,
     ) -> "Action":
-        mask = MaskExpression(**mask)
+        if isinstance(mask, dict):
+            mask = MaskExpression(**mask)
         mask_action = self.sel(mask.select, drop=True) if select else self
         mask_action = mask_action.map(
             fluent.Payload(
-                "ppcore.stats.mask",
+                "ppruntime.stats.mask",
                 (fluent.Node.input_name(0),),
                 {"lower_comparison": mask.comparison, "lower_value": mask.value},
             )
@@ -582,7 +538,7 @@ class Action(fluent.Action):
             )
         )
 
-    def ensemble_operation(
+    def ensemble_statistics(
         self,
         operation: str | fluent.Payload | None,
         dim: str = "number",
@@ -610,21 +566,31 @@ class Action(fluent.Action):
         ------
         ValueError if payload function is not batchable and batch_size is not 0
         """
-        if operation in ["mean", "std"]:
-            metadata = {} if metadata is None else metadata.copy()
-            if "type" not in metadata:
-                metadata["type"] = "em" if operation == "mean" else "es"
-        return self._wrapped_reduction(operation, dim, batch_size, metadata, **kwargs)
+        metadata = metadata or {}
 
-    def accum_operation(
+        for _, narray in nodetree_arrays(self.nodes):
+            if dim not in narray.coords:
+                raise ValueError(
+                    f"Dimension {dim} not found in nodes for ensemble_statistics"
+                )
+            stat_metadata = fill_template_values(
+                metadata, {"num_fields": narray.coords[dim].size}
+            )
+            break
+
+        return self._wrapped_reduction(
+            operation, dim, batch_size, stat_metadata, **kwargs
+        )
+
+    def accumulation(
         self,
         operation: str | fluent.Payload,
-        coords: list[list[Any]],
+        coords: list[Coords],
         dim: str = "step",
         batch_size: int = 0,
         metadata: dict | None = None,
-        include_start: bool = False,
         deaccumulate: bool = False,
+        name: Union[Default, Monthly, dict] = Default(),
         **kwargs,
     ) -> "Action":
         """
@@ -640,7 +606,6 @@ class Action(fluent.Action):
         batch_size: int, size of batches to split reduction into. If 0,
         computation is not batched
         metadata: optional dict, metadata to set on the output
-        include_init: bool, whether to include the initial value in the accumulation
         deaccumulate: bool, whether to deaccumulate consecutive values before accumulation
 
         Return
@@ -662,21 +627,37 @@ class Action(fluent.Action):
                 operation,
                 batch_size,
                 metadata,
-                include_start,
                 deaccumulate,
+                name,
                 kwargs,
             )
             for coord in coords
         ]
         return self.transform(_accum_transform, params, dim)
 
-    def write(self, target: dict) -> "Action":
-        return self.map(
-            fluent.Payload(
-                "ppcore.io.write",
-                (fluent.Node.input_name(0), target),
-            )
+    def write(self, targets: list[dict], metadata: Optional[dict] = None) -> "Action":
+        if len(targets) == 0:
+            raise ValueError("No targets provided for write")
+        return self.transform(
+            _write_transform,
+            [(target, metadata) for target in targets],
+            dim="target",
         )
+
+
+def _write_transform(
+    action: fluent.Action, target: dict, metadata: Optional[dict] = None
+) -> fluent.Action:
+    kwargs = target.copy()
+    if metadata is not None:
+        kwargs["metadata"] = metadata
+    return action.map(
+        fluent.Payload(
+            "ppruntime.io.write",
+            (fluent.Node.input_name(0),),
+            kwargs,
+        )
+    )
 
 
 def _sot_transform(
@@ -684,7 +665,7 @@ def _sot_transform(
 ) -> fluent.Action:
     new_sot = action.reduce(
         fluent.Payload(
-            "ppcore.stats.sot",
+            "ppruntime.stats.sot",
             (fluent.Node.input_name(1), fluent.Node.input_name(0), number, eps),
             {"metadata": metadata},
         )
@@ -711,7 +692,7 @@ def _efi_window_transform(
 ) -> fluent.Action:
     ret = action.select(selection).reduce(
         fluent.Payload(
-            "ppcore.stats.efi",
+            "ppruntime.stats.efi",
             (fluent.Node.input_name(1), fluent.Node.input_name(0), eps),
             {"metadata": metadata},
         ),
@@ -724,7 +705,7 @@ def _quantiles_transform(
     action, q_number: int, total_number: int, new_dim: str, metadata: dict | None
 ):
     payload = fluent.Payload(
-        "ppcore.stats.quantiles",
+        "ppruntime.stats.quantiles",
         (fluent.Node.input_name(0), q_number, total_number),
         {"metadata": metadata},
     )
@@ -736,13 +717,13 @@ def _quantiles_transform(
 def _accum_transform(
     action: fluent.Action,
     dim: str,
-    coords: list[Any],
+    coords: Coords,
     operation: str | fluent.Payload,
     batch_size: int,
-    metadata: dict | None,
-    include_start: bool,
-    deaccumulate: bool,
-    kwargs: dict,
+    metadata: Optional[dict] = None,
+    deaccumulate: bool = False,
+    name: Union[Default, Monthly, dict] = Default(),
+    kwargs: dict = {},
 ) -> fluent.Action:
     if len(coords) == 1:
         # Nothing to reduce and no metadata to set
@@ -752,24 +733,31 @@ def _accum_transform(
         accum_action = action.select({dim: coords[:-1]})
         accum_action = accum_action.subtract(action.select({dim: coords[1:]}))
     else:
-        accum_action = action.select({dim: coords if include_start else coords[1:]})
+        accum_action = action.select({dim: coords})
+
+    if isinstance(name, dict):
+        name = Default(**name) if name.get("type_") == "default" else Monthly(**name)
+    accum_name = name.name(coords)
+    accum_metadata = accumulation_metadata(dim, coords, accum_name, metadata)
 
     accum_action = accum_action._wrapped_reduction(
         operation,
         dim=dim,
         batch_size=batch_size,
-        metadata=metadata,
+        metadata=accum_metadata,
         **kwargs,
     )
 
-    accum_action._add_dimension(dim, f"{coords[0]}-{coords[-1]}")
+    accum_action._add_dimension(dim, accum_name)
+
     return accum_action
 
 
 def from_source(
+    sources: list[Union[str, dict]],
     requests: list[dict | Request | MultiSourceRequest],
+    dtype: Optional[str] = None,
     join_key: str = "",
-    backend_kwargs: dict = {},
 ):
     all_actions = None
     for request in requests:
@@ -778,7 +766,7 @@ def from_source(
         payloads = np.empty(tuple(request.dims.values()), dtype=object)
         for indices, new_request in request.expand():
             payloads[indices] = fluent.Payload(
-                "ppruntime.io.retrieve", [new_request], backend_kwargs
+                "ppruntime.io.retrieve", [sources, [new_request], dtype]
             )
         new_action = fluent.from_source(
             payloads,
