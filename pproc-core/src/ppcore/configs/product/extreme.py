@@ -10,10 +10,10 @@
 
 from earthkit.workflows.plugins.pproc.fluent import Action
 
-from .ensemble import EnsembleConfig
+from .ensemble import Ensemble
 
 
-class ExtremeConfig(EnsembleConfig):
+class Extreme(Ensemble):
     @property
     def climatology(self) -> list[dict]:
         return [x for x in self.inputs if x["type"] == "cd"]
@@ -56,3 +56,46 @@ class ExtremeConfig(EnsembleConfig):
             step_ranges=[self.step_range],
             **self.stats,
         )
+
+
+# def extreme(
+#     output_requests: list[dict], pproc_schema: str, target: str = "null:"
+# ) -> Graph:
+#     """
+#     Generate graph for EFI/SOT products.
+#     Parameters
+#     ----------
+#     output_requests: list[dict], list of dictionaries containing output requests
+#     pproc_schema: str, path to schema file
+#     target: str, target and location to write output
+
+#     Returns
+#     -------
+#     Graph
+#     """
+#     total_graph = Graph([])
+#     ensemble_dim = "type"
+#     for req in output_requests:
+#         config = derive_template(req, pproc_schema)
+#         forecast = from_source(
+#             [
+#                 Request(x, no_expand=("number"))
+#                 for x in squeeze(
+#                     sum([list(expand(x)) for x in config.forecast], []),
+#                     ["step", "number", "param", "levelist"],
+#                 )
+#             ],
+#             join_key=ensemble_dim,
+#             backend_kwargs={"stream": True},
+#         )
+#         climatology = from_source(
+#             [Request(x, no_expand=("quantile")) for x in config.climatology]
+#         )
+#         total_graph += (
+#             config.action(
+#                 forecast=forecast, climatology=climatology, ensemble_dim=ensemble_dim
+#             )
+#             .write(target)
+#             .graph()
+#         )
+#     return deduplicate_nodes(total_graph)

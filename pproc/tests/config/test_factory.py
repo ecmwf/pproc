@@ -10,7 +10,7 @@
 import pytest
 
 from ppcore.utils.dicts import deep_update
-from ppcore.utils.requests import extract_mars
+from ppcore.utils.mars import extract_mars
 from ppcore.schema.schema import Schema
 
 from pproc.config import types

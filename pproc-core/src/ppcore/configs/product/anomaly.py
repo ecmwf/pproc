@@ -13,10 +13,11 @@ from earthkit.workflows.fluent import Payload
 
 from earthkit.workflows.plugins.pproc.fluent import Action
 
-from .ensemble import EnsembleConfig
+
+from .ensemble import Ensemble
 
 
-class AnomalyConfig(EnsembleConfig):
+class Anomaly(Ensemble):
     @property
     def climatology(self) -> list[dict]:
         return [x for x in self.inputs if x["type"] in ["em", "es"]]
@@ -66,3 +67,54 @@ class AnomalyConfig(EnsembleConfig):
         return stats.join(clim_headers, "**datatype**", match_coord_values=True).reduce(
             FieldListBackend.set_metadata, dim="**datatype**"
         )
+
+
+# def anomaly(
+#     output_requests: list[dict], pproc_schema: str, target: str = "null:"
+# ) -> Graph:
+#     """
+#     Generate graph for ensemble member anomaly products e.g. threshold probabilities
+#     for t850.
+#     Parameters
+#     ----------
+#     output_requests: list[dict], list of dictionaries containing output requests
+#     pproc_schema: str, path to schema file
+#     target: str, target and location to write output
+
+#     Returns
+#     -------
+#     Graph
+#     """
+#     total_graph = Graph([])
+#     ensemble_dim = "type"
+#     for req in output_requests:
+#         config = derive_template(req, pproc_schema)
+#         forecast = from_source(
+#             [
+#                 Request(x, no_expand=("number",))
+#                 for x in squeeze(
+#                     sum([list(expand(x)) for x in config.forecast], []),
+#                     ["step", "number", "param", "levelist"],
+#                 )
+#             ],
+#             join_key=ensemble_dim,
+#             backend_kwargs={"stream": True},
+#         )
+#         climatology = from_source(
+#             [
+#                 Request(x)
+#                 for x in squeeze(
+#                     sum([list(expand(x)) for x in config.climatology], []),
+#                     ["type", "step"],
+#                 )
+#             ],
+#             join_key="step",
+#         )
+#         total_graph += (
+#             config.action(
+#                 forecast=forecast, climatology=climatology, ensemble_dim=ensemble_dim
+#             )
+#             .write(target)
+#             .graph()
+#         )
+#     return deduplicate_nodes(total_graph)

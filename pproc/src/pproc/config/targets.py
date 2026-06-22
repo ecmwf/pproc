@@ -19,7 +19,7 @@ from conflator import ConfigModel
 from filelock import FileLock
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, model_validator
 
-from pproc.config import utils
+from ppcore.utils.entrypoint import validate_overrides
 
 _manager = None
 
@@ -165,7 +165,7 @@ class OverrideTargetWrapper(ConfigModel, Target):
     ]
     overrides: Annotated[
         dict,
-        BeforeValidator(utils.validate_overrides),
+        BeforeValidator(validate_overrides),
     ]
 
     @model_validator(mode="before")

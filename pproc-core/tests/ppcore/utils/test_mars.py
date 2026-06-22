@@ -11,7 +11,7 @@ from datetime import date, datetime
 
 import pytest
 
-from pproc.common import mars
+from ppcore.utils import mars
 
 
 @pytest.mark.parametrize(

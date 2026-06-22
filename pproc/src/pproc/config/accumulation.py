@@ -15,7 +15,7 @@ import copy
 
 from earthkit.time.calendar import parse_date
 from earthkit.time.sequence import Sequence
-from ppcore.utils.requests import extract_mars
+from ppcore.utils.mars import extract_mars
 
 from ppcore.utils.stepseq import stepseq_ranges, stepseq_monthly
 from pproc.common.accumulation import convert_coords, coords_name

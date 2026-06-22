@@ -14,7 +14,7 @@ import pytest
 from conflator import Conflator
 from pydantic import ValidationError
 
-from pproc.config.log import LoggingConfig
+from ppcore.configs.entrypoint.log import LoggingConfig
 
 
 def test_logging_model_default():

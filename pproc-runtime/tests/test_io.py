@@ -14,6 +14,9 @@ import pytest
 
 from ppruntime.io import retrieve
 
+TEST_DIR = os.path.dirname(os.path.realpath(__file__))
+DATA_DIR = os.path.join(TEST_DIR, "data")
+
 request = {
     "class": "od",
     "expver": "0001",
@@ -29,8 +32,28 @@ request = {
 
 
 @pytest.mark.parametrize(
-    "source",
-    ["mars", "fdb"],
+    "overrides",
+    [
+        {},
+        {"interpolate": {"grid": "O640"}},
+        {
+            "param": [138, 155],
+            "levtype": "pl",
+            "levelist": [250, 850],
+            "interpolate": {"grid": "O640", "vod2uv": "1"},
+        },
+    ],
+    ids=["default", "interpolate", "wind"],
+)
+def test_mars_retrieve(overrides):
+    test_request = request.copy()
+    test_request.update(overrides)
+    retrieve(["mars"], [test_request])
+
+
+@pytest.mark.parametrize(
+    "stream",
+    [True, False],
 )
 @pytest.mark.parametrize(
     "overrides",
@@ -46,9 +69,54 @@ request = {
     ],
     ids=["default", "interpolate", "wind"],
 )
-def test_retrieve(source, overrides):
+def test_fdb_retrieve(stream, overrides):
     os.environ["FDB_HOME"] = "/home/fdbprod"
     test_request = request.copy()
-    test_request["source"] = source
     test_request.update(overrides)
-    retrieve(test_request)
+    retrieve([{"name": "fdb", "stream": stream}], [test_request])
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        {"name": "file", "path": os.path.join(DATA_DIR, "test_2t_12.grib")},
+        {
+            "name": "file-pattern",
+            "pattern": os.path.join(DATA_DIR, "test_{param}_{step}.grib"),
+            "hive_partitioning": True,
+        },
+    ],
+    ids=["file", "file-pattern"],
+)
+def test_file_retrieve(source):
+    request = {
+        "stream": "enfo",
+        "type": "cf",
+        "date": "20240507",
+        "time": "12",
+        "param": "2t",
+        "expver": "0001",
+        "levtype": "sfc",
+    }
+    retrieve([source], [request])
+
+
+def test_multi_source_retrieve():
+    request = {
+        "stream": "enfo",
+        "type": "cf",
+        "date": "20240507",
+        "time": "12",
+        "param": "2t",
+        "expver": "0001",
+        "levtype": "sfc",
+    }
+    sources = [
+        {"name": "fdb", "stream": True},
+        {
+            "name": "file",
+            "path": os.path.join(DATA_DIR, "test_2t_12.grib"),
+        },
+    ]
+    os.environ["FDB_HOME"] = "/home/fdbprod"
+    retrieve(sources, [request])

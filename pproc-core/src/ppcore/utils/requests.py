@@ -10,7 +10,6 @@ from ppcore.utils.dicts import deep_update
 from ppcore.utils.dicts import dict_product
 from ppcore.utils.helpers import to_list
 
-METADATA_KEYS = {"param": "paramId", "date": "dataDate"}
 
 VALUE_TYPES = {
     "param": str,
@@ -133,35 +132,3 @@ def update_request(
         if inp not in deduplicated:
             deduplicated.append(inp)
     return deduplicated
-
-
-def extract_mars(keys: dict, additional: Optional[list[str]] = None) -> dict:
-    additional = additional or []
-    for key, metadata_key in METADATA_KEYS.items():
-        if metadata_key in keys:
-            keys[key] = keys.pop(metadata_key)
-    mars_namespace = [
-        "class",
-        "type",
-        "stream",
-        "expver",
-        "model",
-        "levtype",
-        "levelist",
-        "param",
-        "date",
-        "year",
-        "month",
-        "hdate",
-        "fcmonth",
-        "fcperiod",
-        "time",
-        "step",
-        "number",
-        "domain",
-        "quantile",
-        "method",
-        "origin",
-        "system",
-    ]
-    return {k: v for k, v in keys.items() if (k in mars_namespace) or (k in additional)}

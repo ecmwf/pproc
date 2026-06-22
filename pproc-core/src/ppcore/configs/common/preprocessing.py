@@ -19,6 +19,8 @@ from pydantic import BaseModel
 from pydantic import Field
 from pydantic import model_validator
 
+from earthkit.workflows.plugins.pproc.config.mask import MaskExpression
+
 
 class Preprocessing(BaseModel, ABC):
     metadata: Optional[dict] = None
@@ -36,33 +38,17 @@ class Combination(Preprocessing):
     operation: Literal["direction", "norm", "sum"]
 
 
-class Reshape(Preprocessing):
-    operation: Literal["reshape"] = "reshape"
-    shape: Union[int, tuple[int, int]]
-    order: Literal["F", "C"] = "F"
+# class Reshape(Preprocessing):
+#     operation: Literal["reshape"] = "reshape"
+#     shape: Union[int, tuple[int, int]]
+#     order: Literal["F", "C"] = "F"
 
 
-class Expression(Preprocessing):
-    operation: Literal["expression"] = "expression"
-    expr: str
-    expr_data: dict
-    dtype: Optional[str] = None
-
-
-class MaskExpression(BaseModel):
-    select: dict
-    comparison: Literal["<", ">", ">=", "<=", "==", "!="]
-    value: float
-
-    @model_validator(mode="before")
-    @classmethod
-    def validate_model(cls, data: Any) -> Any:
-        if isinstance(data, list):
-            assert (
-                len(data) == 3
-            ), "Mask expression should be a [select, comparison, value] list"
-            return {"select": data[0], "comparison": data[1], "value": data[2]}
-        return data
+# class Expression(Preprocessing):
+#     operation: Literal["expression"] = "expression"
+#     expr: str
+#     expr_data: dict
+#     dtype: Optional[str] = None
 
 
 class Masking(Preprocessing):
@@ -85,7 +71,7 @@ class PreprocessingConfig(BaseModel):
     #     value: 3600
     actions: List[
         Annotated[
-            Union[Scaling, Combination, Masking, Reshape, Expression],
+            Union[Scaling, Combination, Masking],
             Field(discriminator="operation"),
         ]
     ] = Field(default_factory=list)

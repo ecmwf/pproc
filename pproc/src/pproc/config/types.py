@@ -27,7 +27,8 @@ import pandas as pd
 from conflator import CLIArg, ConfigModel
 from earthkit.time import DailySequence
 from ppcore.utils.dicts import deep_update
-from ppcore.utils.requests import expand, extract_mars, update_request, squeeze
+from ppcore.utils.requests import expand, update_request, squeeze
+from ppcore.utils.mars import extract_mars
 
 from pproc.clustereps.season import MONTH_DAYS, Season
 from pproc.config.base import BaseConfig, Parallelisation

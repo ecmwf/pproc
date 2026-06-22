@@ -2181,6 +2181,7 @@ name = "pproc-core"
 source = { editable = "../pproc-core" }
 dependencies = [
     { name = "code-meters" },
+    { name = "conflator" },
     { name = "earthkit-time" },
     { name = "earthkit-workflows", version = "0.6.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "earthkit-workflows", version = "0.14.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
@@ -2201,6 +2202,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "code-meters" },
+    { name = "conflator", specifier = ">=0.1.8" },
     { name = "earthkit-time" },
     { name = "earthkit-workflows" },
     { name = "numpy" },
