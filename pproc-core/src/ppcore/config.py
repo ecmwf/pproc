@@ -21,6 +21,7 @@ from ppcore.configs import from_inputs as config_from_inputs
 from ppcore.configs.entrypoint.base import EntrypointConfig
 from ppcore.products import product_from_config
 from ppcore.utils import mars
+from ppcore.utils.requests import datacubes
 
 logging.basicConfig(
     format="%(asctime)s; %(name)s; %(levelname)s - %(message)s",
@@ -93,6 +94,9 @@ def requests(args):
 
         inputs.extend(product.in_mars(args.source))
         outputs.extend(product.out_mars(args.target))
+
+    inputs = datacubes(inputs)
+    outputs = datacubes(outputs)
 
     # TODO: Add method to simplify requests
     if args.inputs:
