@@ -36,7 +36,6 @@ class Ensemble(BaseModel):
     @model_validator(mode="before")
     def validate_config(cls, data: Any) -> Any:
         if isinstance(data, dict):
-            print("Validating ensemble config...", data)
             if "requests" in data:
                 requests = data.pop("requests")
                 if sources := data.pop("sources", None):
