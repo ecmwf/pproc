@@ -36,7 +36,9 @@ class Ensemble(BaseModel):
     @model_validator(mode="before")
     def validate_config(cls, data: Any) -> Any:
         if isinstance(data, dict):
+            print("Validating ensemble config...", data)
             if "requests" in data:
+                requests = data.pop("requests")
                 if sources := data.pop("sources", None):
                     if isinstance(sources, dict):
                         sources = sources["fc"]
@@ -44,13 +46,16 @@ class Ensemble(BaseModel):
                         sources = [sources]
                     data["inputs"] = {
                         "fc": {
-                            "requests": data.pop("requests"),
+                            "requests": requests.pop("inputs"),
                             "sources": sources,
                             "dtype": data.pop("dtype"),
                         }
                     }
-            if output := data.pop("outputs", None):
-                data["output"] = output
+            if targets := data.pop("targets", None):
+                data["output"] = {
+                    "targets": targets if isinstance(targets, list) else [targets],
+                    "request": requests.pop("original"),
+                }
             if metadata := data.pop("metadata", None):
                 stat_metadata = data["statistics"].setdefault("metadata", {})
                 stat_metadata.update(metadata)
