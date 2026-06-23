@@ -16,7 +16,8 @@ from earthkit.workflows.graph import Graph
 
 from earthkit.workflows.plugins.pproc.fluent import from_source
 from earthkit.workflows.plugins.pproc.utils.request import Request
-from ppcore.products import product_from_outputs, graph_from_outputs
+from ppcore.products import product_from_output, graph_from_outputs
+from ppcore.utils.requests import expand
 from conftest import SCHEMA
 
 
@@ -27,8 +28,10 @@ ROOT_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)))
     "requests",
     [
         os.path.join(ROOT_DIR, "templates", "ensms.yaml"),
+        os.path.join(ROOT_DIR, "templates", "prob.yaml"),
+        os.path.join(ROOT_DIR, "templates", "quantiles.yaml"),
     ],
-    ids=["ensms"],
+    ids=["ensms", "prob", "quantiles"],
 )
 def test_graph_construction(requests):
     with open(requests, "r") as f:
@@ -40,16 +43,18 @@ def test_graph_construction(requests):
     "requests",
     [
         os.path.join(ROOT_DIR, "templates", "ensms.yaml"),
+        os.path.join(ROOT_DIR, "templates", "prob.yaml"),
+        os.path.join(ROOT_DIR, "templates", "quantiles.yaml"),
     ],
-    ids=["ensms"],
+    ids=["ensms", "prob", "quantiles"],
 )
 def test_custom_source(requests):
     with open(requests, "r") as f:
         output_requests = yaml.safe_load(f)
 
     graph = Graph([])
-    for req in output_requests:
-        product = product_from_outputs([req], SCHEMA, metadata={"edition": 2})
+    for req in expand(output_requests):
+        product = product_from_output(req, SCHEMA, metadata={"edition": 2})
         requests = []
         for request in product.config.inputs.fc.requests:
             req = Request(request)

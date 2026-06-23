@@ -4,7 +4,9 @@ import datetime
 from earthkit.time.calendar import MonthInYear
 from earthkit.time.sequence import MonthlySequence
 
-from pydantic import BaseModel, Field
+from pydantic import Field, ConfigDict
+
+from earthkit.workflows.plugins.pproc.utils.pydantic_utils import PProcBaseModel
 
 NumericCoord = int
 NumericCoords = Union[list[int], range]
@@ -13,7 +15,9 @@ Coord = Union[str, NumericCoord]
 Coords = Union[list[str], NumericCoords]
 
 
-class Default(BaseModel):
+class Default(PProcBaseModel):
+    model_config = ConfigDict(validate_by_name=True)
+
     type_: Literal["default"] = Field("default", alias="type")
     length: Optional[int] = None
 
@@ -27,7 +31,9 @@ class Default(BaseModel):
         return f"{start}-{end}"
 
 
-class Monthly(BaseModel):
+class Monthly(PProcBaseModel):
+    model_config = ConfigDict(validate_by_name=True)
+
     type_: Literal["monthly"] = Field("monthly", alias="type")
     date: str
 

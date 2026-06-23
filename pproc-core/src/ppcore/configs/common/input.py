@@ -11,11 +11,11 @@ from typing import Any, ClassVar, Union
 
 from annotated_types import Annotated
 from pydantic import (
-    BaseModel,
     Field,
     create_model,
     field_validator,
 )
+from earthkit.workflows.plugins.pproc.utils.pydantic_utils import PProcBaseModel
 from ppcore.configs.common.source import (
     FDBSource,
     FilePatternSource,
@@ -25,7 +25,7 @@ from ppcore.configs.common.source import (
 from ppcore.utils.io import split_location
 
 
-class Input(BaseModel):
+class Input(PProcBaseModel):
     sources: list[
         Annotated[
             Union[FileSource, FilePatternSource, FDBSource, MARSSource],
@@ -67,7 +67,7 @@ class Input(BaseModel):
         }
 
 
-class InputsCollection(BaseModel):
+class InputsCollection(PProcBaseModel):
     names: ClassVar[list[str]]
 
 

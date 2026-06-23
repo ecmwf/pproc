@@ -14,16 +14,16 @@ from typing import Optional
 from typing import Union
 
 import numpy as np
-from pydantic import BaseModel
 from pydantic import Field
 from pydantic import RootModel
 
+from earthkit.workflows.plugins.pproc.utils.pydantic_utils import PProcBaseModel
 from ppcore.schema.base import BaseSchema
 from ppcore.utils.stepseq import steprange_to_fcmonth
 from ppcore.utils.stepseq import stepseq_monthly
 
 
-class Instantaneous(BaseModel):
+class Instantaneous(PProcBaseModel):
     type_: Literal["instantaneous"] = Field("instantaneous", alias="type")
     deaccumulate: bool = False
     start: Optional[int] = None
@@ -44,7 +44,7 @@ class Instantaneous(BaseModel):
         return selected_steps[1:] if self.deaccumulate else selected_steps
 
 
-class Range(BaseModel):
+class Range(PProcBaseModel):
     type_: Literal["range"] = Field("range", alias="type")
     start: Optional[int] = None
     end: Optional[int] = None
@@ -65,7 +65,7 @@ class Range(BaseModel):
         return [f"{rstart}-{rstart + self.width}" for rstart in sorted(rstarts)]
 
 
-class Monthly(BaseModel):
+class Monthly(PProcBaseModel):
     type_: Literal["monthly"] = Field("monthly", alias="type")
     date: str
     dim: Literal["fcmonth"] = "fcmonth"

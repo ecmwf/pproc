@@ -24,8 +24,8 @@ def product_from_config(
     )
 
 
-def product_from_outputs(
-    requests: list[dict],
+def product_from_output(
+    request: dict,
     pproc_schema: str,
     metadata: Optional[dict] = None,
 ) -> Product:
@@ -33,9 +33,11 @@ def product_from_outputs(
     Returns fluent.Action for computing the product specified by the output request
     and PProc schema
     """
-    requests = list(
-        expand(requests, exclude=["levelist", "number", "quantile", "hdate"])
-    )
+    requests = list(expand(request))
+    if len(requests) != 1:
+        raise ValueError(
+            f"Expected a single request after expansion, got {len(requests)}"
+        )
     config = list(config_from_outputs(requests, pproc_schema, metadata=metadata))[0]
     return product_from_config(config)
 
@@ -49,11 +51,13 @@ def graph_from_outputs(
     Returns fluent.Action for computing the product specified by the output request
     and PProc schema
     """
-    graph = (
-        product_from_outputs(requests, pproc_schema=pproc_schema, metadata=metadata)
-        .action()
-        .graph()
-    )
+    graph = Graph([])
+    for request in expand(requests):
+        graph += (
+            product_from_output(request, pproc_schema=pproc_schema, metadata=metadata)
+            .action()
+            .graph()
+        )
     return deduplicate_nodes(graph)
 
 

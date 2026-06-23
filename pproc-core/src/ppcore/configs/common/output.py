@@ -11,11 +11,11 @@ from typing import Any, ClassVar, Union
 
 from annotated_types import Annotated
 from pydantic import (
-    BaseModel,
     Field,
     create_model,
     field_validator,
 )
+from earthkit.workflows.plugins.pproc.utils.pydantic_utils import PProcBaseModel
 from ppcore.utils.io import split_location
 from ppcore.configs.common.target import (
     NullTarget,
@@ -26,7 +26,7 @@ from ppcore.configs.common.target import (
 )
 
 
-class Output(BaseModel):
+class Output(PProcBaseModel):
     targets: list[
         Annotated[
             Union[FileTarget, FilePatternTarget, FDBTarget, NullTarget, ZarrTarget],
@@ -58,7 +58,7 @@ class Output(BaseModel):
         return data
 
 
-class OutputsCollection(BaseModel):
+class OutputsCollection(PProcBaseModel):
     names: ClassVar[list[str]]
 
 

@@ -24,8 +24,9 @@ config:
     "121/122/123/228026/228027":
       filter:type:
         em/es/pb:
-          metadata:
-            timeRangeIndicator: 2
+          statistics:
+            metadata:
+              timeRangeIndicator: 2
           accumulations:
             step:
               name:
@@ -346,6 +347,9 @@ config:
                   value: 604800000
     ep:
       entrypoint: pproc-probabilities
+      metadata_from_output: ["param", "stream", "date", "type"]
+      statistics:
+        operation: threshold_probability
       dtype: float64
       filter:steptype:
         instantaneous:
@@ -495,201 +499,242 @@ config:
                     packingType: "grid_ccsds"
                     bitsPerValue: 24
         "260290":
-          metadata:
-            edition: 2
-            productDefinitionTemplateNumber: 5
-            typeOfGeneratingProcess: 5
+          statistics:
+            metadata:
+              edition: 2
+              productDefinitionTemplateNumber: 5
+              typeOfGeneratingProcess: 5
       filter:selection:
         "default":
           filter:param:
             "131060":
-              threshold:
-                comparison: ">="
-                value: 0.001
-                scale_factor: 3
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 0.001
+                  scale_factor: 3
             "131061":
-              threshold:
-                comparison: ">="
-                value: 0.005
-                scale_factor: 3
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 0.005
+                  scale_factor: 3
             "131062":
-              threshold:
-                comparison: ">="
-                value: 0.01
-                scale_factor: 3
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 0.01
+                  scale_factor: 3
             "131063":
-              threshold:
-                comparison: ">="
-                value: 0.02
-                scale_factor: 3
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 0.02
+                  scale_factor: 3
             "131098":
-              threshold:
-                comparison: ">="
-                value: 0.025
-                scale_factor: 3
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 0.025
+                  scale_factor: 3
                 metadata:
                   scaleFactorOfLowerLimit: 0
             "131099":
-              threshold:
-                comparison: ">="
-                value: 0.05
-                scale_factor: 3
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 0.05
+                  scale_factor: 3
                 metadata:
                   scaleFactorOfLowerLimit: 0
             "131085":
-              threshold:
-                comparison: ">="
-                value: 0.1
-                scale_factor: 3
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 0.1
+                  scale_factor: 3
                 metadata:
                   scaleFactorOfLowerLimit: 0
             "131064":
-              threshold:
-                comparison: '<'
-                value: 0.0001
-                scale_factor: 4
+              statistics:
+                threshold:
+                  comparison: '<'
+                  value: 0.0001
+                  scale_factor: 4
             "131065":
-              threshold:
-                comparison: '<'
-                value: 0.001
-                scale_factor: 4
+              statistics:
+                threshold:
+                  comparison: '<'
+                  value: 0.001
+                  scale_factor: 4
             "131066":
-              threshold:
-                comparison: '>='
-                value: 0.003
-                scale_factor: 4
+              statistics:
+                threshold:
+                  comparison: '>='
+                  value: 0.003
+                  scale_factor: 4
             "131067":
-              threshold:
-                comparison: '>='
-                value: 0.005
-                scale_factor: 4
+              statistics:
+                threshold:
+                  comparison: '>='
+                  value: 0.005
+                  scale_factor: 4
             "131068":
-              threshold:
-                comparison: ">="
-                value: 10
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 10
             "131069":
-              threshold:
-                comparison: ">="
-                value: 15
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 15
             "131070":
-              threshold:
-                comparison: ">="
-                value: 15
+             statistics:
+                threshold:
+                  comparison: ">="
+                  value: 15
             "131071":
-              threshold:
-                comparison: ">="
-                value: 20
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 20
             "131072":
-              threshold:
-                comparison: ">="
-                value: 25
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 25
             "131100":
-              threshold:
-                comparison: ">="
-                value: 10
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 10
             "131074":
-              threshold:
-                comparison: ">="
-                value: 2
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 2
             "131075":
-              threshold:
-                comparison: ">="
-                value: 4
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 4
             "131076":
-              threshold:
-                comparison: ">="
-                value: 6
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 6
             "131077":
-              threshold:
-                comparison: ">="
-                value: 8
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 8
             "131078":
-              threshold:
-                comparison: ">="
-                value: 8
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 8
             "131079":
-              threshold:
-                comparison: ">="
-                value: 10
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 10
             "131080":
-              threshold:
-                comparison: ">="
-                value: 12
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 12
             "131081":
-              threshold:
-                comparison: ">="
-                value: 15
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 15
             "131073":
-              threshold:
-                comparison: "<="
-                value: 273.15
-                scale_factor: 2
+              statistics:
+                threshold:
+                  comparison: "<="
+                  value: 273.15
+                  scale_factor: 2
             "131020":
-              threshold:
-                comparison: "<"
-                value: -2
+              statistics:
+                threshold:
+                  comparison: "<"
+                  value: -2
             "131021":
-              threshold:
-                comparison: ">="
-                value: 2
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 2
             "131022":
-              threshold:
-                comparison: "<"
-                value: -8
+              statistics:
+                threshold:
+                  comparison: "<"
+                  value: -8
             "131023":
-              threshold:
-                comparison: "<"
-                value: -4
+              statistics:
+                threshold:
+                  comparison: "<"
+                  value: -4
             "131024":
-              threshold:
-                comparison: ">"
-                value: 4
+              statistics:
+                threshold:
+                  comparison: ">"
+                  value: 4
             "131025":
-              threshold:
-                comparison: ">"
-                value: 8
+              statistics:
+                threshold:
+                  comparison: ">"
+                  value: 8
             "133093":
-              threshold:
-                comparison: '>'
-                value: 1
+              statistics:
+                threshold:
+                  comparison: '>'
+                  value: 1
             "133094":
-              threshold:
-                comparison: '>'
-                value: 1.5
-                scale_factor: 1
+              statistics:
+                threshold:
+                  comparison: '>'
+                  value: 1.5
+                  scale_factor: 1
                 metadata:
                   scaleFactorOfLowerLimit: 1
             "133095":
-              threshold:
-                comparison: '>'
-                value: 2
+              statistics:
+                threshold:
+                  comparison: '>'
+                  value: 2
             "133096":
-              threshold:
-                comparison: '<'
-                value: -1
-                limit_type: lower
+              statistics:
+                threshold:
+                  comparison: '<'
+                  value: -1
+                  limit_type: lower
             "133097":
-              threshold:
-                comparison: '<'
-                value: -1.5
-                scale_factor: 1
-                limit_type: lower
+              statistics:
+                threshold:
+                  comparison: '<'
+                  value: -1.5
+                  scale_factor: 1
+                  limit_type: lower
                 metadata:
                   scaleFactorOfLowerLimit: 1
             "133098":
-              threshold:
-                comparison: '<'
-                value: -2
-                limit_type: lower
+              statistics:
+                threshold:
+                  comparison: '<'
+                  value: -2
+                  limit_type: lower
         "eccharts":
           filter:param:
-            "131060":
-              threshold:
-                comparison: ">="
-                value: "{threshold}:float"
-                scale_factor: 3
+            statistics:
+              "131060":
+                threshold:
+                  comparison: ">="
+                  value: "{threshold}:float"
+                  scale_factor: 3
             "260290":
-               threshold: "{threshold}"
+              statistics:
+                threshold: "{threshold}"
     fcmean:
       filter:param:
         171001/171002/171006/171007/171078/171079/171033/171034/171121/171122/171129/171130/171131/171132/171133/171136/171137/171139/171141/171151/171164/171165/171166/171167/171168/171201/171202/173142/173143/173144/173189/173228:
@@ -1247,10 +1292,14 @@ config:
                 bitsPerValue: 16
     pb:
       entrypoint: pproc-quantiles
+      metadata_from_output: ["param", "stream", "date", "type"]
+      statistics:
+        operation: quantiles
       filter:stream:
         enfo/waef:
-          metadata:
-            localDefinitionNumber: 30
+          statistics:
+            metadata:
+              localDefinitionNumber: 30
         "*": {}
     taem/taes:
       filter:stream:

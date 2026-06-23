@@ -28,9 +28,7 @@ def from_outputs(
     Returns product configuration from output request and PProc schema
     """
     schema = Schema.from_file(pproc_schema)
-    for request in expand(
-        requests, exclude=["levelist", "number", "quantile", "hdate"]
-    ):
+    for request in expand(requests):
         schema_config = schema.config_from_output(request, inputs=inputs)
         yield from_schema(schema_config, request, metadata, **overrides)
 

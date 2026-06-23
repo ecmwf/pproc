@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
 
 
-class PProcCoreBaseModel(BaseModel):
+class PProcBaseModel(BaseModel):
     model_config = ConfigDict(extra="forbid")

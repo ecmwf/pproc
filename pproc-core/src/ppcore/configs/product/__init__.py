@@ -8,14 +8,6 @@ from ppcore.configs.product.ensemble import Ensemble
 
 logger = logging.getLogger(__name__)
 
-ENTRYPOINT_TO_CONFIG = {
-    "pproc-ensms": "ensemble",
-    "pproc-quantiles": "ensemble",
-    "pproc-probabilities": "ensemble",
-    "pproc-accumulate": "ensemble",
-    "pproc-extreme": "extreme",
-}
-
 
 ProductConfig = Annotated[
     Union[Ensemble],

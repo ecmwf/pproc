@@ -15,7 +15,7 @@ from earthkit.workflows.backends.earthkit import FieldListBackend
 from earthkit.workflows.nodetree import nodetree_size
 
 from earthkit.workflows import fluent
-from earthkit.workflows.nodetree import nodetree_arrays
+from earthkit.workflows.nodetree import nodetree_arrays, nodetree_dimensions
 from earthkit.workflows.plugins.pproc.utils.request import MultiSourceRequest
 from earthkit.workflows.plugins.pproc.utils.request import Request
 from earthkit.workflows.plugins.pproc.utils.metadata import fill_template_values
@@ -355,7 +355,7 @@ class Action(fluent.Action):
             ).transform(_sot_window_transform, params, dim)
         return ret
 
-    def threshold_prob(
+    def threshold_probability(
         self,
         thresholds: list[Union[Threshold, dict]],
         dim: str = "number",
@@ -368,7 +368,7 @@ class Action(fluent.Action):
             if isinstance(threshold, dict):
                 threshold = Threshold(**threshold)
             selected = self.sel(threshold.select) if threshold.select else self
-            selected.map(
+            selected = selected.map(
                 fluent.Payload(
                     "ppruntime.stats.mask",
                     (fluent.Node.input_name(0),),
@@ -384,8 +384,13 @@ class Action(fluent.Action):
                     "ppruntime.stats.logical_and", dim="param"
                 )
 
+        base_threshold = (
+            thresholds[0]
+            if isinstance(thresholds[0], Threshold)
+            else Threshold(**thresholds[0])
+        )
         thr_metadata = threshold_metadata(
-            threshold=thresholds[0], metadata=metadata, clim_metadata=clim_metadata
+            threshold=base_threshold, metadata=metadata, clim_metadata=clim_metadata
         )
         return combined.multiply(100).mean(
             dim=dim, batch_size=batch_size, metadata=thr_metadata
@@ -405,14 +410,29 @@ class Action(fluent.Action):
 
     def quantiles(
         self,
-        quantiles: int | list[float],
+        quantiles: int | list[float] | str,
         dim: str = "number",
         new_dim: str = "quantile",
         metadata: dict | None = None,
     ) -> "Action":
+        """
+        Compute quantiles over the specified dimension. If quantiles is an integer, it will compute that many evenly spaced quantiles.
+        If quantiles is a string, it should be in the format "q_number:total_number".
+        If quantiles is a list of floats, it will compute the quantiles at the specified values.
+
+        Parameters
+        ----------
+        quantiles: int | list[float] | str, quantiles to compute
+        dim: str, dimension to compute quantiles over
+        new_dim: str, name of the new dimension for quantiles
+        metadata: dict, optional metadata to set on the output
+        """
         if isinstance(quantiles, int):
             total_number = quantiles
             q_numbers = range(0, quantiles + 1)
+        elif isinstance(quantiles, str):
+            q_number, total_number = map(int, quantiles.split(":"))
+            q_numbers = [q_number]
         else:
             even_spacing = np.all(np.diff(quantiles) == quantiles[1] - quantiles[0])
             total_number = len(quantiles) - 1 if even_spacing else 100
@@ -727,6 +747,8 @@ def _accum_transform(
 ) -> fluent.Action:
     if len(coords) == 1:
         # Nothing to reduce and no metadata to set
+        if dim not in nodetree_dimensions(action.nodes):
+            return action
         return action.select({dim: coords})
 
     if deaccumulate:

@@ -1,10 +1,12 @@
-from pydantic import BaseModel, model_validator
+from pydantic import model_validator
 from typing import Any, Optional, Literal
+
+from earthkit.workflows.plugins.pproc.utils.pydantic_utils import PProcBaseModel
 
 Comparisons = Literal["<", ">", "<=", ">="]
 
 
-class Threshold(BaseModel):
+class Threshold(PProcBaseModel):
     select: Optional[dict] = None
     lower_scale_factor: int = 0
     lower_comparison: Comparisons
@@ -15,10 +17,10 @@ class Threshold(BaseModel):
 
     @model_validator(mode="before")
     def validate_threshold(cls, data: Any) -> Any:
-        if "comparison" in data and "value" in data:
+        if "comparison" in data:
             data["lower_comparison"] = data.pop("comparison")
             data["lower_value"] = data.pop("value")
-            data["lower_scale_factor"] = data.get("scale_factor", 0)
+            data["lower_scale_factor"] = data.pop("scale_factor", 0)
         if any(k in data for k in ["upper_comparison", "upper_value"]) and not all(
             k in data for k in ["upper_comparison", "upper_value"]
         ):

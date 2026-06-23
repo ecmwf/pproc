@@ -16,10 +16,12 @@ import logging
 import yaml
 import json
 
+from earthkit.workflows.visualise import visualise
+
 from ppcore.configs import from_outputs as config_from_outputs
 from ppcore.configs import from_inputs as config_from_inputs
 from ppcore.configs.entrypoint.base import EntrypointConfig
-from ppcore.products import product_from_config
+from ppcore.products import product_from_config, graph_from_configs
 from ppcore.utils import mars
 from ppcore.utils.requests import datacubes, expand
 
@@ -120,6 +122,19 @@ def requests(args):
                 yaml.dump(outputs, f, sort_keys=False)
 
 
+def plot(args):
+    with open(args.config, "r") as f:
+        config = yaml.safe_load(f)
+    entrypoint_config = EntrypointConfig(**config)
+
+    graph = graph_from_configs(
+        entrypoint_config.products,
+        entrypoint_config.input_overrides,
+        entrypoint_config.output_overrides,
+    )
+    visualise(graph, args.file)
+
+
 def main(args: List[str] = sys.argv[1:]):
     parser = argparse.ArgumentParser("Generate configuration file for PProc")
     parser.add_argument(
@@ -201,6 +216,14 @@ def main(args: List[str] = sys.argv[1:]):
         help="Output in MARS request format",
     )
     request_parser.set_defaults(func=requests)
+
+    plot_parser = subparsers.add_parser(
+        "plot", help="Generate plot of earthkit-workflows graph from PProc config file"
+    )
+    plot_parser.add_argument(
+        "--file", type=str, required=False, help="Path to graph html file"
+    )
+    plot_parser.set_defaults(func=plot)
 
     args = parser.parse_args(args)
     args.func(args)

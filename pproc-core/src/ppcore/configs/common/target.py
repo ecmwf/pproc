@@ -10,31 +10,31 @@
 
 from typing import Literal, Optional
 
-from pydantic import BaseModel
+from earthkit.workflows.plugins.pproc.utils.pydantic_utils import PProcBaseModel
 
 
-class NullTarget(BaseModel):
+class NullTarget(PProcBaseModel):
     name: Literal["null"] = "null"
 
 
-class FileTarget(BaseModel):
+class FileTarget(PProcBaseModel):
     name: Literal["file"] = "file"
     file: str
     append: bool = False
 
 
-class FilePatternTarget(BaseModel):
+class FilePatternTarget(PProcBaseModel):
     name: Literal["file-pattern"] = "file-pattern"
     file: str
     append: bool = False
 
 
-class FDBTarget(BaseModel):
+class FDBTarget(PProcBaseModel):
     name: Literal["fdb"] = "fdb"
     config: Optional[str] = None
 
 
-class ZarrTarget(BaseModel):
+class ZarrTarget(PProcBaseModel):
     name: Literal["zarr"] = "zarr"
     earthkit_to_xarray_kwargs: Optional[dict] = None
     xarray_to_zarr_kwargs: Optional[dict] = None

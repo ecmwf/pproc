@@ -24,10 +24,15 @@ from pydantic import ConfigDict
 from pydantic import Field
 from pydantic import model_validator
 
+from earthkit.workflows.plugins.pproc.utils.pydantic_utils import PProcBaseModel
 from ppcore.utils.stepseq import fcmonth_to_steprange
 
 
-class DefaultStepDeriver(BaseModel):
+class BaseDeriver(BaseModel):
+    model_config = ConfigDict(validate_by_name=True)
+
+
+class DefaultStepDeriver(BaseDeriver):
     type_: Literal["default"] = Field("default", alias="type")
     by: Optional[int] = None
     include_start: bool = False
@@ -67,7 +72,7 @@ class DefaultStepDeriver(BaseModel):
         return self._range(*steps, fc_steps)
 
 
-class DeaccumulateStepDeriver(BaseModel):
+class DeaccumulateStepDeriver(BaseDeriver):
     type_: Literal["deaccumulate"] = Field("deaccumulate", alias="type")
     by: int = 0
     allow_missing_zero: bool = False
@@ -98,7 +103,7 @@ class DeaccumulateStepDeriver(BaseModel):
         return self._range(*steps, fc_steps)
 
 
-class PrecomputedStepDeriver(BaseModel):
+class PrecomputedStepDeriver(BaseDeriver):
     type_: Literal["precomputed"] = Field("precomputed", alias="type")
 
     def derive(self, output_request: dict, fc_steps: list[int]) -> list[int]:
@@ -136,7 +141,7 @@ class SelectionStepDeriver(DefaultStepDeriver):
         return [selection_range[self.index]]
 
 
-class StaticStepDeriver(BaseModel):
+class StaticStepDeriver(BaseDeriver):
     type_: Literal["static"] = Field("static", alias="type")
     values: Union[int, list[int]]
 
@@ -160,7 +165,7 @@ ForecastStepDeriver = Annotated[
 ]
 
 
-class ClimStepDeriver(BaseModel):
+class ClimStepDeriver(BaseDeriver):
     type_: Literal["range", "instantaneous"] = Field("range", alias="type")
 
     @model_validator(mode="before")
@@ -235,7 +240,7 @@ class ClimStepDeriver(BaseModel):
         return getattr(ClimStepDeriver, f"_{self.type_}")(request, clim_steps)
 
 
-class ClimDateDeriver(BaseModel):
+class ClimDateDeriver(PProcBaseModel):
     model_config = ConfigDict(extra="allow")
 
     option: str
@@ -254,7 +259,7 @@ class ClimDateDeriver(BaseModel):
         return [datetime.datetime.strftime(x, "%Y%m%d") for x in clim_date]
 
 
-class HindcastDatesDeriver(BaseModel):
+class HindcastDatesDeriver(PProcBaseModel):
     rstart: int
     rend: int
     recurrence: str = "yearly"

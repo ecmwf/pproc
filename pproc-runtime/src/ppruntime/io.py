@@ -140,17 +140,17 @@ def retrieve(
                 try:
                     logger.debug(f"Trying source {name}")
                     if name == "fdb":
-                        ds = fdb_retrieve(request=request, **source)
+                        source_ds = fdb_retrieve(request=request, **source)
                     elif name == "mars":
-                        ds = mars_retrieve(request=request, **source)
+                        source_ds = mars_retrieve(request=request, **source)
                     elif name in ["file", "file-pattern"]:
-                        ds = file_retrieve(name, request=request, **source).order_by(
-                            "paramId"
-                        )
+                        source_ds = file_retrieve(
+                            name, request=request, **source
+                        ).order_by("paramId")
                     else:
                         raise NotImplementedError(f"Source {source} not supported.")
                     assert (
-                        len(ds) > 0
+                        len(source_ds) > 0
                     ), f"No data retrieved from {source} for request {request}"
                     break
                 except AssertionError:
@@ -158,13 +158,16 @@ def retrieve(
                         f"No data retrieved from source {source} for request {request}"
                     )
                     continue
-            if len(ds) == 0:
+            if len(source_ds) == 0:
                 raise ValueError(
                     f"No data retrieved from sources {sources} for request {request}"
                 )
         ds += FieldList.from_array(
-            ds.to_array(flatten=True, dtype=dtype),
-            [StandAloneGribMetadata(metadata._handle) for metadata in ds.metadata()],
+            source_ds.to_array(flatten=True, dtype=dtype),
+            [
+                StandAloneGribMetadata(metadata._handle)
+                for metadata in source_ds.metadata()
+            ],
         )
     return ds
 
@@ -173,5 +176,5 @@ def write(data: FieldList, name: str, **kwargs):
     if name == "null":
         return
 
-    with ResourceMeter(f"Write {data.ls()} to {name}"):
+    with ResourceMeter(f"Write {data.ls(namespace="mars")} to {name}"):
         data.to_target(target=name, **kwargs)

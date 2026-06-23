@@ -1,9 +1,11 @@
 from typing import Any, Literal
 
-from pydantic import BaseModel, model_validator
+from pydantic import model_validator
+
+from earthkit.workflows.plugins.pproc.utils.pydantic_utils import PProcBaseModel
 
 
-class MaskExpression(BaseModel):
+class MaskExpression(PProcBaseModel):
     select: dict
     comparison: Literal["<", ">", ">=", "<=", "==", "!="]
     value: float
