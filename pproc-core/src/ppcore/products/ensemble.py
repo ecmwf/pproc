@@ -31,18 +31,27 @@ class Ensemble(Product):
             raise ValueError("No inputs provided for ensemble config")
         input_config = self.config.inputs.fc
         ensemble_dim = ensemble_dim or self.ensemble_dim
-        requests = []
+        action = None
         for x in [dict(x, **self.input_overrides) for x in input_config.requests]:
-            req = Request(validate_request(x), no_expand=("levelist"))
+            req = Request(validate_request(x), no_expand=("number",))
             if "number" not in req and ensemble_dim == "number":
                 req.make_dim("number", 0)
-            requests.append(req)
-        return from_source(
-            input_config.sources,
-            requests,
-            input_config.dtype,
-            join_key=ensemble_dim,
-        )
+            new_action = from_source(
+                input_config.sources,
+                [req],
+                input_config.dtype,
+            )
+            if "number" in req:
+                new_action = new_action.expand(
+                    "number",
+                    ("number", req["number"]),
+                    backend_kwargs={"method": "sel"},
+                )
+            if action is None:
+                action = new_action
+            else:
+                action = action.join(new_action, dim=ensemble_dim)
+        return action
 
     def action(
         self,
