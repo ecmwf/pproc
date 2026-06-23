@@ -15,14 +15,14 @@ from typing import Literal
 from typing import Optional
 from typing import Union
 
-from pydantic import BaseModel
 from pydantic import Field
 from pydantic import model_validator
 
+from earthkit.workflows.plugins.pproc.utils.pydantic_utils import PProcBaseModel
 from earthkit.workflows.plugins.pproc.config.mask import MaskExpression
 
 
-class Preprocessing(BaseModel, ABC):
+class Preprocessing(PProcBaseModel, ABC):
     metadata: Optional[dict] = None
 
 
@@ -61,7 +61,7 @@ class Masking(Preprocessing):
     replacement: float = 0.0
 
 
-class PreprocessingConfig(BaseModel):
+class PreprocessingConfig(PProcBaseModel):
     # preprocessing:
     #   - operation: norm
     #   - operation: mask

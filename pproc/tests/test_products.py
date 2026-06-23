@@ -192,10 +192,23 @@ def test_products_v2(tmpdir, monkeypatch, fdb, product, main, custom_args, req, 
             {"type": "em", "param": 167, "step": [12, 36]},
             2,
         ],
+        [
+            "prob",
+            {"type": "ep", "param": 131073, "step": ["12", "12-36"]},
+            2,
+        ],
+        [
+            "quantiles",
+            {
+                "type": "pb",
+                "param": 167,
+                "step": [12, 18, 24, 30, 36],
+                "quantile": ["{}:3".format(x) for x in range(4)],
+            },
+            20,
+        ],
     ],
-    ids=[
-        "ensms",
-    ],
+    ids=["ensms", "prob", "quantiles"],
 )
 def test_products_v3(tmpdir, monkeypatch, fdb, product, req, length):
     monkeypatch.chdir(tmpdir)  # To avoid polluting cwd with grib templates

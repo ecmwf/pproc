@@ -34,19 +34,19 @@ class Ensemble(Product):
         action = None
         for x in [dict(x, **self.input_overrides) for x in input_config.requests]:
             req = Request(validate_request(x), no_expand=("number",))
-            if "number" not in req and ensemble_dim == "number":
-                req.make_dim("number", 0)
             new_action = from_source(
                 input_config.sources,
                 [req],
                 input_config.dtype,
             )
-            if "number" in req:
+            if "number" in x:
                 new_action = new_action.expand(
                     "number",
                     ("number", req["number"]),
                     backend_kwargs={"method": "sel"},
                 )
+            else:
+                new_action._add_dimension("number", 0)
             if action is None:
                 action = new_action
             else:
@@ -62,7 +62,7 @@ class Ensemble(Product):
         ret = forecast or self.source(ensemble_dim=ensemble_dim)
         for preprocessing in self.config.preprocessing.actions:
             ret = ret.preprocessing(
-                preprocessing_dim or self.preprocessing_dim,
+                dim=preprocessing_dim or self.preprocessing_dim,
                 **preprocessing.model_dump(),
             )
         for dim, accumulation in self.config.accumulations.items():

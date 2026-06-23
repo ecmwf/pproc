@@ -7,18 +7,7 @@
   date: "20230914"
   time: 12
   expver: "0001"
-  step: 0-24
-  sources: "fdb:"
-- class: od
-  stream: enfo
-  type: ep
-  levtype: sfc
-  domain: g
-  param: "131060"
-  date: "20230914"
-  time: 12
-  expver: "0001"
-  step: 12-36
+  step: [0-24, 12-36]
   sources: "fdb:"
 - class: od
   stream: enfo
@@ -51,18 +40,7 @@
   date: "20230914"
   time: 12
   expver: "0001"
-  step: 0-24
-  sources: "fdb:"
-- class: od
-  stream: enfo
-  type: ep
-  levtype: sfc
-  domain: g
-  param: "131098"
-  date: "20230914"
-  time: 12
-  expver: "0001"
-  step: 12-36
+  step: [0-24, 12-36]
   sources: "fdb:"
 - class: od
   stream: enfo
@@ -73,18 +51,7 @@
   date: 20230914
   time: 12
   expver: "0001"
-  step: 12
-  sources: "fdb:"
-- class: od
-  stream: enfo
-  type: ep
-  levtype: sfc
-  domain: g
-  param: "131068"
-  date: 20230914
-  time: 12
-  expver: "0001"
-  step: 24
+  step: [12, 24]
   sources: "fdb:"
 - class: od
   stream: enfo
@@ -117,38 +84,5 @@
   date: 20230914
   time: 12
   expver: "0001"
-  step: 120-168
-  sources: "fdb:"
-- class: od
-  stream: enfo
-  type: ep
-  levtype: sfc
-  domain: g
-  param: "131073"
-  date: 20230914
-  time: 12
-  expver: "0001"
-  step: 120-240
-  sources: "fdb:"
-- class: od
-  stream: enfo
-  type: ep
-  levtype: sfc
-  domain: g
-  param: "131073"
-  date: 20230914
-  time: 12
-  expver: "0001"
-  step: 168-240
-  sources: "fdb:"
-- class: od
-  stream: enfo
-  type: ep
-  levtype: sfc
-  domain: g
-  param: "131073"
-  date: 20230914
-  time: 12
-  expver: "0001"
-  step: 126
+  step: [120-168, 120-240, 168-240, 126]
   sources: "fdb:"

@@ -16,7 +16,7 @@ import logging
 import yaml
 import json
 
-from ppcore.schema import Schema
+from ppcore.schema.schema import Schema
 
 from pproc.config.factory import ConfigFactory
 from pproc.common import mars

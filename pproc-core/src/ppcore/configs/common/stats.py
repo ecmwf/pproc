@@ -1,16 +1,17 @@
 from typing import Literal, Any
-from pydantic import BaseModel, Field, model_validator
+from pydantic import Field, model_validator
 
+from earthkit.workflows.plugins.pproc.utils.pydantic_utils import PProcBaseModel
 from earthkit.workflows.plugins.pproc.config.threshold import Threshold
 
 
-class Statistics(BaseModel):
+class Statistics(PProcBaseModel):
     metadata: dict = Field(default_factory=dict)
 
 
 class Quantiles(Statistics):
     operation: Literal["quantiles"] = "quantiles"
-    quantiles: int | list[float] = 100
+    quantiles: int | list[float] | str = 100
 
 
 class EFI(Statistics):
@@ -38,8 +39,6 @@ class ThresholdProbability(Statistics):
 
     @model_validator(mode="before")
     def validate_thresholds(cls, data: Any) -> Any:
-        if isinstance(data, dict) and "thresholds" not in data:
-            data["thresholds"] = [
-                {k: data[k] for k in data if k not in cls.model_fields}
-            ]
+        if isinstance(data, dict) and "threshold" in data:
+            data.setdefault("thresholds", []).append(data.pop("threshold"))
         return data

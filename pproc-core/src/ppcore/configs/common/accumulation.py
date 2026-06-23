@@ -1,14 +1,15 @@
 from typing import Optional, Union, Literal, Annotated, Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from earthkit.workflows.plugins.pproc.config.accumulation import (
     Default,
     Monthly,
 )
+from earthkit.workflows.plugins.pproc.utils.pydantic_utils import PProcBaseModel
 
 
-class Accumulation(BaseModel):
+class Accumulation(PProcBaseModel):
     operation: Optional[Literal["min", "max", "mean", "std", "add", "diff"]] = None
     coords: list[Union[list[int], list[str]]]
     metadata: Optional[dict] = None
@@ -19,6 +20,13 @@ class Accumulation(BaseModel):
             Field(discriminator="type_"),
         ]
     ] = None
+
+    @model_validator(mode="before")
+    def validate_config(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            # TODO Update schema to remove these keys
+            data.pop("type", None)
+        return data
 
     @field_validator("operation", mode="before")
     @classmethod

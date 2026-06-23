@@ -8,8 +8,9 @@
 # nor does it submit to any jurisdiction.
 
 from typing import Any, Optional, Union, Literal
-from pydantic import BaseModel, Field, model_validator
+from pydantic import Field, model_validator
 
+from earthkit.workflows.plugins.pproc.utils.pydantic_utils import PProcBaseModel
 from ppcore.configs.common.preprocessing import PreprocessingConfig
 from ppcore.configs.common.input import create_input_model
 from ppcore.configs.common.output import Output
@@ -20,12 +21,13 @@ from ppcore.configs.common.stats import (
     Quantiles,
     ThresholdProbability,
 )
+from ppcore.utils.mars import extract_mars
 
 
 EnsembleInputModel = create_input_model("EnsembleInputsModel", inputs=["fc"])
 
 
-class Ensemble(BaseModel):
+class Ensemble(PProcBaseModel):
     name: Literal["ensemble"] = Field("ensemble")
     preprocessing: PreprocessingConfig = Field(default_factory=PreprocessingConfig)
     accumulations: dict[str, Accumulation] = Field(default_factory=dict)
@@ -38,6 +40,8 @@ class Ensemble(BaseModel):
         if isinstance(data, dict):
             if "requests" in data:
                 requests = data.pop("requests")
+                original = requests.pop("original")
+                dtype = data.pop("dtype", "float32")
                 if sources := data.pop("sources", None):
                     if isinstance(sources, dict):
                         sources = sources["fc"]
@@ -47,17 +51,19 @@ class Ensemble(BaseModel):
                         "fc": {
                             "requests": requests.pop("inputs"),
                             "sources": sources,
-                            "dtype": data.pop("dtype"),
+                            "dtype": dtype,
                         }
                     }
             if targets := data.pop("targets", None):
                 data["output"] = {
                     "targets": targets if isinstance(targets, list) else [targets],
-                    "request": requests.pop("original"),
+                    "request": extract_mars(original),
                 }
             if metadata := data.pop("metadata", None):
                 stat_metadata = data["statistics"].setdefault("metadata", {})
                 stat_metadata.update(metadata)
+            if data.pop("quantiles", None) is not None:
+                data["statistics"]["quantiles"] = original["quantile"]
         return data
 
 

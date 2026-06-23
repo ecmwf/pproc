@@ -16,11 +16,11 @@ from typing import Union
 
 import numpy as np
 import pandas as pd
-from pydantic import BaseModel
 from pydantic import field_validator
 from pydantic import model_validator
 from typing_extensions import Self
 
+from earthkit.workflows.plugins.pproc.utils.pydantic_utils import PProcBaseModel
 from ppcore.schema.base import BaseSchema
 from ppcore.schema.step import StepSchema
 from ppcore.utils.dicts import deep_update
@@ -49,7 +49,7 @@ from ppcore.utils.requests import (
 logger = logging.getLogger(__name__)
 
 
-class ForecastInput(BaseModel):
+class ForecastInput(PProcBaseModel):
     members: Optional[dict] = None
     request: dict
     derive_step: ForecastStepDeriver
@@ -120,7 +120,7 @@ class ClimatologyInput(ForecastInput):
         super().populate_derived(base_request, steps, scheme)
 
 
-class ForecastConfig(BaseModel):
+class ForecastConfig(PProcBaseModel):
     inputs: list[ForecastInput]
     scheme: Optional[str] = None
 
@@ -215,7 +215,7 @@ class ClimatologyConfig(ForecastConfig):
         yield from super().match(input_requests)
 
 
-class InputConfig(BaseModel):
+class InputConfig(PProcBaseModel):
     forecast: ForecastConfig
     climatology: ClimatologyConfig
     from_inputs: bool = True

@@ -1,24 +1,24 @@
 from typing import Optional, Literal
 
-from pydantic import BaseModel
+from earthkit.workflows.plugins.pproc.utils.pydantic_utils import PProcBaseModel
 
 
-class FDBSource(BaseModel):
+class FDBSource(PProcBaseModel):
     name: Literal["fdb"] = "fdb"
     config: Optional[str] = None
     stream: bool = True
 
 
-class MARSSource(BaseModel):
+class MARSSource(PProcBaseModel):
     name: Literal["mars"] = "mars"
 
 
-class FileSource(BaseModel):
+class FileSource(PProcBaseModel):
     name: Literal["file"] = "file"
     path: str
 
 
-class FilePatternSource(BaseModel):
+class FilePatternSource(PProcBaseModel):
     name: Literal["file-pattern"] = "file-pattern"
     pattern: str
     hive_partitioning: bool = True

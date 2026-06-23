@@ -16,7 +16,7 @@ def threshold_metadata(
 
     if threshold.upper_comparison is None:
         threshold_value = round(
-            threshold.lower_value * 10**threshold.lower_scale_factor, 0
+            threshold.lower_value * 10**threshold.lower_scale_factor
         )
         comparison = threshold.lower_comparison.strip("=")
         if edition == 1 and comparison == "<":
@@ -64,6 +64,7 @@ def threshold_metadata(
             raise ValueError(
                 f"Unsupported threshold comparison {comparison} for grib edition {edition}"
             )
+        thr_metadata.update(metadata)
         return thr_metadata
     if edition != 2:
         raise ValueError("Threshold ranges are only supported for GRIB edition 2")
@@ -81,4 +82,5 @@ def threshold_metadata(
         }
     )
     thr_metadata.update(clim_metadata or {})
+    thr_metadata.update(metadata)
     return thr_metadata
