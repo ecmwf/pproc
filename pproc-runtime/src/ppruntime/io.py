@@ -176,5 +176,5 @@ def write(data: FieldList, name: str, **kwargs):
     if name == "null":
         return
 
-    with ResourceMeter(f"Write {data.ls(namespace="mars")} to {name}"):
+    with ResourceMeter(f"Write {data.ls(namespace='mars')} to {name}"):
         data.to_target(target=name, **kwargs)
