@@ -1,6 +1,6 @@
 from typing import Optional, Union, Literal, Annotated, Any
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Discriminator, Field, Tag, field_validator, model_validator
 
 from earthkit.workflows.plugins.pproc.config.accumulation import (
     Default,
@@ -8,18 +8,17 @@ from earthkit.workflows.plugins.pproc.config.accumulation import (
 )
 from earthkit.workflows.plugins.pproc.utils.pydantic_utils import PProcBaseModel
 
+Coords = Union[list[str], list[int]]
 
-class Accumulation(PProcBaseModel):
-    operation: Optional[Literal["min", "max", "mean", "std", "add", "diff"]] = None
-    coords: list[Union[list[int], list[str]]]
+
+class BaseAccumulation(PProcBaseModel):
+    coords: list[Coords]
     metadata: Optional[dict] = None
     deaccumulate: bool = False
-    name: Optional[
-        Annotated[
-            Union[Default, Monthly],
-            Field(discriminator="type_"),
-        ]
-    ] = None
+    name: Annotated[
+        Union[Default, Monthly],
+        Field(discriminator="type_", default_factory=Default),
+    ]
 
     @model_validator(mode="before")
     def validate_config(cls, data: Any) -> Any:
@@ -27,20 +26,6 @@ class Accumulation(PProcBaseModel):
             # TODO Update schema to remove these keys
             data.pop("type", None)
         return data
-
-    @field_validator("operation", mode="before")
-    @classmethod
-    def validate_operation(cls, operation: str) -> Optional[str]:
-        OPS = {
-            "aggregation": None,
-            "difference": "diff",
-            "maximum": "max",
-            "minimum": "min",
-            "mean": "mean",
-            "standard_deviation": "std",
-            "sum": "add",
-        }
-        return OPS.get(operation, operation)
 
     @field_validator("coords", mode="before")
     @classmethod
@@ -50,3 +35,84 @@ class Accumulation(PProcBaseModel):
         if isinstance(values, list) and all(isinstance(v, (str, int)) for v in values):
             return [values]
         return values
+
+
+class NullAccumulation(BaseAccumulation):
+    operation: Literal["aggregation"] = "aggregation"
+    payload: None = None
+
+
+class MinAccumulation(BaseAccumulation):
+    operation: Literal["minimum"] = "minimum"
+    payload: Literal["min"] = "min"
+
+
+class MaxAccumulation(BaseAccumulation):
+    operation: Literal["maximum"] = "minimum"
+    payload: Literal["max"] = "max"
+
+
+class MeanAccumulation(BaseAccumulation):
+    operation: Literal["mean"] = "mean"
+    payload: Literal["mean"] = "mean"
+
+
+class StdAccumulation(BaseAccumulation):
+    operation: Literal["standard_deviation"] = "standard_deviation"
+    payload: Literal["std"] = "std"
+
+
+class SumAccumulation(BaseAccumulation):
+    operation: Literal["sum"] = "sum"
+    payload: Literal["sum"] = "sum"
+
+
+class DifferenceAccumulation(BaseAccumulation):
+    operation: Literal["difference"] = "difference"
+    payload: None = None
+    deaccumulate: bool = Field(True, frozen=True)
+
+    @field_validator("coords", mode="after")
+    @classmethod
+    def validate_num_coords(cls, coords: Coords) -> Coords:
+        if any([len(coord) > 2 for coord in coords]):
+            raise ValueError("difference accumulation accepts only 1 or 2 coordinates")
+        return coords
+
+
+class DifferenceRateAccumulation(BaseAccumulation):
+    operation: Literal["difference_rate"] = "difference_rate"
+    payload: Literal["ppruntime.accumulation.difference_rate"] = (
+        "ppruntime.accumulation.difference_rate"
+    )
+    factor: float = 1.0
+
+    @field_validator("coords", mode="after")
+    @classmethod
+    def validate_num_coords(cls, coords: Coords) -> Coords:
+        if any([len(coord) > 2 for coord in coords]):
+            raise ValueError(
+                "difference_rate accumulation accepts only 1 or 2 coordinates"
+            )
+        return coords
+
+
+def accum_discriminator(data: Any) -> str:
+    if isinstance(data, dict):
+        return data.get("operation", "aggregation")
+    return data.operation
+
+
+Accumulation = Annotated[
+    Union[
+        Annotated[NullAccumulation, Tag("aggregation")],
+        Annotated[MinAccumulation, Tag("minimum")],
+        Annotated[MaxAccumulation, Tag("maximum")],
+        Annotated[MeanAccumulation, Tag("mean")],
+        Annotated[StdAccumulation, Tag("standard_deviation")],
+        Annotated[SumAccumulation, Tag("sum")],
+        Annotated[DifferenceAccumulation, Tag("difference")],
+        Annotated[DifferenceRateAccumulation, Tag("difference_rate")],
+    ],
+    Discriminator(accum_discriminator),
+]

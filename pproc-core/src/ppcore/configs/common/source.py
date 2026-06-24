@@ -1,4 +1,5 @@
-from typing import Optional, Literal
+from typing import Optional, Literal, Annotated, Union
+from pydantic import Field
 
 from earthkit.workflows.plugins.pproc.utils.pydantic_utils import PProcBaseModel
 
@@ -22,3 +23,9 @@ class FilePatternSource(PProcBaseModel):
     name: Literal["file-pattern"] = "file-pattern"
     pattern: str
     hive_partitioning: bool = True
+
+
+Source = Annotated[
+    Union[FileSource, FilePatternSource, FDBSource, MARSSource],
+    Field(discriminator="name"),
+]

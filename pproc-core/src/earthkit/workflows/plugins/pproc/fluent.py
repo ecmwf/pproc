@@ -245,8 +245,7 @@ class Action(fluent.Action):
     ) -> "Action":
         return super().multiply(other, backend_kwargs={"metadata": metadata})
 
-    def scale(self, value: float, metadata: dict | None = None) -> "Action":
-        return super().multiply(value, backend_kwargs={"metadata": metadata})
+    scale = multiply
 
     def power(self, other: "Action | float", metadata: dict | None = None) -> "Action":
         return super().power(other, backend_kwargs={"metadata": metadata})
@@ -453,7 +452,13 @@ class Action(fluent.Action):
         **kwargs,
     ) -> "Action":
         if operation is None:
-            return self
+            if metadata is None:
+                return self
+            return self.map(
+                fluent.Payload(
+                    FieldListBackend.set_metadata, [fluent.Node.input_name(0), metadata]
+                )
+            )
         if isinstance(operation, str):
             if hasattr(self, operation):
                 op = getattr(self, operation)
@@ -604,7 +609,7 @@ class Action(fluent.Action):
 
     def accumulation(
         self,
-        operation: str | fluent.Payload,
+        operation: Optional[str | fluent.Payload],
         coords: list[Coords],
         dim: str = "step",
         batch_size: int = 0,
@@ -638,7 +643,13 @@ class Action(fluent.Action):
         """
         if operation is None:
             self._squeeze_dimension(dim)
-            return self
+            if metadata is None:
+                return self
+            return self.map(
+                fluent.Payload(
+                    FieldListBackend.set_metadata, [fluent.Node.input_name(0), metadata]
+                )
+            )
 
         params = [
             (
@@ -745,17 +756,15 @@ def _accum_transform(
     name: Union[Default, Monthly, dict] = Default(),
     kwargs: dict = {},
 ) -> fluent.Action:
-    if len(coords) == 1:
-        # Nothing to reduce and no metadata to set
-        if dim not in nodetree_dimensions(action.nodes):
-            return action
-        return action.select({dim: coords})
 
     if deaccumulate:
         accum_action = action.select({dim: coords[:-1]})
         accum_action = accum_action.subtract(action.select({dim: coords[1:]}))
     else:
-        accum_action = action.select({dim: coords})
+        if len(coords) == 1 and dim not in nodetree_dimensions(action.nodes):
+            accum_action = action
+        else:
+            accum_action = action.select({dim: coords})
 
     if isinstance(name, dict):
         name = Default(**name) if name.get("type_") == "default" else Monthly(**name)

@@ -7,31 +7,19 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-from typing import Any, ClassVar, Union
+from typing import Any, ClassVar
 
-from annotated_types import Annotated
 from pydantic import (
-    Field,
     create_model,
     field_validator,
 )
 from earthkit.workflows.plugins.pproc.utils.pydantic_utils import PProcBaseModel
-from ppcore.configs.common.source import (
-    FDBSource,
-    FilePatternSource,
-    FileSource,
-    MARSSource,
-)
+from ppcore.configs.common.source import Source, FDBSource
 from ppcore.utils.io import split_location
 
 
 class Input(PProcBaseModel):
-    sources: list[
-        Annotated[
-            Union[FileSource, FilePatternSource, FDBSource, MARSSource],
-            Field(discriminator="name"),
-        ]
-    ] = [FDBSource()]
+    sources: list[Source] = [FDBSource()]
     requests: list[dict] = []
     dtype: str = "float32"
 
