@@ -11,27 +11,19 @@ import logging
 from typing import Optional, Literal
 import array_api_compat
 from earthkit.data import FieldList
-from earthkit.data.core.metadata import Metadata as ekdMetadata
 from earthkit.meteo.extreme import array as extreme
 from earthkit.meteo.stats import array as stats
 from meters import metered
 
 from ppruntime.metadata import resolve_metadata
 from ppruntime import metadata as ppmetadata
+from ppruntime.utils import new_fieldlist
 
 
 logger = logging.getLogger(__name__)
 
 
 Comparisons = Literal["<", ">", "<=", ">=", "==", "!="]
-
-
-def standardise_output(data):
-    # Also, nest the data to avoid problems with not finding geography attribute
-    if len(data.shape) == 1:
-        data = data.reshape((1, *data.shape))
-    assert len(data.shape) == 2
-    return data
 
 
 def comp_str2func(array_module, comparison: str):
@@ -42,27 +34,6 @@ def comp_str2func(array_module, comparison: str):
     if comparison == ">=":
         return array_module.greater_equal
     return array_module.greater
-
-
-def new_fieldlist(data, metadata: list[ekdMetadata], overrides: dict = {}):
-    if len(overrides) > 0:
-        try:
-            new_metadata = [
-                metadata[x].override(overrides) for x in range(len(metadata))
-            ]
-            return FieldList.from_array(
-                standardise_output(data),
-                new_metadata,
-            )
-        except Exception as e:
-            print(
-                "Error setting metadata",
-                overrides,
-                "On data with:",
-                list(map(lambda x: x.dump(), metadata)),
-            )
-            print(e)
-    return FieldList.from_array(standardise_output(data), metadata)
 
 
 @metered("mask", out=logger.debug)

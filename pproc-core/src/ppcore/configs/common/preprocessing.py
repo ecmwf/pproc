@@ -26,10 +26,17 @@ class Preprocessing(PProcBaseModel, ABC):
     metadata: Optional[dict] = None
 
 
-class Scaling(Preprocessing):
+class Scale(Preprocessing):
     #   - operation: scale
     #     value: 3600
     operation: Literal["scale"] = "scale"
+    value: Union[float, int]
+
+
+class Divide(Preprocessing):
+    #   - operation: divide
+    #     value: 3600
+    operation: Literal["divide"] = "divide"
     value: Union[float, int]
 
 
@@ -71,7 +78,7 @@ class PreprocessingConfig(PProcBaseModel):
     #     value: 3600
     actions: List[
         Annotated[
-            Union[Scaling, Combination, Masking],
+            Union[Scale, Divide, Combination, Masking],
             Field(discriminator="operation"),
         ]
     ] = Field(default_factory=list)

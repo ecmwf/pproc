@@ -355,11 +355,9 @@ config:
         instantaneous:
           accumulations:
             step:
-              type: legacywindow
         range:
           accumulations:
             step:
-              type: legacywindow
               name:
                 type: default
                 length: "{steplength}:int"
@@ -369,8 +367,6 @@ config:
             step:
               operation: difference
               metadata:
-                localDefinitionNumber: 5
-                bitsPerValue: 8
                 timeRangeIndicator: 5
                 stepType: diff
         "131098/131099/131085":
@@ -378,23 +374,14 @@ config:
             step:
               operation: difference
               metadata:
-                localDefinitionNumber: 5
                 stepType: "accum"
                 stepRange: "0-0"
-                edition: 2
-                typeOfGeneratingProcess: 5
-                indicatorOfUnitForTimeIncrement: 1
-                timeIncrement: 12
-                packingType: "grid_ccsds"
-                bitsPerValue: 8
         "131065/131066/131067":
           accumulations:
             step:
               operation: difference_rate
               factor: 0.041666666666666664
               metadata:
-                localDefinitionNumber: 5
-                bitsPerValue: 8
                 timeRangeIndicator: 5
                 stepType: diff
         "131068/131069":
@@ -403,37 +390,18 @@ config:
           accumulations:
             step:
               operation: maximum
-              metadata:
-                localDefinitionNumber: 5
-                bitsPerValue: 8
         "131070/131071/131072/131074/131075/131076/131077/131078/131079/131080/131081":
           accumulations:
             step:
               operation: maximum
-              metadata:
-                localDefinitionNumber: 5
-                bitsPerValue: 8
         "131073":
           accumulations:
             step:
               operation: minimum
-              metadata:
-                localDefinitionNumber: 5
-                bitsPerValue: 8
         "131100":
           accumulations:
             step:
               operation: maximum
-              metadata:
-                localDefinitionNumber: 5
-                edition: 2
-                productDefinitionTemplateNumber: 9
-                typeOfGeneratingProcess: 5
-                indicatorOfUnitForTimeIncrement: 1
-                timeIncrement: 12
-                typeOfTimeIncrement: 2
-                packingType: "grid_ccsds"
-                bitsPerValue: 8
         131020/131021/131022/131023/131024/131025/133093/133094/133095/133096/133097/133098:
           config: anomaly
           filter:param:
@@ -441,96 +409,248 @@ config:
               accumulations:
                 step:
                   operation: "mean"
-                  metadata:
-                    localDefinitionNumber: 5
-                    bitsPerValue: 24
             "131022/131023":
               accumulations:
                 step:
                   operation: minimum
-                  metadata:
-                    localDefinitionNumber: 5
-                    bitsPerValue: 24
             "131024/131025":
               accumulations:
                 step:
                   operation: maximum
-                  metadata:
-                    localDefinitionNumber: 5
-                    bitsPerValue: 24
             "133093/133094/133095":
               accumulations:
                 step:
                   operation: maximum
                   std_anomaly: true
-                  metadata:
-                    localDefinitionNumber: 30
-                    edition: 2
-                    productDefinitionTemplateNumber: 9
-                    oceanAtmosphereCoupling: 2
-                    legBaseDate: "{date}:int"
-                    legBaseTime: "{time}:int"
-                    legNumber: 1
-                    typeOfGeneratingProcess: 5
-                    indicatorOfUnitForTimeIncrement: 1
-                    paramId: 0
-                    timeIncrement: 12
-                    typeOfStatisticalProcessing: 10
-                    packingType: "grid_ccsds"
-                    bitsPerValue: 24
             "133096/133097/133098":
               accumulations:
                 step:
                   operation: minimum
                   std_anomaly: true
-                  metadata:
-                    localDefinitionNumber: 30
-                    edition: 2
-                    productDefinitionTemplateNumber: 9
-                    oceanAtmosphereCoupling: 2
-                    legBaseDate: "{date}:int"
-                    legBaseTime: "{time}:int"
-                    legNumber: 1
-                    typeOfGeneratingProcess: 5
-                    indicatorOfUnitForTimeIncrement: 1
-                    paramId: 0
-                    timeIncrement: 12
-                    typeOfStatisticalProcessing: 10
-                    packingType: "grid_ccsds"
-                    bitsPerValue: 24
-        "260290":
-          statistics:
-            metadata:
-              edition: 2
-              productDefinitionTemplateNumber: 5
-              typeOfGeneratingProcess: 5
+        "260290": {}
       filter:selection:
         "default":
           filter:param:
+            "131020":
+              statistics:
+                threshold:
+                  comparison: "<"
+                  value: -2
+                metadata:
+                  bitsPerValue: 24
+            "131021":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 2
+                metadata:
+                  bitsPerValue: 24
+            "131022":
+              statistics:
+                threshold:
+                  comparison: "<"
+                  value: -8
+                metadata:
+                  bitsPerValue: 24
+            "131023":
+              statistics:
+                threshold:
+                  comparison: "<"
+                  value: -4
+                metadata:
+                  bitsPerValue: 24
+            "131024":
+              statistics:
+                threshold:
+                  comparison: ">"
+                  value: 4
+                metadata:
+                  bitsPerValue: 24
+            "131025":
+              statistics:
+                threshold:
+                  comparison: ">"
+                  value: 8
+                metadata:
+                  bitsPerValue: 24
             "131060":
               statistics:
                 threshold:
                   comparison: ">="
                   value: 0.001
                   scale_factor: 3
+                metadata:
+                  bitsPerValue: 8
             "131061":
               statistics:
                 threshold:
                   comparison: ">="
                   value: 0.005
                   scale_factor: 3
+                metadata:
+                  bitsPerValue: 8
             "131062":
               statistics:
                 threshold:
                   comparison: ">="
                   value: 0.01
                   scale_factor: 3
+                metadata:
+                  bitsPerValue: 8
             "131063":
               statistics:
                 threshold:
                   comparison: ">="
                   value: 0.02
                   scale_factor: 3
+                metadata:
+                  bitsPerValue: 8
+            "131064":
+              statistics:
+                threshold:
+                  comparison: '<'
+                  value: 0.0001
+                  scale_factor: 4
+                metadata:
+                  bitsPerValue: 8
+            "131065":
+              statistics:
+                threshold:
+                  comparison: '<'
+                  value: 0.001
+                  scale_factor: 4
+                metadata:
+                  bitsPerValue: 8
+            "131066":
+              statistics:
+                threshold:
+                  comparison: '>='
+                  value: 0.003
+                  scale_factor: 4
+                metadata:
+                  bitsPerValue: 8
+            "131067":
+              statistics:
+                threshold:
+                  comparison: '>='
+                  value: 0.005
+                  scale_factor: 4
+                metadata:
+                  bitsPerValue: 8
+            "131068":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 10
+                metadata:
+                  bitsPerValue: 8
+            "131069":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 15
+                metadata:
+                  bitsPerValue: 8
+            "131070":
+             statistics:
+                threshold:
+                  comparison: ">="
+                  value: 15
+                metadata:
+                  bitsPerValue: 8
+            "131071":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 20
+                metadata:
+                  bitsPerValue: 8
+            "131072":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 25
+                metadata:
+                  bitsPerValue: 8
+            "131073":
+              statistics:
+                threshold:
+                  comparison: "<="
+                  value: 273.15
+                  scale_factor: 2
+                metadata:
+                  bitsPerValue: 8
+            "131074":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 2
+                metadata:
+                  bitsPerValue: 8
+            "131075":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 4
+                metadata:
+                  bitsPerValue: 8
+            "131076":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 6
+                metadata:
+                  bitsPerValue: 8
+            "131077":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 8
+                metadata:
+                  bitsPerValue: 8
+            "131078":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 8
+                metadata:
+                  bitsPerValue: 8
+            "131079":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 10
+                metadata:
+                  bitsPerValue: 8
+            "131080":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 12
+                metadata:
+                  bitsPerValue: 8
+            "131081":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 15
+                metadata:
+                  bitsPerValue: 8
+            "131085":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 0.1
+                  scale_factor: 3
+                metadata:
+                  localDefinitionNumber: 5
+                  edition: 2
+                  typeOfGeneratingProcess: 5
+                  indicatorOfUnitForTimeIncrement: 1
+                  timeIncrement: 12
+                  packingType: "grid_ccsds"
+                  bitsPerValue: 8
+                  scaleFactorOfLowerLimit: 0
             "131098":
               statistics:
                 threshold:
@@ -538,6 +658,13 @@ config:
                   value: 0.025
                   scale_factor: 3
                 metadata:
+                  localDefinitionNumber: 5
+                  edition: 2
+                  typeOfGeneratingProcess: 5
+                  indicatorOfUnitForTimeIncrement: 1
+                  timeIncrement: 12
+                  packingType: "grid_ccsds"
+                  bitsPerValue: 8
                   scaleFactorOfLowerLimit: 0
             "131099":
               statistics:
@@ -546,150 +673,49 @@ config:
                   value: 0.05
                   scale_factor: 3
                 metadata:
+                  localDefinitionNumber: 5
+                  edition: 2
+                  typeOfGeneratingProcess: 5
+                  indicatorOfUnitForTimeIncrement: 1
+                  timeIncrement: 12
+                  packingType: "grid_ccsds"
+                  bitsPerValue: 8
                   scaleFactorOfLowerLimit: 0
-            "131085":
-              statistics:
-                threshold:
-                  comparison: ">="
-                  value: 0.1
-                  scale_factor: 3
-                metadata:
-                  scaleFactorOfLowerLimit: 0
-            "131064":
-              statistics:
-                threshold:
-                  comparison: '<'
-                  value: 0.0001
-                  scale_factor: 4
-            "131065":
-              statistics:
-                threshold:
-                  comparison: '<'
-                  value: 0.001
-                  scale_factor: 4
-            "131066":
-              statistics:
-                threshold:
-                  comparison: '>='
-                  value: 0.003
-                  scale_factor: 4
-            "131067":
-              statistics:
-                threshold:
-                  comparison: '>='
-                  value: 0.005
-                  scale_factor: 4
-            "131068":
-              statistics:
-                threshold:
-                  comparison: ">="
-                  value: 10
-            "131069":
-              statistics:
-                threshold:
-                  comparison: ">="
-                  value: 15
-            "131070":
-             statistics:
-                threshold:
-                  comparison: ">="
-                  value: 15
-            "131071":
-              statistics:
-                threshold:
-                  comparison: ">="
-                  value: 20
-            "131072":
-              statistics:
-                threshold:
-                  comparison: ">="
-                  value: 25
             "131100":
               statistics:
                 threshold:
                   comparison: ">="
                   value: 10
-            "131074":
-              statistics:
-                threshold:
-                  comparison: ">="
-                  value: 2
-            "131075":
-              statistics:
-                threshold:
-                  comparison: ">="
-                  value: 4
-            "131076":
-              statistics:
-                threshold:
-                  comparison: ">="
-                  value: 6
-            "131077":
-              statistics:
-                threshold:
-                  comparison: ">="
-                  value: 8
-            "131078":
-              statistics:
-                threshold:
-                  comparison: ">="
-                  value: 8
-            "131079":
-              statistics:
-                threshold:
-                  comparison: ">="
-                  value: 10
-            "131080":
-              statistics:
-                threshold:
-                  comparison: ">="
-                  value: 12
-            "131081":
-              statistics:
-                threshold:
-                  comparison: ">="
-                  value: 15
-            "131073":
-              statistics:
-                threshold:
-                  comparison: "<="
-                  value: 273.15
-                  scale_factor: 2
-            "131020":
-              statistics:
-                threshold:
-                  comparison: "<"
-                  value: -2
-            "131021":
-              statistics:
-                threshold:
-                  comparison: ">="
-                  value: 2
-            "131022":
-              statistics:
-                threshold:
-                  comparison: "<"
-                  value: -8
-            "131023":
-              statistics:
-                threshold:
-                  comparison: "<"
-                  value: -4
-            "131024":
-              statistics:
-                threshold:
-                  comparison: ">"
-                  value: 4
-            "131025":
-              statistics:
-                threshold:
-                  comparison: ">"
-                  value: 8
+                metadata:
+                  localDefinitionNumber: 5
+                  edition: 2
+                  productDefinitionTemplateNumber: 9
+                  typeOfGeneratingProcess: 5
+                  indicatorOfUnitForTimeIncrement: 1
+                  timeIncrement: 12
+                  typeOfTimeIncrement: 2
+                  packingType: "grid_ccsds"
+                  bitsPerValue: 8
             "133093":
               statistics:
                 threshold:
                   comparison: '>'
                   value: 1
+                metadata:
+                  localDefinitionNumber: 30
+                  edition: 2
+                  productDefinitionTemplateNumber: 9
+                  oceanAtmosphereCoupling: 2
+                  legBaseDate: "{date}:int"
+                  legBaseTime: "{time}:int"
+                  legNumber: 1
+                  typeOfGeneratingProcess: 5
+                  indicatorOfUnitForTimeIncrement: 1
+                  paramId: 0
+                  timeIncrement: 12
+                  typeOfStatisticalProcessing: 10
+                  packingType: "grid_ccsds"
+                  bitsPerValue: 24
             "133094":
               statistics:
                 threshold:
@@ -697,18 +723,62 @@ config:
                   value: 1.5
                   scale_factor: 1
                 metadata:
+                  localDefinitionNumber: 30
+                  edition: 2
+                  productDefinitionTemplateNumber: 9
+                  oceanAtmosphereCoupling: 2
+                  legBaseDate: "{date}:int"
+                  legBaseTime: "{time}:int"
+                  legNumber: 1
+                  typeOfGeneratingProcess: 5
+                  indicatorOfUnitForTimeIncrement: 1
+                  paramId: 0
+                  timeIncrement: 12
+                  typeOfStatisticalProcessing: 10
+                  packingType: "grid_ccsds"
+                  bitsPerValue: 24
                   scaleFactorOfLowerLimit: 1
             "133095":
               statistics:
                 threshold:
                   comparison: '>'
                   value: 2
+                metadata:
+                  localDefinitionNumber: 30
+                  edition: 2
+                  productDefinitionTemplateNumber: 9
+                  oceanAtmosphereCoupling: 2
+                  legBaseDate: "{date}:int"
+                  legBaseTime: "{time}:int"
+                  legNumber: 1
+                  typeOfGeneratingProcess: 5
+                  indicatorOfUnitForTimeIncrement: 1
+                  paramId: 0
+                  timeIncrement: 12
+                  typeOfStatisticalProcessing: 10
+                  packingType: "grid_ccsds"
+                  bitsPerValue: 24
             "133096":
               statistics:
                 threshold:
                   comparison: '<'
                   value: -1
                   limit_type: lower
+                metadata:
+                  localDefinitionNumber: 30
+                  edition: 2
+                  productDefinitionTemplateNumber: 9
+                  oceanAtmosphereCoupling: 2
+                  legBaseDate: "{date}:int"
+                  legBaseTime: "{time}:int"
+                  legNumber: 1
+                  typeOfGeneratingProcess: 5
+                  indicatorOfUnitForTimeIncrement: 1
+                  paramId: 0
+                  timeIncrement: 12
+                  typeOfStatisticalProcessing: 10
+                  packingType: "grid_ccsds"
+                  bitsPerValue: 24
             "133097":
               statistics:
                 threshold:
@@ -717,6 +787,20 @@ config:
                   scale_factor: 1
                   limit_type: lower
                 metadata:
+                  localDefinitionNumber: 30
+                  edition: 2
+                  productDefinitionTemplateNumber: 9
+                  oceanAtmosphereCoupling: 2
+                  legBaseDate: "{date}:int"
+                  legBaseTime: "{time}:int"
+                  legNumber: 1
+                  typeOfGeneratingProcess: 5
+                  indicatorOfUnitForTimeIncrement: 1
+                  paramId: 0
+                  timeIncrement: 12
+                  typeOfStatisticalProcessing: 10
+                  packingType: "grid_ccsds"
+                  bitsPerValue: 24
                   scaleFactorOfLowerLimit: 1
             "133098":
               statistics:
@@ -724,6 +808,21 @@ config:
                   comparison: '<'
                   value: -2
                   limit_type: lower
+                metadata:
+                  localDefinitionNumber: 30
+                  edition: 2
+                  productDefinitionTemplateNumber: 9
+                  oceanAtmosphereCoupling: 2
+                  legBaseDate: "{date}:int"
+                  legBaseTime: "{time}:int"
+                  legNumber: 1
+                  typeOfGeneratingProcess: 5
+                  indicatorOfUnitForTimeIncrement: 1
+                  paramId: 0
+                  timeIncrement: 12
+                  typeOfStatisticalProcessing: 10
+                  packingType: "grid_ccsds"
+                  bitsPerValue: 24
         "eccharts":
           filter:param:
             statistics:
@@ -732,9 +831,15 @@ config:
                   comparison: ">="
                   value: "{threshold}:float"
                   scale_factor: 3
+                metadata:
+                  bitsPerValue: 8
             "260290":
               statistics:
                 threshold: "{threshold}"
+                metadata:
+                  edition: 2
+                  productDefinitionTemplateNumber: 5
+                  typeOfGeneratingProcess: 5
     fcmean:
       filter:param:
         171001/171002/171006/171007/171078/171079/171033/171034/171121/171122/171129/171130/171131/171132/171133/171136/171137/171139/171141/171151/171164/171165/171166/171167/171168/171201/171202/173142/173143/173144/173189/173228:

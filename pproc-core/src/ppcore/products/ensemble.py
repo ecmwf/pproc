@@ -68,7 +68,8 @@ class Ensemble(Product):
         for dim, accumulation in self.config.accumulations.items():
             ret = ret.accumulation(
                 dim=dim,
-                **accumulation.model_dump(),
+                operation=accumulation.payload,
+                **accumulation.model_dump(exclude={"operation", "payload"}),
             )
         ret = ret.ensemble_statistics(
             dim=ensemble_dim or self.ensemble_dim,

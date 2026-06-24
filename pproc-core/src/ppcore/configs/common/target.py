@@ -8,7 +8,8 @@
 # nor does it submit to any jurisdiction.
 
 
-from typing import Literal, Optional
+from typing import Literal, Optional, Annotated, Union
+from pydantic import Field
 
 from earthkit.workflows.plugins.pproc.utils.pydantic_utils import PProcBaseModel
 
@@ -38,3 +39,9 @@ class ZarrTarget(PProcBaseModel):
     name: Literal["zarr"] = "zarr"
     earthkit_to_xarray_kwargs: Optional[dict] = None
     xarray_to_zarr_kwargs: Optional[dict] = None
+
+
+Target = Annotated[
+    Union[FileTarget, FilePatternTarget, FDBTarget, NullTarget, ZarrTarget],
+    Field(discriminator="name"),
+]
