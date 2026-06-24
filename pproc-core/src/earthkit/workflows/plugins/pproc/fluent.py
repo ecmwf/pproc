@@ -452,6 +452,7 @@ class Action(fluent.Action):
         **kwargs,
     ) -> "Action":
         if operation is None:
+            self._squeeze_dimension(dim)
             if metadata is None:
                 return self
             return self.map(
@@ -641,16 +642,6 @@ class Action(fluent.Action):
         ------
         ValueError if payload function is not batchable and batch_size is not 0
         """
-        if operation is None:
-            self._squeeze_dimension(dim)
-            if metadata is None:
-                return self
-            return self.map(
-                fluent.Payload(
-                    FieldListBackend.set_metadata, [fluent.Node.input_name(0), metadata]
-                )
-            )
-
         params = [
             (
                 dim,
@@ -756,7 +747,6 @@ def _accum_transform(
     name: Union[Default, Monthly, dict] = Default(),
     kwargs: dict = {},
 ) -> fluent.Action:
-
     if deaccumulate:
         accum_action = action.select({dim: coords[:-1]})
         accum_action = accum_action.subtract(action.select({dim: coords[1:]}))
