@@ -14,6 +14,7 @@ from ppcore.schema.input import ForecastConfig
 from ppcore.schema.input import ForecastInput
 from ppcore.schema.input import InputSchema
 from ppcore.schema.step import StepSchema
+from ppcore.schema.schema import Schema
 from ppcore.utils.requests import expand
 from ppcore.utils.requests import update_request
 
@@ -419,11 +420,10 @@ def test_outputs(request, out_type, num_outputs):
     expanded_inputs = sum(
         [list(expand(x)) for x in INPUTS[request.node.callspec.id]], []
     )
-    input_schema = InputSchema(schema("inputs"))
-    step_schema = StepSchema(schema("windows"))
+    test_schema = Schema(**schema())
     generated = list(
-        input_schema.outputs(
-            expanded_inputs, step_schema, output_template={"type": out_type}
+        test_schema.outputs_from_inputs(
+            expanded_inputs, output_template={"type": out_type}
         )
     )
     assert len(generated) == num_outputs

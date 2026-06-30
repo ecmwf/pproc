@@ -2,6 +2,7 @@ from typing import Optional, Union, Literal, Annotated, Any
 
 from pydantic import Discriminator, Field, Tag, field_validator, model_validator
 
+from earthkit.workflows.fluent import Payload
 from earthkit.workflows.plugins.pproc.config.accumulation import (
     Default,
     Monthly,
@@ -13,6 +14,7 @@ Coords = Union[list[str], list[int]]
 
 class BaseAccumulation(PProcBaseModel):
     coords: list[Coords]
+    payload: Optional[str] = None
     metadata: Optional[dict] = None
     deaccumulate: bool = False
     name: Annotated[
@@ -35,6 +37,15 @@ class BaseAccumulation(PProcBaseModel):
         if isinstance(values, list) and all(isinstance(v, (str, int)) for v in values):
             return [values]
         return values
+
+    def create_action(self) -> dict:
+        return {
+            "operation": self.payload,
+            "coords": self.coords,
+            "metadata": self.metadata,
+            "deaccumulate": self.deaccumulate,
+            "name": self.name,
+        }
 
 
 class NullAccumulation(BaseAccumulation):
@@ -95,6 +106,19 @@ class DifferenceRateAccumulation(BaseAccumulation):
                 "difference_rate accumulation accepts only 1 or 2 coordinates"
             )
         return coords
+
+    def create_action(self) -> dict:
+        return {
+            "operation": Payload(
+                self.payload,
+                kwargs={"factor": self.factor},
+                metadata={"environment": ["ppruntime"]},
+            ),
+            "coords": self.coords,
+            "metadata": self.metadata,
+            "deaccumulate": self.deaccumulate,
+            "name": self.name,
+        }
 
 
 def accum_discriminator(data: Any) -> str:

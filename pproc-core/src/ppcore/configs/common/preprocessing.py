@@ -7,7 +7,6 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-from abc import ABC
 from typing import Annotated
 from typing import Any
 from typing import List
@@ -22,33 +21,32 @@ from earthkit.workflows.plugins.pproc.utils.pydantic_utils import PProcBaseModel
 from earthkit.workflows.plugins.pproc.config.mask import MaskExpression
 
 
-class Preprocessing(PProcBaseModel, ABC):
-    metadata: Optional[dict] = None
-
-
-class Scale(Preprocessing):
+class Scale(PProcBaseModel):
     #   - operation: scale
     #     value: 3600
     operation: Literal["scale"] = "scale"
     value: Union[float, int]
+    metadata: Optional[dict] = None
 
 
-class Divide(Preprocessing):
+class Divide(PProcBaseModel):
     #   - operation: divide
     #     value: 3600
     operation: Literal["divide"] = "divide"
     value: Union[float, int]
+    metadata: Optional[dict] = None
 
 
-class Combination(Preprocessing):
+class Combination(PProcBaseModel):
     # - operation: norm
     operation: Literal["direction", "norm", "sum"]
+    metadata: Optional[dict] = None
 
 
-# class Reshape(Preprocessing):
-#     operation: Literal["reshape"] = "reshape"
-#     shape: Union[int, tuple[int, int]]
-#     order: Literal["F", "C"] = "F"
+class Expand(PProcBaseModel):
+    operation: Literal["expand"] = "expand"
+    internal_dim: list[Union[str, list[str], list[int]]]
+    backend_kwargs: Optional[dict] = None
 
 
 # class Expression(Preprocessing):
@@ -58,7 +56,7 @@ class Combination(Preprocessing):
 #     dtype: Optional[str] = None
 
 
-class Masking(Preprocessing):
+class Masking(PProcBaseModel):
     #   - operation: mask
     #     select: {param: 228036}
     #     mask: [{param: 228035, level: 250}, ">=", 10]
@@ -66,6 +64,7 @@ class Masking(Preprocessing):
     mask: MaskExpression
     select: dict
     replacement: float = 0.0
+    metadata: Optional[dict] = None
 
 
 class PreprocessingConfig(PProcBaseModel):
@@ -78,7 +77,7 @@ class PreprocessingConfig(PProcBaseModel):
     #     value: 3600
     actions: List[
         Annotated[
-            Union[Scale, Divide, Combination, Masking],
+            Union[Scale, Divide, Combination, Masking, Expand],
             Field(discriminator="operation"),
         ]
     ] = Field(default_factory=list)

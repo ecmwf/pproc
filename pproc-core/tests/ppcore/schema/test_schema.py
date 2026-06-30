@@ -171,7 +171,9 @@ from ppcore.schema.schema import Schema
                     "legendre-loader": "shmem",
                     "matrix-loader": "file-io",
                 },
-                "dtype": "float64",
+                "input": {
+                    "dtype": "float64",
+                },
                 "statistics": {
                     "metadata": {
                         "bitsPerValue": 16,
@@ -446,7 +448,9 @@ def test_schema_from_output(req, config, num_generated):
                     "legendre-loader": "shmem",
                     "matrix-loader": "file-io",
                 },
-                "dtype": "float64",
+                "input": {
+                    "dtype": "float64",
+                },
                 "statistics": {
                     "metadata": {
                         "bitsPerValue": 16,

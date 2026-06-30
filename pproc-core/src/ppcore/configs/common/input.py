@@ -14,13 +14,14 @@ from pydantic import (
     field_validator,
 )
 from earthkit.workflows.plugins.pproc.utils.pydantic_utils import PProcBaseModel
-from ppcore.configs.common.source import Source, FDBSource
+from ppcore.configs.common.source import Source
 from ppcore.utils.io import split_location
 
 
 class Input(PProcBaseModel):
-    sources: list[Source] = [FDBSource()]
-    requests: list[dict] = []
+    sources: list[Source] = []
+    requests: list[dict]
+    expand_exclude: list[str] = []
     dtype: str = "float32"
 
     @field_validator("sources", mode="before")

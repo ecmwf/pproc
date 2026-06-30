@@ -22,7 +22,6 @@ def from_schema(
     schema.pop("name")
     schema.pop("entrypoint", None)
     interp_keys = schema.pop("interp_keys", {})
-    dtype = schema.pop("dtype", "float32")
     inputs = copy.deepcopy(schema.pop("inputs"))
     accums = schema.pop("accumulations", None)
 
@@ -39,7 +38,6 @@ def from_schema(
             "original": request,
             "inputs": inputs,
         },
-        "dtype": dtype,
         "sources": request.pop("sources", None),
         "targets": request.pop("targets", None),
         "metadata": metadata,

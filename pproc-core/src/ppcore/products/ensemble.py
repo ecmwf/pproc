@@ -10,6 +10,7 @@
 from typing import Optional, Iterator
 from dataclasses import dataclass
 
+from earthkit.workflows.nodetree import nodetree_dimensions
 from earthkit.workflows.plugins.pproc.fluent import Action
 from earthkit.workflows.plugins.pproc.fluent import from_source
 from earthkit.workflows.plugins.pproc.utils.request import Request
@@ -27,13 +28,16 @@ class Ensemble(Product):
     ensemble_dim: str = "number"
 
     def source(self, ensemble_dim: Optional[str] = None) -> Action:
-        if self.config.inputs is None:
-            raise ValueError("No inputs provided for ensemble config")
         input_config = self.config.inputs.fc
         ensemble_dim = ensemble_dim or self.ensemble_dim
+
+        if len(input_config.sources) == 0:
+            raise ValueError("No sources provided for ensemble config")
         action = None
         for x in [dict(x, **self.input_overrides) for x in input_config.requests]:
-            req = Request(validate_request(x), no_expand=("number",))
+            req = Request(
+                validate_request(x), no_expand=("number", *input_config.expand_exclude)
+            )
             new_action = from_source(
                 input_config.sources,
                 [req],
@@ -59,7 +63,16 @@ class Ensemble(Product):
         preprocessing_dim: Optional[str] = None,
         ensemble_dim: Optional[str] = None,
     ) -> Action:
-        ret = forecast or self.source(ensemble_dim=ensemble_dim)
+        if forecast:
+            ret = forecast.sel(
+                {
+                    key: value
+                    for key, value in self.config.inputs.fc.requests[0].items()
+                    if key in nodetree_dimensions(forecast.nodes)
+                }
+            )
+        else:
+            ret = self.source(ensemble_dim=ensemble_dim)
         for preprocessing in self.config.preprocessing.actions:
             ret = ret.preprocessing(
                 dim=preprocessing_dim or self.preprocessing_dim,
@@ -68,8 +81,7 @@ class Ensemble(Product):
         for dim, accumulation in self.config.accumulations.items():
             ret = ret.accumulation(
                 dim=dim,
-                operation=accumulation.payload,
-                **accumulation.model_dump(exclude={"operation", "payload"}),
+                **accumulation.create_action(),
             )
         ret = ret.ensemble_statistics(
             dim=ensemble_dim or self.ensemble_dim,
