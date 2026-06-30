@@ -1,6 +1,8 @@
 from typing import Optional
 
 from earthkit.workflows.graph import Graph, deduplicate_nodes
+# from earthkit.workflows.fluent import Action
+# from earthkit.workflows.nodetree import combine_by_coords, datacubes
 
 from ppcore.utils.requests import expand
 from ppcore.configs import from_outputs as config_from_outputs
@@ -27,6 +29,7 @@ def product_from_config(
 def product_from_output(
     request: dict,
     pproc_schema: str,
+    inputs: Optional[list[dict]] = None,
     metadata: Optional[dict] = None,
 ) -> Product:
     """
@@ -38,8 +41,29 @@ def product_from_output(
         raise ValueError(
             f"Expected a single request after expansion, got {len(requests)}"
         )
-    config = list(config_from_outputs(requests, pproc_schema, metadata=metadata))[0]
+    config = list(
+        config_from_outputs(requests, pproc_schema, inputs, metadata=metadata)
+    )[0]
     return product_from_config(config)
+
+
+# def action_from_outputs(
+#     requests: list[dict],
+#     pproc_schema: str,
+#     sources: Optional[Action] = None,
+#     metadata: Optional[dict] = None,
+# ) -> Action:
+#     inputs = None if sources is None else datacubes(sources)
+#     nodes = []
+#     for request in expand(requests):
+#         nodes.append(
+#             product_from_output(
+#                 request, pproc_schema=pproc_schema, inputs=inputs, metadata=metadata
+#             )
+#             .action(forecast=sources)
+#             .nodes
+#         )
+#     return Action(combine_by_coords(nodes))
 
 
 def graph_from_outputs(

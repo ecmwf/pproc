@@ -86,3 +86,10 @@ class Schema:
                 input_requests, self.step_schema, output_template=template
             ):
                 yield self.config_from_output(output, inputs)
+
+    def outputs_from_inputs(
+        self,
+        inputs: list[dict],
+        output_template: Optional[dict] = None,
+    ) -> Iterator[tuple[dict, list[dict]]]:
+        return self.param_schema.outputs(inputs, self.step_schema, output_template)

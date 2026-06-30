@@ -8,11 +8,26 @@ config:
   filter:param:
     "*": {}
     "10":
-      preprocessing:
-        - operation: reshape
-          shape: 2
-        - operation: norm
-      vod2uv: true
+      filter:type:
+        em/es/ep/pb:
+          preprocessing:
+            - operation: expand
+              internal_dim: ["param", ["u", "v"]]
+              backend_kwargs: {"method": "sel"}
+            - operation: norm
+          interp_keys:
+            intgrid: "none"
+            legendre-loader: "shmem"
+            matrix-loader: "file-io"
+            vod2uv: true
+          input:
+            expand_exclude: ["param"]
+        "*":
+          preprocessing:
+            - operation: reshape
+              shape: 2
+            - operation: norm
+          vod2uv: true
     "131/132":
       filter:type:
         taem/taes: {}
@@ -166,7 +181,8 @@ config:
             operation: std
       filter:stream:
         enfo/waef/eefo/weef:
-          dtype: float64
+          input:
+            dtype: float64
           statistics:
             metadata:
               localDefinitionNumber: 30
@@ -207,7 +223,8 @@ config:
                     metadata:
                       numberOfDaysInClimateSamplingWindow: 7
             instantaneous:
-              dtype: float64
+              input:
+                dtype: float64
               statistics:
                 metadata:
                   perturbationNumber: 0
@@ -350,7 +367,8 @@ config:
       metadata_from_output: ["param", "stream", "date", "type"]
       statistics:
         operation: threshold_probability
-      dtype: float64
+      input:
+        dtype: float64
       filter:steptype:
         instantaneous:
           accumulations:

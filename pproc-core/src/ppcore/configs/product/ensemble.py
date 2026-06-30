@@ -35,7 +35,7 @@ class Ensemble(PProcBaseModel):
         Union[Mean, StandardDeviation, Quantiles, ThresholdProbability],
         Field(discriminator="operation"),
     ]
-    inputs: Optional[EnsembleInputModel] = None
+    inputs: EnsembleInputModel
     output: Optional[Output] = None
 
     @model_validator(mode="before")
@@ -43,20 +43,20 @@ class Ensemble(PProcBaseModel):
         if isinstance(data, dict):
             if "requests" in data:
                 requests = data.pop("requests")
+                input_config = data.pop("input", {})
                 original = requests.pop("original")
-                dtype = data.pop("dtype", "float32")
-                if sources := data.pop("sources", None):
-                    if isinstance(sources, dict):
-                        sources = sources["fc"]
-                    if isinstance(sources, str):
-                        sources = [sources]
-                    data["inputs"] = {
-                        "fc": {
-                            "requests": requests.pop("inputs"),
-                            "sources": sources,
-                            "dtype": dtype,
-                        }
+                sources = data.pop("sources", [])
+                if isinstance(sources, dict):
+                    sources = sources["fc"]
+                if isinstance(sources, str):
+                    sources = [sources]
+                data["inputs"] = {
+                    "fc": {
+                        "requests": requests.pop("inputs"),
+                        "sources": sources,
+                        **input_config,
                     }
+                }
             if targets := data.pop("targets", None):
                 data["output"] = {
                     "targets": targets if isinstance(targets, list) else [targets],
