@@ -11,8 +11,11 @@ from typing import Optional, Iterator
 from dataclasses import dataclass
 
 from earthkit.workflows.nodetree import nodetree_dimensions
-from earthkit.workflows.plugins.pproc.fluent import Action
-from earthkit.workflows.plugins.pproc.fluent import from_source
+from earthkit.workflows.plugins.pproc.fluent import (
+    Action,
+    from_source,
+    set_scalar_coords,
+)
 from earthkit.workflows.plugins.pproc.utils.request import Request
 
 from ppcore.utils.requests import validate_request
@@ -43,6 +46,7 @@ class Ensemble(Product):
                 [req],
                 input_config.dtype,
             )
+            new_action = new_action.set_path(f"/levtype={x['levtype']}")
             if "number" in x:
                 new_action = new_action.expand(
                     "number",
@@ -88,11 +92,16 @@ class Ensemble(Product):
             **self.config.statistics.model_dump(),
         )
 
-        if self.config.output is not None:
+        if len(self.config.output.targets) > 0:
             output_config = self.config.output.model_dump()
             out_metadata = output_config["metadata"].copy()
             out_metadata.update(self.output_overrides)
             ret = ret.write(output_config["targets"], metadata=out_metadata)
+        set_scalar_coords(
+            ret,
+            {k: str(v) for k, v in self.config.output.request.items()},
+            override=True,
+        )
         return ret
 
     def in_mars(self, sources: Optional[list[str]] = None) -> Iterator[dict]:
