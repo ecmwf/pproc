@@ -61,6 +61,7 @@ write_to = "src/ppruntime/_version.py"
 write_to_template = '''# Do not change! Do not track in version control!
 __version__ = "{version}"
 '''
+root = ".."
 local_scheme = "no-local-version"
 fallback_version = "0.0.0"
 
