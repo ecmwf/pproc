@@ -33,7 +33,7 @@ dependencies = [
   "code-meters",
   "conflator>=0.1.8",
   "earthkit-time",
-  "earthkit-workflows[vizualize]",
+  "earthkit-workflows[vizualize]>=0.15.1",
   "numpy",
   "pandas",
   "pydantic",
