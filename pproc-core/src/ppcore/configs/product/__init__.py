@@ -38,8 +38,8 @@ def from_schema(
             "original": request,
             "inputs": inputs,
         },
-        "sources": request.pop("sources", None),
-        "targets": request.pop("targets", None),
+        "sources": request.pop("sources", []),
+        "targets": request.pop("targets", []),
         "metadata": metadata,
         **schema,
     }
