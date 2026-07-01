@@ -53,7 +53,7 @@ def action_from_outputs(
     sources: Optional[Action] = None,
     metadata: Optional[dict] = None,
 ) -> Action:
-    inputs = None if sources is None else datacubes(sources)
+    inputs = None if sources is None else datacubes(sources.nodes)
     nodes = []
     for request in expand(requests):
         nodes.append(
