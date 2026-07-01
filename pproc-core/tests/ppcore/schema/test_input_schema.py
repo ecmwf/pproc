@@ -496,7 +496,7 @@ def test_input_format():
                 }
             ],
             {"type": "fc"},
-            18,
+            20,
         ],
         [
             [

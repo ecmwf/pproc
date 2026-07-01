@@ -3795,53 +3795,59 @@ inputs:
               request:
                 param: "{param}"
     "200142":
-      from_inputs: false
-      forecast:
-        inputs:
-          request:
-            param: "142"
-          derive_step:
-            type: deaccumulate
+      filter:type:
+        fc/cf/pf/em/es/pb:
+          forecast:
+            inputs:
+              request:
+                param: "142"
+              derive_step:
+                type: deaccumulate
     "200143":
-      from_inputs: false
-      forecast:
-        inputs:
-          request:
-            param: "143"
-          derive_step:
-            type: deaccumulate
+      filter:type:
+        fc/cf/pf/em/es/pb:
+          forecast:
+            inputs:
+              request:
+                param: "143"
+              derive_step:
+                type: deaccumulate
     "200144":
-      from_inputs: false
-      forecast:
-        inputs:
-          request:
-            param: "144"
-          derive_step:
-            type: deaccumulate
+      filter:type:
+        fc/cf/pf/em/es/pb:
+          forecast:
+            inputs:
+              request:
+                param: "144"
+              derive_step:
+                type: deaccumulate
     "200189":
-      from_inputs: false
-      forecast:
-        inputs:
-          request:
-            param: "189"
-          derive_step:
-            type: deaccumulate
+      filter:type:
+        fc/cf/pf/em/es/pb:
+          forecast:
+            inputs:
+              request:
+                param: "189"
+              derive_step:
+                type: deaccumulate
     "200228":
-      from_inputs: false
-      forecast:
-        inputs:
-          request:
-            param: "228"
-          derive_step:
-            type: deaccumulate
+      filter:type:
+        fc/cf/pf/em/es/pb:
+          forecast:
+            inputs:
+              request:
+                param: "228"
+              derive_step:
+                type: deaccumulate
     "228216":
-      from_inputs: false
-      forecast:
-        inputs:
-          request:
-            param: "228216"
-          derive_step:
-            type: deaccumulate
+      filter:type:
+        fc/cf/pf/em/es/pb:
+          forecast:
+            inputs:
+              request:
+                param: "228216"
+              derive_step:
+               type: deaccumulate
     "201":
       filter:type:
         fcmean/fcstdev/fcmin/fcmax:
