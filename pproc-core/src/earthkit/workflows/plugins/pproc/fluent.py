@@ -32,7 +32,7 @@ from earthkit.workflows.plugins.pproc.metadata.threshold import threshold_metada
 # TODO: change git url to ppruntime when published in PyPI
 ENVIRONMENT = {
     "ppruntime": [
-        "ppruntime @ git+https://git@github.com/ecmwf/pproc.git@feature/mono-repo#subdirectory=pproc-runtime"
+        "pproc-runtime @ git+https://git@github.com/ecmwf/pproc.git@feature/mono-repo#subdirectory=pproc-runtime"
     ],
 }
 
