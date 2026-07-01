@@ -29,6 +29,13 @@ from earthkit.workflows.plugins.pproc.config.accumulation import (
 from earthkit.workflows.plugins.pproc.metadata.accumulation import accumulation_metadata
 from earthkit.workflows.plugins.pproc.metadata.threshold import threshold_metadata
 
+# TODO: change git url to ppruntime when published in PyPI
+ENVIRONMENT = {
+    "ppruntime": [
+        "ppruntime @ git+https://git@github.com/ecmwf/pproc.git@feature/mono-repo#subdirectory=pproc-runtime"
+    ],
+}
+
 
 class Action(fluent.Action):
     # TODO: migrate to schema
@@ -294,7 +301,7 @@ class Action(fluent.Action):
                 "ppruntime.stats.efi",
                 (fluent.Node.input_name(1), fluent.Node.input_name(0), eps),
                 kwargs={"metadata": metadata},
-                metadata={"environment": ["ppruntime"]},
+                metadata={"environment": ENVIRONMENT["ppruntime"]},
             )
             return self.join(climatology, "**datatype**").reduce(payload)
 
@@ -375,7 +382,7 @@ class Action(fluent.Action):
                     threshold.model_dump(
                         exclude=("select", "lower_scale_factor", "upper_scale_factor")
                     ),
-                    metadata={"environment": ["ppruntime"]},
+                    metadata={"environment": ENVIRONMENT["ppruntime"]},
                 )
             )
             if combined is None:
@@ -384,7 +391,7 @@ class Action(fluent.Action):
                 combined = combined.join(dim="param").reduce(
                     fluent.Payload(
                         "ppruntime.stats.logical_and",
-                        metadata={"environment": ["ppruntime"]},
+                        metadata={"environment": ENVIRONMENT["ppruntime"]},
                     ),
                     dim="param",
                 )
@@ -546,7 +553,7 @@ class Action(fluent.Action):
                 "ppruntime.stats.mask",
                 (fluent.Node.input_name(0),),
                 {"lower_comparison": mask.comparison, "lower_value": mask.value},
-                metadata={"environment": ["ppruntime"]},
+                metadata={"environment": ENVIRONMENT["ppruntime"]},
             )
         )
         return (
@@ -668,7 +675,7 @@ def _write_transform(
             "ppruntime.io.write",
             (fluent.Node.input_name(0),),
             kwargs,
-            metadata={"environment": ["ppruntime"]},
+            metadata={"environment": ENVIRONMENT["ppruntime"]},
         )
     )
 
@@ -681,7 +688,7 @@ def _sot_transform(
             "ppruntime.stats.sot",
             (fluent.Node.input_name(1), fluent.Node.input_name(0), number, eps),
             kwargs={"metadata": metadata},
-            metadata={"environment": ["ppruntime"]},
+            metadata={"environment": ENVIRONMENT["ppruntime"]},
         )
     )
     new_sot._add_dimension(new_dim, number)
@@ -709,7 +716,7 @@ def _efi_window_transform(
             "ppruntime.stats.efi",
             (fluent.Node.input_name(1), fluent.Node.input_name(0), eps),
             kwargs={"metadata": metadata},
-            metadata={"environment": ["ppruntime"]},
+            metadata={"environment": ENVIRONMENT["ppruntime"]},
         ),
         dim="**datatype**",
     )
@@ -723,7 +730,7 @@ def _quantiles_transform(
         "ppruntime.stats.quantiles",
         (fluent.Node.input_name(0), q_number, total_number),
         kwargs={"metadata": metadata},
-        metadata={"environment": ["ppruntime"]},
+        metadata={"environment": ENVIRONMENT["ppruntime"]},
     )
     new_quantile = action.map(payload)
     new_quantile._add_dimension(new_dim, q_number / total_number)
@@ -790,7 +797,7 @@ def from_source(
             payloads[indices] = fluent.Payload(
                 "ppruntime.io.retrieve",
                 [sources, [new_request], dtype],
-                metadata={"environment": ["ppruntime"]},
+                metadata={"environment": ENVIRONMENT["ppruntime"]},
             )
         new_action = fluent.from_source(
             payloads,

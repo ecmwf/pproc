@@ -62,6 +62,7 @@ write_to_template = '''# Do not change! Do not track in version control!
 __version__ = "{version}"
 '''
 local_scheme = "no-local-version"
+fallback_version = "0.0.0"
 
 [tool.ruff]
 lint.ignore = [ "E722", "E731", "E741" ]
