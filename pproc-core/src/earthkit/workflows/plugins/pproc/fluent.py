@@ -815,3 +815,12 @@ def from_source(
                 raise ValueError("Join key must be specified for multiple requests")
             all_actions = all_actions.join(new_action, join_key)
     return all_actions
+
+
+def set_scalar_coords(
+    action: fluent.Action, coords: dict[str, Union[int, str]], override: bool = False
+):
+    for dim, value in coords.items():
+        if override:
+            action._squeeze_dimension(dim, drop=True)
+        action._add_dimension(dim, value)

@@ -7,7 +7,7 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-from typing import Any, Optional, Union, Literal, Annotated
+from typing import Any, Union, Literal, Annotated
 from pydantic import Field, model_validator
 
 from earthkit.workflows.plugins.pproc.utils.pydantic_utils import PProcBaseModel
@@ -36,32 +36,31 @@ class Ensemble(PProcBaseModel):
         Field(discriminator="operation"),
     ]
     inputs: EnsembleInputModel
-    output: Optional[Output] = None
+    output: Output
 
     @model_validator(mode="before")
     def validate_config(cls, data: Any) -> Any:
-        if isinstance(data, dict):
-            if "requests" in data:
-                requests = data.pop("requests")
-                input_config = data.pop("input", {})
-                original = requests.pop("original")
-                sources = data.pop("sources", [])
-                if isinstance(sources, dict):
-                    sources = sources["fc"]
-                if isinstance(sources, str):
-                    sources = [sources]
-                data["inputs"] = {
-                    "fc": {
-                        "requests": requests.pop("inputs"),
-                        "sources": sources,
-                        **input_config,
-                    }
+        if isinstance(data, dict) and "requests" in data:
+            requests = data.pop("requests")
+            input_config = data.pop("input", {})
+            original = requests.pop("original")
+            sources = data.pop("sources", [])
+            if isinstance(sources, dict):
+                sources = sources["fc"]
+            if isinstance(sources, str):
+                sources = [sources]
+            data["inputs"] = {
+                "fc": {
+                    "requests": requests.pop("inputs"),
+                    "sources": sources,
+                    **input_config,
                 }
-            if targets := data.pop("targets", None):
-                data["output"] = {
-                    "targets": targets if isinstance(targets, list) else [targets],
-                    "request": extract_mars(original),
-                }
+            }
+            targets = data.pop("targets", [])
+            data["output"] = {
+                "targets": targets if isinstance(targets, list) else [targets],
+                "request": extract_mars(original),
+            }
             if metadata := data.pop("metadata", None):
                 stat_metadata = data["statistics"].setdefault("metadata", {})
                 stat_metadata.update(metadata)

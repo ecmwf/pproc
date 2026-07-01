@@ -16,7 +16,7 @@ from earthkit.workflows.graph import Graph
 
 from earthkit.workflows.plugins.pproc.fluent import from_source
 from earthkit.workflows.plugins.pproc.utils.request import Request
-from ppcore.products import product_from_output, graph_from_outputs
+from ppcore.products import product_from_output, graph_from_outputs, action_from_outputs
 from ppcore.utils.requests import expand
 from conftest import SCHEMA
 
@@ -37,6 +37,12 @@ def test_graph_construction(requests):
     with open(requests, "r") as f:
         output_requests = yaml.safe_load(f)
     graph_from_outputs(output_requests, SCHEMA)
+
+
+def test_action_construction():
+    with open(os.path.join(ROOT_DIR, "templates", "ensms.yaml"), "r") as f:
+        output_requests = yaml.safe_load(f)
+    action_from_outputs(output_requests, SCHEMA)
 
 
 @pytest.mark.parametrize(
