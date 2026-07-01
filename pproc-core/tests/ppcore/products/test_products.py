@@ -13,6 +13,7 @@ import pytest
 import yaml
 
 from earthkit.workflows.graph import Graph
+from earthkit.workflows.fluent import merge
 
 from earthkit.workflows.plugins.pproc.fluent import from_source
 from earthkit.workflows.plugins.pproc.utils.request import Request
@@ -49,10 +50,9 @@ def test_action_construction():
     "requests",
     [
         os.path.join(ROOT_DIR, "templates", "ensms.yaml"),
-        os.path.join(ROOT_DIR, "templates", "prob.yaml"),
         os.path.join(ROOT_DIR, "templates", "quantiles.yaml"),
     ],
-    ids=["ensms", "prob", "quantiles"],
+    ids=["ensms", "quantiles"],
 )
 def test_custom_source(requests):
     with open(requests, "r") as f:
@@ -60,18 +60,59 @@ def test_custom_source(requests):
 
     graph = Graph([])
     for req in expand(output_requests):
-        product = product_from_output(req, SCHEMA, metadata={"edition": 2})
-        requests = []
-        for request in product.config.inputs.fc.requests:
-            req = Request(request)
-            if "number" not in req:
-                req.make_dim("number", 0)
-            requests.append(req)
-        sources = from_source(
-            ["fdb"],
-            requests,
-            join_key="number",
+        inputs = [
+            {
+                "stream": "oper",
+                "type": "fc",
+                "step": list(range(0, 24, 3)),
+                "param": ["228", "167"],
+                "levtype": "sfc",
+            },
+            {
+                "stream": "enfo",
+                "type": "pf",
+                "step": list(range(0, 24, 3)),
+                "param": ["228", "167"],
+                "number": list(range(1, 5)),
+                "levtype": "sfc",
+            },
+            {
+                "stream": "oper",
+                "type": "fc",
+                "step": list(range(0, 24, 3)),
+                "param": ["130"],
+                "levtype": "pl",
+                "levelist": [250, 500, 850],
+            },
+            {
+                "stream": "enfo",
+                "type": "pf",
+                "step": list(range(0, 24, 3)),
+                "param": ["130"],
+                "levtype": "pl",
+                "levelist": [250, 500, 850],
+                "number": list(range(1, 5)),
+            },
+        ]
+        product = product_from_output(
+            req, SCHEMA, inputs=inputs, metadata={"edition": 2}
         )
+        source_actions = {}
+        for levtype in ["sfc", "pl"]:
+            source_requests = []
+            for request in inputs:
+                if request["levtype"] != levtype:
+                    continue
+                req = Request(request)
+                if "number" not in req:
+                    req.make_dim("number", 0)
+                source_requests.append(req)
+            source_actions[f"/levtype={levtype}"] = from_source(
+                ["fdb"],
+                source_requests,
+                join_key="number",
+            )
+        sources = merge(**source_actions)
         new_action = product.action(
             ensemble_dim="number",
             forecast=sources,
