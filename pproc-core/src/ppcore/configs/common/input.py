@@ -27,22 +27,23 @@ class Input(PProcBaseModel):
     @field_validator("sources", mode="before")
     @classmethod
     def validate_sources(cls, data: Any) -> Any:
-        for index, source in enumerate(data):
-            if isinstance(source, str):
-                name, loc = split_location(source, default="file")
-                config = {"name": name}
-                if loc:
-                    if name == "fdb":
-                        config["config"] = loc
-                    elif name == "file":
-                        config["file"] = loc
-                    elif name == "file-pattern":
-                        config["pattern"] = loc
-                    else:
-                        raise ValueError(
-                            f"Source type {name} does not support location specification"
-                        )
-                data[index] = config
+        if isinstance(data, list):
+            for index, source in enumerate(data):
+                if isinstance(source, str):
+                    name, loc = split_location(source, default="file")
+                    config = {"name": name}
+                    if loc:
+                        if name == "fdb":
+                            config["config"] = loc
+                        elif name == "file":
+                            config["file"] = loc
+                        elif name == "file-pattern":
+                            config["pattern"] = loc
+                        else:
+                            raise ValueError(
+                                f"Source type {name} does not support location specification"
+                            )
+                    data[index] = config
         return data
 
     def base_request(self) -> dict:
