@@ -35,14 +35,9 @@ class Schema:
             schema = yaml.safe_load(f)
         return cls(**schema)
 
-    def config_from_output(
-        self, output_request: dict, inputs: Optional[list[dict]] = None
-    ) -> dict:
+    def config_from_output(self, output_request: dict) -> dict:
         config = self.config_schema.config(output_request)
-        if inputs is not None:
-            inputs = [validate_request(x) for x in inputs]
-        else:
-            inputs = list(self.param_schema.inputs(output_request, self.step_schema))
+        inputs = list(self.param_schema.inputs(output_request, self.step_schema))
 
         # Set metadata
         base_request = inputs[0]
@@ -68,24 +63,39 @@ class Schema:
         output_template: Optional[dict] = None,
         entrypoint: Optional[str] = None,
     ) -> Iterator[dict]:
-        reconstructed = self.config_schema.reconstruct(
-            output_template=(
-                None if output_template is None else validate_request(output_template)
-            ),
-            **({} if entrypoint is None else {"entrypoint": entrypoint}),
-        )
-        matching_types = pd.DataFrame([x for x, _ in reconstructed])
-        output_keys = [] if output_template is None else list(output_template.keys())
-        drop = [
-            x for x in self.config_schema.all_filters.difference(["type"] + output_keys)
-        ]
-        matching_types.drop(columns=drop, inplace=True, errors="ignore")
-        matching_types.drop_duplicates(inplace=True)
-        for template in matching_types.to_dict(orient="records"):
-            for output, inputs in self.param_schema.outputs(
-                input_requests, self.step_schema, output_template=template
+        # If entrypoint is provided, find output templates provided by that entrypoint
+        if entrypoint is not None:
+            reconstructed = self.config_schema.reconstruct(
+                output_template=(
+                    None
+                    if output_template is None
+                    else validate_request(output_template)
+                ),
+                **({} if entrypoint is None else {"entrypoint": entrypoint}),
+            )
+            matching_types = pd.DataFrame([x for x, _ in reconstructed])
+            output_keys = (
+                [] if output_template is None else list(output_template.keys())
+            )
+            drop = [
+                x
+                for x in self.config_schema.all_filters.difference(
+                    ["type"] + output_keys
+                )
+            ]
+            matching_types.drop(columns=drop, inplace=True, errors="ignore")
+            matching_types.drop_duplicates(inplace=True)
+            output_templates = matching_types.to_dict(orient="records")
+        else:
+            output_templates = [output_template]
+
+        for template in output_templates:
+            for output, inputs in self.outputs_from_inputs(
+                input_requests, output_template=template
             ):
-                yield self.config_from_output(output, inputs)
+                out_config = self.config_from_output(output)
+                out_config["inputs"] = inputs
+                yield out_config
 
     def outputs_from_inputs(
         self,
