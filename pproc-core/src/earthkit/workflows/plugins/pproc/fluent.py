@@ -12,7 +12,7 @@ from typing import Optional, Union
 
 import numpy as np
 from earthkit.workflows.backends.earthkit import FieldListBackend
-from earthkit.workflows.nodetree import nodetree_size
+from earthkit.workflows.nodetree import nodetree_size, nodetree_from_dict
 
 from earthkit.workflows import fluent
 from earthkit.workflows.nodetree import nodetree_arrays, nodetree_dimensions
@@ -818,9 +818,19 @@ def from_source(
 
 
 def set_scalar_coords(
-    action: fluent.Action, coords: dict[str, Union[int, str]], override: bool = False
+    action: Action,
+    coords: dict[str, Union[int, str]],
+    override: bool = False,
+    make_dim: bool = False,
 ):
+    nodetree = {npath: narray for npath, narray in nodetree_arrays(action.nodes)}
     for dim, value in coords.items():
-        if override:
-            action._squeeze_dimension(dim, drop=True)
-        action._add_dimension(dim, value)
+        for npath, narray in nodetree.items():
+            if override and dim in narray.dims and len(narray.coords[dim]) == 1:
+                narray = narray.squeeze(dim, drop=True)
+            narray = narray.expand_dims({dim: [value]})
+
+            if not make_dim:
+                narray = narray.squeeze(dim, drop=False)
+            nodetree[npath] = narray
+    action.nodes = nodetree_from_dict(nodetree)

@@ -101,6 +101,7 @@ class Ensemble(Product):
             ret,
             {k: str(v) for k, v in self.config.output.request.items()},
             override=True,
+            make_dim=True,
         )
         return ret
 
