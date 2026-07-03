@@ -56,18 +56,7 @@ def _open_dataset_marslike(
         yield retrieve_func(req, interp)
 
 
-def _fdb_retrieve_interp(request: dict, mir_options: dict) -> eccodes.reader.ReaderBase:
-    fdb_reader = fdb_retrieve(fdb(), request, mir_options)
-    return eccodes.StreamReader(fdb_reader)
-
-
-def _open_dataset_fdb(
-    reqs: Union[dict, Iterable[dict]], path: Optional[str] = None, **kwargs: Any
-) -> Iterator[eccodes.reader.ReaderBase]:
-    return _open_dataset_marslike("FDB", _fdb_retrieve_interp, reqs, **kwargs)
-
-
-class MARSDecoder(eccodes.StreamReader):
+class CachedReader(eccodes.StreamReader):
     def __init__(self, stream, cache=None):
         super().__init__(stream)
         self.stack = ExitStack()
@@ -85,6 +74,21 @@ class MARSDecoder(eccodes.StreamReader):
         msg = super().__next__()
         self.cache.write(msg)
         return msg
+
+
+def _fdb_retrieve_interp(request: dict, mir_options: dict) -> eccodes.reader.ReaderBase:
+    cache_path = request.pop("cache", None)
+    fdb_reader = fdb_retrieve(fdb(), request, mir_options)
+    if cache_path is None:
+        return eccodes.StreamReader(fdb_reader)
+    cache = FileTarget(path=cache_path.format_map(request))
+    return CachedReader(fdb_reader, cache)
+
+
+def _open_dataset_fdb(
+    reqs: Union[dict, Iterable[dict]], path: Optional[str] = None, **kwargs: Any
+) -> Iterator[eccodes.reader.ReaderBase]:
+    return _open_dataset_marslike("FDB", _fdb_retrieve_interp, reqs, **kwargs)
 
 
 def _mars_retrieve_interp(
@@ -112,7 +116,7 @@ def _mars_retrieve_interp(
         mars_reader = stream
         if cached_file:
             os.remove(cached_file)
-    return MARSDecoder(mars_reader, cache=cache)
+    return CachedReader(mars_reader, cache=cache)
 
 
 def _open_dataset_mars(
@@ -186,19 +190,18 @@ def _open_dataset_fdbmars(
     for req in reqs:
         req_fdb = req.copy()
         loc = req_fdb.pop("location", None)
-        req_mars = req_fdb.copy()
-        reqs_fdb.append(req_fdb)
         if loc is not None:
             req_fset = req.copy()
             req_fset.pop("interpolate", None)
             reqs_fset.append(req_fset)
-            req_mars["cache"] = loc
-        reqs_mars.append(req_mars)
+            req_fdb["cache"] = loc
+        reqs_fdb.append(req_fdb)
+        reqs_mars.append(req_fdb)
 
     candidates = []
-    candidates.append((reqs_fdb, "FDB", _open_dataset_fdb))
     if reqs_fset:
         candidates.append((reqs_fset, "file cache", _open_dataset_fileset))
+    candidates.append((reqs_fdb, "FDB", _open_dataset_fdb))
     candidates.append((reqs_mars, "MARS", _open_dataset_mars))
 
     for reqs, tp, open_func in candidates:
