@@ -82,7 +82,7 @@ def flight_level_iteration(
             if input_levels is None:
                 input_levels = param_levels
                 pressure_levels = vertical.pressure_on_hybrid_levels(
-                    A, B, sp, levels=input_levels, output="full"
+                    sp, A, B, levels=input_levels, output="full"
                 )
                 logger.debug(f"Pressure levels: {pressure_levels.shape}")
 
