@@ -1,4 +1,5 @@
-from typing import Optional
+import os
+from typing import Optional, Union
 
 from earthkit.workflows.graph import Graph, deduplicate_nodes
 from earthkit.workflows.fluent import Action
@@ -28,7 +29,7 @@ def product_from_config(
 
 def product_from_output(
     request: dict,
-    pproc_schema: str,
+    pproc_schema: Union[str, os.PathLike],
     inputs: Optional[list[dict]] = None,
     metadata: Optional[dict] = None,
 ) -> Product:
@@ -49,7 +50,7 @@ def product_from_output(
 
 def action_from_outputs(
     requests: list[dict],
-    pproc_schema: str,
+    pproc_schema: Union[str, os.PathLike],
     sources: Optional[Action] = None,
     metadata: Optional[dict] = None,
 ) -> Action:
@@ -68,7 +69,7 @@ def action_from_outputs(
 
 def graph_from_outputs(
     requests: list[dict],
-    pproc_schema: str,
+    pproc_schema: Union[str, os.PathLike],
     metadata: Optional[dict] = None,
 ) -> Product:
     """

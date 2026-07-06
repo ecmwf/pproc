@@ -7,8 +7,8 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-from typing import Iterator
-from typing import Optional
+import os
+from typing import Iterator, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -30,7 +30,7 @@ class Schema:
         self.step_schema = StepSchema(windows)
 
     @classmethod
-    def from_file(cls, schema_path: str) -> Self:
+    def from_file(cls, schema_path: Union[str, os.PathLike]) -> Self:
         with open(schema_path, "r") as f:
             schema = yaml.safe_load(f)
         return cls(**schema)

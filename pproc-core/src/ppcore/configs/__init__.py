@@ -1,4 +1,5 @@
-from typing import Iterator, Optional
+import os
+from typing import Iterator, Optional, Union
 
 from ppcore.schema.schema import Schema
 from ppcore.configs.product import from_schema, ProductConfig
@@ -7,7 +8,7 @@ from ppcore.utils.requests import expand
 
 def config_from_output(
     request: dict,
-    pproc_schema: str,
+    pproc_schema: Union[str, os.PathLike],
     inputs: Optional[list[dict]] = None,
     metadata: Optional[dict] = None,
     **overrides,
@@ -29,7 +30,7 @@ def config_from_output(
 
 def from_outputs(
     requests: list[dict],
-    pproc_schema: str,
+    pproc_schema: Union[str, os.PathLike],
     inputs: Optional[list[dict]] = None,
     metadata: Optional[dict] = None,
     **overrides,
@@ -55,7 +56,7 @@ def from_outputs(
 
 def from_inputs(
     requests: list[dict],
-    pproc_schema: str,
+    pproc_schema: Union[str, os.PathLike],
     inputs: Optional[list[dict]] = None,
     metadata: Optional[dict] = None,
     **overrides,
