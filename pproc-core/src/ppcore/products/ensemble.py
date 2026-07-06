@@ -14,7 +14,6 @@ from earthkit.workflows.nodetree import nodetree_dimensions
 from earthkit.workflows.plugins.pproc.fluent import (
     Action,
     from_source,
-    set_scalar_coords,
 )
 from earthkit.workflows.plugins.pproc.utils.request import Request
 
@@ -97,8 +96,7 @@ class Ensemble(Product):
             out_metadata = output_config["metadata"].copy()
             out_metadata.update(self.output_overrides)
             ret = ret.write(output_config["targets"], metadata=out_metadata)
-        set_scalar_coords(
-            ret,
+        ret.set_scalar_coords(
             {k: str(v) for k, v in self.config.output.request.items()},
             override=True,
             make_dim=True,

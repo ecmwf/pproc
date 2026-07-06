@@ -12,7 +12,7 @@ from typing import Optional, Union
 
 import numpy as np
 from earthkit.workflows.backends.earthkit import FieldListBackend
-from earthkit.workflows.nodetree import nodetree_size, nodetree_from_dict
+from earthkit.workflows.nodetree import nodetree_size
 
 from earthkit.workflows import fluent
 from earthkit.workflows.nodetree import nodetree_arrays, nodetree_dimensions
@@ -525,7 +525,7 @@ class Action(fluent.Action):
                 new_action = new_action.join(dependency, dim)
         try:
             selection = new_action.sel(param=(config["params"]))
-        except KeyError:
+        except IndexError:
             selection = new_action
         config_metadata = config.get("metadata", {})
         new_metadata = (
@@ -815,22 +815,3 @@ def from_source(
                 raise ValueError("Join key must be specified for multiple requests")
             all_actions = all_actions.join(new_action, join_key)
     return all_actions
-
-
-def set_scalar_coords(
-    action: Action,
-    coords: dict[str, Union[int, str]],
-    override: bool = False,
-    make_dim: bool = False,
-):
-    nodetree = {npath: narray for npath, narray in nodetree_arrays(action.nodes)}
-    for dim, value in coords.items():
-        for npath, narray in nodetree.items():
-            if override and dim in narray.dims and len(narray.coords[dim]) == 1:
-                narray = narray.squeeze(dim, drop=True)
-            narray = narray.expand_dims({dim: [value]})
-
-            if not make_dim:
-                narray = narray.squeeze(dim, drop=False)
-            nodetree[npath] = narray
-    action.nodes = nodetree_from_dict(nodetree)
