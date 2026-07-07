@@ -39,16 +39,25 @@ def threshold_metadata(
             )
         elif edition == 2:
             # GRIB 2 has probability types above/below upper/lower limits (see Code Table 4.9)
+            # where the threshold value can correspond to either limit. 
             # Default is to use limit_type=lower probability types
-            # where the threshold value can correspond to either limit. The default limit type
-            # is upper for "<" and lower for ">", consistent with the GRIB 1 to GRIB 2 conversion
-            # assumption.
-            limit_type = "lower"
             prob_types = {
                 "<": {"upper": 4, "lower": 0},
                 ">": {"upper": 1, "lower": 3},
             }
-            probability_type = prob_types[comparison][limit_type]
+            if not metadata.get("probabilityType", None):
+                limit_type = "lower"
+                probability_type = prob_types[comparison][limit_type]
+            else:
+                probability_type = metadata["probabilityType"]
+                if probability_type in [0, 3]:
+                    limit_type = "lower"
+                elif probability_type in [1, 4]:
+                    limit_type = "upper"
+                else:
+                    raise ValueError(
+                        f"Unsupported probability type {probability_type} for threshold comparison {comparison}"
+                    )
             missing = "Upper" if limit_type == "lower" else "Lower"
             thr_metadata.update(
                 {
