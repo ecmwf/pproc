@@ -102,4 +102,4 @@ class Schema:
         inputs: list[dict],
         output_template: Optional[dict] = None,
     ) -> Iterator[tuple[dict, list[dict]]]:
-        return self.param_schema.outputs(inputs, self.step_schema, output_template)
+        yield from self.param_schema.outputs(inputs, self.step_schema, output_template)
