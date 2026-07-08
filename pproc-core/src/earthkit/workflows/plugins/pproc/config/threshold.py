@@ -31,7 +31,10 @@ class Threshold(PProcBaseModel):
             # Derive scale factors for custom thresholds
             for value in ["lower_value", "upper_value"]:
                 upper_or_lower = value.split("_")[0]
-                if isinstance(data.get(value), float) and f"{upper_or_lower}_scale_factor" not in data:
+                if (
+                    isinstance(data.get(value), float)
+                    and f"{upper_or_lower}_scale_factor" not in data
+                ):
                     scale_factor = 0
                     while abs(data[value] * 10**scale_factor) < 1:
                         scale_factor += 1

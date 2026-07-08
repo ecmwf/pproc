@@ -25,6 +25,20 @@ def test_reconstruct():
     )
 
 
+def test_reconstruct_cache():
+    config_schema = ConfigSchema(
+        schema("config"),
+        matching_cache_size=2,
+    )
+    cfgs_a = list(config_schema.reconstruct(entrypoint="pproc-ensms"))
+    cfgs_b = list(config_schema.reconstruct(entrypoint="pproc-ensms"))
+    assert cfgs_a == cfgs_b
+    assert len(config_schema._matching_cache) == 1
+
+    config_schema.clear_matching_cache()
+    assert len(config_schema._matching_cache) == 0
+
+
 @pytest.mark.parametrize(
     "out_request, expected_config",
     [

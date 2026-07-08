@@ -39,7 +39,7 @@ def threshold_metadata(
             )
         elif edition == 2:
             # GRIB 2 has probability types above/below upper/lower limits (see Code Table 4.9)
-            # where the threshold value can correspond to either limit. 
+            # where the threshold value can correspond to either limit.
             # Default is to use limit_type=lower probability types
             prob_types = {
                 "<": {"upper": 4, "lower": 0},
