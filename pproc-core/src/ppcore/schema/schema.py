@@ -107,7 +107,7 @@ class Schema:
         self,
         inputs: list[dict],
         output_template: Optional[dict] = None,
-        method: Literal["dps", "bfs"] = "bfs",
+        method: Literal["dfs", "bfs"] = "bfs",
         enable_cache: bool = True,
     ) -> Iterator[tuple[dict, list[dict]]]:
         yield from self.param_schema.outputs(
