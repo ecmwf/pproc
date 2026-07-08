@@ -8,12 +8,15 @@ from ppcore.utils.requests import expand
 
 def config_from_output(
     request: dict,
-    pproc_schema: Union[str, os.PathLike],
+    pproc_schema: Union[str, os.PathLike, Schema],
     inputs: Optional[list[dict]] = None,
     metadata: Optional[dict] = None,
     **overrides,
 ) -> ProductConfig:
-    schema = Schema.from_file(pproc_schema)
+    if isinstance(pproc_schema, Schema):
+        schema = pproc_schema
+    else:
+        schema = Schema.from_file(pproc_schema)
     if inputs is None:
         schema_config = schema.config_from_output(request)
     else:
@@ -30,7 +33,7 @@ def config_from_output(
 
 def from_outputs(
     requests: list[dict],
-    pproc_schema: Union[str, os.PathLike],
+    pproc_schema: Union[str, os.PathLike, Schema],
     inputs: Optional[list[dict]] = None,
     metadata: Optional[dict] = None,
     **overrides,
@@ -38,7 +41,10 @@ def from_outputs(
     """
     Returns product configuration from output request and PProc schema
     """
-    schema = Schema.from_file(pproc_schema)
+    if isinstance(pproc_schema, Schema):
+        schema = pproc_schema
+    else:
+        schema = Schema.from_file(pproc_schema)
     for request in expand(requests):
         if inputs is None:
             schema_config = schema.config_from_output(request)
@@ -56,7 +62,7 @@ def from_outputs(
 
 def from_inputs(
     requests: list[dict],
-    pproc_schema: Union[str, os.PathLike],
+    pproc_schema: Union[str, os.PathLike, Schema],
     inputs: Optional[list[dict]] = None,
     metadata: Optional[dict] = None,
     **overrides,
