@@ -8,6 +8,7 @@ from earthkit.workflows.nodetree import combine_by_coords, datacubes
 from ppcore.utils.requests import expand
 from ppcore.configs import from_outputs as config_from_outputs
 from ppcore.configs.product import ProductConfig
+from ppcore.schema.schema import Schema
 from ppcore.products.base import Product
 from ppcore.products.ensemble import Ensemble
 
@@ -29,7 +30,7 @@ def product_from_config(
 
 def product_from_output(
     request: dict,
-    pproc_schema: Union[str, os.PathLike],
+    pproc_schema: Union[str, os.PathLike, Schema],
     inputs: Optional[list[dict]] = None,
     metadata: Optional[dict] = None,
 ) -> Product:
@@ -50,7 +51,7 @@ def product_from_output(
 
 def action_from_outputs(
     requests: list[dict],
-    pproc_schema: Union[str, os.PathLike],
+    pproc_schema: Union[str, os.PathLike, Schema],
     sources: Optional[Action] = None,
     metadata: Optional[dict] = None,
 ) -> Action:
@@ -69,7 +70,7 @@ def action_from_outputs(
 
 def graph_from_outputs(
     requests: list[dict],
-    pproc_schema: Union[str, os.PathLike],
+    pproc_schema: Union[str, os.PathLike, Schema],
     metadata: Optional[dict] = None,
 ) -> Product:
     """
