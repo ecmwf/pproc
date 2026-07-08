@@ -24,16 +24,22 @@ from ppcore.utils.requests import validate_request
 
 
 class Schema:
-    def __init__(self, config: dict, inputs: dict, windows: dict):
-        self.config_schema = ConfigSchema(config)
-        self.param_schema = InputSchema(inputs)
-        self.step_schema = StepSchema(windows)
+    def __init__(
+        self, config: dict, inputs: dict, windows: dict, matching_cache_size: int = 0
+    ):
+        self.config_schema = ConfigSchema(
+            config, matching_cache_size=matching_cache_size
+        )
+        self.param_schema = InputSchema(inputs, matching_cache_size=matching_cache_size)
+        self.step_schema = StepSchema(windows, matching_cache_size=matching_cache_size)
 
     @classmethod
-    def from_file(cls, schema_path: Union[str, os.PathLike]) -> Self:
+    def from_file(
+        cls, schema_path: Union[str, os.PathLike], matching_cache_size: int = 0
+    ) -> Self:
         with open(schema_path, "r") as f:
             schema = yaml.safe_load(f)
-        return cls(**schema)
+        return cls(**schema, matching_cache_size=matching_cache_size)
 
     def config_from_output(self, output_request: dict) -> dict:
         config = self.config_schema.config(output_request)

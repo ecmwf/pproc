@@ -69,9 +69,8 @@ class ForecastInput(PProcBaseModel):
             if "number" in self.request:
                 number = np.asarray(self.request["number"])
                 number = number[
-                        (number >= self.members["start"])
-                        & (number <= self.members["end"])
-                    ].tolist()
+                    (number >= self.members["start"]) & (number <= self.members["end"])
+                ].tolist()
             else:
                 number = list(range(self.members["start"], self.members["end"] + 1))
             self.request["number"] = number

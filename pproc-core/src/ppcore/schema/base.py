@@ -9,6 +9,7 @@
 
 import copy
 import logging
+from collections import OrderedDict
 from typing import Any
 from typing import Callable
 from typing import Iterator
@@ -41,9 +42,71 @@ class BaseSchema:
     custom_filter: dict[str, FilterFunc] = {}
     custom_match: dict[str, MatchFunc] = {}
 
-    def __init__(self, schema: dict):
+    def __init__(
+        self,
+        schema: dict,
+        *,
+        matching_cache_size: int = 0,
+    ):
         self.all_filters, self.schema = self.expand(schema)
         self.filters = self.all_filters.difference(set(self.custom_filter.keys()))
+        self.matching_cache_size = max(0, matching_cache_size)
+        self._matching_cache: OrderedDict[tuple, tuple[dict, ...]] = OrderedDict()
+
+    @classmethod
+    def _freeze_cache_value(cls, value: Any) -> Any:
+        if isinstance(value, (str, int, float, bool, type(None))):
+            return value
+        if isinstance(value, dict):
+            return tuple(
+                sorted(
+                    (key, cls._freeze_cache_value(item)) for key, item in value.items()
+                )
+            )
+        if isinstance(value, (list, tuple)):
+            return tuple(cls._freeze_cache_value(item) for item in value)
+        if isinstance(value, set):
+            frozen = [cls._freeze_cache_value(item) for item in value]
+            return ("__set__", tuple(sorted(frozen, key=repr)))
+
+        model_dump = getattr(value, "model_dump", None)
+        if callable(model_dump):
+            return (
+                "__model__",
+                cls._freeze_cache_value(model_dump(exclude_none=False, by_alias=True)),
+            )
+
+        return ("__repr__", repr(value))
+
+    def _matching_cache_key(self, output_template: dict, matching: dict) -> tuple:
+        return (
+            id(self.schema),
+            self._freeze_cache_value(output_template),
+            self._freeze_cache_value(matching),
+        )
+
+    def clear_matching_cache(self) -> None:
+        self._matching_cache.clear()
+
+    def _get_cached_matching(self, key: tuple) -> Optional[list[dict]]:
+        if self.matching_cache_size == 0:
+            return None
+
+        cached = self._matching_cache.get(key, None)
+        if cached is None:
+            return None
+
+        self._matching_cache.move_to_end(key)
+        return [copy.deepcopy(cfg) for cfg in cached]
+
+    def _set_cached_matching(self, key: tuple, configs: list[dict]) -> None:
+        if self.matching_cache_size == 0:
+            return
+
+        self._matching_cache[key] = tuple(copy.deepcopy(cfg) for cfg in configs)
+        self._matching_cache.move_to_end(key)
+        while len(self._matching_cache) > self.matching_cache_size:
+            self._matching_cache.popitem(last=False)
 
     @classmethod
     def from_file(cls, schema_path: str) -> Self:
@@ -112,49 +175,54 @@ class BaseSchema:
         configs: list[dict],
         **matching,
     ) -> Iterator[dict]:
+        missing = object()
+        matching_funcs = [
+            (key, value, cls.custom_match.get(key, DEFAULT_MATCH))
+            for key, value in matching.items()
+        ]
         for key, value in schema.items():
             if cls.is_subschema(key):
                 filter_key = key.split(":")[1]
+                wildcard_schema = value.get("*", None)
                 new_configs = []
                 value_matched = False
-                for filter_value in value.keys():
+                for filter_value, sub_schema in value.items():
                     if filter_value == "*":
                         continue
                     for fout in configs:
-                        new_fout = copy.deepcopy(fout)
-                        if new_fout["recon_req"].get(filter_key, None) == filter_value:
+                        current_value = fout["recon_req"].get(filter_key, missing)
+                        if current_value == filter_value:
                             value_matched = True
-                        if (
-                            new_fout["recon_req"].setdefault(
-                                filter_key, copy.deepcopy(filter_value)
-                            )
-                            != filter_value
-                        ):
+                        elif current_value is not missing:
                             continue
+
+                        new_fout = copy.deepcopy(fout)
+                        if current_value is missing:
+                            new_fout["recon_req"][filter_key] = copy.deepcopy(
+                                filter_value
+                            )
+
                         new_configs.extend(
                             cls._find_matching(
-                                schema[key][filter_value],
+                                sub_schema,
                                 [new_fout],
                                 **matching,
                             )
                         )
-                if "*" in schema[key].keys() and not value_matched:
+                if wildcard_schema is not None and not value_matched:
                     new_configs.extend(
-                        cls._find_matching(schema[key]["*"], configs, **matching)
+                        cls._find_matching(wildcard_schema, configs, **matching)
                     )
                 configs = new_configs
             else:
-                [
-                    cls.custom_update.get(key, DEFAULT_UPDATE)(
-                        cfg, {key: copy.deepcopy(value)}
-                    )
-                    for cfg in configs
-                ]
+                update = cls.custom_update.get(key, DEFAULT_UPDATE)
+                for cfg in configs:
+                    update(cfg, {key: copy.deepcopy(value)})
 
         for cfg in configs:
             is_match = True
-            for key, value in matching.items():
-                if not cls.custom_match.get(key, DEFAULT_MATCH)(
+            for key, value, match_func in matching_funcs:
+                if not match_func(
                     cfg["recon_req"],
                     cfg.get(key, value),
                     value,
@@ -168,7 +236,19 @@ class BaseSchema:
     def reconstruct(
         self, output_template: Optional[dict] = None, **matching
     ) -> Iterator[tuple[dict, dict]]:
-        for cfg in self._find_matching(
-            self.schema, [{"recon_req": output_template or {}}], **matching
-        ):
+        output_template = output_template or {}
+        cache_key = self._matching_cache_key(output_template, matching)
+        configs = self._get_cached_matching(cache_key)
+
+        if configs is None:
+            configs = list(
+                self._find_matching(
+                    self.schema,
+                    [{"recon_req": output_template}],
+                    **matching,
+                )
+            )
+            self._set_cached_matching(cache_key, configs)
+
+        for cfg in configs:
             yield cfg.pop("recon_req"), cfg
