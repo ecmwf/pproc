@@ -8,7 +8,7 @@
 # nor does it submit to any jurisdiction.
 
 import os
-from typing import Iterator, Optional, Union
+from typing import Iterator, Optional, Union, Literal
 
 import numpy as np
 import pandas as pd
@@ -107,5 +107,13 @@ class Schema:
         self,
         inputs: list[dict],
         output_template: Optional[dict] = None,
+        method: Literal["dps", "bfs"] = "bfs",
+        enable_cache: bool = True,
     ) -> Iterator[tuple[dict, list[dict]]]:
-        yield from self.param_schema.outputs(inputs, self.step_schema, output_template)
+        yield from self.param_schema.outputs(
+            inputs,
+            self.step_schema,
+            output_template,
+            method=method,
+            enable_cache=enable_cache,
+        )
