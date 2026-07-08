@@ -14,6 +14,7 @@ from typing import Any
 from typing import Callable
 from typing import Iterator
 from typing import Optional
+from typing import Literal
 
 import yaml
 from typing_extensions import Self
@@ -233,10 +234,84 @@ class BaseSchema:
                 logger.debug("Matched config: %s", cfg)
                 yield cfg
 
+    @classmethod
+    def _find_matching_dps(
+        cls,
+        schema: dict,
+        configs: list[dict],
+        **matching,
+    ) -> Iterator[dict]:
+        missing = object()
+        matching_funcs = [
+            (key, value, cls.custom_match.get(key, DEFAULT_MATCH))
+            for key, value in matching.items()
+        ]
+
+        def _walk_schema(current_schema: dict, current_cfg: dict) -> Iterator[dict]:
+            items = list(current_schema.items())
+
+            def _walk_items(index: int, cfg: dict) -> Iterator[dict]:
+                if index >= len(items):
+                    yield cfg
+                    return
+
+                key, value = items[index]
+                if cls.is_subschema(key):
+                    filter_key = key.split(":")[1]
+                    wildcard_schema = value.get("*", None)
+                    current_value = cfg["recon_req"].get(filter_key, missing)
+                    value_matched = False
+
+                    for filter_value, sub_schema in value.items():
+                        if filter_value == "*":
+                            continue
+
+                        if current_value == filter_value:
+                            value_matched = True
+                        elif current_value is not missing:
+                            continue
+
+                        branch_cfg = copy.deepcopy(cfg)
+                        if current_value is missing:
+                            branch_cfg["recon_req"][filter_key] = copy.deepcopy(
+                                filter_value
+                            )
+
+                        for resolved_cfg in _walk_schema(sub_schema, branch_cfg):
+                            yield from _walk_items(index + 1, resolved_cfg)
+
+                    if wildcard_schema is not None and not value_matched:
+                        wildcard_cfg = copy.deepcopy(cfg)
+                        for resolved_cfg in _walk_schema(wildcard_schema, wildcard_cfg):
+                            yield from _walk_items(index + 1, resolved_cfg)
+                else:
+                    update = cls.custom_update.get(key, DEFAULT_UPDATE)
+                    update(cfg, {key: copy.deepcopy(value)})
+                    yield from _walk_items(index + 1, cfg)
+
+            yield from _walk_items(0, current_cfg)
+
+        for initial_cfg in configs:
+            for cfg in _walk_schema(schema, copy.deepcopy(initial_cfg)):
+                is_match = True
+                for key, value, match_func in matching_funcs:
+                    if not match_func(
+                        cfg["recon_req"],
+                        cfg.get(key, value),
+                        value,
+                    ):
+                        is_match = False
+                        break
+                if is_match:
+                    logger.debug("Matched config: %s", cfg)
+                    yield cfg
+
     def reconstruct(
         self,
         output_template: Optional[dict] = None,
         initial_config: Optional[dict] = None,
+        method: Literal["dps", "bfs"] = "bfs",
+        enable_cache: bool = True,
         **matching,
     ) -> Iterator[tuple[dict, dict]]:
         output_template = output_template or {}
@@ -244,15 +319,21 @@ class BaseSchema:
         cache_key = self._matching_cache_key(output_template, matching)
         configs = self._get_cached_matching(cache_key)
 
+        if method not in ["dps", "bfs"]:
+            raise ValueError(f"Invalid method '{method}'. Must be 'dps' or 'bfs'.")
+        method_func = (
+            self._find_matching_dps if method == "dps" else self._find_matching
+        )
+
         if configs is None:
-            configs = list(
-                self._find_matching(
-                    self.schema,
-                    [{"recon_req": output_template, **initial_config}],
-                    **matching,
-                )
+            configs = method_func(
+                self.schema,
+                [{"recon_req": output_template, **initial_config}],
+                **matching,
             )
-            self._set_cached_matching(cache_key, configs)
+            if self.matching_cache_size > 0 and enable_cache:
+                self._set_cached_matching(cache_key, list(configs))
+                configs = self._get_cached_matching(cache_key)
 
         for cfg in configs:
             yield cfg.pop("recon_req"), cfg

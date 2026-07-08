@@ -13,6 +13,7 @@ from typing import Any
 from typing import Iterator
 from typing import Optional
 from typing import Union
+from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -395,7 +396,11 @@ class InputSchema(BaseSchema):
             yield validate_request(inp)
 
     def reconstruct(
-        self, output_template: dict[str, Any] = {}, **matching
+        self,
+        output_template: dict[str, Any] = {},
+        method: Literal["dps", "bfs"] = "bfs",
+        enable_cache: bool = True,
+        **matching,
     ) -> Iterator[tuple[dict, InputConfig]]:
         inherit = ["levelist", "levtype"]
         base_request = {
@@ -412,6 +417,8 @@ class InputSchema(BaseSchema):
                 ),
             },
             **matching,
+            method=method,
+            enable_cache=enable_cache,
         ):
             input_config = InputConfig(**cfg)
             logger.info("Reconstructed output %s, with config %s", out, input_config)
@@ -440,6 +447,8 @@ class InputSchema(BaseSchema):
         input_requests: list[dict],
         step_schema: Optional[StepSchema] = None,
         output_template: dict[str, Any] = {},
+        method: Literal["dps", "bfs"] = "bfs",
+        enable_cache: bool = True,
     ) -> Iterator[tuple[dict, list[dict]]]:
         """
         Assumes inputs are from the same forecast for a single date and time
@@ -451,6 +460,8 @@ class InputSchema(BaseSchema):
             forecast={"inputs": input_requests},
             climatology={"inputs": input_requests},
             from_inputs=True,
+            method=method,
+            enable_cache=enable_cache,
         ):
             for mconfig in config.match(input_requests):
                 logger.debug("Matched config: %s", mconfig)
