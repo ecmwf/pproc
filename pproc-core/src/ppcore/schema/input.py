@@ -401,22 +401,19 @@ class InputSchema(BaseSchema):
         base_request = {
             key: output_template[key] for key in inherit if key in output_template
         }
-        for cfg in self._find_matching(
-            self.schema,
-            [
-                {
-                    "recon_req": output_template or {},
-                    "forecast": ForecastConfig.model_construct(
-                        inputs=[ForecastInput.model_construct(request=base_request)]
-                    ),
-                    "climatology": ClimatologyConfig.model_construct(
-                        inputs=[ClimatologyInput.model_construct(request=base_request)]
-                    ),
-                }
-            ],
+        for out, cfg in super().reconstruct(
+            output_template or {},
+            {
+                "forecast": ForecastConfig.model_construct(
+                    inputs=[ForecastInput.model_construct(request=base_request)]
+                ),
+                "climatology": ClimatologyConfig.model_construct(
+                    inputs=[ClimatologyInput.model_construct(request=base_request)]
+                ),
+            },
             **matching,
         ):
-            out, input_config = cfg.pop("recon_req"), InputConfig(**cfg)
+            input_config = InputConfig(**cfg)
             logger.info("Reconstructed output %s, with config %s", out, input_config)
             yield out, input_config
 

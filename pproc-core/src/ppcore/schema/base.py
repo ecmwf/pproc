@@ -234,9 +234,13 @@ class BaseSchema:
                 yield cfg
 
     def reconstruct(
-        self, output_template: Optional[dict] = None, **matching
+        self,
+        output_template: Optional[dict] = None,
+        initial_config: Optional[dict] = None,
+        **matching,
     ) -> Iterator[tuple[dict, dict]]:
         output_template = output_template or {}
+        initial_config = initial_config or {}
         cache_key = self._matching_cache_key(output_template, matching)
         configs = self._get_cached_matching(cache_key)
 
@@ -244,7 +248,7 @@ class BaseSchema:
             configs = list(
                 self._find_matching(
                     self.schema,
-                    [{"recon_req": output_template}],
+                    [{"recon_req": output_template, **initial_config}],
                     **matching,
                 )
             )
