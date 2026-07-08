@@ -398,7 +398,7 @@ class InputSchema(BaseSchema):
     def reconstruct(
         self,
         output_template: dict[str, Any] = {},
-        method: Literal["dps", "bfs"] = "bfs",
+        method: Literal["dfs", "bfs"] = "bfs",
         enable_cache: bool = True,
         **matching,
     ) -> Iterator[tuple[dict, InputConfig]]:
@@ -447,7 +447,7 @@ class InputSchema(BaseSchema):
         input_requests: list[dict],
         step_schema: Optional[StepSchema] = None,
         output_template: dict[str, Any] = {},
-        method: Literal["dps", "bfs"] = "bfs",
+        method: Literal["dfs", "bfs"] = "bfs",
         enable_cache: bool = True,
     ) -> Iterator[tuple[dict, list[dict]]]:
         """

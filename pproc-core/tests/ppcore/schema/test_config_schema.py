@@ -41,10 +41,10 @@ def test_reconstruct_cache():
 
 def test_reconstruct_dfs():
     config_schema = ConfigSchema(schema("config"))
-    dps_cfgs = list(config_schema.reconstruct(entrypoint="pproc-ensms", method="dps", enable_cache=False))
+    dfs_cfgs = list(config_schema.reconstruct(entrypoint="pproc-ensms", method="dfs", enable_cache=False))
     bfs_cfgs = list(config_schema.reconstruct(entrypoint="pproc-ensms", method="bfs", enable_cache=False))
-    assert dps_cfgs[0] == bfs_cfgs[0]
-    assert len(dps_cfgs) == len(bfs_cfgs)
+    assert dfs_cfgs[0] == bfs_cfgs[0]
+    assert len(dfs_cfgs) == len(bfs_cfgs)
 
 
 @pytest.mark.parametrize(

@@ -235,7 +235,7 @@ class BaseSchema:
                 yield cfg
 
     @classmethod
-    def _find_matching_dps(
+    def _find_matching_dfs(
         cls,
         schema: dict,
         configs: list[dict],
@@ -310,7 +310,7 @@ class BaseSchema:
         self,
         output_template: Optional[dict] = None,
         initial_config: Optional[dict] = None,
-        method: Literal["dps", "bfs"] = "bfs",
+        method: Literal["dfs", "bfs"] = "bfs",
         enable_cache: bool = True,
         **matching,
     ) -> Iterator[tuple[dict, dict]]:
@@ -319,10 +319,10 @@ class BaseSchema:
         cache_key = self._matching_cache_key(output_template, matching)
         configs = self._get_cached_matching(cache_key)
 
-        if method not in ["dps", "bfs"]:
-            raise ValueError(f"Invalid method '{method}'. Must be 'dps' or 'bfs'.")
+        if method not in ["dfs", "bfs"]:
+            raise ValueError(f"Invalid method '{method}'. Must be 'dfs' or 'bfs'.")
         method_func = (
-            self._find_matching_dps if method == "dps" else self._find_matching
+            self._find_matching_dfs if method == "dfs" else self._find_matching
         )
 
         if configs is None:
