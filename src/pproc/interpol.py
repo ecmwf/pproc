@@ -46,9 +46,9 @@ def main(args=None):
     _area = r"-?" + f + r"/-?" + f + r"/-?" + f + r"/-?" + f
     _accuracy = r"\d+"
     _edition = r"1|2"
-    _interpolation = r"linear|nn|grid-box-average|grid-box-statistics|fail"
+    _interpolation = r"linear|nn|nearest-neighbour|nearest-lsm|grid-box-average|grid-box-statistics|structured-bilinear|fail"
     _packing = r"ccsds|complex|ieee|second-order|simple"
-    _statistics = r"maximum|minimum|count"
+    _statistics = r"maximum|minimum|count|mode-integral"
     _intgrid = g + r"|none|source"
     _truncation = r"[1-9][0-9]*|none"
 
@@ -122,6 +122,24 @@ def main(args=None):
         help="spectral transforms intermediate truncation (" + _truncation + ")",
     )
 
+    arg.add_argument(
+        "--lsm-selection",
+        type=str,
+        help="Land-sea-mask selection method for nearest-lsm interpolation (e.g. 'file').",
+    )
+
+    arg.add_argument(
+        "--lsm-file-input",
+        type=str,
+        help="Path to the input-side land-sea-mask GRIB for nearest-lsm interpolation.",
+    )
+
+    arg.add_argument(
+        "--lsm-file-output",
+        type=str,
+        help="Path to the output-side land-sea-mask GRIB for nearest-lsm interpolation.",
+    )
+
     g = arg.add_mutually_exclusive_group()
 
     g.add_argument(
@@ -156,6 +174,9 @@ def main(args=None):
         "accuracy",
         "edition",
         "truncation",
+        "lsm_selection",
+        "lsm_file_input",
+        "lsm_file_output",
     ]:
         if hasattr(args, k):
             v = getattr(args, k)
