@@ -34,7 +34,7 @@ pproc-gradient [--operation {scalar-gradient,scalar-laplacian}]
 
 The two-message layout for `scalar-gradient` matches the byte order of
 the legacy `orog_egrid_diff_grad` intermediate, and downstream code
-(notably `pproc-field-calc --multi-dimensional 2 ... gradx;grady`) can
+(notably `pproc-formula --multi-dimensional 2 ... gradx;grady`) can
 consume the output directly.
 
 ## Pole behaviour

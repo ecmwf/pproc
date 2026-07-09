@@ -1,18 +1,16 @@
-"""Tests for pproc.climate.field_calc — mir-compute-compatible formula evaluator."""
+"""Tests for pproc.formula — mir-compute-compatible formula evaluator."""
 
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
-from pproc.climate.field_calc import (
-    evaluate_formula,
-    parse_variables,
-)
-from pproc.climate.field_calc import (
-    tokenize,
+from pproc.formula import (
     Token,
     TokenKind,
+    evaluate_formula,
+    parse_variables,
+    tokenize,
 )
 
 
@@ -473,9 +471,9 @@ class TestErrors:
     def test_eval_is_not_used(self):
         # Defensive: ensure no python eval/exec lurking in source
         import inspect
-        from pproc.climate import field_calc
+        from pproc.formula import evaluator
 
-        src = inspect.getsource(field_calc)
+        src = inspect.getsource(evaluator)
         # plain `eval(` or `exec(` should not appear
         # (substring checks; sufficient to deter accidental use)
         assert "eval(" not in src

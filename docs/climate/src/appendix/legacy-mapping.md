@@ -60,8 +60,8 @@ The legacy script issues eleven `mir_compute` invocations producing
 fifteen sub-formulae once the multi-output rows (`;`-separated
 expressions) are exploded. The table below shows the verbatim ksh
 formula, the equivalent Python expression executed inside
-`pproc.climate.field_calc.evaluate_formula`, and the equivalent
-`pproc-field-calc` CLI invocation.
+`pproc.formula.evaluate_formula`, and the equivalent
+`pproc-formula` CLI invocation.
 
 In the CLI column, `tmp` denotes a single GRIB stream produced by
 in-memory concatenation of the input messages (the legacy script writes
@@ -71,22 +71,22 @@ this with shell `cat`; the Python pipeline keeps it in `BytesIO`).
 
 | # | ksh `mir_compute` formula | Python expression | CLI |
 |---|---|---|---|
-| 1 | `orog_N2000 - orog_egrid_N2000` | `evaluate_formula("orog_N2000 - orog_egrid_N2000", {"orog_N2000": a, "orog_egrid_N2000": b})` | `pproc-field-calc --variables "orog_N2000;orog_egrid_N2000" --formula "orog_N2000 - orog_egrid_N2000" --multi-dimensional 2 tmp orog_egrid_diff` |
-| 2 | `(orog_N2000 - orog_egrid_N2000)^2` | `evaluate_formula("(orog_N2000 - orog_egrid_N2000)^2", {...})` | `pproc-field-calc --variables "orog_N2000;orog_egrid_N2000" --formula "(orog_N2000 - orog_egrid_N2000)^2" --multi-dimensional 2 tmp orog_egrid_diff_sq` |
+| 1 | `orog_N2000 - orog_egrid_N2000` | `evaluate_formula("orog_N2000 - orog_egrid_N2000", {"orog_N2000": a, "orog_egrid_N2000": b})` | `pproc-formula --variables "orog_N2000;orog_egrid_N2000" --formula "orog_N2000 - orog_egrid_N2000" --multi-dimensional 2 tmp orog_egrid_diff` |
+| 2 | `(orog_N2000 - orog_egrid_N2000)^2` | `evaluate_formula("(orog_N2000 - orog_egrid_N2000)^2", {...})` | `pproc-formula --variables "orog_N2000;orog_egrid_N2000" --formula "(orog_N2000 - orog_egrid_N2000)^2" --multi-dimensional 2 tmp orog_egrid_diff_sq` |
 
 ### Stage 6 (lines 161–171)
 
 | # | ksh formula | Python | CLI |
 |---|---|---|---|
-| 3 | `gradx * gradx` | `evaluate_formula("gradx * gradx", {"gradx": gx, "grady": gy})` | `pproc-field-calc --variables "gradx;grady" --formula "gradx * gradx" --multi-dimensional 2 orog_egrid_diff_grad orog_egrid_diff_gradx_sq` |
-| 4 | `grady * grady` | `evaluate_formula("grady * grady", {...})` | `pproc-field-calc --variables "gradx;grady" --formula "grady * grady" --multi-dimensional 2 orog_egrid_diff_grad orog_egrid_diff_grady_sq` |
-| 5 | `gradx * grady` | `evaluate_formula("gradx * grady", {...})` | `pproc-field-calc --variables "gradx;grady" --formula "gradx * grady" --multi-dimensional 2 orog_egrid_diff_grad orog_egrid_diff_gradxy` |
+| 3 | `gradx * gradx` | `evaluate_formula("gradx * gradx", {"gradx": gx, "grady": gy})` | `pproc-formula --variables "gradx;grady" --formula "gradx * gradx" --multi-dimensional 2 orog_egrid_diff_grad orog_egrid_diff_gradx_sq` |
+| 4 | `grady * grady` | `evaluate_formula("grady * grady", {...})` | `pproc-formula --variables "gradx;grady" --formula "grady * grady" --multi-dimensional 2 orog_egrid_diff_grad orog_egrid_diff_grady_sq` |
+| 5 | `gradx * grady` | `evaluate_formula("gradx * grady", {...})` | `pproc-formula --variables "gradx;grady" --formula "gradx * grady" --multi-dimensional 2 orog_egrid_diff_grad orog_egrid_diff_gradxy` |
 
 ### Stage 9.1 (lines 220–223)
 
 | # | ksh formula | Python | CLI |
 |---|---|---|---|
-| 6 | `sqrt(orog_mgrid_diff_sq) * land_mask` | `evaluate_formula("sqrt(orog_mgrid_diff_sq) * land_mask", {"orog_mgrid_diff_sq": x, "land_mask": m})` | `pproc-field-calc --variables "orog_mgrid_diff_sq;land_mask" --formula "sqrt(orog_mgrid_diff_sq) * land_mask" --metadata shortName=sdor packingType=grid_simple --multi-dimensional 2 tmp stdgwd` |
+| 6 | `sqrt(orog_mgrid_diff_sq) * land_mask` | `evaluate_formula("sqrt(orog_mgrid_diff_sq) * land_mask", {"orog_mgrid_diff_sq": x, "land_mask": m})` | `pproc-formula --variables "orog_mgrid_diff_sq;land_mask" --formula "sqrt(orog_mgrid_diff_sq) * land_mask" --metadata shortName=sdor --metadata packingType=grid_simple --multi-dimensional 2 tmp stdgwd` |
 
 ### Stage 9.2 — bundle `KLMLprime_lsm` (line 237; multi-output, 5 sub-formulae)
 
@@ -104,7 +104,7 @@ and produces five GRIB messages.
 CLI:
 
 ```bash
-pproc-field-calc --variables "gradxx;gradyy;gradxy;land_mask" \
+pproc-formula --variables "gradxx;gradyy;gradxy;land_mask" \
                  --formula "0.5*(gradxx+gradyy); 0.5*(gradxx-gradyy); gradxy; sqrt((0.5*(gradxx-gradyy))^2+(gradxy)^2); land_mask" \
                  --multi-dimensional 4 tmp KLMLprime_lsm
 ```
@@ -113,7 +113,7 @@ pproc-field-calc --variables "gradxx;gradyy;gradxy;land_mask" \
 
 | # | ksh formula | Python | CLI |
 |---|---|---|---|
-| 8 | `sqrt(K + Lprime) * land_mask` | `evaluate_formula("sqrt(K + Lprime) * land_mask", {"K": k, "L": l, "M": m, "Lprime": lp, "land_mask": lm})` | `pproc-field-calc --variables "K;L;M;Lprime;land_mask" --formula "sqrt(K + Lprime) * land_mask" --metadata shortName=slor packingType=grid_simple --multi-dimensional 5 KLMLprime_lsm slogwd` |
+| 8 | `sqrt(K + Lprime) * land_mask` | `evaluate_formula("sqrt(K + Lprime) * land_mask", {"K": k, "L": l, "M": m, "Lprime": lp, "land_mask": lm})` | `pproc-formula --variables "K;L;M;Lprime;land_mask" --formula "sqrt(K + Lprime) * land_mask" --metadata shortName=slor --metadata packingType=grid_simple --multi-dimensional 5 KLMLprime_lsm slogwd` |
 
 ### Stage 9.2 — limits bundle (line 257; multi-output, 2 sub-formulae)
 
@@ -125,19 +125,19 @@ pproc-field-calc --variables "gradxx;gradyy;gradxy;land_mask" \
 CLI:
 
 ```bash
-pproc-field-calc --variables "K;L;M;Lprime;land_mask" \
+pproc-formula --variables "K;L;M;Lprime;land_mask" \
                  --formula "(K - Lprime) > 0; (K + Lprime) > 0.00000001" \
                  --multi-dimensional 5 KLMLprime_lsm limits
 ```
 
 Both sub-formulae return `float64` 0/1 fields (comparisons return
-floats by design — see [pproc-field-calc](../cli/field-calc.md)).
+floats by design — see [pproc-formula](../cli/formula.md)).
 
 ### Stage 9.2 — isogwd (lines 263–266)
 
 | # | ksh formula | Python | CLI |
 |---|---|---|---|
-| 10 | `sqrt( ((f1 - f4) * K_Lprime_gt_0) / ((f1 + f4) * K_Lprime_gt_epsilon + 0.00000001) ) * land_mask` | Equivalent Python with `f1 → K`, `f4 → Lprime` (positional aliases): `evaluate_formula("sqrt( ((K - Lprime) * K_Lprime_gt_0) / ((K + Lprime) * K_Lprime_gt_epsilon + 0.00000001) ) * land_mask", {...})` | `pproc-field-calc --variables "K;L;M;Lprime;land_mask;K_Lprime_gt_0;K_Lprime_gt_epsilon" --formula "sqrt( ((f1 - f4) * K_Lprime_gt_0) / ((f1 + f4) * K_Lprime_gt_epsilon + 0.00000001) ) * land_mask" --metadata shortName=isor packingType=grid_simple --multi-dimensional 7 KLMLprime_lsm_lim isogwd` |
+| 10 | `sqrt( ((f1 - f4) * K_Lprime_gt_0) / ((f1 + f4) * K_Lprime_gt_epsilon + 0.00000001) ) * land_mask` | Equivalent Python with `f1 → K`, `f4 → Lprime` (positional aliases): `evaluate_formula("sqrt( ((K - Lprime) * K_Lprime_gt_0) / ((K + Lprime) * K_Lprime_gt_epsilon + 0.00000001) ) * land_mask", {...})` | `pproc-formula --variables "K;L;M;Lprime;land_mask;K_Lprime_gt_0;K_Lprime_gt_epsilon" --formula "sqrt( ((f1 - f4) * K_Lprime_gt_0) / ((f1 + f4) * K_Lprime_gt_epsilon + 0.00000001) ) * land_mask" --metadata shortName=isor --metadata packingType=grid_simple --multi-dimensional 7 KLMLprime_lsm_lim isogwd` |
 
 The input file `KLMLprime_lsm_lim` is itself an in-memory concatenation
 of `KLMLprime_lsm` (5 messages) and `limits` (2 messages); the bundle
@@ -148,7 +148,7 @@ positionally.
 
 | # | ksh formula | Python | CLI |
 |---|---|---|---|
-| 11 | `0.5 * atan2(M, L) * land_mask` | `evaluate_formula("0.5 * atan2(M, L) * land_mask", {...})` | `pproc-field-calc --variables "K;L;M;Lprime;land_mask" --formula "0.5 * atan2(M, L) * land_mask" --metadata shortName=anor packingType=grid_simple --multi-dimensional 5 KLMLprime_lsm anggwd` |
+| 11 | `0.5 * atan2(M, L) * land_mask` | `evaluate_formula("0.5 * atan2(M, L) * land_mask", {...})` | `pproc-formula --variables "K;L;M;Lprime;land_mask" --formula "0.5 * atan2(M, L) * land_mask" --metadata shortName=anor --metadata packingType=grid_simple --multi-dimensional 5 KLMLprime_lsm anggwd` |
 
 The argument order to `atan2` is `M, L` (not `L, M`); this matches
 `numpy.arctan2(M, L)` semantics inside `evaluate_formula`.
@@ -157,8 +157,8 @@ The argument order to `atan2` is `M, L` (not `L, M`); this matches
 
 Each of the four `grib_set -s shortName=...,packingType=grid_simple -r
 <tmp> <output>` invocations in the legacy script (lines 223, 251, 266,
-273) is replaced by `--metadata shortName=... packingType=grid_simple`
-on the corresponding `pproc-field-calc` invocation, or by a
+273) is replaced by `--metadata shortName=... --metadata packingType=grid_simple`
+on the corresponding `pproc-formula` invocation, or by a
 `metadata={"shortName": ..., "packingType": "grid_simple"}` argument to
 `encode_grib` inside `compute_sso`.
 

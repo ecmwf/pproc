@@ -18,7 +18,7 @@ the output contains a single message.
 
 The CLI is deliberately small: argparse only (no Conflator), in keeping
 with the convention of other simple pproc tools such as ``pproc-interpol``
-and ``pproc-field-calc``. The :func:`main` entry point accepts an
+and ``pproc-formula``. The :func:`main` entry point accepts an
 optional ``argv`` list for unit testing without spawning subprocesses.
 
 Implementation note: ``scalar-gradient`` delegates to

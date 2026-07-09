@@ -24,6 +24,6 @@ files exercised by the test suite.
 
 ## Where to go next
 
-- For CLI-based use: see `docs/climate/src/cli/{field-calc,gradient,sso}.md`.
+- For CLI-based use: see `docs/climate/src/cli/{formula,gradient,sso}.md`.
 - For library API: see `docs/climate/src/library/{mir-ops,io-grib}.md`.
 - For the legacy ksh-script mapping: see `docs/climate/src/appendix/legacy-mapping.md`.

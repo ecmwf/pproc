@@ -16,7 +16,7 @@ output directory.
 
 The CLI is deliberately small (argparse only, no Conflator) in keeping with
 the convention of other simple ``pproc`` tools such as ``pproc-interpol``,
-``pproc-gradient``, and ``pproc-field-calc``. The :func:`main` entry point
+``pproc-gradient``, and ``pproc-formula``. The :func:`main` entry point
 accepts an optional ``argv`` list for unit testing without spawning
 subprocesses.
 

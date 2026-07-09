@@ -7,9 +7,9 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-"""End-to-end tests for the ``pproc-field-calc`` CLI.
+"""End-to-end tests for the ``pproc-formula`` CLI.
 
-These tests drive the ``main()`` entry point of :mod:`pproc.field_calc`
+These tests drive the ``main()`` entry point of :mod:`pproc.formula_cli`
 directly (no subprocess) using reference GRIB intermediates that live
 at the climate-fields repo root.
 """
@@ -19,8 +19,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pproc.field_calc import main as field_calc_main
 from pproc.common.io import decode_grib, decode_multi_grib
+from pproc.formula_cli import main as formula_main
 
 # tests/ -> pproc/ -> pproc/ -> climate-fields/
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -62,7 +62,7 @@ pytestmark = pytest.mark.skipif(
 class TestFieldCalcCLI:
     def test_two_input_subtraction(self, tmp_path):
         out = tmp_path / "diff.grib"
-        field_calc_main(
+        formula_main(
             [
                 "--formula",
                 "f1 - f2",
@@ -77,7 +77,7 @@ class TestFieldCalcCLI:
 
     def test_named_variables_subtraction(self, tmp_path):
         out = tmp_path / "diff.grib"
-        field_calc_main(
+        formula_main(
             [
                 "--variables",
                 "a;b",
@@ -94,7 +94,7 @@ class TestFieldCalcCLI:
 
     def test_multi_dimensional_input_two_messages(self, tmp_path):
         out = tmp_path / "cross.grib"
-        field_calc_main(
+        formula_main(
             [
                 "--variables",
                 "gx;gy",
@@ -112,7 +112,7 @@ class TestFieldCalcCLI:
 
     def test_metadata_override(self, tmp_path):
         out = tmp_path / "out.grib"
-        field_calc_main(
+        formula_main(
             [
                 "--variables",
                 "var",
@@ -120,6 +120,7 @@ class TestFieldCalcCLI:
                 "sqrt(var)",
                 "--metadata",
                 "shortName=sdor",
+                "--metadata",
                 "packingType=grid_simple",
                 str(_OROG_MGRID_DIFF_SQ),
                 str(out),
@@ -131,7 +132,7 @@ class TestFieldCalcCLI:
 
     def test_default_variables_f1_f2(self, tmp_path):
         out = tmp_path / "diff.grib"
-        field_calc_main(
+        formula_main(
             [
                 "--formula",
                 "f1 - f2",
@@ -148,7 +149,7 @@ class TestFieldCalcCLI:
 
     def test_multiple_sub_formulae(self, tmp_path):
         out = tmp_path / "out.grib"
-        field_calc_main(
+        formula_main(
             [
                 "--variables",
                 "a;b",
@@ -169,7 +170,7 @@ class TestFieldCalcCLI:
 
     def test_three_sub_formulae(self, tmp_path):
         out = tmp_path / "out.grib"
-        field_calc_main(
+        formula_main(
             [
                 "--variables",
                 "a;b",
@@ -185,7 +186,7 @@ class TestFieldCalcCLI:
 
     def test_reference_stdgwd_reproduction(self, tmp_path):
         out = tmp_path / "stdgwd.grib"
-        field_calc_main(
+        formula_main(
             [
                 "--variables",
                 "var;lsm",
@@ -193,6 +194,7 @@ class TestFieldCalcCLI:
                 "sqrt(var) * lsm",
                 "--metadata",
                 "shortName=sdor",
+                "--metadata",
                 "packingType=grid_simple",
                 str(_OROG_MGRID_DIFF_SQ),
                 str(_LAND_MASK),
@@ -210,12 +212,12 @@ class TestFieldCalcCLI:
 class TestFieldCalcCLIErrors:
     def test_missing_formula_arg(self):
         with pytest.raises(SystemExit):
-            field_calc_main([str(_OROG_5KM), "/tmp/does_not_matter.grib"])
+            formula_main([str(_OROG_5KM), "/tmp/does_not_matter.grib"])
 
     def test_multi_dim_with_multiple_inputs_rejects(self, tmp_path):
         out = tmp_path / "out.grib"
         with pytest.raises(SystemExit):
-            field_calc_main(
+            formula_main(
                 [
                     "--formula",
                     "f1-f2",
@@ -231,7 +233,7 @@ class TestFieldCalcCLIErrors:
         # 2 inputs but 3 declared variables.
         out = tmp_path / "out.grib"
         with pytest.raises(SystemExit):
-            field_calc_main(
+            formula_main(
                 [
                     "--variables",
                     "a;b;c",
@@ -247,7 +249,7 @@ class TestFieldCalcCLIErrors:
         # multi-dimensional 2 declared but only 1 variable name.
         out = tmp_path / "out.grib"
         with pytest.raises(SystemExit):
-            field_calc_main(
+            formula_main(
                 [
                     "--variables",
                     "gx",
@@ -263,7 +265,7 @@ class TestFieldCalcCLIErrors:
     def test_undefined_variable_in_formula(self, tmp_path):
         out = tmp_path / "out.grib"
         with pytest.raises((NameError, SystemExit)):
-            field_calc_main(
+            formula_main(
                 [
                     "--variables",
                     "a;b",
@@ -279,7 +281,7 @@ class TestFieldCalcCLIErrors:
         # Parent directory does not exist.
         bad = "/nonexistent/directory/should/not/exist/out.grib"
         with pytest.raises((OSError, FileNotFoundError, SystemExit)):
-            field_calc_main(
+            formula_main(
                 [
                     "--formula",
                     "f1 - f2",
@@ -292,12 +294,12 @@ class TestFieldCalcCLIErrors:
     def test_no_inputs(self):
         # OUTPUT only with no INPUTs - argparse requires at least 1 input + 1 output.
         with pytest.raises(SystemExit):
-            field_calc_main(["--formula", "f1", "/tmp/out.grib"])
+            formula_main(["--formula", "f1", "/tmp/out.grib"])
 
     def test_metadata_without_equals_rejected(self, tmp_path):
         out = tmp_path / "out.grib"
         with pytest.raises(SystemExit):
-            field_calc_main(
+            formula_main(
                 [
                     "--variables",
                     "var",
@@ -338,7 +340,7 @@ class TestFieldCalcCLIVerbose:
 
     def test_silent_by_default(self, tmp_path, capsys):
         out = tmp_path / "diff.grib"
-        field_calc_main(
+        formula_main(
             [
                 "--formula",
                 "f1 - f2",
@@ -352,7 +354,7 @@ class TestFieldCalcCLIVerbose:
 
     def test_verbose_emits_to_stdout(self, tmp_path, capsys):
         out = tmp_path / "diff.grib"
-        field_calc_main(
+        formula_main(
             [
                 "-v",
                 "--formula",
@@ -364,4 +366,125 @@ class TestFieldCalcCLIVerbose:
         )
         captured = capsys.readouterr()
         assert captured.out, "expected -v to produce stdout output"
-        assert "[pproc.field_calc]" in captured.out
+        assert "[pproc.formula]" in captured.out
+
+
+class TestFormulaCLIMetadataAndTrailingFlags:
+    """Regression tests for the ``--metadata`` repeatable-flag surface.
+
+    Historically ``--metadata`` used ``nargs='+'`` next to a trailing
+    ``nargs='+'`` positional, which required a bespoke argv normaliser
+    (``_normalise_argv``) that inserted a ``--`` separator. That
+    separator, in turn, swallowed trailing value-less optionals such
+    as ``-v`` into the positional list. ``--metadata`` is now a
+    repeatable single-value flag (``action='append'``), matching the
+    ``git -c`` / ``docker -e`` idiom, and the argv hack is gone.
+    """
+
+    def test_repeated_metadata_flags(self, tmp_path):
+        """Two ``--metadata`` occurrences set two distinct keys."""
+        out = tmp_path / "out.grib"
+        formula_main(
+            [
+                "--variables",
+                "var",
+                "--formula",
+                "sqrt(var)",
+                "--metadata",
+                "shortName=sdor",
+                "--metadata",
+                "packingType=grid_simple",
+                str(_OROG_MGRID_DIFF_SQ),
+                str(out),
+            ]
+        )
+        _, meta = decode_grib(out.read_bytes())
+        assert meta["shortName"] == "sdor"
+        assert meta["packingType"] == "grid_simple"
+
+    def test_trailing_verbose_after_positionals(self, tmp_path):
+        """Exact bug repro: ``-v`` at the tail after positionals must work.
+
+        Prior to the fix, the ``_normalise_argv`` hack inserted ``--``
+        before the first positional, which caused ``-v`` (a value-less
+        optional) at the end of argv to be swept into ``paths`` and
+        report a bogus "wrong number of inputs" error.
+        """
+        out = tmp_path / "stdgwd.grib"
+        # No SystemExit expected.
+        formula_main(
+            [
+                "--variables",
+                "var;lsm",
+                "--formula",
+                "sqrt(var) * lsm",
+                "--metadata",
+                "shortName=sdor",
+                "--metadata",
+                "packingType=grid_simple",
+                str(_OROG_MGRID_DIFF_SQ),
+                str(_LAND_MASK),
+                str(out),
+                "-v",
+            ]
+        )
+        assert out.exists()
+        _, meta = decode_grib(out.read_bytes())
+        assert meta["shortName"] == "sdor"
+        assert meta["packingType"] == "grid_simple"
+
+    def test_trailing_verbose_with_single_metadata(self, tmp_path):
+        """Single ``--metadata`` plus trailing ``-v`` runs cleanly."""
+        out = tmp_path / "out.grib"
+        formula_main(
+            [
+                "--variables",
+                "var",
+                "--formula",
+                "sqrt(var)",
+                "--metadata",
+                "shortName=sdor",
+                str(_OROG_MGRID_DIFF_SQ),
+                str(out),
+                "-v",
+            ]
+        )
+        assert out.exists()
+        _, meta = decode_grib(out.read_bytes())
+        assert meta["shortName"] == "sdor"
+
+    def test_single_metadata_flag(self, tmp_path):
+        """A single ``--metadata KEY=VAL`` is applied."""
+        out = tmp_path / "out.grib"
+        formula_main(
+            [
+                "--variables",
+                "var",
+                "--formula",
+                "sqrt(var)",
+                "--metadata",
+                "shortName=sdor",
+                str(_OROG_MGRID_DIFF_SQ),
+                str(out),
+            ]
+        )
+        _, meta = decode_grib(out.read_bytes())
+        assert meta["shortName"] == "sdor"
+
+    def test_metadata_missing_equals_errors(self, tmp_path):
+        """``--metadata`` without ``=`` is a parser error (non-zero exit)."""
+        out = tmp_path / "out.grib"
+        with pytest.raises(SystemExit) as exc_info:
+            formula_main(
+                [
+                    "--variables",
+                    "var",
+                    "--formula",
+                    "sqrt(var)",
+                    "--metadata",
+                    "shortNamesdor",
+                    str(_OROG_MGRID_DIFF_SQ),
+                    str(out),
+                ]
+            )
+        assert exc_info.value.code != 0

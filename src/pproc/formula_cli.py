@@ -7,43 +7,42 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-"""``pproc-field-calc``: a numpy-backed replacement for ``mir-compute``.
+"""``pproc-formula``: evaluate arithmetic formulae over GRIB fields.
 
 Reads one or more GRIB inputs, evaluates a formula (or a semicolon-separated
-list of formulae) using :func:`pproc.climate.field_calc.evaluate_formula`,
+list of formulae) using :func:`pproc.formula.evaluate_formula`,
 and writes a single output GRIB file containing one message per
 sub-formula.
 
 The CLI is deliberately small: argparse only (no Conflator), in keeping
-with the convention of other simple pproc tools such as ``pproc-interpol``
-(see ``IMPLEMENTATIO_PLAN``). The :func:`main` entry point accepts an
-optional ``argv`` list for unit testing without spawning subprocesses.
+with the convention of other simple pproc tools such as ``pproc-interpol``.
+The :func:`main` entry point accepts an optional ``argv`` list for unit
+testing without spawning subprocesses.
 """
 
 from __future__ import annotations
 
 import argparse
 import logging
-import sys
 import time
 from typing import List, Optional, Tuple
 
 from pproc.climate._logging import configure_logging
-from pproc.climate.field_calc import evaluate_formula, parse_variables
 from pproc.common.io import decode_grib, decode_multi_grib, encode_grib
+from pproc.formula import evaluate_formula, parse_variables
 
 
 __all__ = ["main"]
 
 
-logger = logging.getLogger("pproc.field_calc")
+logger = logging.getLogger("pproc.formula")
 
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="pproc-field-calc",
+        prog="pproc-formula",
         description=(
-            "Evaluate a mir-compute-style formula over GRIB inputs and write "
+            "Evaluate an arithmetic formula over GRIB inputs and write "
             "a GRIB output (one message per sub-formula)."
         ),
     )
@@ -73,21 +72,15 @@ def _build_parser() -> argparse.ArgumentParser:
             "messages. Incompatible with multiple input files."
         ),
     )
-    # ``--metadata`` accepts one or more KEY=VAL tokens per invocation and
-    # may be repeated. We use ``action='append'`` with ``nargs='+'`` and
-    # rely on the argv pre-processor in :func:`_normalise_argv` to insert
-    # an explicit terminator before trailing positional arguments — vanilla
-    # argparse greedily consumes them otherwise (CPython issue #9338).
     parser.add_argument(
         "--metadata",
-        nargs="+",
         action="append",
         default=None,
         metavar="KEY=VAL",
         help=(
-            "GRIB metadata overrides for the output, e.g. "
-            "--metadata shortName=sdor packingType=grid_simple. "
-            "May be repeated."
+            "GRIB metadata override for the output as a single KEY=VAL, e.g. "
+            "--metadata shortName=sdor. Repeat the flag for multiple "
+            "overrides: --metadata shortName=sdor --metadata packingType=grid_simple."
         ),
     )
     parser.add_argument(
@@ -113,86 +106,26 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _parse_metadata(groups: Optional[List[List[str]]]) -> dict:
-    """Parse ``[[KEY=VAL, ...], ...]`` items into a dict of overrides.
+def _parse_metadata(items: Optional[List[str]]) -> dict:
+    """Parse ``[KEY=VAL, ...]`` items into a dict of overrides.
 
-    ``argparse`` with ``action='append', nargs='+'`` produces a list of
-    lists (one inner list per ``--metadata`` invocation); flatten and
-    parse each ``KEY=VAL`` token. The value side is left as a string;
-    downstream ``construct_message`` knows how to coerce numeric/string
-    GRIB keys.
+    Each ``--metadata`` occurrence contributes one ``KEY=VAL`` token.
+    The value side is left as a string; downstream ``construct_message``
+    coerces numeric/string GRIB keys as needed.
     """
-    if not groups:
+    if not items:
         return {}
     out: dict = {}
-    for group in groups:
-        for item in group:
-            if "=" not in item:
-                raise ValueError(
-                    f"--metadata entry {item!r} is missing '=' (expected KEY=VAL)"
-                )
-            key, value = item.split("=", 1)
-            key = key.strip()
-            if key == "":
-                raise ValueError(f"--metadata entry {item!r} has an empty key")
-            out[key] = value
-    return out
-
-
-# Optional flags that take exactly one value (so we don't mis-classify their
-# value as a "looks like a path" positional during argv normalisation).
-_SINGLE_VALUE_FLAGS = {"--formula", "--variables", "--multi-dimensional"}
-
-
-def _normalise_argv(argv: List[str]) -> List[str]:
-    """Disambiguate ``--metadata K=V K=V ... INPUT ... OUTPUT``.
-
-    ``argparse``'s positional-allocator (CPython issue #9338) cannot split
-    a ``nargs='+'`` optional from a trailing ``nargs='+'`` positional when
-    they sit next to each other on the command line. We walk argv and
-    insert ``--`` immediately before the first non-``KEY=VAL`` token that
-    follows a ``--metadata`` flag, which forces argparse to treat the
-    remainder as positional arguments.
-
-    The transformation is conservative: it only fires when ``--metadata``
-    is in argv, and it never reorders user tokens.
-    """
-    if not argv:
-        return list(argv)
-    out: List[str] = []
-    i = 0
-    n = len(argv)
-    while i < n:
-        tok = argv[i]
-        out.append(tok)
-        # Match either bare ``--metadata`` or ``--metadata=...`` (which
-        # consumes only one value via the ``=`` syntax and needs no fixup).
-        if tok == "--metadata":
-            i += 1
-            # Consume KEY=VAL tokens that follow.
-            while i < n:
-                nxt = argv[i]
-                if nxt.startswith("--"):
-                    break
-                if "=" in nxt and not nxt.startswith("-"):
-                    out.append(nxt)
-                    i += 1
-                    continue
-                # First token without '=' that isn't a flag: this is the
-                # start of the trailing positional arguments. Insert the
-                # ``--`` separator so argparse stops consuming.
-                if "--" not in out:
-                    out.append("--")
-                break
-            continue
-        # Skip the value of single-value optionals so we don't accidentally
-        # try to interpret e.g. "--formula" "f1-f2" as something requiring
-        # normalisation.
-        if tok in _SINGLE_VALUE_FLAGS and i + 1 < n:
-            out.append(argv[i + 1])
-            i += 2
-            continue
-        i += 1
+    for item in items:
+        if "=" not in item:
+            raise ValueError(
+                f"--metadata entry {item!r} is missing '=' (expected KEY=VAL)"
+            )
+        key, value = item.split("=", 1)
+        key = key.strip()
+        if key == "":
+            raise ValueError(f"--metadata entry {item!r} has an empty key")
+        out[key] = value
     return out
 
 
@@ -248,7 +181,7 @@ def _load_inputs(
 
 
 def main(argv: Optional[List[str]] = None) -> None:
-    """Entry point for the ``pproc-field-calc`` console script.
+    """Entry point for the ``pproc-formula`` console script.
 
     Parameters
     ----------
@@ -257,8 +190,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         Defaults to ``sys.argv[1:]`` when ``None``.
     """
     parser = _build_parser()
-    raw_argv = list(sys.argv[1:] if argv is None else argv)
-    args = parser.parse_args(_normalise_argv(raw_argv))
+    args = parser.parse_args(argv)
 
     configure_logging(args.verbose)
 
@@ -319,7 +251,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     bindings = dict(zip(var_names, arrays))
 
     start_msg = (
-        "pproc-field-calc start"
+        "pproc-formula start"
         f" formula={args.formula!r}"
         f" variables={var_names}"
         f" inputs={input_paths}"
@@ -343,7 +275,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         for chunk in out_chunks:
             fh.write(chunk)
 
-    logger.info("pproc-field-calc done elapsed=%.3f", time.monotonic() - t0)
+    logger.info("pproc-formula done elapsed=%.3f", time.monotonic() - t0)
 
 
 if __name__ == "__main__":  # pragma: no cover

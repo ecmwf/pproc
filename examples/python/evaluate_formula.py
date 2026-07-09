@@ -1,17 +1,17 @@
-"""Direct use of pproc.climate.field_calc.evaluate_formula on numpy arrays.
+"""Direct use of pproc.formula.evaluate_formula on numpy arrays.
 
 Use this pattern when:
 - You already have numpy arrays in hand (no GRIB I/O needed).
 - You want a string-based formula interface for ad-hoc arithmetic.
 - You need to support user-supplied formulae (e.g. in a config file).
 
-For GRIB I/O wrapping, use the ``pproc-field-calc`` CLI (see
-``docs/climate/src/cli/field-calc.md``).
+For GRIB I/O wrapping, use the ``pproc-formula`` CLI (see
+``docs/climate/src/cli/formula.md``).
 """
 
 import numpy as np
 
-from pproc.climate.field_calc import evaluate_formula, parse_variables
+from pproc.formula import evaluate_formula, parse_variables
 
 
 def main() -> None:

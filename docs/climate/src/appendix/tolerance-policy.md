@@ -26,7 +26,7 @@ The reference outputs were produced by the legacy ksh script via
 `mir-compute`, which evaluates `sqrt` and `atan2` in **float32**
 internally and stores intermediates as `grid_simple` GRIB. The new
 Python pipeline evaluates the same expressions in
-`pproc.climate.field_calc.evaluate_formula`, which dispatches to
+`pproc.formula.evaluate_formula`, which dispatches to
 `numpy.sqrt`, `numpy.arctan2`, and friends — operating in **float64**
 throughout. As a consequence, the four output fields cannot be
 reproduced from the reference intermediates at the originally specified
@@ -70,7 +70,7 @@ change inside `pproc.climate.sso.pipeline`; it does not alter any CLI
 argument surface and it can be added in a follow-up unit without
 breaking compatibility.
 
-The CLIs (`pproc-sso`, `pproc-gradient`, `pproc-field-calc`) do **not**
+The CLIs (`pproc-sso`, `pproc-gradient`, `pproc-formula`) do **not**
 expose `--rtol` / `--atol` flags. Tolerances belong to tests, not to
 the runtime contract.
 

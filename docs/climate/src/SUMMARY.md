@@ -5,7 +5,7 @@
 
 # Command-line tools
 
-- [pproc-field-calc](cli/field-calc.md)
+- [pproc-formula](cli/formula.md)
 - [pproc-gradient](cli/gradient.md)
 - [pproc-sso](cli/sso.md)
 

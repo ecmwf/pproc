@@ -4,10 +4,11 @@ This documentation covers the SSO migration from the developer-only
 `mir` + `mir-compute` CLIs to the operational `pproc` toolkit. Three new
 console scripts are introduced — `pproc-sso` (the monolithic ten-stage
 sub-grid orography pipeline), `pproc-gradient` (a thin wrapper around
-mir's nabla operator), and `pproc-field-calc` (a numpy-backed replacement
+mir's nabla operator), and `pproc-formula` (a numpy-backed replacement
 for `mir-compute` with a hand-written formula parser, no `eval()`) —
-together with a new `pproc.climate.*` library (`mir_ops`, `field_calc`,
-`sso/{pipeline, config, effective_resolution}`) and GRIB encode/decode
+together with a new `pproc.formula` package and a `pproc.climate.*`
+library (`mir_ops`, `sso/{pipeline, config, effective_resolution}`)
+plus GRIB encode/decode
 helpers extending `pproc.common.io`.
 
 The workload reproduces the legacy IFS shell script

@@ -1,11 +1,11 @@
-"""mir-compute-compatible formula parser and numpy evaluator.
+"""Formula parser and numpy evaluator.
 
-This module implements a small expression language matching the formula
-grammar accepted by ECMWF's ``mir-compute`` CLI tool. It is used by the SSO
-pipeline (and any other ``pproc.climate`` workflow) to evaluate per-grid
-arithmetic expressions over numpy arrays. The Python builtin for dynamic
-expression evaluation is *not* used; a hand-written recursive-descent parser
-produces an AST that a numpy-based visitor walks.
+This module implements a small expression language for per-grid arithmetic
+over GRIB fields, used by the ``pproc-formula`` CLI and by pproc workflows
+(such as the SSO pipeline) to evaluate expressions over numpy arrays. The
+Python builtin for dynamic expression evaluation is *not* used; a
+hand-written recursive-descent parser produces an AST that a numpy-based
+visitor walks.
 
 Grammar (informal, lowest to highest precedence):
 
@@ -529,16 +529,16 @@ def _shape_error(
 
 
 def evaluate_formula(formula: str, variables: dict) -> np.ndarray:
-    """Evaluate a single mir-compute-compatible expression.
+    """Evaluate a single formula expression.
 
     Parameters
     ----------
     formula:
         The expression text. May contain newlines and arbitrary whitespace.
         A single formula returns a single value; the multi-output ``;``
-        separator handled by ``mir-compute --formula`` is the responsibility
-        of the CLI layer (it splits and calls this function once per
-        sub-expression).
+        separator accepted by ``pproc-formula --formula`` is the
+        responsibility of the CLI layer (it splits and calls this function
+        once per sub-expression).
     variables:
         Mapping from identifier name to numpy array (or scalar). The constant
         ``pi`` is always available and need not be in ``variables``.
@@ -575,8 +575,7 @@ def parse_variables(variables_str: str) -> list[str]:
 
     Whitespace around names is stripped. An empty input string returns an
     empty list. Empty segments (e.g. ``"a;;b"`` or a trailing ``";"``) raise
-    :class:`ValueError`, mirroring ``mir-compute``'s rejection of empty
-    variable names.
+    :class:`ValueError`; empty variable names are not allowed.
     """
     if not isinstance(variables_str, str):
         raise TypeError(
@@ -591,7 +590,7 @@ def parse_variables(variables_str: str) -> list[str]:
         if name == "":
             raise ValueError(
                 f"empty variable name in {variables_str!r}; "
-                "mir-compute --variables does not allow empty entries"
+                "--variables does not allow empty entries"
             )
         out.append(name)
     return out

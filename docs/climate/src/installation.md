@@ -31,7 +31,7 @@ source .venv/bin/activate
 uv pip install -e ./pproc
 ```
 
-This puts `pproc-sso`, `pproc-gradient`, `pproc-field-calc`, and the
+This puts `pproc-sso`, `pproc-gradient`, `pproc-formula`, and the
 existing `pproc-*` console scripts on `PATH`.
 
 ## Verifying the install
@@ -39,7 +39,7 @@ existing `pproc-*` console scripts on `PATH`.
 ```bash
 pproc-sso --help
 pproc-gradient --help
-pproc-field-calc --help
+pproc-formula --help
 ```
 
 Each command should print its argparse help banner without raising an
