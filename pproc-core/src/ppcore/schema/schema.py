@@ -8,30 +8,41 @@
 # nor does it submit to any jurisdiction.
 
 import os
-from typing import Iterator, Optional, Union, Literal
+from typing import Iterator, Optional, Union, Literal, Any
 
 import numpy as np
-import pandas as pd
 import yaml
 from typing_extensions import Self
 
 from ppcore.schema.config import ConfigSchema
 from ppcore.schema.input import InputSchema
 from ppcore.schema.step import StepSchema
+from ppcore.schema.forecast import (
+    DatasetDefinitions,
+    DatasetDefinition,
+    ForecastDefinition,
+    ReforecastDefinition,
+    ClimatologyDefinition,
+)
 from ppcore.utils.mars import METADATA_KEYS
-from ppcore.utils.requests import VALUE_TYPES
-from ppcore.utils.requests import validate_request
+from ppcore.utils.requests import VALUE_TYPES, expand
 
 
 class Schema:
     def __init__(
-        self, config: dict, inputs: dict, windows: dict, matching_cache_size: int = 0
+        self,
+        config: dict,
+        inputs: dict,
+        windows: dict,
+        datasets: dict,
+        matching_cache_size: int = 0,
     ):
         self.config_schema = ConfigSchema(
             config, matching_cache_size=matching_cache_size
         )
         self.param_schema = InputSchema(inputs, matching_cache_size=matching_cache_size)
         self.step_schema = StepSchema(windows, matching_cache_size=matching_cache_size)
+        self.datasets = DatasetDefinitions(definitions=datasets)
 
     @classmethod
     def from_file(
@@ -41,9 +52,14 @@ class Schema:
             schema = yaml.safe_load(f)
         return cls(**schema, matching_cache_size=matching_cache_size)
 
-    def config_from_output(self, output_request: dict) -> dict:
+    def config_from_output(
+        self,
+        output_request: dict[str, Any],
+        forecast: Union[ForecastDefinition, ReforecastDefinition],
+        climatology: Optional[ClimatologyDefinition] = None,
+    ) -> dict:
         config = self.config_schema.config(output_request)
-        inputs = list(self.param_schema.inputs(output_request, self.step_schema))
+        inputs = list(self.param_schema.inputs(output_request, forecast, climatology))
 
         # Set metadata
         base_request = inputs[0]
@@ -65,55 +81,34 @@ class Schema:
 
     def config_from_input(
         self,
-        input_requests: list[dict],
+        forecast: Union[ForecastDefinition, ReforecastDefinition],
+        climatology: Optional[ClimatologyDefinition] = None,
         output_template: Optional[dict] = None,
-        entrypoint: Optional[str] = None,
     ) -> Iterator[dict]:
-        # If entrypoint is provided, find output templates provided by that entrypoint
-        if entrypoint is not None:
-            reconstructed = self.config_schema.reconstruct(
-                output_template=(
-                    None
-                    if output_template is None
-                    else validate_request(output_template)
-                ),
-                **({} if entrypoint is None else {"entrypoint": entrypoint}),
-            )
-            matching_types = pd.DataFrame([x for x, _ in reconstructed])
-            output_keys = (
-                [] if output_template is None else list(output_template.keys())
-            )
-            drop = [
-                x
-                for x in self.config_schema.all_filters.difference(
-                    ["type"] + output_keys
-                )
-            ]
-            matching_types.drop(columns=drop, inplace=True, errors="ignore")
-            matching_types.drop_duplicates(inplace=True)
-            output_templates = matching_types.to_dict(orient="records")
-        else:
-            output_templates = [output_template]
-
-        for template in output_templates:
+        for output_template in expand(output_template) if output_template else [None]:
             for output, inputs in self.outputs_from_inputs(
-                input_requests, output_template=template
+                forecast, climatology, output_template=output_template
             ):
-                out_config = self.config_from_output(output)
+                out_config = self.config_from_output(output, forecast, climatology)
                 out_config["inputs"] = inputs
                 yield out_config
 
     def outputs_from_inputs(
         self,
-        inputs: list[dict],
-        output_template: Optional[dict] = None,
+        forecast: Union[ForecastDefinition, ReforecastDefinition],
+        climatology: Optional[ClimatologyDefinition] = None,
+        output_template: Optional[dict[str, Any]] = None,
         method: Literal["dfs", "bfs"] = "bfs",
         enable_cache: bool = True,
     ) -> Iterator[tuple[dict, list[dict]]]:
         yield from self.param_schema.outputs(
-            inputs,
+            forecast,
+            climatology,
             self.step_schema,
             output_template,
             method=method,
             enable_cache=enable_cache,
         )
+
+    def definition(self, name: str) -> DatasetDefinition:
+        return self.datasets.definition(name)

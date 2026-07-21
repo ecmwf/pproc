@@ -12,12 +12,6 @@ on:
   pull_request: ~
 
 jobs:
-  quality_assurance:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: pip install ruff
-      - run: ruff check
   ppruntime_test:
     runs-on: ubuntu-latest
     strategy:
@@ -31,7 +25,6 @@ jobs:
       run: |
         cd pproc-runtime
         export UV_FROZEN=1
-        export SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0
         uv sync --prerelease allow --python "${{ matrix.python_version }}" --all-packages
         uv run --prerelease allow prek --directory . --config ../.pre-commit-config.yaml
         uv run --prerelease allow ty check

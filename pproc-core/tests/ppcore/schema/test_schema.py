@@ -11,11 +11,12 @@
 import pytest
 from conftest import schema
 
+from ppcore.schema.forecast import ForecastDefinition
 from ppcore.schema.schema import Schema
 
 
 @pytest.mark.parametrize(
-    "req, config, num_generated",
+    "req, dataset, config, num_generated",
     [
         [
             {
@@ -29,7 +30,9 @@ from ppcore.schema.schema import Schema
                 "time": "0",
                 "fcmonth": 1,
                 "type": "fcmean",
+                "number": 0,
             },
+            "seasonal",
             {
                 "entrypoint": "pproc-monthly-stats",
                 "name": "167_sfc",
@@ -51,7 +54,7 @@ from ppcore.schema.schema import Schema
                         "time": "0000",
                         "type": "fc",
                         "step": list(range(6, 745, 6)),
-                        "number": list(range(0, 51)),
+                        "number": 0,
                     },
                 ],
                 "accumulations": {
@@ -82,6 +85,7 @@ from ppcore.schema.schema import Schema
                 "type": "fcmean",
                 "number": [0, 1, 2, 3],
             },
+            "eefo",
             {
                 "entrypoint": "pproc-accumulate",
                 "name": "228_sfc",
@@ -163,6 +167,7 @@ from ppcore.schema.schema import Schema
                 "type": "em",
                 "target_grid": "O640",
             },
+            "enfo",
             {
                 "entrypoint": "pproc-ensms",
                 "name": "130_pl",
@@ -224,24 +229,40 @@ from ppcore.schema.schema import Schema
     ],
     ids=["2t", "tp", "T"],
 )
-def test_schema_from_output(req, config, num_generated):
+def test_schema_from_output(req, dataset, config, num_generated):
     test_schema = Schema(**schema())
-    test_config = test_schema.config_from_output(req)
+    print("REQ", req)
+    test_config = test_schema.config_from_output(req, test_schema.definition(dataset))  # type: ignore
     test_config.pop("metadata", None)
     assert config == test_config
 
     generated = test_schema.config_from_input(
-        config["inputs"], {k: req[k] for k in ["stream", "type", "param"]}
+        ForecastDefinition(
+            datacubes=config["inputs"],
+            unperturbed={x: config["inputs"][0][x] for x in ["stream", "type"]},
+        ),
+        output_template={x: req[x] for x in ["stream", "type"]},  # type: ignore
     )
     assert len(list(generated)) == num_generated
 
 
 @pytest.mark.parametrize(
-    "entrypoint, req, num_expected, expected",
+    "inputs, out_template, num_expected, expected",
     [
         [
-            "pproc-accumulate",
             [
+                {
+                    "class": "od",
+                    "stream": "oper",
+                    "expver": "0001",
+                    "levtype": "sfc",
+                    "domain": "g",
+                    "param": "167",
+                    "date": "20241001",
+                    "time": "0",
+                    "step": list(range(0, 169, 6)),
+                    "type": "fc",
+                },
                 {
                     "class": "od",
                     "stream": "enfo",
@@ -255,20 +276,9 @@ def test_schema_from_output(req, config, num_generated):
                     "type": "pf",
                     "number": list(range(1, 11)),
                 },
-                {
-                    "class": "od",
-                    "stream": "oper",
-                    "expver": "0001",
-                    "levtype": "sfc",
-                    "domain": "g",
-                    "param": "167",
-                    "date": "20241001",
-                    "time": "0",
-                    "step": list(range(0, 169, 6)),
-                    "type": "fc",
-                },
             ],
-            8,
+            {"stream": "enfo", "type": "fcmean"},
+            2,
             {
                 "entrypoint": "pproc-accumulate",
                 "name": "167_sfc",
@@ -314,7 +324,6 @@ def test_schema_from_output(req, config, num_generated):
             },
         ],
         [
-            "pproc-monthly-stats",
             [
                 {
                     "class": "od",
@@ -330,7 +339,8 @@ def test_schema_from_output(req, config, num_generated):
                     "type": "fc",
                 }
             ],
-            21,
+            {"stream": "msmm", "type": "fcmean"},
+            7,
             {
                 "entrypoint": "pproc-monthly-stats",
                 "name": "228_sfc",
@@ -380,8 +390,20 @@ def test_schema_from_output(req, config, num_generated):
             },
         ],
         [
-            "pproc-ensms",
             [
+                {
+                    "class": "od",
+                    "stream": "oper",
+                    "expver": "0001",
+                    "levtype": "pl",
+                    "levelist": [250, 850],
+                    "domain": "g",
+                    "param": "130",
+                    "date": "20241001",
+                    "time": "0",
+                    "step": [0, 6, 12, 18, 24],
+                    "type": "fc",
+                },
                 {
                     "class": "od",
                     "stream": "enfo",
@@ -396,20 +418,8 @@ def test_schema_from_output(req, config, num_generated):
                     "type": "pf",
                     "number": list(range(1, 51)),
                 },
-                {
-                    "class": "od",
-                    "stream": "oper",
-                    "expver": "0001",
-                    "levtype": "pl",
-                    "levelist": [250, 850],
-                    "domain": "g",
-                    "param": "130",
-                    "date": "20241001",
-                    "time": "0",
-                    "step": [0, 6, 12, 18, 24],
-                    "type": "fc",
-                },
             ],
+            {"stream": "enfo", "type": ["em", "es"]},
             10,
             {
                 "entrypoint": "pproc-ensms",
@@ -469,9 +479,14 @@ def test_schema_from_output(req, config, num_generated):
     ],
     ids=["2t", "tp", "T"],
 )
-def test_schema_from_input(entrypoint, req, num_expected, expected):
+def test_schema_from_input(inputs, out_template, num_expected, expected):
     test_schema = Schema(**schema())
-    configs = list(test_schema.config_from_input(req, entrypoint=entrypoint))
+    forecast = ForecastDefinition(
+        datacubes=inputs, unperturbed={x: inputs[0][x] for x in ["stream", "type"]}
+    )
+    configs = list(
+        test_schema.config_from_input(forecast, output_template=out_template)
+    )
     assert len(configs) == num_expected
     test_config = configs[0]
     test_config.pop("metadata", None)

@@ -59,7 +59,7 @@ class MinAccumulation(BaseAccumulation):
 
 
 class MaxAccumulation(BaseAccumulation):
-    operation: Literal["maximum"] = "minimum"
+    operation: Literal["maximum"] = "maximum"
     payload: Literal["max"] = "max"
 
 
@@ -85,7 +85,7 @@ class DifferenceAccumulation(BaseAccumulation):
 
     @field_validator("coords", mode="after")
     @classmethod
-    def validate_num_coords(cls, coords: Coords) -> Coords:
+    def validate_num_coords(cls, coords: list[Coords]) -> list[Coords]:
         if any([len(coord) > 2 for coord in coords]):
             raise ValueError("difference accumulation accepts only 1 or 2 coordinates")
         return coords
@@ -100,7 +100,7 @@ class DifferenceRateAccumulation(BaseAccumulation):
 
     @field_validator("coords", mode="after")
     @classmethod
-    def validate_num_coords(cls, coords: Coords) -> Coords:
+    def validate_num_coords(cls, coords: list[Coords]) -> list[Coords]:
         if any([len(coord) > 2 for coord in coords]):
             raise ValueError(
                 "difference_rate accumulation accepts only 1 or 2 coordinates"

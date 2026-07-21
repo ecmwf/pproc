@@ -35,7 +35,7 @@ class Ensemble(Product):
 
         if len(input_config.sources) == 0:
             raise ValueError("No sources provided for ensemble config")
-        action = None
+        action: Action = None  # type: ignore
         for x in [dict(x, **self.input_overrides) for x in input_config.requests]:
             req = Request(
                 validate_request(x), no_expand=("number", *input_config.expand_exclude)
@@ -57,7 +57,7 @@ class Ensemble(Product):
             if action is None:
                 action = new_action
             else:
-                action = action.join(new_action, dim=ensemble_dim)
+                action = action.join(new_action, dim=ensemble_dim)  # type: ignore
         return action
 
     def action(

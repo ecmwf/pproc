@@ -37,8 +37,8 @@ class FDBTarget(PProcBaseModel):
 
 class ZarrTarget(PProcBaseModel):
     name: Literal["zarr"] = "zarr"
-    earthkit_to_xarray_kwargs: Optional[dict] = None
-    xarray_to_zarr_kwargs: Optional[dict] = None
+    earthkit_to_xarray_kwargs: Optional[dict[str, str]] = None
+    xarray_to_zarr_kwargs: Optional[dict[str, str]] = None
 
 
 Target = Annotated[

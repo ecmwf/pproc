@@ -10,4 +10,4 @@ def split_location(
     m = _LOCATION_RE.fullmatch(loc)
     if m is None:
         return (default, loc)
-    return m.groups()
+    return m.groups()  # type: ignore

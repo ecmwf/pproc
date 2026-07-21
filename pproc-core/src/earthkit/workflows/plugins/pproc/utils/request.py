@@ -9,16 +9,17 @@
 
 import copy
 import itertools
+from typing import Optional
 from collections import OrderedDict
 
 import numpy as np
 
 
 class Request:
-    def __init__(self, request: dict, no_expand: tuple[str] = ()):
+    def __init__(self, request: dict, no_expand: Optional[tuple[str]] = None):
         self.request = request.copy()
         self.fake_dims = []
-        self.no_expand = no_expand
+        self.no_expand = no_expand or tuple()
         self.ignore = ["interpolate"]
 
     @property
@@ -50,7 +51,7 @@ class Request:
 
     def make_dim(self, key, value=None):
         if key in self:
-            assert type(self[key], (str, int, float))
+            assert isinstance(self[key], (str, int, float))
             self[key] = [self[key]]
         else:
             self[key] = [value]
@@ -72,7 +73,7 @@ class Request:
 
 
 class MultiSourceRequest(Request):
-    def __init__(self, requests: list[dict], no_expand: tuple[str] = ()):
+    def __init__(self, requests: list[dict], no_expand: Optional[tuple[str]] = None):
         super().__init__(requests[0], no_expand)
         self.requests = requests
 

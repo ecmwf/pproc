@@ -29,7 +29,7 @@ class Output(PProcBaseModel):
         for index, target in enumerate(data):
             if isinstance(target, str):
                 name, loc = split_location(target, default="file")
-                config = {"name": name}
+                config: dict[str, Any] = {"name": name}
                 if loc:
                     if name == "fdb":
                         config["config"] = loc
@@ -51,7 +51,7 @@ class OutputsCollection(PProcBaseModel):
 
 def create_output_model(
     name: str, outputs: Union[list[str], dict[str, dict]], **kwargs
-):
+) -> type[OutputsCollection]:
     field_definitions = {output: (Output, ...) for output in outputs}
     names = outputs if isinstance(outputs, list) else list(outputs.keys())
     return create_model(
@@ -60,4 +60,4 @@ def create_output_model(
         **field_definitions,
         __base__=OutputsCollection,
         **kwargs,
-    )
+    )  # type: ignore
