@@ -63,14 +63,14 @@ class InputsCollection(PProcBaseModel):
 
 def create_input_model(
     name: str, inputs: list[str], optional: list[str] = [], **kwargs
-) -> InputsCollection:
+) -> type[InputsCollection]:
     field_definitions = {input: (Input, ...) for input in inputs}
     for input in optional:
-        field_definitions[input] = (Input, Input(source={"type": "null"}))
+        field_definitions[input] = (Input, Input(requests=[]))
     return create_model(
         f"{name}InputModel",
         names=(ClassVar[list[str]], inputs + optional),
         **field_definitions,
         __base__=InputsCollection,
         **kwargs,
-    )
+    )  # type: ignore

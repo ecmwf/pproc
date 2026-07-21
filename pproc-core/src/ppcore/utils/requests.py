@@ -1,7 +1,6 @@
 import copy
 import itertools
-from typing import Iterator
-from typing import Optional
+from typing import Iterator, Optional, Iterable, Any
 
 import numpy as np
 import pandas as pd
@@ -45,22 +44,24 @@ def validate_request(request: dict) -> dict:
                 pass
         out[key] = value
     # Format time
-    if time := out.get("time", None):
-        if isinstance(time, list):
-            raise ValueError("Only single value of time supported per request")
-        if isinstance(time, int):
-            time = f"{time:02d}"
-        out["time"] = time.ljust(4, "0")
+    if times := out.get("time", None):
+        if isinstance(times, (int, str)):
+            times = [times]
+        out_times = []
+        for ti in times:
+            out_times.append(f"{int(ti):02d}".ljust(4, "0"))
+        out["time"] = out_times if len(out_times) > 1 else out_times[0]
     return out
 
 
 def expand(
-    requests: dict | list[dict],
+    requests: dict[str, Any] | Iterable[dict[str, Any]],
     dim: Optional[str | list[str]] = None,
     exclude: list[str] = [],
 ) -> Iterator[dict]:
-    if isinstance(requests, dict):
-        requests = [requests]
+    requests: Iterable[dict[str, Any]] = (
+        [requests] if isinstance(requests, dict) else requests
+    )  # type: ignore
 
     for request in requests:
         request = copy.deepcopy(request)

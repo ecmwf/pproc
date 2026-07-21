@@ -52,14 +52,14 @@ class Range(PProcBaseModel):
     width: int
     dim: Literal["step"] = "step"
 
-    def generate_steps(self, steps: list[int] | list[str]) -> list[str]:
+    def generate_steps(self, steps: Union[list[int], list[str]]) -> list[str]:
         if all(isinstance(x, str) for x in steps):
-            return steps
+            return steps  # type: ignore
         assert all(
             isinstance(x, int) for x in steps
         ), "Steps can not be a mix of strings and integers"
-        start = self.start or steps[0]
-        end = min((self.end or steps[-1]), steps[-1]) - self.width
+        start: int = self.start or steps[0]  # type: ignore
+        end: int = min((self.end or steps[-1]), steps[-1]) - self.width  # type: ignore
         rstarts = set(range(start, end + 1, self.interval))
         rstarts.intersection_update(steps)
         return [f"{rstart}-{rstart + self.width}" for rstart in sorted(rstarts)]
@@ -104,19 +104,14 @@ class StepSchema(BaseSchema):
         )
         return sorted(steps)
 
-    def in_steps(self, request: dict) -> list[int]:
-        config = self.traverse(request)
-        return self._create_steps(config.get("in_steps", []))
-
     def out_steps(
-        self, request: dict, steps: Optional[list[int]] = None
+        self, request: dict, in_steps: list[int]
     ) -> tuple[str, list[Union[int, str]]]:
         for dim in ["step", "fcmonth"]:
             if dim in request:
                 return dim, [request[dim]]
 
         config = self.traverse(request, {})
-        in_steps: list[int] = steps or self._create_steps(config.get("in_steps", []))
         step_configs = config.get("out_steps", None)
         if step_configs is None:
             raise ValueError(f"No output steps defined {request}")

@@ -10,7 +10,6 @@
   step: [0, 3, 6]
   quantile: ['0:100', '25:100', '50:100', '75:100', '100:100']
   sources: "fdb:"
-  sources: "fdb:"
 - class: od
   stream: enfo
   type: pb

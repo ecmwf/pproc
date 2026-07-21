@@ -32,8 +32,10 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    sys.stdout.reconfigure(line_buffering=True)
-    cfg = Conflator(app_name="pproc-product", model=EntrypointConfig).load()
+    sys.stdout.reconfigure(line_buffering=True)  # type: ignore
+    cfg: EntrypointConfig = Conflator(
+        app_name="pproc-product", model=EntrypointConfig
+    ).load()  # type: ignore
     logger.info(cfg.dump())
     graph = graph_from_configs(cfg.products, cfg.input_overrides, cfg.output_overrides)
     run_locally(

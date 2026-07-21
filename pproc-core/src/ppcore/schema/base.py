@@ -17,6 +17,7 @@ from typing import Optional
 from typing import Literal
 
 import yaml
+import json
 from typing_extensions import Self
 
 from ppcore.utils.dicts import deep_update
@@ -54,36 +55,11 @@ class BaseSchema:
         self.matching_cache_size = max(0, matching_cache_size)
         self._matching_cache: OrderedDict[tuple, tuple[dict, ...]] = OrderedDict()
 
-    @classmethod
-    def _freeze_cache_value(cls, value: Any) -> Any:
-        if isinstance(value, (str, int, float, bool, type(None))):
-            return value
-        if isinstance(value, dict):
-            return tuple(
-                sorted(
-                    (key, cls._freeze_cache_value(item)) for key, item in value.items()
-                )
-            )
-        if isinstance(value, (list, tuple)):
-            return tuple(cls._freeze_cache_value(item) for item in value)
-        if isinstance(value, set):
-            frozen = [cls._freeze_cache_value(item) for item in value]
-            return ("__set__", tuple(sorted(frozen, key=repr)))
-
-        model_dump = getattr(value, "model_dump", None)
-        if callable(model_dump):
-            return (
-                "__model__",
-                cls._freeze_cache_value(model_dump(exclude_none=False, by_alias=True)),
-            )
-
-        return ("__repr__", repr(value))
-
     def _matching_cache_key(self, output_template: dict, matching: dict) -> tuple:
         return (
             id(self.schema),
-            self._freeze_cache_value(output_template),
-            self._freeze_cache_value(matching),
+            json.dumps(output_template, sort_keys=True),
+            json.dumps(matching, sort_keys=True),
         )
 
     def clear_matching_cache(self) -> None:
@@ -335,5 +311,6 @@ class BaseSchema:
                 self._set_cached_matching(cache_key, list(configs))
                 configs = self._get_cached_matching(cache_key)
 
+        assert configs is not None, "Configs should not be None after reconstruction"
         for cfg in configs:
             yield cfg.pop("recon_req"), cfg

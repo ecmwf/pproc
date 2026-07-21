@@ -9,6 +9,11 @@ from ppcore.utils.requests import expand
 from ppcore.configs import from_outputs as config_from_outputs
 from ppcore.configs.product import ProductConfig
 from ppcore.schema.schema import Schema
+from ppcore.schema.forecast import (
+    ForecastDefinition,
+    ReforecastDefinition,
+    ClimatologyDefinition,
+)
 from ppcore.products.base import Product
 from ppcore.products.ensemble import Ensemble
 
@@ -31,7 +36,8 @@ def product_from_config(
 def product_from_output(
     request: dict,
     pproc_schema: Union[str, os.PathLike, Schema],
-    inputs: Optional[list[dict]] = None,
+    forecast: Union[str, ForecastDefinition, ReforecastDefinition],
+    climatology: Optional[Union[str, ClimatologyDefinition]] = None,
     metadata: Optional[dict] = None,
 ) -> Product:
     """
@@ -44,7 +50,9 @@ def product_from_output(
             f"Expected a single request after expansion, got {len(requests)}"
         )
     config = list(
-        config_from_outputs(requests, pproc_schema, inputs, metadata=metadata)
+        config_from_outputs(
+            requests, pproc_schema, forecast, climatology, metadata=metadata
+        )
     )[0]
     return product_from_config(config)
 
@@ -52,17 +60,33 @@ def product_from_output(
 def action_from_outputs(
     requests: list[dict],
     pproc_schema: Union[str, os.PathLike, Schema],
-    sources: Optional[Action] = None,
+    forecast: Union[str, Action, ForecastDefinition, ReforecastDefinition],
+    climatology: Optional[Union[str, Action, ClimatologyDefinition]] = None,
     metadata: Optional[dict] = None,
 ) -> Action:
-    inputs = None if sources is None else datacubes(sources.nodes)
+    action_kwargs = {}
+    if isinstance(forecast, Action):
+        action_kwargs["forecast"] = forecast
+        dataset = ForecastDefinition(datacubes=datacubes(forecast.nodes))
+    else:
+        action_kwargs["forecast"] = None
+        dataset = forecast
+    if isinstance(climatology, Action):
+        action_kwargs["climatology"] = climatology
+        clim_dataset = ClimatologyDefinition(datacubes=datacubes(climatology.nodes))
+    else:
+        clim_dataset = climatology
     nodes = []
     for request in expand(requests):
         nodes.append(
             product_from_output(
-                request, pproc_schema=pproc_schema, inputs=inputs, metadata=metadata
+                request,
+                pproc_schema=pproc_schema,
+                forecast=dataset,
+                climatology=clim_dataset,
+                metadata=metadata,
             )
-            .action(forecast=sources)
+            .action(**action_kwargs)
             .nodes
         )
     return Action(combine_by_coords(nodes))
@@ -71,8 +95,10 @@ def action_from_outputs(
 def graph_from_outputs(
     requests: list[dict],
     pproc_schema: Union[str, os.PathLike, Schema],
+    forecast: Union[str, ForecastDefinition, ReforecastDefinition],
+    climatology: Optional[Union[str, ClimatologyDefinition]] = None,
     metadata: Optional[dict] = None,
-) -> Product:
+) -> Graph:
     """
     Returns fluent.Action for computing the product specified by the output request
     and PProc schema
@@ -80,7 +106,13 @@ def graph_from_outputs(
     graph = Graph([])
     for request in expand(requests):
         graph += (
-            product_from_output(request, pproc_schema=pproc_schema, metadata=metadata)
+            product_from_output(
+                request,
+                pproc_schema=pproc_schema,
+                forecast=forecast,
+                climatology=climatology,
+                metadata=metadata,
+            )
             .action()
             .graph()
         )

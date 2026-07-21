@@ -51,5 +51,5 @@ def from_schema(
         config["accumulations"] = accums
 
     logger.info(f"Schema config: {config}")
-    base = ProductConfig(**config)
-    return ProductConfig(**{**base.model_dump(), **overrides})
+    base = ProductConfig(**config)  # type: ignore
+    return ProductConfig(**{**base.model_dump(), **overrides})  # type: ignore

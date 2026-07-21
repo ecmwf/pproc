@@ -17,6 +17,7 @@ from earthkit.workflows.fluent import merge
 
 from earthkit.workflows.plugins.pproc.fluent import from_source
 from earthkit.workflows.plugins.pproc.utils.request import Request
+from ppcore.schema.forecast import ForecastDefinition
 from ppcore.products import product_from_output, graph_from_outputs, action_from_outputs
 from ppcore.utils.requests import expand
 from conftest import SCHEMA
@@ -37,13 +38,13 @@ ROOT_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)))
 def test_graph_construction(requests):
     with open(requests, "r") as f:
         output_requests = yaml.safe_load(f)
-    graph_from_outputs(output_requests, SCHEMA)
+    graph_from_outputs(output_requests, SCHEMA, forecast="enfo")
 
 
 def test_action_construction():
     with open(os.path.join(ROOT_DIR, "templates", "ensms.yaml"), "r") as f:
         output_requests = yaml.safe_load(f)
-    action_from_outputs(output_requests, SCHEMA)
+    action_from_outputs(output_requests, SCHEMA, forecast="enfo")
 
 
 @pytest.mark.parametrize(
@@ -95,7 +96,12 @@ def test_custom_source(requests):
             },
         ]
         product = product_from_output(
-            req, SCHEMA, inputs=inputs, metadata={"edition": 2}
+            req,
+            SCHEMA,
+            forecast=ForecastDefinition(
+                datacubes=inputs, unperturbed={"stream": "oper", "type": "fc"}
+            ),
+            metadata={"edition": 2},
         )
         source_actions = {}
         for levtype in ["sfc", "pl"]:

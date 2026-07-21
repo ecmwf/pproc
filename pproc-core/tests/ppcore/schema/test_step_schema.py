@@ -12,6 +12,7 @@ from conftest import schema
 
 from ppcore.schema.step import StepSchema
 from ppcore.schema.step import StepType
+from ppcore.schema.forecast import DatasetDefinitions, definition_to_dataset
 
 
 @pytest.mark.parametrize(
@@ -52,36 +53,30 @@ def test_step_type(config, steps, expected):
     assert step_type.generate_steps(steps) == expected
 
 
-def test_in_steps():
-    test_schema = StepSchema(schema("windows"))
-    in_steps = test_schema.in_steps(
-        {"stream": "enfo", "type": "em", "param": "167", "time": "0000"}
-    )
-    assert in_steps == (
-        list(range(0, 91)) + list(range(93, 145, 3)) + list(range(150, 361, 6))
-    )
-
-
 @pytest.mark.parametrize(
-    "out, expected, in_steps",
+    "out, dataset, expected, in_steps",
     [
         [
             {"stream": "enfo", "type": "em", "param": "167", "time": "0000"},
+            "enfo",
             list(range(0, 145, 3)) + list(range(150, 361, 6)),
             None,
         ],
         [
             {"stream": "enfo", "type": "em", "param": "167", "time": "0000"},
+            "enfo",
             list(range(0, 361, 12)),
             list(range(0, 361, 12)),
         ],
         [
             {"stream": "enfo", "type": "cf", "param": "261001", "time": "0000"},
+            "enfo",
             list(range(1, 91)) + list(range(93, 145, 3)) + list(range(150, 361, 6)),
             None,
         ],
         [
             {"stream": "eefo", "type": "fcmean", "param": "167", "time": "0000"},
+            "eefo",
             [f"{x}-{x+168}" for x in list(range(0, 1104 - 168 + 1, 24))],
             None,
         ],
@@ -93,16 +88,19 @@ def test_in_steps():
                 "date": "20241001",
                 "time": "0000",
             },
+            "seasonal",
             list(range(1, 8)),
             None,
         ],
         [
             {"stream": "enfo", "type": "ep", "param": "131064", "time": "0000"},
+            "enfo",
             ["120-240", "240-360", "120-168", "168-240"],
             None,
         ],
         [
             {"stream": "oper", "type": "fc", "param": "207", "time": "0000"},
+            "enfo",
             list(range(1, 91)),
             list(range(1, 91)),
         ],
@@ -117,7 +115,10 @@ def test_in_steps():
         "fc",
     ],
 )
-def test_out_steps(out, expected, in_steps):
+def test_out_steps(out, dataset, expected, in_steps):
+    datasets = DatasetDefinitions(definitions=schema("datasets"))
     test_schema = StepSchema(schema("windows"))
+    if in_steps is None:
+        in_steps = definition_to_dataset(datasets.definition(dataset)).steps(out)
     _, out_steps = test_schema.out_steps(out, in_steps)
     assert out_steps == expected

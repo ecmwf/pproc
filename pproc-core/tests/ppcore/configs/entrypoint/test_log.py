@@ -31,7 +31,7 @@ def test_logging_app_default():
 
     with patch("sys.argv", ["test_script.py"]):
         conflator = Conflator("pproc", LoggingConfig, nested={})
-        config = conflator.load()
+        config: LoggingConfig = conflator.load()  # type: ignore
 
         assert config.level == "INFO"
         assert config.format == "%(asctime)s; %(name)s; %(levelname)s - %(message)s"
@@ -55,7 +55,7 @@ def test_logging_model_env_var(monkeypatch):
     monkeypatch.setenv("PPROC_LOG", "WARNING")
     with patch("sys.argv", ["test_script.py"]):
         conflator = Conflator("pproc", LoggingConfig, nested={})
-        config = conflator.load()
+        config: LoggingConfig = conflator.load()  # type: ignore
 
         assert config.level == "WARNING"
 
@@ -68,7 +68,7 @@ def test_logging_model_cli_arg():
 
     with patch("sys.argv", ["test_script.py"] + ["--log", "ERROR"]):
         conflator = Conflator("pproc", LoggingConfig, nested={})
-        config = conflator.load()
+        config: LoggingConfig = conflator.load()  # type: ignore
 
         assert config.level == "ERROR"
 

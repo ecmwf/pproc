@@ -16,7 +16,9 @@ def accumulation_metadata(
             start = coords[0]
             end = start
 
-        if end > start:
+        if end != start:
+            assert isinstance(start, int) and isinstance(end, int)
+            assert end > start, "Start step can not be greater than end step"
             steprange = f"{start}-{end}"
             if end >= 256 and metadata.get("edition", 1) == 1:
                 # The range is encoded as two 8-bit integers
@@ -27,8 +29,9 @@ def accumulation_metadata(
                 )  # Don't override if set in config
             metadata["stepRange"] = steprange
         else:
-            assert end == start, "Start step can not be greater than end step"
+            assert end == start
             if "timeRangeIndicator" not in metadata:
+                assert isinstance(end, int)
                 if end >= 256:
                     metadata["timeRangeIndicator"] = 10
                 elif end == 0:

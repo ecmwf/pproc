@@ -15,6 +15,7 @@ import logging
 
 import yaml
 import json
+from pydantic import TypeAdapter
 
 from earthkit.workflows.visualise import visualise
 
@@ -24,6 +25,7 @@ from ppcore.configs.entrypoint.base import EntrypointConfig
 from ppcore.products import product_from_config, graph_from_configs
 from ppcore.utils import mars
 from ppcore.utils.requests import datacubes, expand
+from ppcore.schema.forecast import DatasetDefinition
 
 logging.basicConfig(
     format="%(asctime)s; %(name)s; %(levelname)s - %(message)s",
@@ -40,8 +42,27 @@ def from_outputs(args):
     with open(args.outputs, "r") as f:
         output_requests = yaml.safe_load(f)
 
+    forecast = args.forecast
+    if os.path.exists(forecast):
+        with open(forecast, "r") as f:
+            forecast = TypeAdapter(DatasetDefinition).validate_python(
+                **yaml.safe_load(f)
+            )
+
+    climatology = args.climatology
+    if climatology and os.path.exists(climatology):
+        with open(climatology, "r") as f:
+            climatology = TypeAdapter(DatasetDefinition).validate_python(
+                **yaml.safe_load(f)
+            )
+
     entrypoint_config = EntrypointConfig(
-        products=list(config_from_outputs(output_requests, args.schema)), **overrides
+        products=list(
+            config_from_outputs(
+                output_requests, args.schem, forecast=forecast, climatology=climatology
+            )
+        ),
+        **overrides,
     )
     with open(args.config, "w") as f:
         yaml.dump(
@@ -57,15 +78,38 @@ def from_inputs(args):
         with open(args.overrides, "r") as f:
             overrides = yaml.safe_load(f)
 
-    with open(args.inputs, "r") as f:
-        input_requests = yaml.safe_load(f)
+    forecast = args.forecast
+    if os.path.exists(forecast):
+        with open(forecast, "r") as f:
+            forecast = TypeAdapter(DatasetDefinition).validate_python(
+                **yaml.safe_load(f)
+            )
 
-    configs = config_from_inputs(
-        input_requests, args.schema, args.restriction, **overrides
+    climatology = args.climatology
+    if climatology and os.path.exists(climatology):
+        with open(climatology, "r") as f:
+            climatology = TypeAdapter(DatasetDefinition).validate_python(
+                **yaml.safe_load(f)
+            )
+
+    entrypoint_config = EntrypointConfig(
+        products=list(
+            config_from_inputs(
+                args.restriction,
+                args.schem,
+                forecast,
+                climatology=climatology,
+                **overrides,
+            )
+        ),
+        **overrides,
     )
-    config_dict = configs.model_dump(exclude_none=True, by_alias=True)
     with open(args.config, "w") as f:
-        yaml.dump(config_dict, f, sort_keys=False)
+        yaml.dump(
+            entrypoint_config.model_dump(exclude_none=True, by_alias=True),
+            f,
+            sort_keys=False,
+        )
 
 
 def _to_mars(requests: list[dict]) -> str:
@@ -152,13 +196,26 @@ def main(args: List[str] = sys.argv[1:]):
         "--outputs", type=str, required=True, help="Path to output request file"
     )
     output_parser.add_argument(
+        "--schema", type=str, required=True, help="Path to products schema"
+    )
+    output_parser.add_argument(
+        "--forecast",
+        type=str,
+        required=True,
+        help="Path to forecast definition, or name of preset definition in schema",
+    )
+    output_parser.add_argument(
+        "--climatology",
+        type=str,
+        required=False,
+        default=None,
+        help="Path to climatology definition, or name of preset definition in schema",
+    )
+    output_parser.add_argument(
         "--overrides",
         type=str,
         required=False,
         help="Path to configuration template for overriding default configuration",
-    )
-    output_parser.add_argument(
-        "--schema", type=str, required=True, help="Path to products schema"
     )
     output_parser.set_defaults(func=from_outputs)
 
@@ -166,19 +223,29 @@ def main(args: List[str] = sys.argv[1:]):
         "from_inputs", help="Generate configuration from input requests"
     )
     input_parser.add_argument(
+        "--inputs", type=str, required=True, help="Path to input request file"
+    )
+    input_parser.add_argument(
+        "--schema", type=str, required=True, help="Path to products schema"
+    )
+    input_parser.add_argument(
+        "--forecast",
+        type=str,
+        required=True,
+        help="Path to forecast definition, or name of preset definition in schema",
+    )
+    input_parser.add_argument(
+        "--climatology",
+        type=str,
+        required=False,
+        default=None,
+        help="Path to climatology definition, or name of preset definition in schema",
+    )
+    input_parser.add_argument(
         "--restriction",
         type=str,
         required=False,
         help="Restriction to place on output requests e.g. type=em",
-    )
-    input_parser.add_argument(
-        "--inputs", type=str, required=True, help="Path to input request file"
-    )
-    input_parser.add_argument(
-        "--schema",
-        type=str,
-        required=True,
-        help="Path to products schema",
     )
     input_parser.add_argument(
         "--overrides",
@@ -225,8 +292,8 @@ def main(args: List[str] = sys.argv[1:]):
     )
     plot_parser.set_defaults(func=plot)
 
-    args = parser.parse_args(args)
-    args.func(args)
+    parsed = parser.parse_args(args)
+    parsed.func(parsed)
 
 
 if __name__ == "__main__":

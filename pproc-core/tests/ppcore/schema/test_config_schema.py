@@ -31,6 +31,7 @@ def test_reconstruct_cache():
         matching_cache_size=2,
     )
     cfgs_a = list(config_schema.reconstruct(entrypoint="pproc-ensms"))
+
     cfgs_b = list(config_schema.reconstruct(entrypoint="pproc-ensms"))
     assert cfgs_a == cfgs_b
     assert len(config_schema._matching_cache) == 1
@@ -41,8 +42,16 @@ def test_reconstruct_cache():
 
 def test_reconstruct_dfs():
     config_schema = ConfigSchema(schema("config"))
-    dfs_cfgs = list(config_schema.reconstruct(entrypoint="pproc-ensms", method="dfs", enable_cache=False))
-    bfs_cfgs = list(config_schema.reconstruct(entrypoint="pproc-ensms", method="bfs", enable_cache=False))
+    dfs_cfgs = list(
+        config_schema.reconstruct(
+            entrypoint="pproc-ensms", method="dfs", enable_cache=False
+        )
+    )
+    bfs_cfgs = list(
+        config_schema.reconstruct(
+            entrypoint="pproc-ensms", method="bfs", enable_cache=False
+        )
+    )
     assert dfs_cfgs[0] == bfs_cfgs[0]
     assert len(dfs_cfgs) == len(bfs_cfgs)
 

@@ -12,7 +12,7 @@ from pydantic import Field, model_validator
 
 from earthkit.workflows.plugins.pproc.utils.pydantic_utils import PProcBaseModel
 from ppcore.configs.common.preprocessing import PreprocessingConfig
-from ppcore.configs.common.input import create_input_model
+from ppcore.configs.common.input import create_input_model, InputsCollection
 from ppcore.configs.common.output import Output
 from ppcore.configs.common.accumulation import Accumulation
 from ppcore.configs.common.stats import (
@@ -24,7 +24,9 @@ from ppcore.configs.common.stats import (
 from ppcore.utils.mars import extract_mars
 
 
-EnsembleInputModel = create_input_model("EnsembleInputsModel", inputs=["fc"])
+EnsembleInputModel: type[InputsCollection] = create_input_model(
+    "EnsembleInputsModel", inputs=["fc"]
+)
 
 
 class Ensemble(PProcBaseModel):
@@ -35,7 +37,7 @@ class Ensemble(PProcBaseModel):
         Union[Mean, StandardDeviation, Quantiles, ThresholdProbability],
         Field(discriminator="operation"),
     ]
-    inputs: EnsembleInputModel
+    inputs: EnsembleInputModel  # type: ignore
     output: Output
 
     @model_validator(mode="before")
