@@ -41,6 +41,7 @@ dependencies = [
 ]
 
 scripts.ppcore-config = "ppcore.config:main"
+scripts.pproc-product = "ppcore.product:main"
 
 [dependency-groups]
 dev = [

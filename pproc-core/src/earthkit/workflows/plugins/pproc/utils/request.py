@@ -22,14 +22,14 @@ class Request:
         self.no_expand = no_expand or tuple()
         self.ignore = ["interpolate"]
 
-    @property
-    def dims(self) -> OrderedDict:
+    def dims(self, exclude_scalar: bool = True) -> OrderedDict:
         dimensions = OrderedDict()
         for key, values in self.request.items():
             if key in self.ignore or key in self.no_expand:
                 continue
-            if hasattr(values, "__iter__") and not isinstance(values, str):
-                dimensions[key] = len(values)
+            if exclude_scalar and np.ndim(values) == 0:
+                continue
+            dimensions[key] = np.size(values)
         return dimensions
 
     def __setitem__(self, key, value):
@@ -58,12 +58,12 @@ class Request:
             self.fake_dims.append(key)
 
     def expand(self):
-        reqs = [self.request[x] for x in self.dims.keys()]
+        reqs = [self.request[x] for x in self.dims().keys()]
         for indices, params in zip(
             itertools.product(*(range(len(x)) for x in reqs)), itertools.product(*reqs)
         ):
             new_request = self.request.copy()
-            for index, expand_param in enumerate(self.dims.keys()):
+            for index, expand_param in enumerate(self.dims().keys()):
                 new_request[expand_param] = params[index]
 
             # Remove fake dims from request
@@ -109,10 +109,10 @@ class MultiSourceRequest(Request):
         return default
 
     def expand(self):
-        for params in itertools.product(*[self.request[x] for x in self.dims.keys()]):
+        for params in itertools.product(*[self.request[x] for x in self.dims().keys()]):
             indices = []
             new_requests = copy.deepcopy(self.requests)
-            for index, expand_param in enumerate(self.dims.keys()):
+            for index, expand_param in enumerate(self.dims().keys()):
                 [x.__setitem__(expand_param, params[index]) for x in new_requests]
                 indices.append(list(self.request[expand_param]).index(params[index]))
 

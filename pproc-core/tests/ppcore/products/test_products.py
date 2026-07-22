@@ -32,8 +32,9 @@ ROOT_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)))
         os.path.join(ROOT_DIR, "templates", "ensms.yaml"),
         os.path.join(ROOT_DIR, "templates", "prob.yaml"),
         os.path.join(ROOT_DIR, "templates", "quantiles.yaml"),
+        os.path.join(ROOT_DIR, "templates", "thermo.yaml"),
     ],
-    ids=["ensms", "prob", "quantiles"],
+    ids=["ensms", "prob", "quantiles", "thermo"],
 )
 def test_graph_construction(requests):
     with open(requests, "r") as f:
@@ -60,9 +61,11 @@ def test_custom_source(requests):
         output_requests = yaml.safe_load(f)
 
     graph = Graph([])
+    defaults = {"class": "od", "date": "20230914", "time": "1200", "expver": "0001"}
     for req in expand(output_requests):
         inputs = [
             {
+                **defaults,
                 "stream": "oper",
                 "type": "fc",
                 "step": list(range(0, 24, 3)),
@@ -70,6 +73,7 @@ def test_custom_source(requests):
                 "levtype": "sfc",
             },
             {
+                **defaults,
                 "stream": "enfo",
                 "type": "pf",
                 "step": list(range(0, 24, 3)),
@@ -78,6 +82,7 @@ def test_custom_source(requests):
                 "levtype": "sfc",
             },
             {
+                **defaults,
                 "stream": "oper",
                 "type": "fc",
                 "step": list(range(0, 24, 3)),
@@ -86,6 +91,7 @@ def test_custom_source(requests):
                 "levelist": [250, 500, 850],
             },
             {
+                **defaults,
                 "stream": "enfo",
                 "type": "pf",
                 "step": list(range(0, 24, 3)),
@@ -103,22 +109,22 @@ def test_custom_source(requests):
             ),
             metadata={"edition": 2},
         )
-        source_actions = {}
+        source_actions = []
         for levtype in ["sfc", "pl"]:
-            source_requests = []
             for request in inputs:
                 if request["levtype"] != levtype:
                     continue
                 req = Request(request)
                 if "number" not in req:
                     req.make_dim("number", 0)
-                source_requests.append(req)
-            source_actions[f"/levtype={levtype}"] = from_source(
-                ["fdb"],
-                source_requests,
-                join_key="number",
-            )
-        sources = merge(**source_actions)
+                new_action = from_source(
+                    ["fdb"],
+                    [req],
+                    join_key="number",
+                )
+                new_action = new_action.set_path(f"/levtype={levtype}/{req['param']}")
+                source_actions.append(new_action)
+        sources = merge(*source_actions)
         new_action = product.action(
             ensemble_dim="number",
             forecast=sources,

@@ -231,7 +231,6 @@ from ppcore.schema.schema import Schema
 )
 def test_schema_from_output(req, dataset, config, num_generated):
     test_schema = Schema(**schema())
-    print("REQ", req)
     test_config = test_schema.config_from_output(req, test_schema.definition(dataset))  # type: ignore
     test_config.pop("metadata", None)
     assert config == test_config

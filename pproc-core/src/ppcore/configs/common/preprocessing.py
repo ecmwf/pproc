@@ -49,6 +49,21 @@ class Expand(PProcBaseModel):
     backend_kwargs: Optional[dict] = None
 
 
+class Select(PProcBaseModel):
+    operation: Literal["select"] = "select"
+    dim: str
+    values: Union[int, str, list[int], list[str]]
+
+
+class ThermalIndex(PProcBaseModel):
+    operation: Literal["thermal_index"] = "thermal_index"
+    function: str
+    params: list[str]
+    deaccumulate: Optional[list[str]] = None
+    metadata: Optional[dict] = None
+    join: bool = True
+
+
 # class Expression(Preprocessing):
 #     operation: Literal["expression"] = "expression"
 #     expr: str
@@ -77,7 +92,7 @@ class PreprocessingConfig(PProcBaseModel):
     #     value: 3600
     actions: List[
         Annotated[
-            Union[Scale, Divide, Combination, Masking, Expand],
+            Union[Scale, Divide, Combination, Masking, Expand, Select, ThermalIndex],
             Field(discriminator="operation"),
         ]
     ] = Field(default_factory=list)

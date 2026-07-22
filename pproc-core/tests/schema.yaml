@@ -137,34 +137,318 @@ config:
                 number: {}
         "*":
           filter:param:
-            "261016/260242/260004/260005/261018/260255/261023":
-              entrypoint: pproc-thermal-indices
-              outputs:
-                indices:
-                  metadata:
-                    edition: 2
-                    bitsPerValue: 16
-                    packingType: "grid_ccsds"
-                    typeOfGeneratingProcess: 2
-            "261001/261002/261014/261015":
-              entrypoint: pproc-thermal-indices
-              outputs:
-                indices:
-                  metadata:
-                    edition: 2
-                    bitsPerValue: 16
-                    packingType: "grid_ccsds"
-                    typeOfGeneratingProcess: 2
+            "200189/200142/200143/200144/228216/200228":
+              entrypoint: pproc-accumulate
               accumulations:
                 step:
+                  type: legacywindow
                   operation: difference
-            "*":
-              entrypoint: pproc-accumulate
-              filter:stream:
-                "enfh/enwh/eefh/weeh":
-                  accumulations:
-                    hdate: {}
-                "*": {}
+                  name:
+                    type: default
+                    length: "{steplength}:int"
+                  metadata:
+                    timeRangeIndicator: 5
+                    stepType: diff
+            "261016":
+              entrypoint: pproc-thermal-indices
+              preprocessing:
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_hmdx"
+                  params: ["167", "168"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: "{param}:int"
+                  join: false
+            "261023":
+              entrypoint: pproc-thermal-indices
+              preprocessing:
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_wbt"
+                  params: ["167", "168"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: "{param}:int"
+                  join: false
+            "260242":
+              entrypoint: pproc-thermal-indices
+              preprocessing:
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_rhp"
+                  params: ["167", "168"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: "{param}:int"
+                  join: false
+            "260004":
+              entrypoint: pproc-thermal-indices
+              preprocessing:
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_heatx"
+                  params: ["167", "168"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: "{param}:int"
+                  join: false
+            "260005":
+              entrypoint: pproc-thermal-indices
+              preprocessing:
+                - operation: thermal_index
+                  function: norm
+                  params: ["167", "168"]
+                  metadata:
+                    paramId: 207
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_wcf"
+                  params: ["167", "207"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: "{param}:int"
+                  join: false
+            "214001":
+              entrypoint: pproc-thermal-indices
+              preprocessing:
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_cossza"
+                  params: ["167", "228021"]
+                  deaccumulate: ["228021"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: "{param}:int"
+                  join: false
+            "47":
+              entrypoint: pproc-thermal-indices
+              preprocessing:
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_cossza"
+                  params: ["167", "228021"]
+                  deaccumulate: ["228021"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 214001
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_dsrp"
+                  params: ["228021", "214001"]
+                  deaccumulate: ["228021"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: "{param}:int"
+                  join: false
+            "261002":
+              entrypoint: pproc-thermal-indices
+              preprocessing:
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_cossza"
+                  params: ["167", "228021"]
+                  deaccumulate: ["228021"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 214001
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_mrt"
+                  params: ["214001", "47", "169", "228021", "175", "177", "176"]
+                  deaccumulate: ["47", "169", "228021", "175", "177", "176"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: "{param}:int"
+                  join: false
+            "261001":
+              entrypoint: pproc-thermal-indices
+              preprocessing:
+                - operation: thermal_index
+                  function: norm
+                  params: ["167", "168"]
+                  metadata:
+                    paramId: 207
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_cossza"
+                  params: ["167", "228021"]
+                  deaccumulate: ["228021"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 214001
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_mrt"
+                  params: ["214001", "47", "169", "228021", "175", "177", "176"]
+                  deaccumulate: ["47", "169", "228021", "175", "177", "176"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 261002
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_utci"
+                  params: ["167", "168", "207", "261002"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: "{param}:int"
+                  join: false
+            "261014":
+              entrypoint: pproc-thermal-indices
+              preprocessing:
+                - operation: thermal_index
+                  function: norm
+                  params: ["167", "168"]
+                  metadata:
+                    paramId: 207
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_cossza"
+                  params: ["167", "228021"]
+                  deaccumulate: ["228021"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 214001
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_mrt"
+                  params: ["214001", "47", "169", "228021", "175", "177", "176"]
+                  deaccumulate: ["47", "169", "228021", "175", "177", "176"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 261002
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_wbgt"
+                  params: ["167", "168", "207", "261002"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: "{param}:int"
+                  join: false
+            "261015":
+              entrypoint: pproc-thermal-indices
+              preprocessing:
+                - operation: thermal_index
+                  function: norm
+                  params: ["167", "168"]
+                  metadata:
+                    paramId: 207
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_cossza"
+                  params: ["167", "228021"]
+                  deaccumulate: ["228021"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 214001
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_mrt"
+                  params: ["214001", "47", "169", "228021", "175", "177", "176"]
+                  deaccumulate: ["47", "169", "228021", "175", "177", "176"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 261002
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_gt"
+                  params: ["167", "207", "261002"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: "{param}:int"
+                  join: false
+            "261018":
+              entrypoint: pproc-thermal-indices
+              preprocessing:
+                - operation: thermal_index
+                  function: norm
+                  params: ["167", "168"]
+                  metadata:
+                    paramId: 207
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_rhp"
+                  params: ["167", "168"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 260242
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_nefft"
+                  params: ["167", "207", "260242"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: "{param}:int"
+                  join: false
+            "260255":
+              entrypoint: pproc-thermal-indices
+              preprocessing:
+                - operation: thermal_index
+                  function: norm
+                  params: ["167", "168"]
+                  metadata:
+                    paramId: 207
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_rhp"
+                  params: ["167", "168"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 260242
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_aptmp"
+                  params: ["167", "260242", "207"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: "{param}:int"
+                  join: false
     em/es:
       entrypoint: "pproc-ensms"
       metadata_from_output: ["param", "stream", "date", "type"]
@@ -854,6 +1138,17 @@ config:
                   edition: 2
                   productDefinitionTemplateNumber: 5
                   typeOfGeneratingProcess: 5
+    pb:
+      entrypoint: pproc-quantiles
+      metadata_from_output: ["param", "stream", "date", "type"]
+      statistics:
+        operation: quantiles
+      filter:stream:
+        enfo/waef:
+          statistics:
+            metadata:
+              localDefinitionNumber: 30
+        "*": {}
     fcmean:
       filter:param:
         171001/171002/171006/171007/171078/171079/171033/171034/171121/171122/171129/171130/171131/171132/171133/171136/171137/171139/171141/171151/171164/171165/171166/171167/171168/171201/171202/173142/173143/173144/173189/173228:
@@ -1181,875 +1476,6 @@ config:
                   metadata:
                     type: fcmean
                     bitsPerValue: 16
-    fcstdev:
-      dtype: float64
-      filter:stream:
-        oper/enfo/waef/eefo/weef/enfh/enwh/eefh/weeh:
-          entrypoint: pproc-accumulate
-          filter:stream:
-            enfh/enwh/eefh/weeh:
-              accumulations:
-                hdate: {}
-            "*": {}
-          accumulations:
-            levelist: {}
-            step:
-              type: legacywindow
-              operation: standard_deviation
-              name:
-                type: default
-                length: "{steplength}:int"
-              metadata:
-                type: fcstdev
-                bitsPerValue: 16
-                legBaseDate: 0
-                legNumber: 0
-          filter:param:
-            "*":
-              accumulations:
-                step:
-                  metadata:
-                    timeRangeIndicator: 3
-                    stepType: avg
-                    numberIncludedInAverage: "{num_coords}:int"
-            "201":
-              metadata_from_output: ["stream", "date"]
-              accumulations:
-                step:
-                  metadata:
-                    paramId: 201
-                    timeRangeIndicator: 3
-                    stepType: avg
-                    numberIncludedInAverage: "{num_coords}:int"
-            "202":
-              metadata_from_output: ["stream", "date"]
-              accumulations:
-                step:
-                  metadata:
-                    paramId: 202
-                    timeRangeIndicator: 3
-                    stepType: avg
-                    numberIncludedInAverage: "{num_coords}:int"
-            "239117":
-              metadata_from_output: ["stream", "date"]
-              accumulations:
-                step:
-                  metadata:
-                    edition: 2
-                    paramId: 239117
-                    stepType: sd
-                    discipline: 0
-                    parameterCategory: 7
-                    parameterNumber: 6
-                    typeOfFirstFixedSurface: 17
-                    typeOfStatisticalProcessing: 6
-                    indicatorOfUnitForTimeIncrement: 1
-                    timeIncrement: 6
-        msmm/swmm:
-          entrypoint: pproc-monthly-stats
-          accumulations:
-            step:
-              type: legacywindow
-              operation: standard_deviation
-              name:
-                type: monthly
-                date: "{date}:str"
-              metadata:
-                type: fcstdev
-                bitsPerValue: 16
-    fcmin:
-      dtype: float64
-      filter:stream:
-        oper/enfo/waef/eefo/weef/enfh/enwh/eefh/weeh:
-          entrypoint: pproc-accumulate
-          filter:stream:
-            enfh/enwh/eefh/weeh:
-              accumulations:
-                hdate: {}
-            "*": {}
-          accumulations:
-            levelist: {}
-            step:
-              type: legacywindow
-              operation: minimum
-              name:
-                type: default
-                length: "{steplength}:int"
-              metadata:
-                type: fcmin
-                bitsPerValue: 16
-                legBaseDate: 0
-                legNumber: 0
-          filter:param:
-            "*":
-              accumulations:
-                step:
-                  metadata:
-                    timeRangeIndicator: 3
-                    stepType: avg
-                    numberIncludedInAverage: "{num_coords}:int"
-            "201":
-              metadata_from_output: ["stream", "date"]
-              accumulations:
-                step:
-                  metadata:
-                    paramId: 201
-                    timeRangeIndicator: 3
-                    stepType: avg
-                    numberIncludedInAverage: "{num_coords}:int"
-            "202":
-              metadata_from_output: ["stream", "date"]
-              accumulations:
-                step:
-                  metadata:
-                    paramId: 202
-                    timeRangeIndicator: 3
-                    stepType: avg
-                    numberIncludedInAverage: "{num_coords}:int"
-            "238117":
-              metadata_from_output: ["stream", "date"]
-              accumulations:
-                step:
-                  metadata:
-                    edition: 2
-                    paramId: 238117
-                    stepType: min
-                    discipline: 0
-                    parameterCategory: 7
-                    parameterNumber: 6
-                    typeOfFirstFixedSurface: 17
-                    typeOfStatisticalProcessing: 3
-                    indicatorOfUnitForTimeIncrement: 1
-                    timeIncrement: 6
-        msmm/swmm:
-          entrypoint: pproc-monthly-stats
-          accumulations:
-            step:
-              type: legacywindow
-              operation: minimum
-              name:
-                type: monthly
-                date: "{date}:str"
-              metadata:
-                type: fcmin
-                bitsPerValue: 16
-    fcmax:
-      dtype: float64
-      filter:stream:
-        oper/enfo/waef/eefo/weef/enfh/enwh/eefh/weeh:
-          entrypoint: pproc-accumulate
-          filter:stream:
-            enfh/enwh/eefh/weeh:
-              accumulations:
-                hdate: {}
-            "*": {}
-          accumulations:
-            levelist: {}
-            step:
-              type: legacywindow
-              operation: maximum
-              name:
-                type: default
-                length: "{steplength}:int"
-              metadata:
-                type: fcmax
-                bitsPerValue: 16
-                legBaseDate: 0
-                legNumber: 0
-          filter:param:
-            "*":
-              accumulations:
-                step:
-                  metadata:
-                    timeRangeIndicator: 3
-                    stepType: avg
-                    numberIncludedInAverage: "{num_coords}:int"
-            "201":
-              metadata_from_output: ["stream", "date"]
-              accumulations:
-                step:
-                  metadata:
-                    paramId: 201
-                    timeRangeIndicator: 3
-                    stepType: avg
-                    numberIncludedInAverage: "{num_coords}:int"
-            "202":
-              metadata_from_output: ["stream", "date"]
-              accumulations:
-                step:
-                  metadata:
-                    paramId: 202
-                    timeRangeIndicator: 3
-                    stepType: avg
-                    numberIncludedInAverage: "{num_coords}:int"
-            "237117":
-              metadata_from_output: ["stream", "date"]
-              accumulations:
-                step:
-                  metadata:
-                    edition: 2
-                    paramId: 237117
-                    stepType: max
-                    discipline: 0
-                    parameterCategory: 7
-                    parameterNumber: 6
-                    typeOfFirstFixedSurface: 17
-                    typeOfStatisticalProcessing: 2
-                    indicatorOfUnitForTimeIncrement: 1
-                    timeIncrement: 6
-        msmm/swmm:
-          entrypoint: pproc-monthly-stats
-          accumulations:
-            step:
-              type: legacywindow
-              operation: maximum
-              name:
-                type: monthly
-                date: "{date}:str"
-              metadata:
-                type: fcmax
-                bitsPerValue: 16
-    pb:
-      entrypoint: pproc-quantiles
-      metadata_from_output: ["param", "stream", "date", "type"]
-      statistics:
-        operation: quantiles
-      filter:stream:
-        enfo/waef:
-          statistics:
-            metadata:
-              localDefinitionNumber: 30
-        "*": {}
-    taem/taes:
-      filter:stream:
-        eefo:
-          filter:param:
-            171001/171002/171006/171007/171078/171079/171033/171034/171121/171122/171129/171130/171131/171132/171133/171136/171137/171139/171141/171151/171164/171165/171166/171167/171168/171201/171202/173142/173143/173144/173189/173228:
-              entrypoint: pproc-anomaly
-              dtype: float64
-              metadata:
-                bitsPerValue: 24
-              accumulations:
-                step:
-                  type: legacywindow
-                  name:
-                    type: default
-                    length: "{steplength}:int"
-                  metadata:
-                    timeRangeIndicator: 3
-                    stepType: avg
-              clim:
-                accumulations:
-                  date:
-                    operation: mean
-            234167/234139/234151/234228:
-              entrypoint: pproc-significance
-              epsilon: 1e-10
-              use_clim_anomaly: true
-              accumulations:
-                step:
-                  type: legacywindow
-                  name:
-                    type: default
-                    length: "{steplength}:int"
-                  metadata:
-                    timeRangeIndicator: 3
-                    stepType: avg
-              clim:
-                total_fields: 220
-                accumulations:
-                  date:
-                    operation: aggregation
-              clim_em:
-                accumulations:
-                  date:
-                    operation: aggregation
-            "235117":
-              entrypoint: pproc-ensms
-              dtype: float64
-              outputs:
-                default:
-                  metadata:
-                    edition: 2
-                    productDefinitionTemplateNumber: 12
-                mean:
-                  metadata:
-                    derivedForecast: 0
-                    type: taem
-                std:
-                  metadata:
-                    derivedForecast: 4
-                    type: taes
-              metadata:
-                typeOfGeneratingProcess: 4
-                typeOfTimeIncrement: 2
-                indicatorOfUnitForTimeIncrement: 1
-                timeIncrement: 6
-                bitsPerValue: 16
-                packingType: "grid_ccsds"
-            "*":
-              entrypoint: pproc-ensms
-              outputs:
-                mean:
-                  metadata:
-                    type: taem
-                std:
-                  metadata:
-                    type: taes
-              dtype: float64
-              metadata:
-                perturbationNumber: 0
-                bitsPerValue: 16
-                timeRangeIndicator: 3
-                stepType: "avg"
-        efhs/eehs:
-          entrypoint: pproc-ensms
-          dtype: float64
-          accumulations:
-            step: {}
-            levelist: {}
-            hdate:
-              operation: aggregation
-              metadata:
-                climateDateFrom: "{start_coord}:int"
-                climateDateTo: "{end_coord}:int"
-          filter:param:
-            "235117":
-              outputs:
-                default:
-                  metadata:
-                    edition: 2
-                    productDefinitionTemplateNumber: 11
-                mean:
-                  metadata:
-                    type: taem
-                std:
-                  metadata:
-                    type: taes
-              metadata:
-                perturbationNumber: 0
-                numberOfForecastsInEnsemble: "{num_fields}:int"
-                yearOfEndOfOverallTimeInterval: "{year}:int"
-                typeOfGeneratingProcess: 4
-                typeOfTimeIncrement: 3
-                dataDate: "{date}:int"
-                bitsPerValue: 16
-                packingType: "grid_ccsds"
-            "*":
-              outputs:
-                mean:
-                  metadata:
-                    type: taem
-                std:
-                  metadata:
-                    type: taes
-              metadata:
-                perturbationNumber: 0
-                numberOfForecastsInEnsemble: "{num_fields}:int"
-                bitsPerValue: 16
-                timeRangeIndicator: 3
-                stepType: avg
-                dataDate: "{date}:int"
-    cd:
-      filter:stream:
-        efhs/wehs/eehs:
-          entrypoint: pproc-quantiles
-          total_fields: 220
-          outputs:
-            quantiles:
-              metadata:
-                localDefinitionNumber: 19
-                type: cd
-          metadata:
-            bitsPerValue: 12
-            sampleSizeOfModelClimate: "{num_fields}:int"
-            versionOfModelClimate: 0
-            efiOrder: 0
-            numberOfReforecastYearsInModelClimate: 20
-          filter:param:
-            "140249":
-              entrypoint: pproc-histogram
-              outputs:
-                histogram:
-                  metadata:
-                    localDefinitionNumber: 19
-                    type: cd
-              total_fields: 880
-              bins: [-22.5, 22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5]
-              mod: 360.
-              normalise: true
-              scale_out: 200.
-              metadata:
-                numberOfDaysInClimateSamplingWindow: 31
-                sampleSizeOfModelClimate: 1980
-              accumulations:
-                date:
-                  operation: "sum"
-            "*":
-              filter:param:
-                "140200": # TODO: Remove after 50r1
-                  preprocessing:
-                    - operation: mask
-                      select: {param: "229.140"}
-                      mask: [{param: "229.140"}, "<=", 0.1]
-                "*": {}
-              accumulations:
-                date:
-                  operation: "aggregation"
-              filter:steplength:
-                "*":
-                  metadata:
-                    numberOfDaysInClimateSamplingWindow: 31
-                "168":
-                  metadata:
-                    numberOfDaysInClimateSamplingWindow: 7
-    pfc:
-      entrypoint: pproc-quantiles
-      outputs:
-        quantiles:
-          metadata:
-            edition: 2
-            productDefinitionTemplateNumber: 90
-            type: pfc
-            typeOfGeneratingProcess: 13
-            typeOfPostProcessing: 206
-      filter:class:
-        od:
-          outputs:
-            quantiles:
-              metadata:
-                typeOfProcessedData: 5
-          accumulations:
-            step: {}
-            number:
-              operation: aggregation
-        ea:
-          outputs:
-            quantiles:
-              metadata:
-                typeOfProcessedData: 1
-      total_fields: 100
-    gwt:
-      metadata_from_output: ["param", "date"]
-      entrypoint: pproc-ecpoint
-      outputs:
-        default:
-          metadata:
-            edition: 2
-            bitsPerValue: 24
-            generatingProcessIdentifier: 3
-        bias_corrected:
-          metadata:
-            type: gbf
-        weather_types:
-          metadata:
-            type: gwt
-      filter:class:
-        od:
-          outputs:
-            bias_corrected:
-              metadata:
-                numberOfForecastsInEnsemble: 51 # TODO: Remove in 50r2 when oper/fc encodes this correctly
-            weather_types:
-              metadata:
-                numberOfForecastsInEnsemble: 51
-            members:
-              metadata:
-                grib2LocalSectionNumber: 1
-                type: fcmean
-          filter:stream:
-            oper:
-              outputs:
-                members:
-                  metadata:
-                    stream: enfo
-            enfo: {}
-          filter:param:
-            "228":
-              predictant: tp
-              min_predictant: 0.04
-              scale_outputs: 0.001
-              interp_keys:
-                legendre-loader: "shmem"
-                matrix-loader: "file-io"
-                interpolation: grid-box-average
-              preprocessing:
-              - operation: scale
-                value: 1000
-              accumulations:
-                step:
-                  type: legacywindow
-                  operation: difference
-                  name:
-                    type: default
-                    length: "{steplength}:int"
-                  metadata:
-                    stepType: accum
-              filter:steplength:
-                "6":
-                  num_inputs: 7
-                  predictors: ["cp_ratio", "tp", "mxcape6", "2t", "local_solar_time", "ws", "cdir"]
-                  dependencies:
-                    wind:
-                      vod2uv: true
-                      accumulations:
-                        step:
-                          operation: weighted_mean
-                          weights: [0.25, 0.5, 0.25]
-                    cp:
-                      preprocessing:
-                        - operation: scale
-                          value: 1000
-                      accumulations:
-                        step:
-                          operation: difference
-                    cdir:
-                      preprocessing:
-                        - operation: scale
-                          value: 0.00001157407
-                      accumulations:
-                        step:
-                          operation: difference
-                    cape:
-                      accumulations:
-                        step:
-                          type: legacywindow
-                          operation: maximum
-                    2t:
-                      preprocessing:
-                        - operation: expression
-                          expr: t2_k - d2_k
-                          expr_data:
-                            t2_k:
-                              param: '167'
-                            d2_k:
-                              param: '168'
-                      accumulations:
-                        step:
-                          operation: weighted_mean
-                          weights: [0.25, 0.5, 0.25]
-                "12":
-                  num_inputs: 7
-                  predictors: ["cp_ratio", "tp", "mxcape6", "2t", "ws", "cdir"]
-                  dependencies:
-                    wind:
-                      vod2uv: true
-                      accumulations:
-                        step:
-                          operation: weighted_mean
-                          weights: [0.25, 0.5, 0.25]
-                    cp:
-                      preprocessing:
-                        - operation: scale
-                          value: 1000
-                      accumulations:
-                        step:
-                          operation: difference
-                    cdir:
-                      preprocessing:
-                        - operation: scale
-                          value: 0.00001157407
-                      accumulations:
-                        step:
-                          operation: difference
-                    cape:
-                      accumulations:
-                        step:
-                          type: legacywindow
-                          operation: maximum
-                    2t:
-                      preprocessing:
-                        - operation: expression
-                          expr: t2_k - d2_k
-                          expr_data:
-                            t2_k:
-                              param: '167'
-                            d2_k:
-                              param: '168'
-                      accumulations:
-                        step:
-                          operation: weighted_mean
-                          weights: [0.25, 0.5, 0.25]
-                "24":
-                  num_inputs: 7
-                  predictors: ["cp_ratio", "tp", "mxcape6", "2t", "ws", "cdir"]
-                  dependencies:
-                    wind:
-                      vod2uv: true
-                      accumulations:
-                        step:
-                          operation: weighted_mean
-                          weights: [0.25, 0.5, 0.25]
-                    cp:
-                      preprocessing:
-                        - operation: scale
-                          value: 1000
-                      accumulations:
-                        step:
-                          operation: difference
-                    cdir:
-                      preprocessing:
-                        - operation: scale
-                          value: 0.00001157407
-                      accumulations:
-                        step:
-                          operation: difference
-                    cape:
-                      accumulations:
-                        step:
-                          type: legacywindow
-                          operation: maximum
-                    2t:
-                      preprocessing:
-                        - operation: expression
-                          expr: t2_k - d2_k
-                          expr_data:
-                            t2_k:
-                              param: '167'
-                            d2_k:
-                              param: '168'
-                      accumulations:
-                        step:
-                          operation: weighted_mean
-                          weights: [0.125, 0.25, 0.25, 0.25, 0.125]
-        ea:
-          outputs:
-            default:
-              metadata:
-                productionStatusOfProcessedData: 3
-                typeOfTimeIncrement: 1
-            bias_corrected:
-              metadata:
-                productDefinitionTemplateNumber: 72
-            weather_types:
-              metadata:
-                productDefinitionTemplateNumber: 72
-          filter:param:
-            "228":
-              predictant: tp
-              min_predictant: 0.04
-              scale_outputs: 0.001
-              preprocessing:
-              - operation: scale
-                value: 1000
-              accumulations:
-                step:
-                  type: legacywindow
-                  operation: sum
-                  name:
-                    type: default
-                    length: "{steplength}:int"
-                  metadata:
-                    stepType: accum
-              filter:steplength:
-                "12/24":
-                  num_inputs: 8
-                  predictors: ["cp_ratio", "lsm", "sdfor", "tp", "ws", "cape", "cdir", "2r"]
-                  dependencies:
-                    wind:
-                      preprocessing:
-                        actions:
-                          - operation: norm
-                            output:
-                              paramId: 10
-                      accumulations:
-                        step:
-                          type: legacywindow
-                          operation: mean
-                    cp:
-                      preprocessing:
-                        - operation: scale
-                          value: 1000
-                      accumulations:
-                        step:
-                          type: legacywindow
-                          operation: sum
-                    cdir:
-                      preprocessing:
-                        - operation: scale
-                          value: 0.00001157407
-                      accumulations:
-                        step:
-                          type: legacywindow
-                          operation: sum
-                    cape:
-                      accumulations:
-                        step:
-                          type: legacywindow
-                          operation: maximum
-                    r2:
-                      preprocessing:
-                        actions:
-                          - operation: expression
-                            expr: (100 * (((112 - (0.1 * (t2_k - 273.17)) + ( d2_k - 273.15)) / (112 + (0.9 * (t2_k - 273.17)))) ** 8)) + 0.5
-                            expr_data:
-                              t2_k:
-                                param: '167.128'
-                              d2_k:
-                                param: '168.128'
-                            dtype: "int64"
-                            output:
-                              edition: 2
-                              paramId: 260242
-                      accumulations:
-                        step:
-                          type: legacywindow
-                          operation: maximum
-                    sdfor:
-                      accumulations: null
-                    lsm:
-                      accumulations: null
-            "201":
-              predictant: mx2t
-              min_predictant: null
-              scale_outputs: null
-              accumulations:
-                step:
-                  type: legacywindow
-                  operation: maximum
-                  name:
-                    type: default
-                    length: "{steplength}:int"
-                  metadata:
-                    stepType: max
-              filter:steplength:
-                "24":
-                  num_inputs: 11
-                  predictors:
-                  - lsm
-                  - sdfor
-                  - vegdiff
-                  - cdir
-                  - mx2t
-                  - tp
-                  - {expr: "((sd * 1000)/rsn)*100", expr_data: {sd: {param: sd}, rsn: {param: rsn}}}
-                  - rsn
-                  - {expr: "swv * 1000", expr_data: {swv: {param: swvl1}}}
-                  - 100si
-                  dependencies:
-                    tp:
-                      accumulations:
-                        step:
-                          type: legacywindow
-                          operation: filter
-                          filter_op: max
-                          filter_index: -1
-                      preprocessing:
-                        actions:
-                          - operation: scale
-                            value: 1000
-                          - operation: reshape
-                            shape: 1
-                    filtered:
-                      accumulations:
-                        step:
-                          operation: filter
-                          filter_op: max
-                          filter_index: -1
-                          neighbours: [-1]
-                          neighbours_op: mean
-                      preprocessing:
-                        actions:
-                          - operation: reshape
-                            shape: 1
-                    cdir:
-                      preprocessing:
-                        actions:
-                        - operation: scale
-                          value: 1.157407e-05
-                      accumulations:
-                        step:
-                          type: legacywindow
-                          operation: sum
-                    sdfor:
-                      accumulations: null
-                    lsm:
-                      accumulations: null
-                    urbanfrac:
-                      accumulations: null
-            "202":
-              predictant: mn2t
-              min_predictant: null
-              scale_outputs: null
-              accumulations:
-                step:
-                  type: legacywindow
-                  operation: minimum
-                  name:
-                    type: default
-                    length: "{steplength}:int"
-                  metadata:
-                    stepType: min
-              filter:steplength:
-                "24":
-                  num_inputs: 15
-                  predictors:
-                  - lsm
-                  - sdfor
-                  - vegdiff
-                  - mn2t
-                  - {expr: "((sd * 1000)/rsn)*100", expr_data: {sd: {param: sd}, rsn: {param: rsn}}}
-                  - lai
-                  - {expr: "t2m - skt", expr_data: {t2m: {param: 2t}, skt: {param: skt}}}
-                  - 100si
-                  - lcc
-                  dependencies:
-                    filtered:
-                      accumulations:
-                        step:
-                          operation: filter
-                          filter_op: min
-                          filter_index: -1
-                          neighbours: [-1]
-                          neighbours_op: mean
-                      preprocessing:
-                        actions:
-                          - operation: reshape
-                            shape: 1
-                    sdfor:
-                      accumulations: null
-                    lsm:
-                      accumulations: null
-                    urbanfrac:
-                      accumulations: null
-                    lai:
-                      preprocessing:
-                        actions:
-                          - operation: reshape
-                            shape: 1
-                      accumulations: null
-    cm/cr:
-      entrypoint: pproc-clustereps
-      step_del: 12
-      bbox:
-        lat_n: 75.0
-        lat_s: 30.0
-        lon_w: 340.0
-        lon_e: 40.0
-      max_anom: 10000.
-      num_components: 50
-      var_th: 80.0
-      ncl_max: 6
-      init: sector
-      npass: 100
-      nrsamples: 500
-      max_sig: 95.0
-      med_sig: 90.0
-      min_sig: 55.0
-      sig_tol: 3.0
-      ncl_clim: 4
-      clim_means: "{season}_means.grd"
-      clim_pcs: "{season}_pcs.gts"
-      clim_sdv: "{season}_sdv.gts"
-      clim_eof: "{season}_eof.grd"
-      clim_cluster_index: "era_clind_{season}.gts"
-      clim_cluster_centroids_eof: "era_clcen_eof_{season}.gts"
-      seasons:
-      - [5, 9]
-      - [10, 4]
-      generate_dummy: true
-      deterministic_is_control: true
-      compute_spread: true
 windows:
   filter:type:
     em/es/pb:
