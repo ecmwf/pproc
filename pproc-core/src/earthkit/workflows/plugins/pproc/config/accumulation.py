@@ -1,4 +1,4 @@
-from typing import Literal, Optional, Union
+from typing import Literal, Optional, Union, Annotated
 import datetime
 
 from earthkit.time.calendar import MonthInYear
@@ -49,3 +49,6 @@ class Monthly(PProcBaseModel):
         month_length = MonthInYear(this_month.year, this_month.month).length() * 24
         start = end - month_length
         return f"{start}-{end}"
+
+
+AccumName = Annotated[Union[Default, Monthly], Field(discriminator="type")]

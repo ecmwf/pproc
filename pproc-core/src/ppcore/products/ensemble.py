@@ -9,15 +9,16 @@
 
 from typing import Optional, Iterator
 from dataclasses import dataclass
+import numpy as np
 
-from earthkit.workflows.nodetree import nodetree_dimensions
+from earthkit.workflows.fluent import merge
 from earthkit.workflows.plugins.pproc.fluent import (
     Action,
     from_source,
+    path_from_request,
 )
 from earthkit.workflows.plugins.pproc.utils.request import Request
 
-from ppcore.utils.requests import validate_request
 from ppcore.utils.mars import extract_mars
 from ppcore.configs.product.ensemble import Config
 from ppcore.products.base import Product
@@ -32,21 +33,33 @@ class Ensemble(Product):
     def source(self, ensemble_dim: Optional[str] = None) -> Action:
         input_config = self.config.inputs.fc
         ensemble_dim = ensemble_dim or self.ensemble_dim
+        expand_dims = {
+            ensemble_dim,
+            self.preprocessing_dim,
+            "step",
+            *self.config.accumulations.keys(),
+        }
 
         if len(input_config.sources) == 0:
             raise ValueError("No sources provided for ensemble config")
-        action: Action = None  # type: ignore
-        for x in [dict(x, **self.input_overrides) for x in input_config.requests]:
+        actions = []
+        for req_dict in [
+            dict(x, **self.input_overrides) for x in input_config.requests
+        ]:
             req = Request(
-                validate_request(x), no_expand=("number", *input_config.expand_exclude)
+                {
+                    k: [val] if np.ndim(val) == 0 and k in expand_dims else val
+                    for k, val in req_dict.items()
+                },
+                no_expand=("number", *input_config.expand_exclude),
             )
             new_action = from_source(
                 input_config.sources,
                 [req],
                 input_config.dtype,
             )
-            new_action = new_action.set_path(f"/levtype={x['levtype']}")
-            if "number" in x:
+            new_action = new_action.set_path(path_from_request(req_dict))
+            if "number" in req_dict:
                 new_action = new_action.expand(
                     "number",
                     ("number", req["number"]),
@@ -54,10 +67,8 @@ class Ensemble(Product):
                 )
             else:
                 new_action._add_dimension("number", 0)
-            if action is None:
-                action = new_action
-            else:
-                action = action.join(new_action, dim=ensemble_dim)  # type: ignore
+            actions.append(new_action)
+        action = merge(*actions)
         return action
 
     def action(
@@ -67,13 +78,15 @@ class Ensemble(Product):
         ensemble_dim: Optional[str] = None,
     ) -> Action:
         if forecast:
-            ret = forecast.sel(
-                {
-                    key: value
-                    for key, value in self.config.inputs.fc.requests[0].items()
-                    if key in nodetree_dimensions(forecast.nodes)
-                }
-            )
+            actions = []
+            for req in self.config.inputs.fc.requests:
+                req.setdefault("number", [0])
+                selected = forecast.sel(req)
+                selected.set_path(path_from_request(req))
+                if np.size(req["number"]) == 1:
+                    selected._add_dimension("number", np.atleast_1d(req["number"])[0])
+                actions.append(selected)
+            ret = merge(*actions)
         else:
             ret = self.source(ensemble_dim=ensemble_dim)
         for preprocessing in self.config.preprocessing.actions:
@@ -86,10 +99,11 @@ class Ensemble(Product):
                 dim=dim,
                 **accumulation.create_action(),
             )
-        ret = ret.ensemble_statistics(
-            dim=ensemble_dim or self.ensemble_dim,
-            **self.config.statistics.model_dump(),
-        )
+        if self.config.statistics is not None:
+            ret = ret.ensemble_statistics(
+                dim=ensemble_dim or self.ensemble_dim,
+                **self.config.statistics.model_dump(),
+            )
 
         if len(self.config.output.targets) > 0:
             output_config = self.config.output.model_dump()

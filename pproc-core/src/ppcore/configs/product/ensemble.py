@@ -7,7 +7,7 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-from typing import Any, Union, Literal, Annotated
+from typing import Any, Union, Literal, Annotated, Optional
 from pydantic import Field, model_validator
 
 from earthkit.workflows.plugins.pproc.utils.pydantic_utils import PProcBaseModel
@@ -33,10 +33,12 @@ class Ensemble(PProcBaseModel):
     name: Literal["ensemble"] = Field("ensemble")
     preprocessing: PreprocessingConfig = Field(default_factory=PreprocessingConfig)
     accumulations: dict[str, Accumulation] = Field(default_factory=dict)
-    statistics: Annotated[
-        Union[Mean, StandardDeviation, Quantiles, ThresholdProbability],
-        Field(discriminator="operation"),
-    ]
+    statistics: Optional[
+        Annotated[
+            Union[Mean, StandardDeviation, Quantiles, ThresholdProbability],
+            Field(discriminator="operation"),
+        ]
+    ] = None
     inputs: EnsembleInputModel  # type: ignore
     output: Output
 
@@ -64,7 +66,7 @@ class Ensemble(PProcBaseModel):
                 "request": extract_mars(original),
             }
             if metadata := data.pop("metadata", None):
-                stat_metadata = data["statistics"].setdefault("metadata", {})
+                stat_metadata = data.get("statistics", {}).setdefault("metadata", {})
                 stat_metadata.update(metadata)
             if data.pop("quantiles", None) is not None:
                 data["statistics"]["quantiles"] = original["quantile"]

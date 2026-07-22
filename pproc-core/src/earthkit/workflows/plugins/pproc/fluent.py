@@ -10,13 +10,20 @@ from __future__ import annotations
 
 import inspect
 from typing import Optional, Union, Any
+from pydantic import TypeAdapter
+import logging
 
 import numpy as np
 from earthkit.workflows.backends.earthkit import FieldListBackend
 from earthkit.workflows.nodetree import nodetree_size
 
 from earthkit.workflows import fluent
-from earthkit.workflows.nodetree import nodetree_arrays, nodetree_dimensions
+from earthkit.workflows.nodetree import (
+    nodetree_array,
+    nodetree_arrays,
+    nodetree_dimensions,
+    nodetree_from_dict,
+)
 from earthkit.workflows.plugins.pproc.utils.request import MultiSourceRequest
 from earthkit.workflows.plugins.pproc.utils.request import Request
 from earthkit.workflows.plugins.pproc.utils.metadata import fill_template_values
@@ -25,7 +32,7 @@ from earthkit.workflows.plugins.pproc.config.threshold import Threshold
 from earthkit.workflows.plugins.pproc.config.accumulation import (
     Coords,
     Default,
-    Monthly,
+    AccumName,
 )
 from earthkit.workflows.plugins.pproc.metadata.accumulation import accumulation_metadata
 from earthkit.workflows.plugins.pproc.metadata.threshold import threshold_metadata
@@ -38,64 +45,10 @@ ENVIRONMENT = {
 }
 
 
-class Action(fluent.Action):
-    # TODO: migrate to schema
-    _THERMAL_CONFIG: dict[str, dict[str, Any]] = {
-        "utci": {
-            "operation": "ppruntime.thermal_indices.calc_utci",
-            "params": ["2t", "2d", "10si", "mrt"],
-        },
-        "10si": {
-            "operation": "norm",
-            "metadata": {"paramId": 207},
-            "params": ["10u", "10v"],
-        },
-        "mrt": {
-            "operation": "ppruntime.thermal_indices.calc_mrt",
-            "params": ["cossza", "dsrp", "ssrd", "fdir", "strd", "str", "ssr"],
-        },
-        "cossza": {
-            "operation": "ppruntime.thermal_indices.calc_cossza",
-            "params": ["2t", "fdir"],
-        },
-        "dsrp": {
-            "operation": "ppruntime.thermal_indices.calc_dsrp",
-            "params": ["fdir", "cossza"],
-        },
-        "hmdx": {
-            "operation": "ppruntime.thermal_indices.calc_hmdx",
-            "params": ["2t", "2d"],
-        },
-        "2r": {
-            "operation": "ppruntime.thermal_indices.calc_rhp",
-            "params": ["2t", "2d"],
-        },
-        "heatx": {
-            "operation": "ppruntime.thermal_indices.calc_heatx",
-            "params": ["2t", "2d"],
-        },
-        "wbgt": {
-            "operation": "ppruntime.thermal_indices.calc_wbgt",
-            "params": ["2t", "2d", "10si", "mrt"],
-        },
-        "gt": {
-            "operation": "ppruntime.thermal_indices.calc_gt",
-            "params": ["2t", "10si", "mrt"],
-        },
-        "nefft": {
-            "operation": "ppruntime.thermal_indices.calc_nefft",
-            "params": ["2t", "10si", "2r"],
-        },
-        "wcf": {
-            "operation": "ppruntime.thermal_indices.calc_wcf",
-            "params": ["2t", "10si"],
-        },
-        "aptmp": {
-            "operation": "ppruntime.thermal_indices.calc_aptmp",
-            "params": ["2t", "2r", "10si"],
-        },
-    }
+logger = logging.getLogger(__name__)
 
+
+class Action(fluent.Action):
     def _reduction_with_metadata(
         self,
         operation: str,
@@ -511,38 +464,73 @@ class Action(fluent.Action):
         """
         return self._wrapped_reduction(operation, dim, **kwargs)
 
-    # TODO: turn this into more general param operation that scans schema to look for
-    # computation method of missing parameters. Or should it be that in the creation of the
-    # configuration returned by the schema, we list configuration for creating all required
-    # intermediate parameters
     def thermal_index(
-        self, param: str, dim: str = "param", metadata: dict | None = None
+        self,
+        function: str,
+        params: list[str],
+        deaccumulate: Optional[list[str]] = None,
+        dim: str = "param",
+        join: bool = True,
+        metadata: dict | None = None,
     ) -> Action:
-        config: dict[str, Any] = self._THERMAL_CONFIG[param]
-        new_action = self
-        for inp in config["params"]:
-            if (
-                inp not in new_action.nodes.coords[dim]
-                and inp in new_action._THERMAL_CONFIG
-            ):
-                dependency = new_action.thermal_index(inp, dim=dim, metadata=metadata)
-                dependency._add_dimension(dim, inp)
-                new_action = new_action.join(dependency, dim)
-        try:
-            selection = new_action.sel(param=(config["params"]))
-        except IndexError:
-            selection = new_action
-        config_metadata: dict[str, str] = config.get("metadata", {})
-        new_metadata = (
-            config_metadata if not metadata else {**metadata, **config_metadata}
+        """
+        Thermal index computation
+
+        Params
+        ------
+        function: str, pproc-runtime function to call for thermal index computation
+        params: list[str], list of input parameters
+        deaccumulate: list[str], list of parameters that require deaccumulating
+        dim: str, parameter dimension
+        join: bool, whether to join the resulting action with input action
+        metadata: dict, metadata to set on the output
+        """
+        logger.debug(
+            f"Thermal index: function {function}, params {params}, deaccumulate {deaccumulate}"
         )
-        ret = selection._wrapped_reduction(
-            fluent.Payload(
-                func=str(config["operation"]), kwargs={"metadata": new_metadata}
-            ),
+        if deaccumulate is not None:
+            deaccum = self.sel(param=deaccumulate)
+            array = nodetree_array(deaccum.nodes)
+            steps = array.coords["step"].data.tolist()
+            deaccum = deaccum.accumulation(
+                operation=None,
+                coords=[[steps[x], steps[x + 1]] for x in range(len(steps) - 1)],
+                deaccumulate=True,
+            )
+            deaccum = type(self)(
+                nodetree_from_dict(
+                    {
+                        path: array.assign_coords(
+                            {"step": steps[1] if len(steps) <= 2 else steps[1:]}
+                        )
+                        for path, array in nodetree_arrays(deaccum.nodes)
+                    }
+                )
+            )
+            param_action = fluent.merge(
+                self.select(
+                    param=[x for x in params if x not in deaccumulate],
+                    step=steps[1:],
+                    expand=True,
+                ),
+                deaccum,
+            )
+            param_action._squeeze_dimension("step")
+            param_action = param_action.combine_branches(dim=dim)
+        else:
+            param_action = self.select(param=params, expand=True)
+            param_action._squeeze_dimension("step")
+            param_action = param_action.combine_branches(dim=dim)
+
+        ret = param_action._wrapped_reduction(
+            fluent.Payload(func=function, kwargs={"metadata": metadata or {}}),
             dim=dim,
         )
-        return ret
+        ret._add_dimension(dim, str(metadata.get("paramId")))
+        if not join:
+            return ret
+        ret = ret.set_path(f"/{metadata.get('paramId')}")
+        return fluent.merge(self, ret)
 
     def mask(
         self,
@@ -623,7 +611,7 @@ class Action(fluent.Action):
         dim: str = "step",
         metadata: dict | None = None,
         deaccumulate: bool = False,
-        name: Union[Default, Monthly, dict] = Default(),
+        name: Union[AccumName, dict] = Default(),
         **kwargs,
     ) -> Action:
         """
@@ -751,7 +739,7 @@ def _accum_transform(
     operation: str | fluent.Payload,
     metadata: Optional[dict] = None,
     deaccumulate: bool = False,
-    name: Union[Default, Monthly, dict] = Default(),
+    name: Union[AccumName, dict] = Default(),
     kwargs: dict = {},
 ) -> fluent.Action:
     if deaccumulate:
@@ -764,16 +752,17 @@ def _accum_transform(
             accum_action = action.select({dim: coords})
 
     if isinstance(name, dict):
-        name = Default(**name) if name.get("type_") == "default" else Monthly(**name)
+        name = TypeAdapter(AccumName, name).validate_python()
     accum_name = name.name(coords)
     accum_metadata = accumulation_metadata(dim, coords, accum_name, metadata)
 
     if operation is None:
         accum_action._squeeze_dimension(dim)
-        if metadata is not None:
+        if len(accum_metadata) > 0:
             accum_action = accum_action.map(
                 fluent.Payload(
-                    FieldListBackend.set_metadata, [fluent.Node.input_name(0), metadata]
+                    FieldListBackend.set_metadata,
+                    [fluent.Node.input_name(0), accum_metadata],
                 )
             )
     else:
@@ -799,7 +788,7 @@ def from_source(
     for request in requests:
         if isinstance(request, dict):
             request = Request(request)
-        payloads = np.empty(tuple(request.dims.values()), dtype=object)
+        payloads = np.empty(tuple(request.dims().values()), dtype=object)
         for indices, new_request in request.expand():
             payloads[indices] = fluent.Payload(
                 "ppruntime.io.retrieve",
@@ -808,7 +797,10 @@ def from_source(
             )
         new_action = fluent.from_source(
             payloads,
-            coords={key: list(request[key]) for key in request.dims.keys()},
+            dims=request.dims().keys(),
+            coords={
+                key: request[key] for key in request.dims(exclude_scalar=False).keys()
+            },
             action=Action,
         )
 
@@ -822,3 +814,7 @@ def from_source(
                 raise ValueError("Join key must be specified for multiple requests")
             all_actions = all_actions.join(new_action, join_key)
     return all_actions
+
+
+def path_from_request(request: dict, keys: list[str] = ["levtype", "param"]) -> str:
+    return "/".join([str(request[x]) for x in keys])
