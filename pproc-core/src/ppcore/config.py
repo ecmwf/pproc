@@ -59,7 +59,7 @@ def from_outputs(args):
     entrypoint_config = EntrypointConfig(
         products=list(
             config_from_outputs(
-                output_requests, args.schem, forecast=forecast, climatology=climatology
+                output_requests, args.schema, forecast=forecast, climatology=climatology
             )
         ),
         **overrides,
@@ -96,7 +96,7 @@ def from_inputs(args):
         products=list(
             config_from_inputs(
                 args.restriction,
-                args.schem,
+                args.schema,
                 forecast,
                 climatology=climatology,
                 **overrides,
