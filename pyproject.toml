@@ -23,6 +23,7 @@ dependencies = [
     "eccodes >= 1.6.1",
     "filelock >= 3.12.0",
     "mir-python >= 0.2.0",
+    "netcdf4",
     "numexpr",
     "numpy >= 1.21.2",
     "pandas >= 1.3.3",
@@ -69,6 +70,7 @@ pproc-monthly-stats = "pproc.monthly_stats:main"
 pproc-config="pproc.config_generation:main"
 pproc-ecpoint = "pproc.ecpoint:main"
 pproc-flight-levels = "pproc.flight_levels:main"
+pproc-regional-means = "pproc.regional_means:main"
 
 [tool.pytest.ini_options]
 minversion = "6.0"

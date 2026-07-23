@@ -300,3 +300,5 @@ ClusterAttributionInputModel = create_input_model(
 )
 FlightLevelsInputModel = create_input_model("FlightLevels", ["fc", "lnsp"])
 FlightLevelsOutputModel = create_output_model("FlightLevels", ["levels"])
+RegionalMeansInputModel = create_input_model("RegionalMeans", ["fc"])
+RegionalMeansOutputModel = create_output_model("RegionalMeans", {})  # TODO should only allow file target

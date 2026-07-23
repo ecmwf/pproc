@@ -1712,3 +1712,15 @@ class FlightLevelsConfig(AccumConfig):
         req["levtype"] = "fl"
         req["levelist"] = self.target_flight_levels
         return req
+
+
+class RegionalMeansParamConfig(ParamConfig):
+    out_coords: list[str]  # coordinates preserved in the output
+    areas: dict[str, tuple[float, float, float, float]]  # N, W, S, E bounding box
+
+
+class RegionalMeansConfig(AccumConfig):
+    parallelisation: Parallelisation = Parallelisation()
+    inputs: io.RegionalMeansInputModel
+    outputs: io.RegionalMeansOutputModel = io.RegionalMeansOutputModel()
+    parameters: list[RegionalMeansParamConfig]
