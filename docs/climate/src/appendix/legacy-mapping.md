@@ -1,9 +1,24 @@
 # Legacy script mapping
 
-Source of truth: `generate_subgrid_orography_sso.ksh` at the workspace
-root. Line numbers below cite that file. The decomposition follows the
-"Stage ordering" and "mir-compute formulae" sections of
-`.weave/learnings/sso-migration.md`.
+Line-by-line mapping from the legacy ksh script
+`generate_subgrid_orography_sso.ksh` to the Python code executed inside
+[`pproc-climate-fields sso`](../cli/sso.md) (i.e.
+`pproc.climate.generate.products.sso.generate`). This appendix is
+SSO-specific — the same style of mapping for the other twenty-six
+climate-field products lives, product-by-product, in the module
+docstrings of `pproc.climate.generate.products.*`.
+
+Line numbers below cite the ksh source at the workspace root. The
+decomposition follows the "Stage ordering" and "mir-compute formulae"
+sections of `.weave/learnings/sso-migration.md`.
+
+The "CLI" column in the mapping tables below shows the
+[transitional](../cli/formula.md) `pproc-formula` invocation that
+produces the same output outside the pipeline. Inside
+`pproc-climate-fields sso` these invocations happen as direct in-memory
+`evaluate_formula(...)` calls — no subprocess, no temp files. The CLI
+column is provided as a reference for readers used to the old
+`mir-compute` idiom.
 
 ## Working-grid parameterisation (the `N2000` hardcode)
 
@@ -30,7 +45,7 @@ plumbing. The pproc port exposes both files as CLI flags:
   hit the fast path. Matches the legacy
   `cp $fileName ${XDATA_IFS}/$fileName` step (line 109).
 
-See [pproc-sso § Cached vs alternative orography input](../cli/sso.md#cached-vs-alternative-orography-input).
+See [pproc-climate-fields sso § Cached vs alternative orography input](../cli/sso.md#cached-vs-alternative-orography-input).
 
 The legacy intermediate filename `orog_egrid_N2000` (written verbatim
 by the ksh script at line 128) is parameterised in the pproc port as
@@ -43,7 +58,7 @@ the ksh source.
 
 | # | Stage (snake_case ID) | ksh comment | ksh tool | Python counterpart |
 |---|---|---|---|---|
-| 1 | `source_to_orography_grid` | "Interpolate source data to N2000 (5 km) if input file does not exist" | `run_mir --grid=$OUT_RES --interpolation=grid-box-average` (hardcoded `N2000`) on `$inFile_alt`, followed by `cp $fileName ${XDATA_IFS}/$fileName` to cache the result at `$inFile` | `pproc.climate.mir_ops.interpolate(src, grid=orography_grid, method="grid-box-average")` inside `pproc.climate.sso.pipeline.compute_sso` (Stage 1): if `--orography` exists and its `gridName` equals `orography_grid`, the bytes pass through; if they differ, a `ValueError` is raised (configuration error — `--orography` is authoritative). If `--orography` is missing, fall back to `--alt-orography`, regrid, and cache the bytes back to the `--orography` path. The regrid-and-cache flow lives exclusively on the `--alt-orography` path. |
+| 1 | `source_to_orography_grid` | "Interpolate source data to N2000 (5 km) if input file does not exist" | `run_mir --grid=$OUT_RES --interpolation=grid-box-average` (hardcoded `N2000`) on `$inFile_alt`, followed by `cp $fileName ${XDATA_IFS}/$fileName` to cache the result at `$inFile` | `pproc.climate.mir_ops.interpolate(src, grid=orography_grid, method="grid-box-average")` inside `pproc.climate.generate.products.sso.generate` (Stage 1): if `--orography` exists and its `gridName` equals `orography_grid`, the bytes pass through; if they differ, a `ValueError` is raised (configuration error — `--orography` is authoritative). If `--orography` is missing, fall back to `--alt-orography`, regrid, and cache the bytes back to the `--orography` path. The regrid-and-cache flow lives exclusively on the `--alt-orography` path. |
 | 2 | `conservative_to_eres` | "Interpolate N2000 (5 km) to effective resolution" | `run_mir --grid=${MIR_ERES_SET} --interpolation=grid-box-average` | `interpolate(orog_5km, grid=eres, method="grid-box-average")` |
 | 3 | `bilinear_back_to_orography_grid` | "Interpolate effective resolution back to N2000 with bilinear interpolation" | `run_mir --grid=$OUT_RES --interpolation=structured-bilinear` (hardcoded `N2000`) | `interpolate(orog_egrid, grid=orography_grid, method="structured-bilinear")` |
 | 4 | `compute_diff_and_diff_sq` | "Take difference and squared difference between N2000 (input from step 1) and N2000 from step 2" | `cat $inFile orog_egrid_N2000 > tmp; mir_compute ...` ×2 | `evaluate_formula` ×2 in `compute_sso` (in-memory bundle, no `cat`). |
@@ -172,9 +187,9 @@ on the corresponding `pproc-formula` invocation, or by a
 ## Effective resolution mapping
 
 The `MIR_ERES_SET` variable is computed at lines 73–90 of the ksh
-script. The table is reproduced in [pproc-sso §
+script. The table is reproduced in [pproc-climate-fields sso §
 Effective resolution mapping](../cli/sso.md#effective-resolution-mapping)
-and implemented in `pproc.climate.sso.effective_resolution`. The
+and implemented in `pproc.climate.generate.effective_resolution`. The
 operational specials (`40 → N48`, `100 → N128`, `1000 → N1024`) are
 table-documented rather than derived — they are not expressible from
 the `ERES = ORES/2; round-down-to-even` formula alone.

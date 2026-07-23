@@ -1,24 +1,28 @@
-# pproc-sso
+# pproc-climate-fields sso
 
-`pproc-sso` is the monolithic CLI driving the sub-grid orography
-pipeline end-to-end. It reads an orography GRIB and a land-mask GRIB
-on the target grid, runs the ten-stage SSO computation
-(`pproc.climate.sso.pipeline.compute_sso`), and writes the four output
-GRIB files (`stdgwd`, `slogwd`, `anggwd`, `isogwd`) into
-`--output-dir`.
+The `sso` subcommand of [`pproc-climate-fields`](climate-fields.md) drives the
+sub-grid orography pipeline end-to-end. It reads an orography GRIB and
+a land-mask GRIB on the target grid, runs the ten-stage SSO computation
+(`pproc.climate.generate.products.sso.generate`), and writes the four
+output GRIB files (`stdgwd`, `slogwd`, `anggwd`, `isogwd`) to the paths
+supplied via the four `--*-out` flags.
 
 ## Synopsis
 
 ```
-pproc-sso --orography PATH --land-mask PATH --target-grid GRID
-          --orography-grid GRID
-          [--alt-orography PATH]
-          [--model-grid-type TYPE] [--model-resolution RES]
-          [--effective-resolution GRID]
-          [--output-dir DIR]
-          [--grib-roundtrip] [--dump-intermediates]
-          [--bits-per-value N]
-          [--config FILE]
+pproc-climate-fields sso
+    --orography PATH --land-mask PATH
+    --target-grid GRID --orography-grid GRID
+    [--alt-orography PATH]
+    [--model-grid-type TYPE] [--model-resolution RES]
+    [--effective-resolution GRID]
+    [--stdgwd-out PATH] [--slogwd-out PATH]
+    [--anggwd-out PATH] [--isogwd-out PATH]
+    [--grib-roundtrip]
+    [--dump-intermediates] [--intermediates-dir DIR]
+    [--bits-per-value N]
+    [-f PATH]... [--set KEY=VAL]...
+    [-v]...
 ```
 
 ## Three-grid model
@@ -34,8 +38,8 @@ effective-resolution aggregation grid:
 | `target_grid` | `--target-grid` flag (required). | The IFS model grid the four outputs land on. |
 
 The legacy ksh script conflated `orography_grid` with `target_grid`
-through a single `$OUT_RES` variable. `pproc-sso` keeps them separate
-so the operator can compute SSO statistics on a high-resolution
+through a single `$OUT_RES` variable. The `sso` subcommand keeps them
+separate so the operator can compute SSO statistics on a high-resolution
 working grid and aggregate to any target grid they need.
 
 ## Stage 1 grid handling
@@ -106,9 +110,15 @@ Cache writeback only happens on case 3.
   orography file '<alt-path>' exist.`
 
 All three messages surface as clean non-zero exits from the CLI
-(`pproc-sso: error: <message>`), without a Python traceback.
+without a Python traceback.
 
 ## Flags
+
+Common flags inherited from
+[`BaseGenerateConfig`](climate-fields.md#shared-configuration) —
+`--target-grid`, `--bits-per-value`, `--grib-roundtrip`, `-v`, `-f`,
+`--set`, `-h` — are documented on the parent CLI page. SSO-specific
+flags:
 
 | Flag | Argument | Description |
 |------|----------|-------------|
@@ -120,34 +130,36 @@ All three messages surface as clean non-zero exits from the CLI
 | `--model-grid-type` | `TYPE` | Model grid family code (`O`, `N`, `F`). Auto-inferred from `--target-grid` when omitted. |
 | `--model-resolution` | `RES` | Model nominal resolution (integer, e.g. 80). Auto-inferred from `--target-grid` when omitted. |
 | `--effective-resolution` | `GRID` | Override the auto-computed effective-resolution grid spec (e.g. `N48`). Defaults to the value derived from the model grid (see [Effective resolution mapping](#effective-resolution-mapping)). |
-| `--output-dir` | `DIR` | Directory in which to write the four output files (default: `.`). Created on demand. |
-| `--grib-roundtrip` | — | Encode/decode every numpy intermediate through GRIB to reproduce the per-step quantisation of the original ksh script. |
-| `--dump-intermediates` | — | Write the sixteen named intermediate GRIB files to `--output-dir` in addition to the four final outputs. |
-| `--bits-per-value` | `N` | Set the GRIB `bitsPerValue` on the four output fields. When omitted, `bitsPerValue` is not written by pproc — eccodes uses its own default for the packing (24 for `grid_simple`). Use `32` to match the legacy ksh script's output precision. |
-| `--config` | `FILE` | Optional YAML config file. Keys must match `SSOConfig` field names (snake_case). CLI arguments override YAML values. |
-| `-v`, `--verbose` | — | Count flag. Absent: silent (WARNING). `-v`: INFO logging to stdout (pipeline stages, mir invocations, file reads/writes). `-vv`: DEBUG (array shapes, byte sizes, Stage 1 decision details, cache writeback, roundtrip operations). See [Logging and verbosity](#logging-and-verbosity). |
-| `-h`, `--help` | — | Show argparse help and exit. |
+| `--stdgwd-out` | `PATH` | Output path for `stdgwd` (shortName `sdor`). Default `./stdgwd`. |
+| `--slogwd-out` | `PATH` | Output path for `slogwd` (shortName `slor`). Default `./slogwd`. |
+| `--anggwd-out` | `PATH` | Output path for `anggwd` (shortName `anor`). Default `./anggwd`. |
+| `--isogwd-out` | `PATH` | Output path for `isogwd` (shortName `isor`). Default `./isogwd`. |
+| `--dump-intermediates` | — | Write the sixteen named intermediate GRIB files to `--intermediates-dir` in addition to the four final outputs. |
+| `--intermediates-dir` | `DIR` | Directory for the sixteen named intermediates when `--dump-intermediates` is set. Filenames are algorithm-intrinsic (hard-coded); only the directory is user-controlled. Default `.`. |
+| `--grib-roundtrip` | — | Encode/decode every numpy intermediate through GRIB to reproduce the per-step quantisation of the legacy ksh chain. |
+| `--bits-per-value` | `N` | Set the GRIB `bitsPerValue` on the four output fields. When omitted, `bitsPerValue` is not written by pproc — eccodes uses its own default for the packing (`24` for `grid_simple`). Use `32` to match the legacy ksh script's output precision. |
 
 ## Logging and verbosity
 
-`pproc-sso` is silent by default; pass `-v` (or `--verbose`) to surface
-pipeline progress on **stdout** with terse `[<logger>] <message>` lines,
-or `-vv` to add timestamped DEBUG lines covering array shapes, Stage 1
-decision details, GRIB roundtrip operations, and cache writeback. The
-log lines are produced by Python's standard :mod:`logging` and stream
-to stdout so they interleave cleanly with shell pipelines.
+`pproc-climate-fields sso` is silent by default; pass `-v` (or
+`--verbose`) to surface pipeline progress on **stdout** with terse
+`[<logger>] <message>` lines, or `-vv` to add DEBUG lines covering
+array shapes, Stage 1 decision details, GRIB roundtrip operations,
+and cache writeback. The log lines are produced by Python's standard
+:mod:`logging` and stream to stdout so they interleave cleanly with
+shell pipelines.
 
 A representative `-v` excerpt looks like:
 
 ```text
-[pproc.sso] pproc-sso start orography=… orography_grid=N256 target_grid=N256 effective_resolution=N48 output_dir=…
-[pproc.climate.sso.pipeline] stage 1 source → orography grid
-[pproc.climate.sso.pipeline] stage 1 fast path (input on N256)
-[pproc.climate.sso.pipeline] stage 1 complete elapsed=0.012
-[pproc.climate.sso.pipeline] stage 2 orography grid → effective resolution
+[pproc.generate] pproc-climate-fields start field=sso
+[pproc.climate.generate.products.sso] stage 1 source → orography grid
+[pproc.climate.generate.products.sso] stage 1 fast path (input on N256)
+[pproc.climate.generate.products.sso] stage 1 complete elapsed=0.476
+[pproc.climate.generate.products.sso] stage 2 orography grid → effective resolution
 [pproc.climate.mir_ops] interpolate grid=N48 method=grid-box-average input=348528 pts → output=13280 pts
 …
-[pproc.sso] pproc-sso done elapsed=12.351
+[pproc.generate] pproc-climate-fields done field=sso elapsed=12.351
 ```
 
 Verbosity is driven by argparse's `action='count'`, so `-vvv` and
@@ -156,10 +168,10 @@ above clamp to DEBUG. The level → format mapping is documented in
 
 ## Pipeline overview
 
-`pproc-sso` runs the canonical ten-stage decomposition documented in
-[Legacy script mapping](../appendix/legacy-mapping.md). The stage names
-are stable and are also the keys used internally in
-`pproc.climate.sso.pipeline`:
+The `sso` subcommand runs the canonical ten-stage decomposition
+documented in [Legacy script mapping](../appendix/legacy-mapping.md).
+The stage names are stable and are also the keys used internally in
+`pproc.climate.generate.products.sso`:
 
 1. `source_to_orography_grid` — interpolate (or pass through) source orography onto `orography_grid`.
 2. `conservative_to_eres` — interpolate to effective resolution.
@@ -170,19 +182,19 @@ are stable and are also the keys used internally in
 7. `aggregate_to_eres` — grid-box-average back to effective resolution.
 8. `aggregate_to_target` — grid-box-average to target grid.
 9. `compute_sso_outputs` — compute `stdgwd`, `slogwd`, `isogwd`, `anggwd`.
-10. `archive` — write final outputs to `--output-dir`.
+10. `archive` — write final outputs to the four `--*-out` paths.
 
 ## Output fields
 
 The four final fields, with their canonical short names and `paramId`
 slugs, are:
 
-| File | shortName | Meaning |
-|------|-----------|---------|
-| `stdgwd` | `sdor` | Standard deviation of subgrid orography |
-| `slogwd` | `slor` | Standard deviation of slope |
-| `anggwd` | `anor` | Anisotropy orientation |
-| `isogwd` | `isor` | Anisotropy ratio |
+| `--*-out` flag | Default filename | shortName | Meaning |
+|----------------|------------------|-----------|---------|
+| `--stdgwd-out` | `./stdgwd` | `sdor` | Standard deviation of subgrid orography |
+| `--slogwd-out` | `./slogwd` | `slor` | Standard deviation of slope |
+| `--anggwd-out` | `./anggwd` | `anor` | Anisotropy orientation |
+| `--isogwd-out` | `./isogwd` | `isor` | Anisotropy ratio |
 
 Mapping: `stdgwd → sdor`, `slogwd → slor`, `anggwd → anor`, `isogwd → isor`.
 
@@ -214,9 +226,10 @@ so absent an explicit knob the eccodes default applies. Pass
 
 ### `--dump-intermediates`
 
-Writes the sixteen named intermediate GRIB files to `--output-dir`. The
-filenames are hard-coded with one exception: the bilinear-back-to-working-grid
-intermediate is parameterised on `--orography-grid` and lands at
+Writes the sixteen named intermediate GRIB files to
+`--intermediates-dir` (default `.`). The filenames are hard-coded with
+one exception: the bilinear-back-to-working-grid intermediate is
+parameterised on `--orography-grid` and lands at
 `orog_egrid_<orography_grid>` (e.g. `orog_egrid_N2000` operationally,
 `orog_egrid_N256` in tests). The full list:
 
@@ -236,15 +249,11 @@ order `K, L, M, Lprime, land_mask`.
 
 ## YAML config
 
-`--config FILE` loads a YAML document via `yaml.safe_load` and merges
-its fields into the parsed argparse namespace. CLI arguments take
-precedence: any value the user passes on the command line overrides the
-corresponding YAML field. Boolean flags can only be promoted from
-`False` to `True` by YAML (the user cannot toggle them off via YAML
-once enabled on the CLI).
-
-The recognised YAML keys are exactly the snake-case `SSOConfig` field
-names:
+Configuration is loaded and merged by
+[Conflator](https://github.com/ecmwf/conflator) via `-f` / `--config
+PATH` (repeatable) and `--set KEY=VAL` (repeatable). The recognised
+YAML keys are the snake-case field names of the SSO product's config
+class:
 
 ```yaml
 orography: data/input/ifs/orog_5km
@@ -255,20 +264,26 @@ model_grid_type: O
 model_resolution: 80
 orography_grid: N2000
 effective_resolution: N48
-output_dir: ./out
+stdgwd_out: ./out/stdgwd
+slogwd_out: ./out/slogwd
+anggwd_out: ./out/anggwd
+isogwd_out: ./out/isogwd
 grib_roundtrip: false
 dump_intermediates: true
+intermediates_dir: ./out
 bits_per_value: 32
 ```
 
-Unknown keys raise an error rather than being silently ignored.
+Unknown keys raise a Pydantic validation error rather than being
+silently ignored (`extra="forbid"`). Later YAML overrides earlier YAML;
+`--set KEY=VAL` overrides both; explicit CLI flags override everything.
 
 ## Effective resolution mapping
 
 The effective resolution grid (`MIR_ERES_SET` in the legacy script) is
 derived from `model_grid_type` and `model_resolution` per the table
-documented in `pproc.climate.sso.effective_resolution`. For octahedral
-(`model_grid_type=O`):
+documented in `pproc.climate.generate.effective_resolution`. For
+octahedral (`model_grid_type=O`):
 
 ```
 ERES = model_resolution / 2          # integer division
@@ -286,9 +301,9 @@ Special cases (operational, not derivable from the formula):
 
 For non-octahedral grid types the effective grid equals the target
 grid. Worked example: `model_grid_type=O, model_resolution=80` →
-`ERES=40` → `N48`. See `pproc.climate.sso.effective_resolution` for the
-full lookup logic and `appendix/legacy-mapping.md` for the back-pointer
-to the ksh source.
+`ERES=40` → `N48`. See `pproc.climate.generate.effective_resolution`
+for the full lookup logic and `appendix/legacy-mapping.md` for the
+back-pointer to the ksh source.
 
 ## D-F1 tolerance posture
 
@@ -305,23 +320,27 @@ to the ksh source.
 
 A longer-form analysis (the float32-vs-float64 root cause, the
 `binaryScaleFactor=-21` GRIB grid_simple quantum, the path forward) is
-in [Tolerance policy (D-F1)](../appendix/tolerance-policy.md).
+in [Tolerance policy (D-F1)](../appendix/tolerance-policy.md), where
+the same class of drift is also documented for `albedo` and
+`orography-variance`.
 
 ## Example
 
 ```bash
-pproc-sso \
+pproc-climate-fields sso \
   --orography data/input/ifs/orog_5km \
   --land-mask data/input/ifs/land_mask \
   --target-grid N256 \
   --model-grid-type O \
   --model-resolution 80 \
   --orography-grid N256 \
-  --output-dir ./out
+  --stdgwd-out ./out/stdgwd \
+  --slogwd-out ./out/slogwd \
+  --anggwd-out ./out/anggwd \
+  --isogwd-out ./out/isogwd
 ```
 
 This matches the legacy test run (`GTYPE_SET=O, ORES=80,
 MIR_GTYPE_SET=N256, MIR_ERES_SET=N48`) and produces the four final
-files `out/stdgwd`, `out/slogwd`, `out/anggwd`, `out/isogwd`.
-Operationally, set `--orography-grid N2000` instead, matching the
+files. Operationally, set `--orography-grid N2000` instead, matching the
 N2000 working grid hardcoded by the legacy script.

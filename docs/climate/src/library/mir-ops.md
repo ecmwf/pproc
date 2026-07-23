@@ -1,15 +1,17 @@
 # pproc.climate.mir_ops
 
 Numpy-friendly wrappers around `mir.Job`. The module exposes thin,
-in-memory wrappers around two mir operations the SSO pipeline relies
-on. Transport between mir and the caller is GRIB bytes via
-`io.BytesIO` — no temporary files are created or left behind.
+in-memory wrappers around the mir operations the climate-fields
+products rely on — interpolation (used by every product) and
+scalar-gradient (used by `sso`). Transport between mir and the caller
+is GRIB bytes via `io.BytesIO` — no temporary files are created or
+left behind.
 
 > **Quarantine boundary.** This is the recommended way to use `mir.Job`
 > from Python within `pproc`. Do **not** import `mir.python` directly
-> from pipeline or CLI code; route through `pproc.climate.mir_ops`. The
-> `mir/python/` tree is a hard quarantine boundary in the SSO migration
-> (no edits, no direct imports).
+> from pipeline or product code; route through `pproc.climate.mir_ops`.
+> The `mir/python/` tree is a hard quarantine boundary in the
+> climate-fields migration (no edits, no direct imports).
 
 ## Public API
 

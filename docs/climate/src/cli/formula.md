@@ -1,5 +1,14 @@
 # pproc-formula
 
+> **Transitional.** `pproc-formula` is a standalone CLI that predates
+> [`pproc-climate-fields`](climate-fields.md). It remains installed for
+> callers that invoke it directly (a few legacy wrappers and ad-hoc
+> shell pipelines). New code should not depend on this CLI; product
+> modules under `pproc.climate.generate.products.*` call
+> `pproc.formula.evaluate_formula` directly, and any new formula-based
+> field belongs in a product module. This CLI will be removed once the
+> remaining callers migrate.
+
 `pproc-formula` evaluates arithmetic formulae over GRIB fields. It reads
 one or more GRIB inputs, evaluates a formula (or a semicolon-separated
 list of formulae), and writes a single output GRIB file with one message

@@ -5,9 +5,13 @@
 
 # Command-line tools
 
+- [pproc-climate-fields](cli/climate-fields.md)
+  - [sso subcommand](cli/sso.md)
+
+# Transitional CLIs
+
 - [pproc-formula](cli/formula.md)
 - [pproc-gradient](cli/gradient.md)
-- [pproc-sso](cli/sso.md)
 
 # Library API
 

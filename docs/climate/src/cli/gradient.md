@@ -1,5 +1,14 @@
 # pproc-gradient
 
+> **Transitional.** `pproc-gradient` is a standalone CLI that predates
+> [`pproc-climate-fields`](climate-fields.md). It remains installed for
+> callers that invoke it directly (a few legacy wrappers and ad-hoc
+> shell pipelines). New code should not depend on this CLI; product
+> modules under `pproc.climate.generate.products.*` call
+> `pproc.climate.mir_ops.gradient` directly, and any new gradient-based
+> field belongs in a product module. This CLI will be removed once the
+> remaining callers migrate.
+
 `pproc-gradient` is a thin argparse wrapper over
 `pproc.climate.mir_ops.gradient` (for `scalar-gradient`) and an inline
 `mir.Job(nabla='scalar-laplacian')` invocation (for `scalar-laplacian`).

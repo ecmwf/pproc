@@ -1,10 +1,11 @@
 # pproc.common.io codec extensions
 
-`pproc.common.io` is the existing pproc I/O module. As part of the SSO
-migration it gained four GRIB codec helpers that drive in-memory
-transport between mir, the formula evaluator, and the SSO pipeline. All
-four are public and are the supported entry points for callers that
-need to encode or decode a GRIB byte buffer.
+`pproc.common.io` is the existing pproc I/O module. As part of the
+climate-fields migration it gained four GRIB codec helpers that drive
+in-memory transport between mir, the formula evaluator, and the
+twenty-seven [`pproc-climate-fields`](../cli/climate-fields.md)
+products. All four are public and are the supported entry points for
+callers that need to encode or decode a GRIB byte buffer.
 
 ## Public functions
 

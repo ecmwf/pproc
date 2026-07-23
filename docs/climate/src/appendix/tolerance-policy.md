@@ -1,13 +1,15 @@
 # Tolerance policy (D-F1)
 
-This page records the tolerance posture for the SSO migration's
-reference-output match. The decision was taken at the K2 pre-CLI
-coordination gate; the verbatim short-form note is reproduced in
-[pproc-sso § D-F1 tolerance posture](../cli/sso.md#d-f1-tolerance-posture).
-The longer-form analysis below explains the root cause, the GRIB
-quantum at play, the path forward, and the current resolution.
+This page records the tolerance posture for the climate-fields
+migration's reference-output match. The original decision was taken at
+the K2 pre-CLI coordination gate for the SSO product; the same
+float32-vs-float64 arithmetic-path pattern has since been observed on
+two additional products (`albedo` and `orography-variance`), documented
+below. The verbatim short-form note for SSO is reproduced in
+[pproc-climate-fields sso § D-F1 tolerance
+posture](../cli/sso.md#d-f1-tolerance-posture).
 
-## D-F1 outcome — verbatim from the K2 sign-off
+## D-F1 outcome — verbatim from the K2 sign-off (SSO)
 
 > Legacy ksh used float32 sqrt/atan2 inside mir-compute; our float64 numpy pipeline cannot bit-match, and the applied resolution is per-field atol floors:
 >
@@ -22,59 +24,94 @@ quantum at play, the path forward, and the current resolution.
 
 ## Float32 vs float64 root cause
 
-The reference outputs were produced by the legacy ksh script via
-`mir-compute`, which evaluates `sqrt` and `atan2` in **float32**
-internally and stores intermediates as `grid_simple` GRIB. The new
-Python pipeline evaluates the same expressions in
-`pproc.formula.evaluate_formula`, which dispatches to
-`numpy.sqrt`, `numpy.arctan2`, and friends — operating in **float64**
-throughout. As a consequence, the four output fields cannot be
-reproduced from the reference intermediates at the originally specified
-`rtol=1e-5` regardless of whether `--grib-roundtrip` is on. The drift
-is purely arithmetic precision, not algorithmic; our outputs are
-arguably more accurate than the reference.
+The reference outputs were produced by the legacy ksh scripts via
+`mir-compute`, which evaluates `sqrt`, `atan2`, and mixed
+arithmetic operations in **float32** internally and stores
+intermediates as `grid_simple` GRIB. The new Python pipeline evaluates
+the same expressions in `pproc.formula.evaluate_formula`, which
+dispatches to `numpy.sqrt`, `numpy.arctan2`, and friends — operating
+in **float64** throughout. As a consequence, three of the twenty-seven
+climate-field products cannot be reproduced from the reference
+intermediates at bit-identical precision regardless of whether
+`--grib-roundtrip` is on. The drift is purely arithmetic precision,
+not algorithmic; the new outputs are arguably more accurate than the
+reference.
 
-The drift was isolated by feeding the *reference* `orog_mgrid_diff_sq`
-and `land_mask` directly into `np.sqrt(x) * mask` and reproducing the
-same divergence — i.e. the gap is independent of any pipeline-internal
-step. The diagnostic is in
-`pproc/tests/climate/sso/test_pipeline.py` (module docstring lines
-24–67).
+For SSO, the drift was isolated by feeding the *reference*
+`orog_mgrid_diff_sq` and `land_mask` directly into `np.sqrt(x) * mask`
+and reproducing the same divergence — i.e. the gap is independent of
+any pipeline-internal step. The diagnostic is in
+`pproc/tests/climate/generate/test_pipeline.py` (module docstring
+lines 24–67).
 
-## The grid_simple quantum at `binaryScaleFactor=-21`
+## The grid_simple quantum at `binaryScaleFactor=-21` (SSO)
 
 `stdgwd` exhibits the largest absolute drift, ≈ 6.1 × 10⁻⁵. This is
 exactly **128 × 2⁻²¹**: the GRIB1 `grid_simple` packing of the
 reference field uses `binaryScaleFactor = -21`, giving a quantisation
 step of 2⁻²¹ ≈ 4.77 × 10⁻⁷ per packed value. The float32 `sqrt(x) *
 mask` result is then re-quantised at this resolution before being
-written to disk; our float64 result, written through the same packing,
+written to disk; the float64 result, written through the same packing,
 quantises to a *different* nearest representable value at points where
 the float32 and float64 sqrt outputs straddle a quantum boundary. The
 peak drift is therefore bounded by a small multiple of the quantum.
 
-The other three fields exhibit drifts at the float32 precision floor:
+The other three SSO fields exhibit drifts at the float32 precision
+floor:
 
 - `slogwd`: max abs diff ≈ 9.3 × 10⁻¹⁰ (machine-epsilon scale; only
   fails `rtol` because some reference values are themselves ≈ 10⁻¹⁰).
 - `isogwd`: max abs diff ≈ 3 × 10⁻⁸ (float32 precision near zero).
 - `anggwd`: max abs diff ≈ 10⁻⁷ (float32 `atan2` precision near zero).
 
+## Additional products with sub-packing D-F1 drift
+
+Two other products exhibit the same class of drift when compared
+against the legacy ksh reference outputs on the local test harness
+(N48 target grid, 30-arc-second source data). Both remain below the
+GRIB packing quantum used to store the reference; neither product
+widens its own tolerance thresholds.
+
+### `albedo` — 2 files, 1 pixel each
+
+`pproc-climate-fields albedo` produces six monthly outputs per input
+regime. Two of the twelve reference files differ at one pixel each,
+where the float32 `sqrt` and boundary-condition arithmetic straddles
+a `grid_simple` quantum boundary. All other pixels bit-match. Drift
+magnitude is at the packing quantum for the affected month/regime
+combinations.
+
+### `orography-variance` — 1879 pixels of 13280
+
+The formula `total_variance = mean_of_squares − mean²` is a
+catastrophic-cancellation identity: when two large positive numbers
+are subtracted to yield a small residual, the residual's precision is
+bounded by the least-precise summand. `mir-compute` performs the
+subtraction in float32; `pproc.formula.evaluate_formula` performs it
+in float64. The two paths diverge on 1879 of the 13280 N48-target
+grid points; all diffs remain below the `grid_simple` packing
+precision used to store the reference. Bit-identical reproduction
+would require inserting a float32 cast at the same subtraction point
+`mir-compute` uses; see [Path forward](#path-forward).
+
 ## Path forward
 
-If operations require bit-identical reproduction of the legacy outputs,
-the right fix is to cast to **float32** at the same points
-`mir-compute` does — namely the `sqrt` and `atan2` calls in Stage 9 —
-rather than weaken the test tolerances. This is a localised pipeline
-change inside `pproc.climate.sso.pipeline`; it does not alter any CLI
-argument surface and it can be added in a follow-up unit without
+If operations require bit-identical reproduction of the legacy outputs
+for the three affected products (`sso`, `albedo`,
+`orography-variance`), the right fix is to cast to **float32** at the
+same points `mir-compute` does — namely the `sqrt` / `atan2` calls in
+SSO Stage 9, the boundary-condition arithmetic in `albedo`, and the
+`mean_of_squares − mean²` subtraction in `orography-variance` —
+rather than weaken the test tolerances. Each is a localised pipeline
+change inside the product's `generate()` function; none alter any CLI
+argument surface and each can be added in a follow-up unit without
 breaking compatibility.
 
-The CLIs (`pproc-sso`, `pproc-gradient`, `pproc-formula`) do **not**
-expose `--rtol` / `--atol` flags. Tolerances belong to tests, not to
-the runtime contract.
+None of the [`pproc-climate-fields`](../cli/climate-fields.md) product
+CLIs expose `--rtol` / `--atol` flags. Tolerances belong to tests, not
+to the runtime contract.
 
-## Current resolution
+## Current resolution (SSO)
 
 Per-field `atol` floors at the arithmetic-noise level, with `rtol=1e-5`
 preserved across the board:
@@ -94,8 +131,14 @@ pipeline.
 
 ## Status
 
-This resolution is recorded at the **Pattern level** (i.e. accepted at
-the coordination gate that authorises CLI dispatch), pending operational
-sign-off. The K2 sign-off explicitly notes that user confirmation is
-still outstanding; until then, the tolerance floors above are the
-authoritative reference-match contract for the migration.
+The SSO resolution is recorded at the **Pattern level** (i.e. accepted
+at the coordination gate that authorises CLI dispatch), pending
+operational sign-off. The K2 sign-off explicitly notes that user
+confirmation is still outstanding.
+
+For `albedo` and `orography-variance`, the D-F1 characterisation is
+recorded at the Pattern level pending operational review of the
+per-pixel drift magnitudes. Until then, the tolerance floors above
+(for SSO) and the sub-packing-quantum bound (for the other two
+products) are the authoritative reference-match contract for the
+migration.
