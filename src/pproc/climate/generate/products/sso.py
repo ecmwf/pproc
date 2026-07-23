@@ -7,13 +7,14 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-"""Sub-grid scale orography (SSO) pipeline.
+"""``sso`` product: sub-grid scale orography pipeline.
 
-A faithful Python port of ``generate_subgrid_orography_sso.ksh`` (see
-``.weave/learnings/sso-migration.md`` for the ten-stage decomposition and
-the eleven mir-compute formulae). The pipeline takes a 5 km source
-orography on the working grid and a land mask on the target grid and
-produces four GRIB byte buffers:
+A faithful Python port of ``ifs-scripts/clim-pproc/generate_subgrid_orography_sso.ksh``
+(the pipeline logic was previously in ``pproc.climate.sso.pipeline`` and has
+been folded into this module unchanged — see ``.weave/learnings/sso-migration.md``
+for the ten-stage decomposition and the eleven mir-compute formulae).
+
+Result key → shortName mapping:
 
 ================  =========  ================
 Result key        shortName  Description
@@ -24,18 +25,17 @@ Result key        shortName  Description
 ``isogwd``        ``isor``   Anisotropy
 ================  =========  ================
 
-The pipeline supports two opt-in modes via :class:`SSOConfig`:
+The pipeline supports two opt-in modes on :class:`SSOGenerateConfig`:
 
-* ``grib_roundtrip=True`` — encode/decode every numpy result through GRIB
-  before it leaves a stage. This reproduces the per-step GRIB quantisation
-  that the original ksh script applied via the ``cat`` + ``mir-compute``
-  pattern, delivering value-array bit-identity with the reference data.
+* ``grib_roundtrip=True`` — encode/decode every numpy result through
+  GRIB before it leaves a stage. Reproduces the per-step GRIB
+  quantisation that the original ksh applied via the ``cat`` +
+  ``mir-compute`` pattern.
 * ``dump_intermediates=True`` — write the 16 named intermediates to
-  ``config.output_dir`` using their canonical ksh filenames. Filenames are
-  hard-coded (no user-supplied path component), so path traversal is not a
-  concern.
-
-Sequential execution; no implicit threading at the pipeline layer.
+  ``config.intermediates_dir`` using their canonical ksh filenames.
+  Debug output only: filenames are hard-coded (no user-supplied path
+  component), but the directory is configurable via
+  ``--intermediates-dir``.
 """
 
 from __future__ import annotations
@@ -43,18 +43,295 @@ from __future__ import annotations
 import logging
 import time
 from contextlib import contextmanager
-from typing import Iterator, Tuple
+from pathlib import Path
+from typing import Annotated, Iterator, Optional, Tuple
 
 import numpy as np
+from conflator import CLIArg
+from pydantic import Field, model_validator
 
 from pproc.climate import mir_ops
-from pproc.climate.sso.config import SSOConfig
+from pproc.climate.generate.config import BaseGenerateConfig
+from pproc.climate.generate.effective_resolution import (
+    compute_effective_resolution,
+    infer_grid_params,
+)
 from pproc.common.io import decode_grib, encode_grib
 
-__all__ = ["compute_sso"]
+__all__ = [
+    "FIELD_NAME",
+    "DESCRIPTION",
+    "CONFIG",
+    "SSOGenerateConfig",
+    "generate",
+    "compute_sso",
+]
+
+
+FIELD_NAME = "sso"
+DESCRIPTION = (
+    "Sub-grid scale orography: stdgwd/slogwd/anggwd/isogwd via the 10-stage pipeline."
+)
 
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Config
+# ---------------------------------------------------------------------------
+
+
+class SSOGenerateConfig(BaseGenerateConfig):
+    """Configuration for the SSO product.
+
+    Subclasses :class:`~pproc.climate.generate.config.BaseGenerateConfig`
+    (inheriting ``target_grid``, ``verbose``, ``grib_roundtrip``,
+    ``bits_per_value``) and adds the SSO-specific input/output paths and
+    grid knobs.
+
+    Field-to-env-var mapping (see ``.weave/learnings/sso-migration.md``):
+
+    ================================  ==========================================
+    Field                             ksh env var / source
+    ================================  ==========================================
+    ``orography``                     ``$inFile``
+    ``alt_orography``                 ``$inFile_alt``
+    ``land_mask``                     ``$maskFile``
+    ``target_grid``  (from base)      ``$MIR_GTYPE_SET``
+    ``model_grid_type``               ``$GTYPE_SET``
+    ``model_resolution``              ``$ORES``
+    ``orography_grid``                hardcoded ``N2000`` in the ksh script
+    ``effective_resolution``          ``$MIR_ERES_SET`` (derived)
+    ``stdgwd_out`` / ``slogwd_out`` / per-output-path replacement for the ksh
+    ``anggwd_out`` / ``isogwd_out``   ``$OUTPUT_DIR``
+    ``bits_per_value`` (from base)    (no env-var; ksh passes 32)
+    ================================  ==========================================
+    """
+
+    # extra="forbid" is inherited from BaseGenerateConfig? — no, ConfigModel
+    # itself does not set extra. Pin it here so unknown fields on YAML
+    # configs are caught loudly (matches the legacy SSOConfig behaviour).
+    model_config = {
+        "extra": "forbid",
+        "revalidate_instances": "always",
+        "validate_assignment": True,
+        "validate_default": True,
+    }
+
+    # --- Inputs --------------------------------------------------------
+
+    orography: Annotated[
+        Path,
+        CLIArg("--orography", default=None),
+        Field(
+            description="Source orography GRIB file (ksh: $inFile).",
+        ),
+    ]
+
+    alt_orography: Annotated[
+        Optional[Path],
+        CLIArg("--alt-orography", default=None),
+        Field(
+            description=(
+                "Alternative orography input. Used as a fallback when "
+                "``orography`` does not exist on disk: the alternative is "
+                "regridded to ``orography_grid`` and the result is cached "
+                "at the ``orography`` path. Matches the ksh's ``$inFile_alt``."
+            ),
+        ),
+    ] = None
+
+    land_mask: Annotated[
+        Path,
+        CLIArg("--land-mask", default=None),
+        Field(
+            description="Land mask GRIB on target grid (ksh: $maskFile).",
+        ),
+    ]
+
+    # --- Grid configuration --------------------------------------------
+    # ``target_grid`` is redeclared here to make it *required* (the base
+    # has it Optional). Conflator picks up the redeclared field cleanly.
+
+    target_grid: Annotated[
+        str,
+        CLIArg("--target-grid", default=None),
+        Field(
+            min_length=1,
+            description="Target output grid (ksh: $MIR_GTYPE_SET, e.g. 'N256').",
+        ),
+    ]
+
+    model_grid_type: Annotated[
+        str,
+        CLIArg("--model-grid-type", default=None),
+        Field(
+            description=(
+                "Model grid family code (ksh: $GTYPE_SET, e.g. 'O' or 'N'). "
+                "Auto-inferred from ``target_grid`` when both this and "
+                "``model_resolution`` are left at their defaults."
+            ),
+        ),
+    ] = ""
+
+    model_resolution: Annotated[
+        int,
+        CLIArg("--model-resolution", type=int, default=None),
+        Field(
+            ge=0,
+            description=(
+                "Model nominal resolution (ksh: $ORES, e.g. 80). "
+                "Auto-inferred from ``target_grid`` when both this and "
+                "``model_grid_type`` are left at their defaults."
+            ),
+        ),
+    ] = 0
+
+    orography_grid: Annotated[
+        str,
+        CLIArg("--orography-grid", default=None),
+        Field(
+            min_length=1,
+            description=(
+                "High-resolution working grid where SSO statistics are "
+                "computed. Operationally ``N2000`` (≈ 5 km, hardcoded in "
+                "the legacy ksh); tests use ``N256`` to keep fixtures small."
+            ),
+        ),
+    ]
+
+    effective_resolution: Annotated[
+        str,
+        CLIArg("--effective-resolution", default=None),
+        Field(
+            description=(
+                "Effective-resolution grid (ksh: $MIR_ERES_SET). Always "
+                "computed by ``resolve()`` from the model grid."
+            ),
+        ),
+    ] = ""
+
+    # --- Outputs (one Path per logical output) -------------------------
+
+    stdgwd_out: Annotated[
+        Path,
+        CLIArg("--stdgwd-out", default=None),
+        Field(
+            description=(
+                "Path for stdgwd output GRIB (shortName=sdor). Default ``./stdgwd``."
+            ),
+        ),
+    ] = Path("./stdgwd")
+
+    slogwd_out: Annotated[
+        Path,
+        CLIArg("--slogwd-out", default=None),
+        Field(
+            description=(
+                "Path for slogwd output GRIB (shortName=slor). Default ``./slogwd``."
+            ),
+        ),
+    ] = Path("./slogwd")
+
+    anggwd_out: Annotated[
+        Path,
+        CLIArg("--anggwd-out", default=None),
+        Field(
+            description=(
+                "Path for anggwd output GRIB (shortName=anor). Default ``./anggwd``."
+            ),
+        ),
+    ] = Path("./anggwd")
+
+    isogwd_out: Annotated[
+        Path,
+        CLIArg("--isogwd-out", default=None),
+        Field(
+            description=(
+                "Path for isogwd output GRIB (shortName=isor). Default ``./isogwd``."
+            ),
+        ),
+    ] = Path("./isogwd")
+
+    # --- Debug knobs ----------------------------------------------------
+
+    dump_intermediates: Annotated[
+        bool,
+        CLIArg("--dump-intermediates", action="store_true", default=None),
+        Field(
+            description=(
+                "Write the 16 named intermediate GRIB files to "
+                "``intermediates_dir`` (debug only)."
+            ),
+        ),
+    ] = False
+
+    intermediates_dir: Annotated[
+        Path,
+        CLIArg("--intermediates-dir", default=None),
+        Field(
+            description=(
+                "Directory for the 16 named intermediates when "
+                "``--dump-intermediates`` is set. Filenames are "
+                "algorithm-intrinsic (hard-coded); only the directory "
+                "is user-controlled. Default ``.``."
+            ),
+        ),
+    ] = Path(".")
+
+    # ------------------------------------------------------------------
+
+    def resolve(self) -> "SSOGenerateConfig":
+        """Return a copy with all auto-inferred fields populated.
+
+        Idempotent. Inference precedence: if the caller supplied BOTH
+        ``model_grid_type`` and ``model_resolution`` explicitly, take
+        them as given; otherwise infer both from ``target_grid``.
+        ``effective_resolution`` is always recomputed from the resolved
+        model grid.
+        """
+        explicit_model = bool(self.model_grid_type) and self.model_resolution > 0
+
+        if explicit_model:
+            grid_type = self.model_grid_type
+            resolution = self.model_resolution
+        else:
+            grid_type, resolution = infer_grid_params(self.target_grid)
+
+        eff_res = compute_effective_resolution(grid_type, resolution)
+
+        return self.model_copy(
+            update={
+                "model_grid_type": grid_type,
+                "model_resolution": resolution,
+                "effective_resolution": eff_res,
+            }
+        )
+
+    @model_validator(mode="after")
+    def _paths_are_paths(self) -> "SSOGenerateConfig":
+        """Ensure Path-typed fields survive dict inputs as ``pathlib.Path``.
+
+        Pydantic's Path coercion covers most cases, but round-tripping
+        via ``model_dump(mode='json')`` produces strings; this validator
+        keeps ``SSOGenerateConfig(**cfg.model_dump()).orography ==
+        Path(...)`` invariant across YAML/JSON boundaries.
+        """
+        # Nothing to do — Path fields are already coerced by pydantic.
+        # Kept as a hook for future path-shape checks.
+        return self
+
+
+CONFIG = SSOGenerateConfig
+
+
+# ---------------------------------------------------------------------------
+# Pipeline helpers (moved verbatim from pproc.climate.sso.pipeline; the only
+# adjustments below are that ``output_dir`` → ``intermediates_dir`` for the
+# intermediate dumps, and metadata/write of the four outputs now happens
+# by returning bytes rather than writing to disk).
+# ---------------------------------------------------------------------------
 
 
 @contextmanager
@@ -67,15 +344,12 @@ def _stage(label: str) -> Iterator[None]:
     try:
         yield
     finally:
-        # Trim the label to the stage-number prefix for the completion line:
-        # the human label is already in the entry line, the completion line
-        # just needs an identifier + the elapsed measurement.
         stage_id = label.split(" ", 1)[0]
         logger.info("stage %s complete elapsed=%.3f", stage_id, time.monotonic() - t0)
 
 
 def _log_array(stage_name: str, arr: np.ndarray) -> None:
-    """DEBUG-only sketch of a numpy intermediate: shape, dtype, byte size."""
+    """DEBUG-only sketch of a numpy intermediate."""
     if logger.isEnabledFor(logging.DEBUG):
         logger.debug(
             "%s array shape=%s dtype=%s bytes=%d",
@@ -86,18 +360,10 @@ def _log_array(stage_name: str, arr: np.ndarray) -> None:
         )
 
 
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
-
-
 def _decode(grib_bytes: bytes) -> Tuple[np.ndarray, bytes]:
-    """Decode the first message in ``grib_bytes`` and return ``(values,
-    template_bytes)``.
+    """Decode the first message; return ``(values, template_bytes)``.
 
-    The template bytes are kept in their wire form so they can be reused as
-    an :func:`encode_grib` template without losing the section-1/section-4
-    metadata. Returning ``grib_bytes`` directly is fine: ``encode_grib``
+    Returning the raw ``grib_bytes`` as template is fine — ``encode_grib``
     only reads the first message of a multi-message buffer.
     """
     values, _ = decode_grib(grib_bytes)
@@ -107,18 +373,11 @@ def _decode(grib_bytes: bytes) -> Tuple[np.ndarray, bytes]:
 def _maybe_roundtrip(
     values: np.ndarray,
     template: bytes,
-    config: SSOConfig,
+    config: SSOGenerateConfig,
     *,
     stage: str = "",
 ) -> np.ndarray:
-    """Apply per-step GRIB quantisation when ``grib_roundtrip`` is on.
-
-    The original ksh script writes every intermediate to disk as GRIB and
-    reads it back for the next stage; mir-compute internally re-encodes
-    its output to the input's packing. Reproducing this behaviour at every
-    numpy step is the only way to land bit-identity at the values array
-    against the reference outputs, hence the watch-item in the K1 sign-off.
-    """
+    """Apply per-step GRIB quantisation when ``grib_roundtrip`` is on."""
     if not config.grib_roundtrip:
         return values
     if logger.isEnabledFor(logging.DEBUG):
@@ -133,39 +392,27 @@ def _maybe_roundtrip(
     return decoded
 
 
-def _write_intermediate(name: str, payload: bytes, config: SSOConfig) -> None:
+def _write_intermediate(name: str, payload: bytes, config: SSOGenerateConfig) -> None:
     """Persist a named intermediate when ``dump_intermediates`` is on.
 
-    ``name`` is hard-coded at every call site (one per row of the
-    "Stage → intermediate file mapping" table in the migration learnings),
-    so the joined path cannot escape ``output_dir`` via traversal. The
-    output directory is created on demand to keep the test fixture's
-    ``tmp_path`` integration clean.
+    ``name`` is hard-coded at every call site (matches the ksh's canonical
+    filenames) — so the joined path cannot escape ``intermediates_dir``
+    via traversal. The directory is created on demand.
     """
     if not config.dump_intermediates:
         return
-    config.output_dir.mkdir(parents=True, exist_ok=True)
-    target = config.output_dir / name
+    config.intermediates_dir.mkdir(parents=True, exist_ok=True)
+    target = config.intermediates_dir / name
     target.write_bytes(payload)
     logger.info("wrote intermediate %s → %s (%d bytes)", name, target, len(payload))
 
 
 def _encode_on_template(values: np.ndarray, template: bytes) -> bytes:
-    """Encode ``values`` against ``template``'s wire bytes.
-
-    Thin convenience wrapper that keeps the call sites tidy.
-    """
     return encode_grib(values, template)
 
 
-def _output_metadata(short_name: str, config: SSOConfig) -> dict:
-    """Build the output metadata dict, optionally pinning bitsPerValue.
-
-    When ``config.bits_per_value`` is ``None`` (the default), the returned
-    dict omits the ``bitsPerValue`` key entirely so that eccodes inherits
-    or defaults the value from the packing in use (``grid_simple``). When
-    set, the value is added so the user gets the precision they asked for.
-    """
+def _output_metadata(short_name: str, config: SSOGenerateConfig) -> dict:
+    """Build the output metadata dict, optionally pinning bitsPerValue."""
     metadata: dict = {"shortName": short_name, "packingType": "grid_simple"}
     if config.bits_per_value is not None:
         metadata["bitsPerValue"] = config.bits_per_value
@@ -177,32 +424,18 @@ def _output_metadata(short_name: str, config: SSOConfig) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def _stage_source_to_orography_grid(config: SSOConfig) -> bytes:
+def _stage_source_to_orography_grid(config: SSOGenerateConfig) -> bytes:
     """Stage 1 — source orography lifted onto ``config.orography_grid``.
 
-    Three cases, matching the legacy ksh's ``inFile`` / ``inFile_alt``
-    two-file pattern (lines 101–114 of the original script):
+    Three cases:
 
-    1. **Fast path / pass through** — ``config.orography`` exists on
-       disk and its ``gridName`` already equals
-       ``config.orography_grid``. The bytes pass through unchanged.
-    2. **Grid mismatch (configuration error)** — ``config.orography``
-       exists but is on a different grid than ``config.orography_grid``.
-       This is treated as a configuration error: ``--orography`` is the
-       authoritative declaration "this file is on
-       ``--orography-grid``"; if it is not, raise ``ValueError`` rather
-       than silently regridding. Operators who knowingly want to
-       regrid-and-cache should move the file to ``--alt-orography``.
-    3. **Fallback with cache writeback** — ``config.orography`` does
-       NOT exist. If ``config.alt_orography`` is supplied (and exists),
-       the alternative is regridded to ``config.orography_grid`` and the
-       result is written to the ``config.orography`` path so subsequent
-       runs hit case 1. Mirrors the legacy ksh's
-       ``cp $fileName ${XDATA_IFS}/$fileName`` (line 109).
-
-    If neither file exists, or ``config.orography`` is missing and no
-    alternative was supplied, a ``FileNotFoundError`` is raised with a
-    message pointing the operator at ``--alt-orography``.
+    1. Fast path: ``config.orography`` exists and matches
+       ``config.orography_grid`` — bytes pass through.
+    2. Grid mismatch: file exists but on a different grid → ValueError
+       (operators should move to ``--alt-orography`` for regrid+cache).
+    3. Fallback: ``config.orography`` missing → regrid ``alt_orography``
+       to ``orography_grid`` and cache-writeback to the ``orography``
+       path (matches the ksh's ``inFile`` / ``inFile_alt`` pattern).
     """
     if config.orography.is_file():
         grib_bytes = config.orography.read_bytes()
@@ -254,12 +487,6 @@ def _stage_source_to_orography_grid(config: SSOConfig) -> bytes:
         regridded = mir_ops.interpolate(
             alt_bytes, grid=config.orography_grid, method="grid-box-average"
         )
-        # Cache writeback: matches legacy ksh's
-        # ``cp $fileName ${XDATA_IFS}/$fileName`` at line 109. If the
-        # parent directory does not exist or is not writable, let the
-        # OS error propagate -- operators are expected to pre-create
-        # their cache directory (matching ``${XDATA_IFS}``). No atomic
-        # rename: concurrent runs are out of scope, as in the ksh.
         config.orography.write_bytes(regridded)
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(
@@ -276,17 +503,15 @@ def _stage_source_to_orography_grid(config: SSOConfig) -> bytes:
     )
 
 
-def _stage_conservative_to_eres(orog_5km: bytes, config: SSOConfig) -> bytes:
-    """Stage 2 — orography aggregated to the effective resolution (eres)."""
+def _stage_conservative_to_eres(orog_5km: bytes, config: SSOGenerateConfig) -> bytes:
     return mir_ops.interpolate(
         orog_5km, grid=config.effective_resolution, method="grid-box-average"
     )
 
 
 def _stage_bilinear_back_to_orography_grid(
-    orog_egrid: bytes, config: SSOConfig
+    orog_egrid: bytes, config: SSOGenerateConfig
 ) -> bytes:
-    """Stage 3 — orog_egrid bilinearly interpolated back to the working grid."""
     return mir_ops.interpolate(
         orog_egrid, grid=config.orography_grid, method="structured-bilinear"
     )
@@ -295,14 +520,9 @@ def _stage_bilinear_back_to_orography_grid(
 def _stage_difference_and_squared_difference(
     orog_5km: bytes,
     orog_egrid_og: bytes,
-    config: SSOConfig,
+    config: SSOGenerateConfig,
 ) -> Tuple[bytes, bytes]:
-    """Stage 4 — produce ``orog_egrid_diff`` and ``orog_egrid_diff_sq``.
-
-    Equivalent to the ksh ``cat $inFile orog_egrid_N2000 > tmp`` followed
-    by the two ``mir-compute`` calls. We keep the template aligned with
-    ``orog_5km`` (the first concatenated message), matching the ksh order.
-    """
+    """Stage 4 — produce ``orog_egrid_diff`` and ``orog_egrid_diff_sq``."""
     orog_5km_arr, template = _decode(orog_5km)
     orog_egrid_og_arr, _ = _decode(orog_egrid_og)
 
@@ -320,16 +540,14 @@ def _stage_difference_and_squared_difference(
 
 
 def _stage_gradient(orog_egrid_diff_bytes: bytes) -> Tuple[bytes, bytes]:
-    """Stage 5 — scalar gradient (∂h/∂x, ∂h/∂y) of ``orog_egrid_diff``."""
     return mir_ops.gradient(orog_egrid_diff_bytes, poles_missing_values=True)
 
 
 def _stage_gradient_products(
     gradx_bytes: bytes,
     grady_bytes: bytes,
-    config: SSOConfig,
+    config: SSOGenerateConfig,
 ) -> Tuple[bytes, bytes, bytes]:
-    """Stage 6 — three pointwise products of the gradient components."""
     gradx, template = _decode(gradx_bytes)
     grady, _ = _decode(grady_bytes)
 
@@ -353,9 +571,8 @@ def _stage_gradient_products(
 
 
 def _stage_aggregate_to_eres(
-    fields: Tuple[bytes, bytes, bytes, bytes], config: SSOConfig
+    fields: Tuple[bytes, bytes, bytes, bytes], config: SSOGenerateConfig
 ) -> Tuple[bytes, bytes, bytes, bytes]:
-    """Stage 7 — conservative aggregation of four N256 fields to eres."""
     aggregated = tuple(
         mir_ops.interpolate(
             payload,
@@ -368,9 +585,8 @@ def _stage_aggregate_to_eres(
 
 
 def _stage_aggregate_to_target(
-    fields: Tuple[bytes, bytes, bytes, bytes], config: SSOConfig
+    fields: Tuple[bytes, bytes, bytes, bytes], config: SSOGenerateConfig
 ) -> Tuple[bytes, bytes, bytes, bytes]:
-    """Stage 8 — conservative aggregation of four eres fields to the target."""
     aggregated = tuple(
         mir_ops.interpolate(payload, grid=config.target_grid, method="grid-box-average")
         for payload in fields
@@ -379,9 +595,8 @@ def _stage_aggregate_to_target(
 
 
 def _stage_stdgwd(
-    orog_mgrid_diff_sq: bytes, land_mask: np.ndarray, config: SSOConfig
+    orog_mgrid_diff_sq: bytes, land_mask: np.ndarray, config: SSOGenerateConfig
 ) -> bytes:
-    """Stage 9.1 — ``stdgwd = sqrt(orog_mgrid_diff_sq) * land_mask``."""
     diff_sq, template = _decode(orog_mgrid_diff_sq)
     stdgwd = np.sqrt(diff_sq) * land_mask
     _log_array("stage 9.1 stdgwd", stdgwd)
@@ -399,7 +614,7 @@ def _stage_klmlprime_lsm(
     gradxy_bytes: bytes,
     land_mask_bytes: bytes,
     land_mask: np.ndarray,
-    config: SSOConfig,
+    config: SSOGenerateConfig,
 ) -> Tuple[
     np.ndarray,
     np.ndarray,
@@ -408,21 +623,11 @@ def _stage_klmlprime_lsm(
     np.ndarray,
     bytes,
 ]:
-    """Stage 9.2.a — compute the K, L, M, Lprime bundle.
-
-    Returns the five numpy arrays in the canonical bundle order
-    ``(K, L, M, Lprime, land_mask)`` plus the template bytes (taken from
-    the first input, ``gradxx``) for downstream encoding.
-
-    Bundle order is load-bearing: the ksh formula 10 references ``f1`` and
-    ``f4`` positionally, which only works if the bundle is K-first /
-    Lprime-fourth (matching ``--variables=K;L;M;Lprime;land_mask``).
-    """
+    """Compute the K, L, M, Lprime bundle."""
     gradxx, template = _decode(gradxx_bytes)
     gradyy, _ = _decode(gradyy_bytes)
     gradxy, _ = _decode(gradxy_bytes)
 
-    # Five sub-formulae from the ksh's --formula= line 237.
     K = 0.5 * (gradxx + gradyy)
     L = 0.5 * (gradxx - gradyy)
     M = gradxy
@@ -436,7 +641,6 @@ def _stage_klmlprime_lsm(
     L = _maybe_roundtrip(L, template, config, stage="9.2.a L")
     M = _maybe_roundtrip(M, template, config, stage="9.2.a M")
     Lprime = _maybe_roundtrip(Lprime, template, config, stage="9.2.a Lprime")
-    # land_mask is already on disk as GRIB; no further roundtrip is needed.
     _ = land_mask_bytes  # kept in signature for symmetry / future hooks
 
     return K, L, M, Lprime, land_mask, template
@@ -447,9 +651,8 @@ def _stage_slogwd(
     Lprime: np.ndarray,
     land_mask: np.ndarray,
     template: bytes,
-    config: SSOConfig,
+    config: SSOGenerateConfig,
 ) -> bytes:
-    """Stage 9.2.b — ``slogwd = sqrt(K + Lprime) * land_mask``."""
     slogwd = np.sqrt(K + Lprime) * land_mask
     _log_array("stage 9.2.b slogwd", slogwd)
     slogwd = _maybe_roundtrip(slogwd, template, config, stage="9.2.b slogwd")
@@ -465,7 +668,7 @@ def _stage_isogwd(
     Lprime: np.ndarray,
     land_mask: np.ndarray,
     template: bytes,
-    config: SSOConfig,
+    config: SSOGenerateConfig,
 ) -> bytes:
     """Stage 9.2.c — anisotropy.
 
@@ -473,11 +676,6 @@ def _stage_isogwd(
 
         sqrt( ((f1 - f4) * K_Lprime_gt_0)
               / ((f1 + f4) * K_Lprime_gt_epsilon + 0.00000001) ) * land_mask
-
-    where ``f1=K``, ``f4=Lprime``, ``K_Lprime_gt_0 = (K-Lprime) > 0`` and
-    ``K_Lprime_gt_epsilon = (K+Lprime) > 0.00000001``. The epsilon literal
-    ``0.00000001`` (= 1e-8) is reproduced verbatim — the K1 watch-items
-    flag this as a D-F1 candidate if outputs drift.
     """
     epsilon = 0.00000001
     k_lprime_gt_0 = ((K - Lprime) > 0).astype(np.float64)
@@ -499,14 +697,9 @@ def _stage_anggwd(
     M: np.ndarray,
     land_mask: np.ndarray,
     template: bytes,
-    config: SSOConfig,
+    config: SSOGenerateConfig,
 ) -> bytes:
-    """Stage 9.2.d — orientation.
-
-    The ksh formula 11 is ``0.5 * atan2(M, L) * land_mask``. Argument
-    order matters: ``atan2(y=M, x=L)``, NOT ``atan2(L, M)``. K1 watch-items
-    flag this as a D-F1 candidate if outputs drift.
-    """
+    """Stage 9.2.d — orientation. ``atan2(y=M, x=L)`` — argument order matters."""
     anggwd = 0.5 * np.arctan2(M, L) * land_mask
     _log_array("stage 9.2.d anggwd", anggwd)
     anggwd = _maybe_roundtrip(anggwd, template, config, stage="9.2.d anggwd")
@@ -518,58 +711,39 @@ def _stage_anggwd(
 
 
 # ---------------------------------------------------------------------------
-# Public entry point
+# Public entry points
 # ---------------------------------------------------------------------------
 
 
-def compute_sso(config: SSOConfig) -> dict[str, bytes]:
+def compute_sso(config: SSOGenerateConfig) -> dict[str, bytes]:
     """Run the ten-stage SSO pipeline end-to-end.
 
     The pipeline implements the three-grid operational model:
 
-    * ``source`` — the grid the input ``config.orography`` arrives on
-      (auto-detected from the GRIB's ``gridName``).
-    * ``config.orography_grid`` — the high-resolution working grid where
-      SSO statistics are computed (operationally N2000 ≈ 5 km; tests
-      use N256).
-    * ``config.effective_resolution`` — the coarse aggregation grid
-      (eres) derived from the model grid via Unit C.
-    * ``config.target_grid`` — the final IFS model grid on which the
-      four outputs are written.
-
-    Stage 1 treats ``config.orography`` as authoritative: the bytes
-    pass through if the input is on ``config.orography_grid``; if it
-    is on a different grid, a ``ValueError`` is raised (configuration
-    error — supply a matching file or move it to ``alt_orography`` to
-    have it regridded). The ``alt_orography`` fallback path is the
-    only place that performs a silent regrid, and only when
-    ``config.orography`` is missing on disk.
-
-    Parameters
-    ----------
-    config:
-        A resolved :class:`SSOConfig` instance.
-        ``effective_resolution``, ``model_grid_type`` and
-        ``model_resolution`` are expected to be filled in (call
-        ``config.resolve()`` first).
+    * ``source``      — grid the input orography arrives on
+                        (auto-detected from the GRIB's ``gridName``).
+    * ``orography_grid`` — high-resolution working grid where SSO
+                        statistics are computed (operationally N2000;
+                        tests use N256).
+    * ``effective_resolution`` — coarse aggregation grid derived from
+                        the model grid.
+    * ``target_grid`` — final IFS model grid on which the four outputs
+                        are written.
 
     Returns
     -------
     dict[str, bytes]
-        Keys ``stdgwd``, ``slogwd``, ``anggwd``, ``isogwd``; each value is
-        a single-message GRIB byte buffer with ``packingType=grid_simple``
+        Keys ``stdgwd``, ``slogwd``, ``anggwd``, ``isogwd``; each value
+        is a single-message GRIB byte buffer with ``packingType=grid_simple``
         and the corresponding ``shortName``.
     """
-    # ------- Stage 1: source → orography_grid (or pass through) ---------
     with _stage("1 source → orography grid"):
         orog_5km_bytes = _stage_source_to_orography_grid(config)
 
-    # ------- Stage 2: → effective resolution ---------------------------
     with _stage("2 orography grid → effective resolution"):
         orog_egrid_bytes = _stage_conservative_to_eres(orog_5km_bytes, config)
     _write_intermediate("orog_egrid", orog_egrid_bytes, config)
 
-    # ------- Stage 3: ← bilinear back to orography_grid ----------------
     with _stage("3 effective resolution → orography grid (bilinear)"):
         orog_egrid_og_bytes = _stage_bilinear_back_to_orography_grid(
             orog_egrid_bytes, config
@@ -578,7 +752,6 @@ def compute_sso(config: SSOConfig) -> dict[str, bytes]:
         f"orog_egrid_{config.orography_grid}", orog_egrid_og_bytes, config
     )
 
-    # ------- Stage 4: difference + squared difference ------------------
     with _stage("4 diff and diff²"):
         orog_egrid_diff_bytes, orog_egrid_diff_sq_bytes = (
             _stage_difference_and_squared_difference(
@@ -587,13 +760,11 @@ def compute_sso(config: SSOConfig) -> dict[str, bytes]:
         )
     _write_intermediate("orog_egrid_diff", orog_egrid_diff_bytes, config)
 
-    # ------- Stage 5: scalar gradient ----------------------------------
     with _stage("5 scalar gradient"):
         gradx_bytes, grady_bytes = _stage_gradient(orog_egrid_diff_bytes)
     if config.dump_intermediates:
         _write_intermediate("orog_egrid_diff_grad", gradx_bytes + grady_bytes, config)
 
-    # ------- Stage 6: gradient products --------------------------------
     with _stage("6 gradient products"):
         gradx_sq_bytes, grady_sq_bytes, gradxy_bytes = _stage_gradient_products(
             gradx_bytes, grady_bytes, config
@@ -602,7 +773,6 @@ def compute_sso(config: SSOConfig) -> dict[str, bytes]:
     _write_intermediate("orog_egrid_diff_grady_sq", grady_sq_bytes, config)
     _write_intermediate("orog_egrid_diff_gradxy", gradxy_bytes, config)
 
-    # ------- Stage 7: aggregate to eres --------------------------------
     with _stage("7 aggregate to effective resolution"):
         eres_bundle = _stage_aggregate_to_eres(
             (
@@ -624,7 +794,6 @@ def compute_sso(config: SSOConfig) -> dict[str, bytes]:
     _write_intermediate("orog_eff_diff_grady_sq", orog_eff_diff_grady_sq_bytes, config)
     _write_intermediate("orog_eff_diff_gradxy", orog_eff_diff_gradxy_bytes, config)
 
-    # ------- Stage 8: aggregate to target ------------------------------
     with _stage("8 aggregate to target grid"):
         target_bundle = _stage_aggregate_to_target(eres_bundle, config)
     (
@@ -642,13 +811,11 @@ def compute_sso(config: SSOConfig) -> dict[str, bytes]:
     )
     _write_intermediate("orog_mgrid_diff_gradxy", orog_mgrid_diff_gradxy_bytes, config)
 
-    # ------- Stage 9.1: stdgwd ----------------------------------------
     with _stage("9.1 stdgwd"):
         land_mask_bytes = config.land_mask.read_bytes()
         land_mask, _ = decode_grib(land_mask_bytes)
         stdgwd_bytes = _stage_stdgwd(orog_mgrid_diff_sq_bytes, land_mask, config)
 
-    # ------- Stage 9.2: KLMLprime / slogwd / isogwd / anggwd ----------
     with _stage("9.2 KLMLprime / slogwd / isogwd / anggwd"):
         K, L, M, Lprime, lsm, mgrid_template = _stage_klmlprime_lsm(
             orog_mgrid_diff_gradx_sq_bytes,
@@ -659,9 +826,9 @@ def compute_sso(config: SSOConfig) -> dict[str, bytes]:
             config,
         )
         if config.dump_intermediates:
-            # Concatenate K, L, M, Lprime, land_mask in that order to match
-            # ``--variables=K;L;M;Lprime;land_mask`` in the ksh — formula 10
-            # references f1/f4 positionally, so this order is load-bearing.
+            # K, L, M, Lprime, land_mask — order load-bearing (matches ksh's
+            # --variables=K;L;M;Lprime;land_mask, which formula 10 references
+            # positionally as f1..f5).
             bundle = b"".join(
                 encode_grib(arr, mgrid_template) for arr in (K, L, M, Lprime, lsm)
             )
@@ -677,3 +844,18 @@ def compute_sso(config: SSOConfig) -> dict[str, bytes]:
         "anggwd": anggwd_bytes,
         "isogwd": isogwd_bytes,
     }
+
+
+def generate(config: SSOGenerateConfig) -> dict[str, bytes]:
+    """Product entry point.
+
+    Resolves the config (inferring model/effective grids from
+    ``target_grid`` when the operator did not pin them explicitly) and
+    hands off to :func:`compute_sso`. Errors from Stage 1's file /
+    grid checks propagate as ``FileNotFoundError`` / ``ValueError`` —
+    the dispatcher (``pproc.climate.generate.__main__``) converts them
+    into clean non-zero exits with the ``pproc-climate-fields
+    sso: error: ...`` prefix.
+    """
+    resolved = config.resolve()
+    return compute_sso(resolved)

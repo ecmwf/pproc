@@ -7,7 +7,7 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-"""Tests for pproc.climate.sso.pipeline.compute_sso.
+"""Tests for pproc.climate.generate.products.sso.compute_sso.
 
 Drives the full 10-stage SSO computation against the reference data at the
 repo root and ``./data/output/``. The tests are organised around the four
@@ -74,12 +74,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pproc.climate.sso.config import SSOConfig
-from pproc.climate.sso.pipeline import compute_sso
+from pproc.climate.generate.products.sso import SSOGenerateConfig, compute_sso
 from pproc.common.io import decode_grib, decode_multi_grib
 
 
-# This file lives at ``pproc/pproc/tests/climate/sso/test_pipeline.py`` —
+# This file lives at ``pproc/pproc/tests/climate/generate/test_pipeline.py`` —
 # 5 path components below the repo root, so ``parents[4]`` is the repo root
 # (where ``data/`` and the 16 reference intermediates live).
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -156,14 +155,14 @@ def canonical_config(tmp_path):
     (operationally this would be ``N2000``; the reference fixtures use
     ``N256`` to stay small).
     """
-    return SSOConfig(
+    return SSOGenerateConfig(
         orography=REPO_ROOT / "data" / "input" / "ifs" / "orog_5km",
         land_mask=REPO_ROOT / "data" / "input" / "ifs" / "land_mask",
         target_grid="N256",
         model_grid_type="O",
         model_resolution=80,
         orography_grid="N256",
-        output_dir=tmp_path,
+        intermediates_dir=tmp_path,
     ).resolve()
 
 
@@ -270,7 +269,7 @@ class TestDumpIntermediates:
         cfg = canonical_config.model_copy(update={"dump_intermediates": True})
         compute_sso(cfg)
         for name in self.INTERMEDIATE_NAMES:
-            f = cfg.output_dir / name
+            f = cfg.intermediates_dir / name
             assert f.exists(), f"missing intermediate: {name}"
             assert f.stat().st_size > 0, f"empty intermediate: {name}"
 
@@ -284,14 +283,16 @@ class TestDumpIntermediates:
             "orog_eff_diff_sq",
             "orog_mgrid_diff_sq",
         ]:
-            actual = _values((cfg.output_dir / name).read_bytes())
+            actual = _values((cfg.intermediates_dir / name).read_bytes())
             expected = _reference_intermediate(name)
             np.testing.assert_allclose(actual, expected, rtol=1e-5, err_msg=name)
 
     def test_klmlprime_lsm_has_5_messages_in_correct_order(self, canonical_config):
         cfg = canonical_config.model_copy(update={"dump_intermediates": True})
         compute_sso(cfg)
-        actual = decode_multi_grib((cfg.output_dir / "KLMLprime_lsm").read_bytes(), 5)
+        actual = decode_multi_grib(
+            (cfg.intermediates_dir / "KLMLprime_lsm").read_bytes(), 5
+        )
         expected = decode_multi_grib((REPO_ROOT / "KLMLprime_lsm").read_bytes(), 5)
         assert len(actual) == 5
         # Order is K, L, M, Lprime, land_mask — the same order as the ksh
@@ -305,7 +306,7 @@ class TestDumpIntermediates:
         cfg = canonical_config.model_copy(update={"dump_intermediates": True})
         compute_sso(cfg)
         msgs = decode_multi_grib(
-            (cfg.output_dir / "orog_egrid_diff_grad").read_bytes(), 2
+            (cfg.intermediates_dir / "orog_egrid_diff_grad").read_bytes(), 2
         )
         assert len(msgs) == 2
 
@@ -438,14 +439,14 @@ class TestStage1GridMismatch:
     }
 
     def _config(self, tmp_path, orography_path):
-        return SSOConfig(
+        return SSOGenerateConfig(
             orography=orography_path,
             land_mask=REPO_ROOT / "data" / "input" / "ifs" / "land_mask",
             target_grid="N256",
             model_grid_type="O",
             model_resolution=80,
             orography_grid="N256",
-            output_dir=tmp_path,
+            intermediates_dir=tmp_path,
         ).resolve()
 
     def test_grid_mismatch_raises_value_error(self, tmp_path):
@@ -499,7 +500,7 @@ class TestStage1AltOrographyFallback:
     }
 
     def _config(self, tmp_path, orography_path, alt_orography_path=None):
-        return SSOConfig(
+        return SSOGenerateConfig(
             orography=orography_path,
             alt_orography=alt_orography_path,
             land_mask=REPO_ROOT / "data" / "input" / "ifs" / "land_mask",
@@ -507,7 +508,7 @@ class TestStage1AltOrographyFallback:
             model_grid_type="O",
             model_resolution=80,
             orography_grid="N256",
-            output_dir=tmp_path,
+            intermediates_dir=tmp_path,
         ).resolve()
 
     def test_orography_missing_alt_supplied_uses_alt(self, tmp_path):

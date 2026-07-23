@@ -1,4 +1,4 @@
-"""Tests for pproc.climate.sso.effective_resolution.
+"""Tests for pproc.climate.generate.effective_resolution.
 
 Mirrors the ksh logic at lines 73-90 of generate_subgrid_orography_sso.ksh:
 
@@ -14,7 +14,7 @@ Mirrors the ksh logic at lines 73-90 of generate_subgrid_orography_sso.ksh:
 
 import pytest
 
-from pproc.climate.sso.effective_resolution import (
+from pproc.climate.generate.effective_resolution import (
     compute_effective_resolution,
     infer_grid_params,
 )

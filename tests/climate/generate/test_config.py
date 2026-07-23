@@ -1,4 +1,4 @@
-"""Tests for pproc.climate.sso.config.SSOConfig.
+"""Tests for pproc.climate.generate.products.sso.SSOGenerateConfig.
 
 Verifies that the Pydantic model correctly mirrors the ksh script's env-var
 table (see ``.weave/learnings/sso-migration.md``) and that ``resolve()``:
@@ -25,7 +25,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from pproc.climate.sso.config import SSOConfig
+from pproc.climate.generate.products.sso import SSOGenerateConfig as SSOConfig
 
 
 @pytest.fixture
@@ -185,6 +185,10 @@ class TestEnvVarMapping:
     """Pin the field names against the env-var table from sso-migration.md."""
 
     def test_all_documented_fields_present(self):
+        # ``output_dir`` was replaced by per-output-path fields when the
+        # SSO pipeline was folded into ``pproc-climate-fields``;
+        # the four ``*_out`` fields plus ``intermediates_dir`` are the
+        # new surface. See ``pproc/src/pproc/climate/generate/products/sso.py``.
         fields = SSOConfig.model_fields.keys()
         for required in (
             "orography",
@@ -194,7 +198,11 @@ class TestEnvVarMapping:
             "model_resolution",
             "orography_grid",
             "effective_resolution",
-            "output_dir",
+            "stdgwd_out",
+            "slogwd_out",
+            "anggwd_out",
+            "isogwd_out",
+            "intermediates_dir",
             "grib_roundtrip",
             "dump_intermediates",
         ):
@@ -202,10 +210,13 @@ class TestEnvVarMapping:
 
     def test_dropped_fields_absent(self):
         # ``output_grid`` and ``source_orography`` were dropped in the
-        # three-grid refactor; make sure they don't sneak back in.
+        # three-grid refactor; ``output_dir`` was dropped when the pipeline
+        # moved into ``pproc-climate-fields`` (replaced by per-
+        # output-path CLI flags). Guard against silent regressions.
         fields = SSOConfig.model_fields.keys()
         assert "output_grid" not in fields
         assert "source_orography" not in fields
+        assert "output_dir" not in fields
 
     def test_mir_version_not_exposed(self):
         # MIR_VERSION / MIR_COMPUTE_VERSION are tool config, not pipeline

@@ -70,7 +70,7 @@ pproc-ecpoint = "pproc.ecpoint:main"
 pproc-flight-levels = "pproc.flight_levels:main"
 pproc-formula = "pproc.formula_cli:main"
 pproc-gradient = "pproc.gradient:main"
-pproc-sso = "pproc.sso:main"
+pproc-climate-fields = "pproc.climate.generate.__main__:main"
 
 [tool.pytest.ini_options]
 minversion = "6.0"

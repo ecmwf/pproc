@@ -1,4 +1,4 @@
-"""End-to-end SSO computation via the pproc.climate.sso.pipeline API.
+"""End-to-end SSO computation via the pproc.climate.generate SSO product API.
 
 Use this pattern when:
 - You want to embed SSO computation in a larger Python workflow.
@@ -6,8 +6,8 @@ Use this pattern when:
   writing them to disk first).
 - You need to pass through metadata, FDB targets, or other downstream targets.
 
-For one-shot batch jobs, the ``pproc-sso`` CLI (see
-``docs/climate/src/cli/sso.md``) is simpler.
+For one-shot batch jobs, the ``pproc-climate-fields sso`` CLI is
+simpler (see ``pproc-climate-fields sso --help``).
 
 The pipeline implements the three-grid operational model:
 
@@ -33,15 +33,14 @@ orography input* for the full workflow.
 
 from pathlib import Path
 
-from pproc.climate.sso.config import SSOConfig
-from pproc.climate.sso.pipeline import compute_sso
+from pproc.climate.generate.products.sso import SSOGenerateConfig, compute_sso
 from pproc.common.io import decode_grib
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def main() -> None:
-    config = SSOConfig(
+    config = SSOGenerateConfig(
         orography=REPO_ROOT / "data" / "input" / "ifs" / "orog_5km",
         land_mask=REPO_ROOT / "data" / "input" / "ifs" / "land_mask",
         target_grid="N256",
