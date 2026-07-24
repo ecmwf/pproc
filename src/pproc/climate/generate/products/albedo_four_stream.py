@@ -163,7 +163,7 @@ def _per_component(config: AlbedoFourStreamConfig) -> dict[str, bytes]:
     for message in reader:
         wire = message.get_buffer()
         values = np.asarray(message.get_array("values"), dtype=np.float64)
-        # note: '=' equality rewritten to '==' for pproc-formula
+        # note: ksh mir_compute '=' equality rewritten to '==' for the pproc grammar
         field_land = evaluate_formula(
             "field * land_mask + 0.15 * (field == 0) * land_mask",
             {"field": values, "land_mask": land_mask},

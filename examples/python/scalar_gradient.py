@@ -5,7 +5,9 @@ Use this pattern when:
 - You want spatial derivatives (df/dlat, df/dlon) of a scalar field.
 - You want the byte-exact wire output (gradient preserves mir's bytes verbatim).
 
-For one-shot file-based use, prefer the ``pproc-gradient`` CLI.
+For the full climate-field pipeline that consumes gradient output (the SSO
+sub-grid orography products), use ``pproc-climate-fields sso`` — the
+gradient step is one stage inside that pipeline.
 """
 
 from pathlib import Path

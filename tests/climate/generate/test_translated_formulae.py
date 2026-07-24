@@ -7,7 +7,7 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-"""Unit tests for the mir-compute ``=`` → pproc-formula ``==`` translations.
+"""Unit tests for the mir-compute ``=`` → pproc ``==`` equality translations.
 
 Every place in the ported climate products where an equality comparison was
 rewritten (see the per-product docstrings) is exercised here on a tiny

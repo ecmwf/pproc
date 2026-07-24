@@ -37,17 +37,13 @@ This puts the following console scripts on `PATH`:
 
 * **`pproc-climate-fields`** — the unified climate-field generation
   tool; see [pproc-climate-fields](cli/climate-fields.md).
-* `pproc-formula`, `pproc-gradient` — transitional wrappers still
-  installed for callers on the pre-unification interface; see
-  [pproc-formula](cli/formula.md) and [pproc-gradient](cli/gradient.md).
-  They call the same underlying `pproc.formula.evaluate_formula` and
-  `pproc.climate.mir_ops.gradient` library code that
-  `pproc-climate-fields` uses, and will be removed once all operational
-  callers have migrated. (The earlier standalone `pproc-sso` CLI has
-  been removed; its behaviour is available as
-  `pproc-climate-fields sso`.)
+* **`pproc-formula`** — general-purpose shell CLI for evaluating
+  arithmetic formulae over GRIB fields; see
+  [pproc-formula](cli/formula.md). Wraps
+  `pproc.formula.evaluate_formula` for one-shot use from pipelines and
+  scripts.
 * The existing `pproc-*` console scripts unrelated to climate-fields
-  (unchanged by this migration).
+  (unchanged).
 
 ## Verifying the install
 
@@ -68,9 +64,8 @@ import error. If an import error mentions `mir.python` or `eccodes`,
 re-check that the prebuilt wheels are on `PYTHONPATH` and that the
 platform tag matches your interpreter.
 
-The transitional CLIs should also come up cleanly:
+`pproc-formula` should also come up cleanly:
 
 ```bash
 pproc-formula --help
-pproc-gradient --help
 ```

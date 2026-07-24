@@ -10,9 +10,10 @@
 """``land-mask`` product: threshold land-cover to a binary land mask.
 
 Faithful port of ``ifs-scripts/clim-pproc/generate_land_mask.ksh``. The ksh
-runs ``pproc-formula --variables land_cover --formula "(land_cover > 0.5) *
-1 + 0"`` and then ``grib_set -s packingType=grid_simple``; here we do both
-in one shot, in-memory, with metadata applied inside ``generate()``.
+runs ``mir_compute --formula "(land_cover > 0.5) * 1 + 0"`` and then
+``grib_set -s packingType=grid_simple``; here we do both in one shot,
+in-memory, by calling :func:`pproc.formula.evaluate_formula` on the
+same expression and applying the metadata inside ``generate()``.
 
 No interpolation: the input land cover is expected to already be on the
 target grid (the ksh doesn't regrid either — it only thresholds and repacks).
@@ -81,8 +82,8 @@ def generate(config: LandMaskConfig) -> dict[str, bytes]:
 
     1. Read the land-cover GRIB from ``config.land_cover_in``.
     2. Threshold ``(land_cover > 0.5) * 1 + 0`` via the pproc formula
-       evaluator — identical to what the ksh's ``pproc-formula`` call
-       does, but in-memory.
+       evaluator — the same expression the ksh's ``mir_compute`` call
+       evaluates, run in-memory here.
     3. Re-encode against the input as template, setting
        ``packingType=grid_simple`` (equivalent to the ksh's ``grib_set
        -s packingType=grid_simple``) plus optional ``bitsPerValue`` if

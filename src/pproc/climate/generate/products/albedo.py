@@ -22,7 +22,8 @@ Two masking regimes selected by ``--regime``:
 * ``three-mask`` (aluvi, alnii): monthly loop applies three separate
   formulae — glacier-free land, ocean, glacier — sums them, and encodes.
 
-Equality translations (mir-compute ``=`` → pproc-formula ``==``):
+Equality translations (mir-compute ``=`` (equality) → ``==`` in the
+pproc port's formula grammar):
 
 * ``(field = 0)`` → ``(field == 0)`` — the "missing over land → 0.15" gate.
 * ``(0.149 = field)`` → ``(0.149 == field)`` — the "exact-0.149 → 0.8" gate.
@@ -174,7 +175,7 @@ def generate(config: AlbedoConfig) -> dict[str, bytes]:
                 {"field": values, "land_mask": land_mask},
             )
         elif config.regime == "three-mask":
-            # note: '=' equality rewritten to '==' for pproc-formula
+            # note: ksh mir_compute '=' equality rewritten to '==' for the pproc grammar
             field_land = evaluate_formula(
                 "field * land_mask + 0.15 * (field == 0) * land_mask",
                 {"field": values, "land_mask": glacier_free_land_mask},

@@ -10,9 +10,10 @@
 """``lake-mask`` product: threshold lake-cover to a binary lake mask.
 
 Faithful port of ``ifs-scripts/clim-pproc/generate_lake_mask.ksh``. The ksh
-runs ``pproc-formula`` with the threshold ``(lake_cover >= 0.5) * 1 + 0``,
-then ``grib_set -s packingType=grid_simple``. No interpolation is done; the
-input is expected to already be on the target grid.
+runs ``mir_compute`` with the threshold ``(lake_cover >= 0.5) * 1 + 0``,
+then ``grib_set -s packingType=grid_simple``. The pproc port evaluates the
+same expression via :func:`pproc.formula.evaluate_formula`. No interpolation
+is done; the input is expected to already be on the target grid.
 """
 
 from __future__ import annotations

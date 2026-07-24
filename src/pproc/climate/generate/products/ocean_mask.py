@@ -10,9 +10,10 @@
 """``ocean-mask`` product: derive an ocean mask from land + lake masks.
 
 Faithful port of ``ifs-scripts/clim-pproc/generate_ocean_mask.ksh``. The ksh
-runs ``pproc-formula --formula "1 - land_mask - lake_mask"`` then
-``grib_set -s packingType=grid_simple``. Both are folded into this product.
-No interpolation.
+runs ``mir_compute --formula "1 - land_mask - lake_mask"`` then
+``grib_set -s packingType=grid_simple``; the pproc port evaluates the same
+expression via :func:`pproc.formula.evaluate_formula`. Both steps are folded
+into this product. No interpolation.
 """
 
 from __future__ import annotations

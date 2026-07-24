@@ -192,11 +192,10 @@ correspondence.
 
 ## Related CLIs
 
-Two additional console scripts remain installed for callers still on
-the pre-unification interface: [`pproc-formula`](formula.md) and
-[`pproc-gradient`](gradient.md). They call the same underlying
-`pproc.formula.evaluate_formula` and `pproc.climate.mir_ops.gradient`
-code paths as the unified tool and will be removed once all
-operational callers have migrated to `pproc-climate-fields`. The
-earlier standalone `pproc-sso` CLI has already been removed — its
-behaviour is available as [`pproc-climate-fields sso`](sso.md).
+[`pproc-formula`](formula.md) is a general-purpose shell tool for
+evaluating arithmetic formulae over GRIB fields on disk. It wraps the
+same `pproc.formula.evaluate_formula` engine that the
+`pproc-climate-fields` product modules call internally, and is useful
+for ad-hoc pipelines or wrapping formula-based operations from shell
+scripts. It is not required for anything that
+`pproc-climate-fields` already covers.

@@ -1,20 +1,20 @@
 # pproc-formula
 
-> **Transitional.** `pproc-formula` is a standalone CLI that predates
-> [`pproc-climate-fields`](climate-fields.md). It remains installed for
-> callers that invoke it directly (a few legacy wrappers and ad-hoc
-> shell pipelines). New code should not depend on this CLI; product
-> modules under `pproc.climate.generate.products.*` call
-> `pproc.formula.evaluate_formula` directly, and any new formula-based
-> field belongs in a product module. This CLI will be removed once the
-> remaining callers migrate.
+`pproc-formula` is a general-purpose CLI for evaluating arithmetic
+formulae over GRIB fields from the shell. It sits alongside
+[`pproc-interpol`](https://github.com/ecmwf/pproc) and the other simple
+`pproc-*` tools: argparse-driven, no configuration file, one-shot
+input-to-output. Use it whenever you have GRIB files on disk and want
+to apply a numpy-style expression to them without writing a Python
+script.
 
-`pproc-formula` evaluates arithmetic formulae over GRIB fields. It reads
-one or more GRIB inputs, evaluates a formula (or a semicolon-separated
-list of formulae), and writes a single output GRIB file with one message
-per sub-formula. The implementation lives in
-`pproc/src/pproc/formula_cli.py` and delegates to
-`pproc.formula.evaluate_formula` for parsing and evaluation.
+`pproc-formula` reads one or more GRIB inputs, evaluates a formula (or
+a semicolon-separated list of formulae), and writes a single output
+GRIB file with one message per sub-formula. The implementation lives
+in `pproc/src/pproc/formula_cli.py` and delegates to
+`pproc.formula.evaluate_formula` for parsing and evaluation, so the
+formula grammar exposed at the CLI is the same one the
+`pproc.climate.generate.products.*` modules use internally.
 
 ## Synopsis
 
@@ -87,8 +87,8 @@ pproc-formula --variables "a;b" --formula "sqrt(a^2 + b^2)" \
 
 ### Multi-dimensional input
 
-A single GRIB file containing two consecutive messages (e.g. the
-gradient output from `pproc-gradient`):
+A single GRIB file containing two consecutive messages (e.g. the two
+components of a gradient field emitted by mir's nabla operator):
 
 ```bash
 pproc-formula --variables "gx;gy" --formula "gx*gy" \

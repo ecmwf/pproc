@@ -12,13 +12,13 @@ Line numbers below cite the ksh source at the workspace root. The
 decomposition follows the "Stage ordering" and "mir-compute formulae"
 sections of `.weave/learnings/sso-migration.md`.
 
-The "CLI" column in the mapping tables below shows the
-[transitional](../cli/formula.md) `pproc-formula` invocation that
-produces the same output outside the pipeline. Inside
-`pproc-climate-fields sso` these invocations happen as direct in-memory
-`evaluate_formula(...)` calls — no subprocess, no temp files. The CLI
-column is provided as a reference for readers used to the old
-`mir-compute` idiom.
+The "CLI" column in the mapping tables below shows the equivalent
+[`pproc-formula`](../cli/formula.md) invocation that produces the same
+output outside the pipeline. Inside `pproc-climate-fields sso` these
+invocations happen as direct in-memory `evaluate_formula(...)` calls —
+no subprocess, no temp files. The CLI column is provided as a
+shell-runnable reference for readers used to the `mir-compute` idiom
+of the original ksh script.
 
 ## Working-grid parameterisation (the `N2000` hardcode)
 

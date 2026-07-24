@@ -26,8 +26,8 @@ Formulae (unchanged from the ksh):
 
 1. ``field * land_mask`` — mask out non-land points.
 2. ``field - (field == 9999) * 9998`` — replace 9999-missing values over
-   land with soil type 1. **Note**: original mir-compute used the ``=``
-   comparison; rewritten to ``==`` for pproc-formula.
+   land with soil type 1. **Note**: the original mir-compute call used
+   ``=`` for equality; the pproc formula grammar uses ``==``.
 """
 
 from __future__ import annotations
@@ -135,7 +135,7 @@ def generate(config: SoilTypeConfig) -> dict[str, bytes]:
     )
 
     # Formula 2: field - (field == 9999) * 9998
-    # note: '=' equality rewritten to '==' for pproc-formula
+    # note: ksh mir_compute '=' equality rewritten to '==' for the pproc grammar
     fixed = evaluate_formula("field - (field == 9999) * 9998", {"field": masked})
     logger.info(
         "soil-type: %d masked pixels; %d were 9999-fixed",

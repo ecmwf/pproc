@@ -7,11 +7,7 @@
 
 - [pproc-climate-fields](cli/climate-fields.md)
   - [sso subcommand](cli/sso.md)
-
-# Transitional CLIs
-
 - [pproc-formula](cli/formula.md)
-- [pproc-gradient](cli/gradient.md)
 
 # Library API
 
