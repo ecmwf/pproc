@@ -31,11 +31,11 @@ def metadata_accumulation(fields: FieldList) -> list[ekMetadata]:
     return fields.sel(param=228021).metadata()
 
 
-def field_values(fields: FieldList, params: list[str]):
+def field_values(fields: FieldList, params: list[int]):
     shape = None
     out_values = []
     for param in params:
-        selected = fields.sel(param=param)
+        selected = fields.sel(paramId=param)
         if len(selected) == 0:
             raise ValueError(
                 f"Field {param} not found in fields: \n {fields.ls(namespace='mars')}"
