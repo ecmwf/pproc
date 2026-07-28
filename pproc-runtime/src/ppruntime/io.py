@@ -28,9 +28,9 @@ logger = logging.getLogger(__name__)
 
 
 def mir_job(
-    input: mir.MultiDimensionalGribFileInput,
+    input: mir.MultiDimensionalGribFileInput,  # type: ignore[ty:unresolved-attribute]
     mir_options: dict,
-    cache: Optional[str] = None,  # type: ignore[ty:unresolved-attribute]
+    cache: Optional[str] = None,
 ) -> FieldList:
     job = mir.Job(**mir_options)  # type: ignore[ty:unresolved-attribute]
     stream = BytesIO()
@@ -130,7 +130,7 @@ def retrieve(
     requests: list[dict],
     dtype: Optional[str] = None,
 ) -> FieldList:
-    ds = from_source("empty")
+    ds: FieldList = from_source("empty")  # type: ignore
     for request in requests:
         with ResourceMeter(f"Retrieve {request}"):
             for source in sources:

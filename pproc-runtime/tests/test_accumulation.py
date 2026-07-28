@@ -9,7 +9,9 @@ DATA_DIR = os.path.join(TEST_DIR, "data")
 
 
 def test_difference_rate():
-    fl = earthkit.data.from_source("file", os.path.join(DATA_DIR, "test_2t_12.grib"))
+    fl: earthkit.data.FieldList = earthkit.data.from_source(
+        "file", os.path.join(DATA_DIR, "test_2t_12.grib")
+    )  # type: ignore
     fl2 = earthkit.data.FieldList.from_array(
         fl.values * 2, [x.override({"step": 24}) for x in fl.metadata()]
     )
