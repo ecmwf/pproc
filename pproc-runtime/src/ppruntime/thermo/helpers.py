@@ -158,7 +158,7 @@ def step_interval(fields) -> int:
     # Derive step interval from de-accumulated fields
     accum_field = fields.sel(stepType="diff")
     if len(accum_field) == 0:
-        raise ValueError("No accumulation fields found, can not derive step interval")
+        raise ValueError(f"No accumulation fields found in {fields.ls(namespace='mars')}, can not derive step interval")
     delta = (
         accum_field[0].metadata()["endStep"] - accum_field[0].metadata()["startStep"]
     )
