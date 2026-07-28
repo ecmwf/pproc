@@ -24,11 +24,11 @@ logger = logging.getLogger(__name__)
 
 
 def metadata_intensity(fields: FieldList) -> list[ekMetadata]:
-    return fields.sel(param="2t").metadata()
+    return fields.sel(param=167).metadata()
 
 
 def metadata_accumulation(fields: FieldList) -> list[ekMetadata]:
-    return fields.sel(param="fdir").metadata()
+    return fields.sel(param=228021).metadata()
 
 
 def field_values(fields: FieldList, params: list[str]):
@@ -79,7 +79,7 @@ def calc_cossza(*fields: FieldList, metadata: Optional[dict] = None) -> FieldLis
 @metered("hmdx", out=logger.debug)
 def calc_hmdx(*fields: FieldList, metadata: Optional[dict] = None) -> FieldList:
     summed_fields: FieldList = sum(fields[1:], fields[0])
-    inputs = field_values(summed_fields, ["2t", "2d"])
+    inputs = field_values(summed_fields, [167, 168])
     hmdx = thermofeel.calculate_humidex(*inputs)
     return create_surface_output(
         hmdx,
@@ -91,7 +91,7 @@ def calc_hmdx(*fields: FieldList, metadata: Optional[dict] = None) -> FieldList:
 @metered("rhp", out=logger.debug)
 def calc_rhp(*fields: FieldList, metadata: Optional[dict] = None) -> FieldList:
     summed_fields: FieldList = sum(fields[1:], fields[0])
-    inputs = field_values(summed_fields, ["2t", "2d"])
+    inputs = field_values(summed_fields, [167, 168])
     rhp = thermofeel.calculate_relative_humidity_percent(*inputs)
     return create_surface_output(
         rhp,
@@ -103,7 +103,7 @@ def calc_rhp(*fields: FieldList, metadata: Optional[dict] = None) -> FieldList:
 @metered("heatx", out=logger.debug)
 def calc_heatx(*fields: FieldList, metadata: Optional[dict] = None) -> FieldList:
     summed_fields: FieldList = sum(fields[1:], fields[0])
-    inputs = field_values(summed_fields, ["2t", "2d"])
+    inputs = field_values(summed_fields, [167, 168])
     heatx = thermofeel.calculate_heat_index_adjusted(*inputs)
     return create_surface_output(
         heatx,
@@ -119,7 +119,7 @@ def calc_dsrp(*fields: FieldList, metadata: Optional[dict] = None):
     Note this introduces some amount of error as cossza approaches zero
     """
     summed_fields: FieldList = sum(fields[1:], fields[0])
-    inputs = field_values(summed_fields, ["fdir", "cossza"])
+    inputs = field_values(summed_fields, [228021, 214001])
     dsrp = thermofeel.approximate_dsrp(*inputs)
     return create_output(
         dsrp,
@@ -131,7 +131,7 @@ def calc_dsrp(*fields: FieldList, metadata: Optional[dict] = None):
 @metered("utci", out=logger.debug)
 def calc_utci(*fields: FieldList, metadata: Optional[dict] = None, validate=True):
     summed_fields: FieldList = sum(fields[1:], fields[0])
-    inputs = field_values(summed_fields, ["2t", "2d", "10si", "mrt"])
+    inputs = field_values(summed_fields, [167, 168, 207, 261002])
 
     ehPa = compute_ehPa(inputs[0], inputs[1])
     utci = thermofeel.calculate_utci(
@@ -162,7 +162,7 @@ def calc_utci(*fields: FieldList, metadata: Optional[dict] = None, validate=True
 @metered("wbgt", out=logger.debug)
 def calc_wbgt(*fields: FieldList, metadata: Optional[dict] = None):
     summed_fields: FieldList = sum(fields[1:], fields[0])
-    inputs = field_values(summed_fields, ["2t", "mrt", "10si", "2d"])
+    inputs = field_values(summed_fields, [167, 261002, 207, 168])
     wbgt = thermofeel.calculate_wbgt(*inputs)
     return create_surface_output(
         wbgt,
@@ -174,7 +174,7 @@ def calc_wbgt(*fields: FieldList, metadata: Optional[dict] = None):
 @metered("gt", out=logger.debug)
 def calc_gt(*fields: FieldList, metadata: Optional[dict] = None):
     summed_fields: FieldList = sum(fields[1:], fields[0])
-    inputs = field_values(summed_fields, ["2t", "mrt", "10si"])
+    inputs = field_values(summed_fields, [167, 261002, 207])
 
     gt = thermofeel.calculate_bgt(*inputs)
 
@@ -188,7 +188,7 @@ def calc_gt(*fields: FieldList, metadata: Optional[dict] = None):
 @metered("wbt", out=logger.debug)
 def calc_wbt(*fields: FieldList, metadata: Optional[dict] = None):
     summed_fields: FieldList = sum(fields[1:], fields[0])
-    inputs = field_values(summed_fields, ["2t", "2r"])
+    inputs = field_values(summed_fields, [167, 260242])
     wbt = thermofeel.calculate_wbt(*inputs)
     return create_surface_output(
         wbt,
@@ -200,7 +200,7 @@ def calc_wbt(*fields: FieldList, metadata: Optional[dict] = None):
 @metered("nefft", out=logger.debug)
 def calc_nefft(*fields: FieldList, metadata: Optional[dict] = None):
     summed_fields: FieldList = sum(fields[1:], fields[0])
-    inputs = field_values(summed_fields, ["2t", "10si", "2r"])
+    inputs = field_values(summed_fields, [167, 207, 260242])
     nefft = thermofeel.calculate_normal_effective_temperature(*inputs)
     return create_surface_output(
         nefft,
@@ -212,7 +212,7 @@ def calc_nefft(*fields: FieldList, metadata: Optional[dict] = None):
 @metered("wcf", out=logger.debug)
 def calc_wcf(*fields: FieldList, metadata: Optional[dict] = None):
     summed_fields: FieldList = sum(fields[1:], fields[0])
-    inputs = field_values(summed_fields, ["2t", "10si"])
+    inputs = field_values(summed_fields, [167, 207])
     wcf = thermofeel.calculate_wind_chill(*inputs)
     return create_surface_output(
         wcf,
@@ -224,7 +224,7 @@ def calc_wcf(*fields: FieldList, metadata: Optional[dict] = None):
 @metered("aptmp", out=logger.debug)
 def calc_aptmp(*fields: FieldList, metadata: Optional[dict] = None):
     summed_fields: FieldList = sum(fields[1:], fields[0])
-    inputs = field_values(summed_fields, ["2t", "10si", "2r"])
+    inputs = field_values(summed_fields, [167, 207, 260242])
     aptmp = thermofeel.calculate_apparent_temperature(*inputs)
     return create_surface_output(
         aptmp,
@@ -237,7 +237,7 @@ def calc_aptmp(*fields: FieldList, metadata: Optional[dict] = None):
 def calc_mrt(*fields: FieldList, metadata: Optional[dict] = None):
     summed_fields: FieldList = sum(fields[1:], fields[0])
     ssrd, ssr, dsrp, strd, fdir, strr, cossza = field_values(
-        summed_fields, ["ssrd", "ssr", "dsrp", "strd", "fdir", "str", "cossza"]
+        summed_fields, [169, 176, 47, 175, 228021, 177, 214001]
     )
 
     delta = step_interval(summed_fields)
