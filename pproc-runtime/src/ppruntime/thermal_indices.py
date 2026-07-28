@@ -24,11 +24,11 @@ logger = logging.getLogger(__name__)
 
 
 def metadata_intensity(fields: FieldList) -> list[ekMetadata]:
-    return fields.sel(param=167).metadata()
+    return fields.sel(paramId=167).metadata()
 
 
 def metadata_accumulation(fields: FieldList) -> list[ekMetadata]:
-    return fields.sel(param=228021).metadata()
+    return fields.sel(paramId=228021).metadata()
 
 
 def field_values(fields: FieldList, params: list[int]):
@@ -51,8 +51,8 @@ def field_values(fields: FieldList, params: list[int]):
 
 @metered("cossza", out=logger.debug)
 def calc_cossza(*fields: FieldList, metadata: Optional[dict] = None) -> FieldList:
-    logger.debug(f"calc_cossza: {fields.ls(namespace='mars')}")
     summed_fields: FieldList = sum(fields[1:], fields[0])
+    logger.debug(f"calc_cossza: {summed_fields.ls(namespace='mars')}")
     lats, lons = latlon(summed_fields)
 
     basetime, validtime = get_datetime(summed_fields)
@@ -79,8 +79,8 @@ def calc_cossza(*fields: FieldList, metadata: Optional[dict] = None) -> FieldLis
 
 @metered("hmdx", out=logger.debug)
 def calc_hmdx(*fields: FieldList, metadata: Optional[dict] = None) -> FieldList:
-    logger.debug(f"calc_hmdx: {fields.ls(namespace='mars')}")
     summed_fields: FieldList = sum(fields[1:], fields[0])
+    logger.debug(f"calc_hmdx: {summed_fields.ls(namespace='mars')}")
     inputs = field_values(summed_fields, [167, 168])
     hmdx = thermofeel.calculate_humidex(*inputs)
     return create_surface_output(
@@ -92,8 +92,8 @@ def calc_hmdx(*fields: FieldList, metadata: Optional[dict] = None) -> FieldList:
 
 @metered("rhp", out=logger.debug)
 def calc_rhp(*fields: FieldList, metadata: Optional[dict] = None) -> FieldList:
-    logger.debug(f"calc_rhp: {fields.ls(namespace='mars')}")
     summed_fields: FieldList = sum(fields[1:], fields[0])
+    logger.debug(f"calc_rhp: {summed_fields.ls(namespace='mars')}")
     inputs = field_values(summed_fields, [167, 168])
     rhp = thermofeel.calculate_relative_humidity_percent(*inputs)
     return create_surface_output(
@@ -105,8 +105,8 @@ def calc_rhp(*fields: FieldList, metadata: Optional[dict] = None) -> FieldList:
 
 @metered("heatx", out=logger.debug)
 def calc_heatx(*fields: FieldList, metadata: Optional[dict] = None) -> FieldList:
-    logger.debug(f"calc_heatx: {fields.ls(namespace='mars')}")
     summed_fields: FieldList = sum(fields[1:], fields[0])
+    logger.debug(f"calc_heatx: {summed_fields.ls(namespace='mars')}")
     inputs = field_values(summed_fields, [167, 168])
     heatx = thermofeel.calculate_heat_index_adjusted(*inputs)
     return create_surface_output(
@@ -122,8 +122,8 @@ def calc_dsrp(*fields: FieldList, metadata: Optional[dict] = None):
     In the absence of dsrp, approximate it with fdir and cossza.
     Note this introduces some amount of error as cossza approaches zero
     """
-    logger.debug(f"calc_dsrp: {fields.ls(namespace='mars')}")
     summed_fields: FieldList = sum(fields[1:], fields[0])
+    logger.debug(f"calc_dsrp: {summed_fields.ls(namespace='mars')}")
     inputs = field_values(summed_fields, [228021, 214001])
     dsrp = thermofeel.approximate_dsrp(*inputs)
     return create_output(
@@ -135,8 +135,8 @@ def calc_dsrp(*fields: FieldList, metadata: Optional[dict] = None):
 
 @metered("utci", out=logger.debug)
 def calc_utci(*fields: FieldList, metadata: Optional[dict] = None, validate=True):
-    logger.debug(f"calc_utci: {fields.ls(namespace='mars')}")
     summed_fields: FieldList = sum(fields[1:], fields[0])
+    logger.debug(f"calc_utci: {summed_fields.ls(namespace='mars')}")
     inputs = field_values(summed_fields, [167, 168, 207, 261002])
 
     ehPa = compute_ehPa(inputs[0], inputs[1])
@@ -167,8 +167,8 @@ def calc_utci(*fields: FieldList, metadata: Optional[dict] = None, validate=True
 
 @metered("wbgt", out=logger.debug)
 def calc_wbgt(*fields: FieldList, metadata: Optional[dict] = None):
-    logger.debug(f"calc_wbgt: {fields.ls(namespace='mars')}")
     summed_fields: FieldList = sum(fields[1:], fields[0])
+    logger.debug(f"calc_wbgt: {summed_fields.ls(namespace='mars')}")
     inputs = field_values(summed_fields, [167, 261002, 207, 168])
     wbgt = thermofeel.calculate_wbgt(*inputs)
     return create_surface_output(
@@ -180,8 +180,8 @@ def calc_wbgt(*fields: FieldList, metadata: Optional[dict] = None):
 
 @metered("gt", out=logger.debug)
 def calc_gt(*fields: FieldList, metadata: Optional[dict] = None):
-    logger.debug(f"calc_gt: {fields.ls(namespace='mars')}")
     summed_fields: FieldList = sum(fields[1:], fields[0])
+    logger.debug(f"calc_gt: {summed_fields.ls(namespace='mars')}")
     inputs = field_values(summed_fields, [167, 261002, 207])
 
     gt = thermofeel.calculate_bgt(*inputs)
@@ -195,8 +195,8 @@ def calc_gt(*fields: FieldList, metadata: Optional[dict] = None):
 
 @metered("wbt", out=logger.debug)
 def calc_wbt(*fields: FieldList, metadata: Optional[dict] = None):
-    logger.debug(f"calc_wbt: {fields.ls(namespace='mars')}")
     summed_fields: FieldList = sum(fields[1:], fields[0])
+    logger.debug(f"calc_wbt: {summed_fields.ls(namespace='mars')}")
     inputs = field_values(summed_fields, [167, 260242])
     wbt = thermofeel.calculate_wbt(*inputs)
     return create_surface_output(
@@ -208,8 +208,8 @@ def calc_wbt(*fields: FieldList, metadata: Optional[dict] = None):
 
 @metered("nefft", out=logger.debug)
 def calc_nefft(*fields: FieldList, metadata: Optional[dict] = None):
-    logger.debug(f"calc_nefft: {fields.ls(namespace='mars')}")
     summed_fields: FieldList = sum(fields[1:], fields[0])
+    logger.debug(f"calc_nefft: {summed_fields.ls(namespace='mars')}")
     inputs = field_values(summed_fields, [167, 207, 260242])
     nefft = thermofeel.calculate_normal_effective_temperature(*inputs)
     return create_surface_output(
@@ -221,8 +221,8 @@ def calc_nefft(*fields: FieldList, metadata: Optional[dict] = None):
 
 @metered("wcf", out=logger.debug)
 def calc_wcf(*fields: FieldList, metadata: Optional[dict] = None):
-    logger.debug(f"calc_wcf: {fields.ls(namespace='mars')}")
     summed_fields: FieldList = sum(fields[1:], fields[0])
+    logger.debug(f"calc_wcf: {summed_fields.ls(namespace='mars')}")
     inputs = field_values(summed_fields, [167, 207])
     wcf = thermofeel.calculate_wind_chill(*inputs)
     return create_surface_output(
