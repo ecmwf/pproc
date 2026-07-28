@@ -59,6 +59,7 @@ def construct_message(template_grib, metadata: dict):
 
 
 _TEMPLATE_RE = re.compile("^{([a-z_]*)}:?([a-z]*)$", re.I)
+_EXPR_TEMPLATE_RE = re.compile(r"^\{([^{}]+)\}$")
 _TYPES = {
     "int": int,
     "str": str,
@@ -69,7 +70,14 @@ _TYPES = {
 def fill_template_value(val: str, template_map: dict):
     m = _TEMPLATE_RE.fullmatch(val)
     if m is None:
-        return val
+        expr_match = _EXPR_TEMPLATE_RE.fullmatch(val)
+        if expr_match is None:
+            return val
+        return eval(
+            expr_match.group(1).strip(),
+            {"__builtins__": {}},
+            {**_TYPES, **template_map},
+        )
     value, tp = m.groups()
     if value not in template_map:
         return val
