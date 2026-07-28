@@ -33,7 +33,7 @@ dynamic = [ "version" ]
 dependencies = [
   "array-api-compat",
   "code-meters",
-  "earthkit-data[mars,fdb]<1.0",
+  "earthkit-data[mars,fdb]<1",
   "earthkit-meteo",
   "eccodes",
   "fdb5lib",

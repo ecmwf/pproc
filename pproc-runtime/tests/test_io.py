@@ -48,7 +48,7 @@ request = {
 def test_mars_retrieve(overrides):
     test_request = request.copy()
     test_request.update(overrides)
-    retrieve(["mars"], [test_request])
+    retrieve([{"name": "mars"}], [test_request])
 
 
 @pytest.mark.parametrize(
@@ -61,6 +61,10 @@ def test_mars_retrieve(overrides):
         {},
         {"interpolate": {"grid": "O640"}},
         {
+            "date": "20240507",
+            "stream": "enfo",
+            "type": "cf",
+            "step": 3,
             "param": [138, 155],
             "levtype": "pl",
             "levelist": [250, 850],
@@ -69,9 +73,19 @@ def test_mars_retrieve(overrides):
     ],
     ids=["default", "interpolate", "wind"],
 )
-def test_fdb_retrieve(stream, overrides):
-    os.environ["FDB_HOME"] = "/home/fdbprod"
-    test_request = request.copy()
+def test_fdb_retrieve(fdb, stream, overrides):
+    test_request = {
+        "class": "od",
+        "expver": "0001",
+        "stream": "enfo",
+        "type": "cf",
+        "date": "20240507",
+        "time": "12",
+        "domain": "g",
+        "levtype": "sfc",
+        "step": "12",
+        "param": 167,
+    }
     test_request.update(overrides)
     retrieve([{"name": "fdb", "stream": stream}], [test_request])
 
@@ -101,7 +115,7 @@ def test_file_retrieve(source):
     retrieve([source], [request])
 
 
-def test_multi_source_retrieve():
+def test_multi_source_retrieve(fdb):
     request = {
         "stream": "enfo",
         "type": "cf",
@@ -118,5 +132,4 @@ def test_multi_source_retrieve():
             "path": os.path.join(DATA_DIR, "test_2t_12.grib"),
         },
     ]
-    os.environ["FDB_HOME"] = "/home/fdbprod"
     retrieve(sources, [request])

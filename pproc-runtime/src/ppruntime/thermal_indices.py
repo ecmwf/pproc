@@ -234,8 +234,8 @@ def calc_wcf(*fields: FieldList, metadata: Optional[dict] = None):
 
 @metered("aptmp", out=logger.debug)
 def calc_aptmp(*fields: FieldList, metadata: Optional[dict] = None):
-    logger.debug(f"calc_aptmp: {fields.ls(namespace='mars')}")
     summed_fields: FieldList = sum(fields[1:], fields[0])
+    logger.debug(f"calc_aptmp: {summed_fields.ls(namespace='mars')}")
     inputs = field_values(summed_fields, [167, 207, 260242])
     aptmp = thermofeel.calculate_apparent_temperature(*inputs)
     return create_surface_output(
@@ -247,8 +247,8 @@ def calc_aptmp(*fields: FieldList, metadata: Optional[dict] = None):
 
 @metered("mrt", out=logger.debug)
 def calc_mrt(*fields: FieldList, metadata: Optional[dict] = None):
-    logger.debug(f"calc_mrt: {fields.ls(namespace='mars')}")
     summed_fields: FieldList = sum(fields[1:], fields[0])
+    logger.debug(f"calc_mrt: {summed_fields.ls(namespace='mars')}")
     ssrd, ssr, dsrp, strd, fdir, strr, cossza = field_values(
         summed_fields, [169, 176, 47, 175, 228021, 177, 214001]
     )
