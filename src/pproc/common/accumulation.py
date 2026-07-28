@@ -60,10 +60,10 @@ def coords_name(coords: Coords, name_config: Optional[dict] = None) -> str:
 
 def coords_span(dim: str, start: Coord, end: Coord) -> Optional[int]:
     if dim == "date":
-        return (parse_date(end) - parse_date(start)).days
+        return (parse_date(str(end)) - parse_date(str(start))).days
 
     if dim == "hdate":
-        return parse_date(end).year - parse_date(start).year
+        return parse_date(str(end)).year - parse_date(str(start)).year
 
     if isinstance(start, int) and isinstance(end, int):
         return end - start
@@ -78,12 +78,12 @@ def coords_increment(dim: str, coords: Coords) -> Optional[int]:
         return 0
 
     if dim == "date":
-        diff = np.diff([parse_date(c) for c in coords])
+        diff = np.diff([parse_date(str(c)) for c in coords])
         if np.all(diff == diff[0]):
             return diff[0].days
 
     if dim == "hdate":
-        diff = np.diff([parse_date(c).year for c in coords])
+        diff = np.diff([parse_date(str(c)).year for c in coords])
         if np.all(diff == diff[0]):
             return diff[0]
 

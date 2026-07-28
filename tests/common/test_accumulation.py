@@ -534,8 +534,8 @@ def test_grib_header(config, grib_key_values):
                 "coords": [6, 12, 18],
                 "operation": "mean",
                 "metadata": {
-                    "span": "{coords_span}:int",
-                    "increment": "{coords_increment}:int",
+                    "span": "{coords_span}",
+                    "increment": "{coords_increment}",
                 },
             },
             "step",
@@ -546,9 +546,9 @@ def test_grib_header(config, grib_key_values):
             {
                 "coords": ["20240101", "20240103", "20240105"],
                 "metadata": {
-                    "span": "{coords_span}:int",
+                    "span": "{coords_span}",
                     "start": "{int(start_coord[0:4]) - 20}",
-                    "increment": "{coords_increment}:int",
+                    "increment": "{coords_increment}",
                 },
             },
             "date",
@@ -556,12 +556,24 @@ def test_grib_header(config, grib_key_values):
             id="date-coords",
         ),
         pytest.param(
+            {
+                "coords": [20240101, 20240103, 20240105],
+                "metadata": {
+                    "span": "{coords_span}",
+                    "increment": "{coords_increment}",
+                },
+            },
+            "date",
+            {"span": 4, "increment": 2},
+            id="date-coords-int",
+        ),
+        pytest.param(
                     {
                         "coords": ["20040101", "20060101", "20080101"],
                         "metadata": {
-                            "span": "{coords_span}:int",
+                            "span": "{coords_span}",
                             "start": "{int(end_coord[0:4]) - 4}",
-                            "increment": "{coords_increment}:int",
+                            "increment": "{coords_increment}",
                         },
                     },
                     "hdate",
@@ -572,8 +584,8 @@ def test_grib_header(config, grib_key_values):
             {
                 "coords": ["0-168"],
                 "metadata": {
-                    "span": "{coords_span}:int",
-                    "increment": "{coords_increment}:int",
+                    "span": "{coords_span}",
+                    "increment": "{coords_increment}",
                 },
             },
             "step",
