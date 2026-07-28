@@ -209,9 +209,9 @@ def sot_metadata(template, sot, metadata) -> dict:
 
 def cpf_metadata(template, metadata) -> dict:
     metadata = metadata.copy()
-    metadata[
-        "marsType"
-    ] = 27  # FIXME: this corresponds to efi, should be a new value for cpf
+    metadata["marsType"] = (
+        27  # FIXME: this corresponds to efi, should be a new value for cpf
+    )
     metadata["bitsPerValue"] = 24
 
     edition = metadata.get("edition", template["edition"])

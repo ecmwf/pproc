@@ -81,6 +81,17 @@ class SOT(Index):
         metadata: dict,
     ):
         for perc in self.sot:
+            if isinstance(perc, str) and perc.endswith(":100"):
+                percentiles, _ = perc.split(":")
+                percentiles = list(map(int, percentiles.split("-")))
+                if all([percentiles < 50]):
+                    perc = percentiles[-1]
+                elif all([percentiles > 50]):
+                    perc = percentiles[0]
+                else:
+                    raise ValueError(
+                        f"Could not determine SOT percentile value from {perc}"
+                    )
             sot = extreme.sot(clim, ens, perc, self.eps)
             sot_keys = sot_metadata(out_template, perc, metadata)
             common.io.write_grib(target, out_template, sot, sot_keys)
