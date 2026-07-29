@@ -770,10 +770,13 @@ def _accum_transform(
                 )
             )
     else:
+        if isinstance(operation, fluent.Payload):
+            operation.kwargs.setdefault("metadata", {}).update(accum_metadata)
+        else:
+            kwargs["metadata"] = accum_metadata
         accum_action = accum_action._wrapped_reduction(
             operation,
             dim=dim,
-            metadata=accum_metadata,
             **kwargs,
         )
 

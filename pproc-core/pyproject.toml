@@ -37,7 +37,7 @@ dependencies = [
   "numpy",
   "pandas",
   "pydantic",
-  "qubed>=0.3.0,<0.4.4",
+  "qubed>=0.3,<0.4.4",
 ]
 
 scripts.ppcore-config = "ppcore.config:main"
