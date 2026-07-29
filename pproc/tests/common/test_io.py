@@ -71,7 +71,7 @@ def test_fdb_missing_values(fdb):
     assert not np.any(data == 9999)
 
 
-def test_fdb_target():
+def test_fdb_target(download_all_test_data):
     target = io.target_from_location("fdb:")
     for msg in eccodes.FileReader(f"{DATA_DIR}/wind.grib"):
         msg.set("type", "em")
@@ -83,7 +83,7 @@ def test_fdb_target():
     assert len(data) == 6
 
 
-def test_file_target(tmpdir):
+def test_file_target(tmpdir, download_all_test_data):
     target = io.target_from_location(f"file:{tmpdir}/test.grib")
     messages = [
         msg
@@ -97,7 +97,7 @@ def test_file_target(tmpdir):
     assert len(data) == 5
 
 
-def test_fileset_target(tmpdir):
+def test_fileset_target(tmpdir, download_all_test_data):
     target = io.target_from_location(f"fileset:{tmpdir}" + "/test_{step}.grib")
     for msg in eccodes.FileReader(f"{DATA_DIR}/2t_ens.grib"):
         target.write(msg)

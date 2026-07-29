@@ -48,23 +48,37 @@ def download_test_data(
     return local_files
 
 
-def populate_fdb(
-    fdb,
-    test_files: List[str],
-    dir_url: str = NEXUS,
-    local_dir: str = DATA_DIR,
-):
-    data_files = download_test_data(test_files, dir_url, local_dir)
-    for filepath in data_files:
-        if os.path.isfile(filepath):
-            reader = eccodes.FileReader(filepath)
-            for msg in reader:
-                fdb.archive(msg.get_buffer())
-    fdb.flush()
+@pytest.fixture(scope="session")
+def download_all_test_data():
+    download_test_data(
+        [
+            "era_clcen_eof_mjjas.gts",
+            "era_clind_mjjas.gts",
+            "mjjas_eof.grd",
+            "mjjas_means.grd",
+            "mjjas_pcs.gts",
+            "mjjas_sdv.gts",
+        ],
+        f"{NEXUS}/clustclim",
+        f"{DATA_DIR}/clustclim",
+    )
+    download_test_data(
+        [
+            "2t_ens.grib",
+            "2t_clim.grib",
+            "wind.grib",
+            "t850.grib",
+            "cluster.grib",
+            "has_missing.grib",
+            "thermo.grib",
+        ],
+        NEXUS, 
+        DATA_DIR,
+    )
 
 
 @pytest.fixture(scope="session")
-def fdb() -> pyfdb.FDB:
+def fdb(download_all_test_data) -> pyfdb.FDB:
     tmpdir = tempfile.mkdtemp()
     print("Using temporary directory", tmpdir)
     os.makedirs(f"{tmpdir}/etc/fdb")
@@ -85,31 +99,21 @@ spaces:
     os.environ["FDB_HOME"] = str(tmpdir)
     os.environ["FDB_HANDLE_LUSTRE_STRIPE"] = "0"
     temp_fdb = pyfdb.FDB()
-    download_test_data(
-        [
-            "era_clcen_eof_mjjas.gts",
-            "era_clind_mjjas.gts",
-            "mjjas_eof.grd",
-            "mjjas_means.grd",
-            "mjjas_pcs.gts",
-            "mjjas_sdv.gts",
-        ],
-        f"{NEXUS}/clustclim",
-        f"{DATA_DIR}/clustclim",
-    )
-    populate_fdb(
-        temp_fdb,
-        [
-            "2t_ens.grib",
-            "2t_clim.grib",
-            "wind.grib",
-            "t850.grib",
-            "cluster.grib",
-            "has_missing.grib",
-            "thermo.grib",
-        ],
-    )
-
+    for filename in [
+        "2t_ens.grib",
+        "2t_clim.grib",
+        "wind.grib",
+        "t850.grib",
+        "cluster.grib",
+        "has_missing.grib",
+        "thermo.grib",
+    ]:
+        filepath = os.path.join(DATA_DIR, filename)
+        if os.path.isfile(filepath):
+            reader = eccodes.FileReader(filepath)
+            for msg in reader:
+                temp_fdb.archive(msg.get_buffer())
+    temp_fdb.flush()
     yield temp_fdb
     shutil.rmtree(tmpdir)
 

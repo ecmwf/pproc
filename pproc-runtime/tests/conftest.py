@@ -41,26 +41,24 @@ def download_test_data(
     return local_files
 
 
-download_test_data(["test_2t_12.grib"], os.path.join(NEXUS, "pproc-runtime"))
-
-
-def populate_fdb(
-    fdb,
-    test_files: List[str],
-    dir_url: str = NEXUS,
-    local_dir: str = DATA_DIR,
-):
-    data_files = download_test_data(test_files, dir_url, local_dir)
-    for filepath in data_files:
-        if os.path.isfile(filepath):
-            reader = eccodes.FileReader(filepath)
-            for msg in reader:
-                fdb.archive(msg.get_buffer())
-    fdb.flush()
+@pytest.fixture(scope="session")
+def download_all_test_data():
+    download_test_data(
+        [
+            "test_2t_12.grib",
+        ],
+        os.path.join(NEXUS, "pproc-runtime"),
+    )
+    download_test_data(
+        [
+            "wind.grib",
+        ],
+        os.path.join(NEXUS, "test-data"),
+    )
 
 
 @pytest.fixture(scope="session")
-def fdb() -> Iterator[pyfdb.FDB]:
+def fdb(download_all_test_data) -> Iterator[pyfdb.FDB]:
     tmpdir = tempfile.mkdtemp()
     print("Using temporary directory", tmpdir)
     os.makedirs(f"{tmpdir}/etc/fdb")
@@ -81,20 +79,15 @@ spaces:
     os.environ["FDB_HOME"] = str(tmpdir)
     os.environ["FDB_HANDLE_LUSTRE_STRIPE"] = "0"
     temp_fdb = pyfdb.FDB()
-    populate_fdb(
-        temp_fdb,
-        [
-            "test_2t_12.grib",
-        ],
-        os.path.join(NEXUS, "pproc-runtime"),
-    )
-    populate_fdb(
-        temp_fdb,
-        [
-            "wind.grib",
-        ],
-        os.path.join(NEXUS, "test-data"),
-    )
-
+    for filename in [
+        "test_2t_12.grib",
+        "wind.grib",
+    ]:
+        filepath = os.path.join(DATA_DIR, filename)
+        if os.path.isfile(filepath):
+            reader = eccodes.FileReader(filepath)
+            for msg in reader:
+                temp_fdb.archive(msg.get_buffer())
+    temp_fdb.flush()
     yield temp_fdb
     shutil.rmtree(tmpdir)

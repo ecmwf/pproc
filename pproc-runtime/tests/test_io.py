@@ -99,7 +99,7 @@ def test_fdb_retrieve(fdb, stream, overrides):
     ],
     ids=["file", "file-pattern"],
 )
-def test_file_retrieve(source):
+def test_file_retrieve(download_all_test_data, source):
     request = {
         "stream": "enfo",
         "type": "cf",
