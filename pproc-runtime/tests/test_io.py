@@ -6,6 +6,7 @@ import os
 from datetime import datetime, timedelta
 
 import pytest
+from earthkit.data.testing import NO_MARS
 
 from ppruntime.io import retrieve
 
@@ -26,6 +27,7 @@ request = {
 }
 
 
+@pytest.mark.skipif(NO_MARS, reason="No access to MARS")
 @pytest.mark.parametrize(
     "overrides",
     [

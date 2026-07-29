@@ -41,6 +41,9 @@ def download_test_data(
     return local_files
 
 
+download_test_data(["test_2t_12.grib"], os.path.join(NEXUS, "pproc-runtime"))
+
+
 def populate_fdb(
     fdb,
     test_files: List[str],

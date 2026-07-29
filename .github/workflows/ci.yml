@@ -67,5 +67,5 @@ jobs:
         uv sync --python "${{ matrix.python_version }}" --all-packages
         # uv run prek --directory . --config ../.pre-commit-config.yaml
         if [ -d "tests" ]; then
-          uv run --prerelease allow -m tests/ -v
+          uv run -m pytest tests/ -v
         fi
