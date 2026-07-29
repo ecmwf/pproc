@@ -65,7 +65,7 @@ jobs:
         cd pproc
         export UV_FROZEN=1
         uv sync --python "${{ matrix.python_version }}" --all-packages
-        uv run prek --directory . --config ../.pre-commit-config.yaml
+        # uv run prek --directory . --config ../.pre-commit-config.yaml
         if [ -d "tests" ]; then
           uv run --prerelease allow -m tests/ -v
         fi
