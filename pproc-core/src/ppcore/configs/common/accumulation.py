@@ -111,11 +111,10 @@ class DifferenceRateAccumulation(BaseAccumulation):
         return {
             "operation": Payload(
                 self.payload,
-                kwargs={"factor": self.factor},
+                kwargs={"factor": self.factor, "metadata": self.metadata},
                 metadata={"environment": ["ppruntime"]},
             ),
             "coords": self.coords,
-            "metadata": self.metadata,
             "deaccumulate": self.deaccumulate,
             "name": self.name,
         }
