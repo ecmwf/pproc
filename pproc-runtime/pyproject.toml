@@ -65,6 +65,10 @@ root = ".."
 local_scheme = "no-local-version"
 fallback_version = "0.0.0"
 
+[tool.setuptools_scm.tag]
+prefix = "ppruntime-"
+strict = true 
+
 [tool.ruff]
 lint.ignore = [ "E722", "E731", "E741" ]
 
