@@ -9,7 +9,7 @@
 
 import os
 import requests
-from typing import List, Generator
+from typing import List, Iterator
 import pytest
 import shutil
 import tempfile
@@ -62,7 +62,7 @@ def populate_fdb(
 
 
 @pytest.fixture(scope="session")
-def fdb() -> Generator[pyfdb.FDB]:
+def fdb() -> Iterator[pyfdb.FDB]:
     tmpdir = tempfile.mkdtemp()
     print("Using temporary directory", tmpdir)
     os.makedirs(f"{tmpdir}/etc/fdb")

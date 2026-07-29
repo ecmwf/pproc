@@ -68,7 +68,7 @@ fallback_version = "0.0.0"
 
 [tool.setuptools_scm.tag]
 prefix = "ppcore-"
-strict = true 
+strict = true
 
 [tool.ruff]
 lint.ignore = [ "E722", "E731", "E741" ]
