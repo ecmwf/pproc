@@ -36,6 +36,7 @@ dependencies = [
   "xarray",
 ]
 optional-dependencies.tcycl = [
+  "pyinfero @ git+ssh://git@github.com/ecmwf/infero.git@0.3.1#subdirectory=src/infero/api/pyinfero",
   "wget",
 ]
 scripts.pproc-accumulate = "pproc.accumulate:main"
