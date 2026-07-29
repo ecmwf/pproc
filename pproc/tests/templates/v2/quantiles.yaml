@@ -5,7 +5,7 @@ parallelisation:
 quantiles: 3
 parameters:
   2t:
-    inputs: 
+    inputs:
       fc:
         request:
           param: '167.128'
@@ -39,10 +39,10 @@ inputs:
         type: pf
         number: [1, 2, 3, 4, 5]
     source:
-      type: "fdb"    
+      type: "fdb"
 outputs:
   default:
     metadata:
       mars.expver: '0001'
-    target: 
+    target:
       type: "fdb"

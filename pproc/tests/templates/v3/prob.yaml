@@ -1,0 +1,157 @@
+log:
+  level: INFO
+  format: '%(asctime)s; %(name)s; %(levelname)s - %(message)s'
+execution:
+  hosts: 1
+  workers: 1
+products:
+- name: ensemble
+  preprocessing:
+    actions: []
+  accumulations:
+    step:
+      operation: minimum
+      coords:
+      - - 12
+      deaccumulate: false
+  statistics:
+    metadata:
+      localDefinitionNumber: 5
+      bitsPerValue: 8
+      paramId: 131073
+      stream: enfo
+      type: ep
+    operation: threshold_probability
+    thresholds:
+    - lower_scale_factor: 2
+      lower_comparison: <=
+      lower_value: 273.15
+      upper_scale_factor: 0
+  inputs:
+    fc:
+      sources:
+      - name: fdb
+        stream: true
+      requests:
+      - class: od
+        domain: g
+        expver: '0001'
+        levtype: sfc
+        stream: enfo
+        type: cf
+        date: '20240507'
+        time: '1200'
+        param: '167'
+        step: 12
+      - class: od
+        domain: g
+        expver: '0001'
+        levtype: sfc
+        stream: enfo
+        type: pf
+        date: '20240507'
+        time: '1200'
+        param: '167'
+        number:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        step: 12
+      dtype: float64
+  output:
+    targets:
+    - name: fdb
+    request:
+      class: od
+      domain: g
+      expver: '0001'
+      levtype: sfc
+      stream: enfo
+      type: ep
+      date: 20240507
+      time: 12
+      param: 131073
+      step: 12
+    metadata: {}
+- name: ensemble
+  preprocessing:
+    actions: []
+  accumulations:
+    step:
+      operation: minimum
+      coords:
+        - 24
+        - 36
+      deaccumulate: false
+      name:
+        type: default
+        length: 24
+  statistics:
+    metadata:
+      localDefinitionNumber: 5
+      bitsPerValue: 8
+      paramId: 131073
+      stream: enfo
+      type: ep
+    operation: threshold_probability
+    thresholds:
+    - lower_scale_factor: 2
+      lower_comparison: <=
+      lower_value: 273.15
+      upper_scale_factor: 0
+  inputs:
+    fc:
+      sources:
+      - name: fdb
+        stream: true
+      requests:
+      - class: od
+        domain: g
+        expver: '0001'
+        levtype: sfc
+        stream: enfo
+        type: cf
+        date: '20240507'
+        time: '1200'
+        param: '167'
+        step:
+        - 24
+        - 36
+      - class: od
+        domain: g
+        expver: '0001'
+        levtype: sfc
+        stream: enfo
+        type: pf
+        date: '20240507'
+        time: '1200'
+        param: '167'
+        number:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        step:
+        - 24
+        - 36
+      dtype: float64
+  output:
+    targets:
+    - name: fdb
+    request:
+      class: od
+      domain: g
+      expver: '0001'
+      levtype: sfc
+      stream: enfo
+      type: ep
+      date: 20240507
+      time: 12
+      param: 131073
+      step: 12-36
+    metadata: {}
+input_overrides: {}
+output_overrides: {}
