@@ -32,10 +32,10 @@ from earthkit.workflows.plugins.pproc.config.accumulation import (
 from earthkit.workflows.plugins.pproc.metadata.accumulation import accumulation_metadata
 from earthkit.workflows.plugins.pproc.metadata.threshold import threshold_metadata
 
-# TODO: change git url to ppruntime when published in PyPI
+
 ENVIRONMENT = {
     "ppruntime": [
-        "pproc-runtime @ git+https://git@github.com/ecmwf/pproc.git@feature/mono-repo#subdirectory=pproc-runtime"
+        "pproc-runtime",
     ],
 }
 
