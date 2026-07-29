@@ -207,8 +207,20 @@ def test_products_v2(tmpdir, monkeypatch, fdb, product, main, custom_args, req, 
             },
             20,
         ],
+        [
+            "thermo",
+            {
+                "stream": "oper",
+                "type": "fc",
+                "param": [261002, 261001, 260004, 260005, 260255, 260242, 261016, 261018, 261015, 261014, 261023],
+                "step": [1],
+                "date": 20260720,
+                "time": 12,
+            },
+            11,
+        ],
     ],
-    ids=["ensms", "prob", "quantiles"],
+    ids=["ensms", "prob", "quantiles", "thermo"],
 )
 def test_products_v3(tmpdir, monkeypatch, fdb, product, req, length):
     monkeypatch.chdir(tmpdir)  # To avoid polluting cwd with grib templates
