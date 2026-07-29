@@ -12,7 +12,7 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
 DATA_DIR = os.path.join(TEST_DIR, "data")
 
 
-def test_difference_rate():
+def test_difference_rate(download_all_test_data):
     fl: earthkit.data.FieldList = earthkit.data.from_source(
         "file", os.path.join(DATA_DIR, "test_2t_12.grib")
     )  # type: ignore

@@ -33,7 +33,7 @@ DATA_DIR = os.path.join(TEST_DIR, "data")
         [thermal_indices.calc_cossza, 214001],
     ],
 )
-def test_thermal_indices(monkeypatch, function, paramid):
+def test_thermal_indices(monkeypatch, download_all_test_data, function, paramid):
     inputs: earthkit.data.FieldList = earthkit.data.from_source(
         "file", os.path.join(DATA_DIR, "test_2t_12.grib")
     )  # type: ignore
