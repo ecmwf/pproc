@@ -1,7 +1,4 @@
-parallelisation:
-  n_par_compute: 2
-  n_par_read: 2
-  queue_size: 2
+parallelisation: 1
 inputs:
   fc:
     request:

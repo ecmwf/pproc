@@ -11,7 +11,7 @@ import pytest
 
 from pproc.config.param import ParamConfig
 from pproc.config.io import BaseInputModel
-from ppcore.utils.mars import extract_mars
+from pproc.config.utils import extract_mars
 
 base_config = {
     "name": "2t",

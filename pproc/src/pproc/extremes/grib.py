@@ -13,6 +13,7 @@ from pproc.common.grib_helpers import construct_message
 
 
 def extreme_template(accum, template_fc, template_clim, allow_grib1_to_grib2=False):
+
     template_ext = construct_message(template_fc, accum.grib_keys())
     grib_keys = {}
 
@@ -208,9 +209,9 @@ def sot_metadata(template, sot, metadata) -> dict:
 
 def cpf_metadata(template, metadata) -> dict:
     metadata = metadata.copy()
-    metadata["marsType"] = (
-        27  # FIXME: this corresponds to efi, should be a new value for cpf
-    )
+    metadata[
+        "marsType"
+    ] = 27  # FIXME: this corresponds to efi, should be a new value for cpf
     metadata["bitsPerValue"] = 24
 
     edition = metadata.get("edition", template["edition"])

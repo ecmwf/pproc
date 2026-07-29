@@ -13,13 +13,14 @@ from typing import Any, Literal, Optional, Union
 from typing_extensions import Self
 import yaml
 
+import eccodes
 import pyfdb
 from annotated_types import Annotated
 from conflator import ConfigModel
 from filelock import FileLock
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, model_validator
 
-from ppcore.utils.entrypoint import validate_overrides
+from pproc.config import utils
 
 _manager = None
 
@@ -168,7 +169,7 @@ class OverrideTargetWrapper(ConfigModel, Target):
     ]
     overrides: Annotated[
         dict,
-        BeforeValidator(validate_overrides),
+        BeforeValidator(utils.validate_overrides),
     ]
 
     @model_validator(mode="before")

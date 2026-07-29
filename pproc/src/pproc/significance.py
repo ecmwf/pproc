@@ -117,6 +117,7 @@ def signi_iteration(
     window_id: str,
     accum: Accumulator,
 ):
+
     with ResourceMeter(f"{param.name}, window {window_id}: Retrieve climatology"):
         steprange = accum.grib_keys()["stepRange"]
         clim_accum, clim_template = retrieve_clim(

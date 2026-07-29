@@ -11,10 +11,10 @@ from typing import Iterator
 
 import numpy as np
 import pytest
-from ppcore.utils.dicts import dict_product
 
 from pproc.common.accumulation import Aggregation, Mean, SimpleAccumulation
 from pproc.common.accumulation_manager import AccumulationManager
+from pproc.common.utils import dict_product
 
 
 CONFIGS = {
@@ -248,7 +248,7 @@ def test_create(config, accums, coords):
                 matched = False
                 continue
             for dim in acc.dims:
-                if type(dim.accumulation) is not accums[dim.key][0]:
+                if type(dim.accumulation) != accums[dim.key][0]:
                     matched = False
                     break
                 if dim.accumulation.coords != acc_coords[dim.key]:

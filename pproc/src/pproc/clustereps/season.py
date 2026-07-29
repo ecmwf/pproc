@@ -9,7 +9,7 @@
 
 
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Tuple
 import calendar
 
 
@@ -17,7 +17,9 @@ MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
 
 class Season:
+
     def __init__(self, startMonth, endMonth, baseYear):
+
         self.baseYear = baseYear
         jumpYear = 0
         if startMonth > endMonth:
@@ -26,15 +28,13 @@ class Season:
         else:
             startYear = self.baseYear
         first_day = datetime.strptime(f"{startYear:04d}{startMonth:02d}01", "%Y%m%d")
-        end_day = datetime.strptime(
-            f"{self.baseYear:04d}{endMonth:02d}{MONTH_DAYS[endMonth-1]}", "%Y%m%d"
-        )
+        end_day = datetime.strptime(f"{self.baseYear:04d}{endMonth:02d}{MONTH_DAYS[endMonth-1]}", "%Y%m%d")
 
         self.start = first_day
         self.end = end_day
 
         all_months = list(range(1, 13)) * 2
-        self.months = all_months[startMonth - 1 : (endMonth + jumpYear * 12)]
+        self.months = all_months[startMonth - 1 : (endMonth + jumpYear*12)]
 
         self.leapday = None
         if startMonth > endMonth and endMonth >= 2:
@@ -44,14 +44,9 @@ class Season:
             if calendar.isleap(startYear):
                 self.leapday = self.leapday = datetime(baseYear, 2, 29)
 
-        self.name = "".join(
-            [
-                datetime.strptime(f"1970{mon:02d}01", "%Y%m%d")
-                .strftime("%b")
-                .lower()[0]
-                for mon in self.months
-            ]
-        )
+        self.name = ''.join([
+            datetime.strptime(f"1970{mon:02d}01", "%Y%m%d").strftime("%b").lower()[0] for mon in self.months
+        ])
 
     @property
     def ndays(self) -> int:
@@ -62,10 +57,7 @@ class Season:
 
     @property
     def doys(self) -> List[int]:
-        return [
-            (self.start + timedelta(days=i)).timetuple().tm_yday - 1
-            for i in range(self.ndays)
-        ]
+        return [(self.start + timedelta(days=i)).timetuple().tm_yday - 1 for i in range(self.ndays)]
 
     def dos(self, date: datetime) -> int:
         if self.leapday is not None and date >= self.leapday:

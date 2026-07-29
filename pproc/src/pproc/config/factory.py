@@ -8,13 +8,14 @@
 # nor does it submit to any jurisdiction.
 
 import os
+import pandas as pd
+import numpy as np
 import logging
-
-from ppcore.utils.requests import expand
-from ppcore.schema.schema import Schema
 
 from pproc.config import types
 from pproc.config.base import BaseConfig
+from pproc.config.utils import expand, squeeze
+from pproc.schema.schema import Schema
 
 
 logging.getLogger("pproc").setLevel(os.environ.get("PPROC_LOG", "INFO").upper())

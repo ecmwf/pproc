@@ -15,11 +15,10 @@ import copy
 
 from earthkit.time.calendar import parse_date
 from earthkit.time.sequence import Sequence
-from ppcore.utils.mars import extract_mars
 
-from ppcore.utils.stepseq import stepseq_ranges, stepseq_monthly
+from pproc.common.stepseq import stepseq_ranges, stepseq_monthly
 from pproc.common.accumulation import convert_coords, coords_name
-from pproc.config.utils import _get
+from pproc.config.utils import extract_mars, _get
 
 
 class StepRanges(BaseModel):
@@ -109,7 +108,7 @@ class LegacyWindowConfig(BaseModel):
             name = coords_name(coord, self.name)
             try:
                 name = int(name)
-            except ValueError:
+            except:
                 pass
             base[dim].append(name)
         if hasattr(self, "thresholds"):
@@ -231,7 +230,7 @@ class DefaultAccumulation(BaseAccumulation):
             name = coords_name(coord, self.name)
             try:
                 name = int(name)
-            except ValueError:
+            except:
                 pass
             base[dim].append(name)
         return [base]

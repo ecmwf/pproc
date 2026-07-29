@@ -9,7 +9,7 @@
 
 import copy
 import os
-from typing import Literal, Optional, List, Any, Annotated, Iterator
+from typing import Literal, Optional, List, Any, Annotated, ClassVar, Iterator
 from typing_extensions import Self, Union
 from pydantic import (
     field_validator,
@@ -26,9 +26,6 @@ import pandas as pd
 
 from conflator import CLIArg, ConfigModel
 from earthkit.time import DailySequence
-from ppcore.utils.dicts import deep_update
-from ppcore.utils.requests import expand, update_request, squeeze
-from ppcore.utils.mars import extract_mars
 
 from pproc.clustereps.season import MONTH_DAYS, Season
 from pproc.config.base import BaseConfig, Parallelisation
@@ -37,9 +34,14 @@ from pproc.config.param import ParamConfig, partial_equality
 from pproc.config.utils import (
     _set,
     _get,
+    extract_mars,
+    update_request,
+    deep_update,
+    expand,
+    squeeze,
 )
 from pproc.config.preprocessing import Reshape, Expression
-from ppcore.utils.stepseq import steprange_to_fcmonth
+from pproc.common.stepseq import steprange_to_fcmonth
 from pproc.extremes.indices import Index, SUPPORTED_INDICES, create_indices
 from pproc.flightlevel.mapping import FLIGHT_TO_PRESSURE_LEVEL
 
@@ -591,7 +593,7 @@ class ProbConfig(BaseConfig):
         if clim_step is not None:
             assert len(fc_step) == len(
                 clim_step
-            ), "Forecast and clim steps must be of the same length"
+            ), f"Forecast and clim steps must be of the same length"
             for clim_inp in sorted_requests.get("clim", []):
                 clim_inp["step"] = {
                     fc_step[x]: clim_step[x] for x in range(len(fc_step))
@@ -933,7 +935,7 @@ class ThermoConfig(BaseConfig):
                     nsteps = list(map(lambda x: len(str(x).split("-")), steps))
                     assert np.all(
                         np.asarray(nsteps) == 1
-                    ), "Accumulation inputs required for step ranges."
+                    ), f"Accumulation inputs required for step ranges."
         return self
 
     @classmethod

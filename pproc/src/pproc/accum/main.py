@@ -46,7 +46,9 @@ def main(cfg: Config, postproc_iteration: Any):
                 cfg.inputs,
                 param.total_fields,
             )
-            postproc_partial = functools.partial(postproc_iteration, param, cfg)
+            postproc_partial = functools.partial(
+                postproc_iteration, param, cfg
+            )
             for keys, data in parallel_data_retrieval(
                 cfg.parallelisation.n_par_read,
                 accum_manager.dims,

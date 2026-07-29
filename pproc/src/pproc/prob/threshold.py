@@ -61,13 +61,13 @@ class RangeThreshold(BaseModel):
         if edition != 2:
             raise ValueError("Threshold ranges are only supported for GRIB edition 2")
         return {
-            "scaleFactorOfLowerLimit": self.lower_scale_factor,
-            "scaledValueOfLowerLimit": round(
+            f"scaleFactorOfLowerLimit": self.lower_scale_factor,
+            f"scaledValueOfLowerLimit": round(
                 self.lower_value * 10**self.lower_scale_factor, 0
             ),
             "probabilityType": 2,
-            "scaleFactorOfUpperLimit": self.upper_scale_factor,
-            "scaledValueOfUpperLimit": round(
+            f"scaleFactorOfUpperLimit": self.upper_scale_factor,
+            f"scaledValueOfUpperLimit": round(
                 self.upper_value * 10**self.upper_scale_factor, 0
             ),
         }

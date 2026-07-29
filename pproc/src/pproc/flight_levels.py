@@ -20,6 +20,7 @@
 import functools
 import signal
 import sys
+import earthkit
 import logging
 
 import numpy as np
@@ -27,11 +28,10 @@ from conflator import Conflator
 from earthkit.meteo import vertical
 from earthkit.data import FieldList, SimpleFieldList
 from meters import ResourceMeter
-from ppcore.utils.dicts import dict_product
 
 from pproc.common.accumulation_manager import AccumulationManager
 from pproc.common.io import write_grib
-
+from pproc.common.utils import dict_product
 from pproc.common.parallel import (
     parallel_processing,
     sigterm_handler,
