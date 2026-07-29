@@ -30,8 +30,6 @@ request = {
     "param": [138, 155],
     "step": range(0, 7, 3),
 }
-
-
 def test_fdb_read(fdb):
     data = io.fdb_read(fdb, request)
     assert len(data.coords["param"]) == 2
@@ -128,6 +126,7 @@ def _write(target, message):
             [{"step": x} for x in range(12, 37, 6)],
         ],
     ],
+    ids=["file", "fileset"]
 )
 def test_target_parallel(tmpdir, fdb, loc, out_loc, reqs):
     loc = loc.replace("TMPDIR", str(tmpdir))
