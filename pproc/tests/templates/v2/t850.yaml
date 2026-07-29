@@ -53,38 +53,6 @@ parameters:
             value: 2
           metadata:
             bitsPerValue: 24
-        - coords: [[0], [12]]
-          operation: maximum
-          std_anomaly: true
-          thresholds:
-          - metadata: {"paramId": 133093}
-            comparison: '>'
-            value: 1
-          metadata:
-            localDefinitionNumber: 30
-            bitsPerValue: 24
-            edition: 2
-            typeOfGeneratingProcess: 5
-            paramId: 0
-            timeIncrement: 12
-            typeOfStatisticalProcessing: 10
-            packingType: grid_ccsds
-        - coords: [[0], [12]]
-          operation: minimum
-          std_anomaly: true
-          thresholds:
-          - metadata: {"paramId": 133096}
-            comparison: <
-            value: -1
-          metadata:
-            localDefinitionNumber: 30
-            bitsPerValue: 24
-            edition: 2
-            typeOfGeneratingProcess: 5
-            paramId: 0
-            timeIncrement: 12
-            typeOfStatisticalProcessing: 10
-            packingType: grid_ccsds
 inputs:
   fc:
     request:
