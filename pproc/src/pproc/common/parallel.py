@@ -16,10 +16,9 @@ import signal
 
 import psutil
 from meters import ResourceMeter
-from ppcore.utils.dicts import dict_product
 
 from pproc.common.param_requester import ParamRequester
-from pproc.common.utils import delayed_map
+from pproc.common.utils import delayed_map, dict_product
 from pproc.config.base import Parallelisation
 
 
@@ -217,13 +216,10 @@ def parallel_data_retrieval(
     )
     with executor:
         delay = 0 if num_processes == 1 else num_processes
-
-        def submit(keys):
-            return (
-                keys,
-                executor.submit(_retrieve, data_requesters, **keys),
-            )
-
+        submit = lambda keys: (
+            keys,
+            executor.submit(_retrieve, data_requesters, **keys),
+        )
         requests = dict_product(dims)
         for keys, future in delayed_map(delay, submit, requests):
             yield keys, future.result()

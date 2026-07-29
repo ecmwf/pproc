@@ -18,18 +18,26 @@ import earthkit.meteo.solar
 import thermofeel
 from meters import metered
 
-from ppruntime.thermo.helpers import (
+from pproc.thermo.helpers import (
     compute_ehPa,
     field_values,
     find_utci_missing_values,
     get_datetime,
     latlon,
     step_interval,
+    units,
     validate_utci,
 )
-from ppruntime.thermal_indices import metadata_intensity, metadata_accumulation
 
 logger = logging.getLogger(__name__)
+
+
+def metadata_intensity(fields):
+    return fields.sel(param="2t").metadata()
+
+
+def metadata_accumulation(fields):
+    return fields.sel(param="fdir").metadata()
 
 
 class ComputeIndices:
@@ -59,6 +67,7 @@ class ComputeIndices:
 
     @metered("cossza", out=logger.debug)
     def calc_cossza_int(self, fields):
+
         lats, lons = latlon(fields)
 
         basetime, validtime = get_datetime(fields)
@@ -114,6 +123,7 @@ class ComputeIndices:
 
     @metered("heatx", out=logger.debug)
     def calc_heatx(self, fields):
+
         t2m = field_values(fields, "2t")  # Kelvin
         td = field_values(fields, "2d")  # Kelvin
 
@@ -121,6 +131,18 @@ class ComputeIndices:
 
         return self.create_surface_output(
             heatx, metadata_intensity(fields), paramId="260004"
+        )
+
+    def field_stats(self, name, values):
+        try:
+            unit = units[name]
+        except:
+            raise ValueError(f"No units specified for parameter {name}")
+
+        logger.debug(
+            f"{name:<8} {unit:<6} min {np.nanmin(values):>16.6f} max {np.nanmax(values):>16.6f} "
+            f"avg {np.nanmean(values):>16.6f} stddev {np.nanstd(values, dtype=np.float64):>16.6f} "
+            f"missing {np.count_nonzero(np.isnan(values)):>8}"
         )
 
     @metered("dsrp", out=logger.debug)
@@ -148,6 +170,7 @@ class ComputeIndices:
 
         res = func(fields, **kwargs)
 
+        self.field_stats(name, res.to_array())
         if self.results is None:
             self.results = res
         else:
@@ -158,6 +181,7 @@ class ComputeIndices:
 
     @metered("utci", out=logger.debug)
     def calc_utci(self, fields, *, print_misses=True, validate=True):
+
         lats, lons = latlon(fields)
 
         t2m = field_values(fields, "2t")  # Kelvin
@@ -270,6 +294,7 @@ class ComputeIndices:
 
     @metered("mrt", out=logger.debug)
     def calc_mrt(self, fields):
+
         cossza = self.calc_field("cossza", self.calc_cossza_int, fields).to_array()
         dsrp = self.calc_field("dsrp", self.calc_dsrp, fields).to_array()
 
@@ -284,9 +309,18 @@ class ComputeIndices:
         strr = field_values(fields, "str")  # W/m2
         ssr = field_values(fields, "ssr")  # W/m2
 
+        self.field_stats("ssrd", ssrd)
+
         # remove negative values from deaccumulated solar fields
         for v in ssrd, fdir, strd, ssr:
             v[v < 0] = 0
+
+        self.field_stats("dsrp", dsrp)
+        self.field_stats("ssrd", ssrd)
+        self.field_stats("fdir", fdir)
+        self.field_stats("strd", strd)
+        self.field_stats("str", strr)
+        self.field_stats("ssr", ssr)
 
         mrt = thermofeel.calculate_mean_radiant_temperature(
             ssrd * f, ssr * f, dsrp * f, strd * f, fdir * f, strr * f, cossza

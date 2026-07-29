@@ -9,6 +9,7 @@
 
 from abc import ABC, abstractmethod
 from typing import Annotated, Any, List, Literal, Optional, Tuple, Union
+from typing_extensions import Self
 
 import numexpr
 import numpy as np

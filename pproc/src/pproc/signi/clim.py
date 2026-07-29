@@ -7,12 +7,12 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 
 import eccodes
 from meters import ResourceMeter
 
-from pproc.common.param_requester import ParamRequester, IndexFunc
+from pproc.common.param_requester import ParamConfig, ParamRequester, IndexFunc
 from pproc.common.accumulation import Accumulator
 from pproc.common.accumulation_manager import AccumulationManager
 from pproc.common.parallel import parallel_data_retrieval
@@ -28,6 +28,7 @@ def retrieve_clim(
     index_func: Optional[IndexFunc] = None,
     **additional_dims,
 ) -> Tuple[Accumulator, eccodes.GRIBMessage]:
+
     accums = param.accumulations.copy()
     for dim, value in additional_dims.items():
         accums[dim] = {"operation": "aggregation", "coords": [[value]]}

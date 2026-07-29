@@ -7,5 +7,5 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-from .config import default_parser, Config  # noqa: F401
-from .steps import AnyStep, Step, parse_step, step_to_coord  # noqa: F401
+from .config import default_parser, Config
+from .steps import AnyStep, Step, parse_step, step_to_coord

@@ -10,19 +10,19 @@
 from typing import Any, Dict, Iterator, Optional
 from typing_extensions import Self
 import itertools
+import os
 import logging
 import copy
 
 import numpy as np
 import pandas as pd
 from pydantic import BaseModel, Field, model_validator
-from ppcore.utils.dicts import deep_update
-from ppcore.utils.requests import expand, update_request
-from ppcore.utils.mars import extract_mars
 
 from pproc.config.preprocessing import PreprocessingConfig
 from pproc.config.accumulation import AccumulationConfig
+from pproc.config.utils import extract_mars, deep_update
 from pproc.config.io import Source, Input, InputsCollection
+from pproc.config.utils import update_request, expand
 
 logger = logging.getLogger(__name__)
 

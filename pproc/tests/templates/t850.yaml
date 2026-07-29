@@ -55,7 +55,7 @@ parameters:
             bitsPerValue: 24
         - coords: [[0], [12]]
           operation: maximum
-          std_anomaly: true
+          std_anomaly: true 
           thresholds:
           - metadata: {"paramId": 133093}
             comparison: '>'
@@ -71,7 +71,7 @@ parameters:
             packingType: grid_ccsds
         - coords: [[0], [12]]
           operation: minimum
-          std_anomaly: true
+          std_anomaly: true 
           thresholds:
           - metadata: {"paramId": 133096}
             comparison: <

@@ -17,9 +17,7 @@ class Step:
     end: int = None
 
     def __init__(self, start_or_step, end=None):
-        def _set_frozen(attr, val):
-            return object.__setattr__(self, attr, val)
-
+        _set_frozen = lambda attr, val: object.__setattr__(self, attr, val)
         if isinstance(start_or_step, Step):
             _set_frozen("start", start_or_step.start)
             _set_frozen("end", start_or_step.end)

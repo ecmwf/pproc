@@ -14,6 +14,7 @@ import numpy as np
 
 from pproc.common.dataset import open_multi_dataset
 from pproc.common.io import missing_to_nan, GribMetadata
+from pproc.common.steps import AnyStep
 from pproc.config.io import Input, InputsCollection
 from pproc.config.param import ParamConfig
 

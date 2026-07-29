@@ -16,9 +16,9 @@ import logging
 import yaml
 import json
 
-from ppcore.schema.schema import Schema
 
 from pproc.config.factory import ConfigFactory
+from pproc.schema.schema import Schema
 from pproc.common import mars
 
 logging.basicConfig(
@@ -66,7 +66,7 @@ def _to_mars(requests: list[dict]) -> str:
     for req in requests:
         source = req.pop("source", None)
         target = req.pop("target", None)
-        # Reverse source/target keys so request can be used to
+        # Reverse source/target keys so request can be used to 
         # create/extract from the input/output files
         if source and source not in ["fdb", "mars", "fdbmars"]:
             req["target"] = f"'{source}'"

@@ -36,7 +36,9 @@ def anomaly_iteration(
     window_id: str,
     accum: Accumulator,
 ):
+
     with ResourceMeter(f"{param.name}, window {window_id}: Retrieve climatology"):
+
         if "stepRange" in accum.grib_keys():
             steprange = accum.grib_keys()["stepRange"]
         else:

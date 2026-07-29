@@ -1,0 +1,28 @@
+---
+
+ws:
+  levelist: [250, 850]
+  param: u/v
+  grid: O640
+  12: { step: 0/to/12/by/3 }
+  24: { step: 15/to/24/by/3 }
+  36: { step: 27/to/36/by/3 }
+  48: { step: 39/to/48/by/3 }
+  60: { step: 51/to/60/by/3 }
+  72: { step: 63/to/72/by/3 }
+  84: { step: 75/to/84/by/3 }
+  96: { step: 87/to/96/by/3 }
+  108: { step: 99/to/108/by/3 }
+  120: { step: 111/to/120/by/3 }
+  132: { step: 123/to/132/by/3 }
+  144: { step: 135/to/144/by/3 }
+  168: { step: 150/to/168/by/6 }
+  192: { step: 174/to/192/by/6 }
+  216: { step: 198/to/216/by/6 }
+  240: { step: 222/to/240/by/6 }
+  264: { step: 246/to/264/by/6 }
+  288: { step: 270/to/288/by/6 }
+  312: { step: 394/to/312/by/6 }
+  336: { step: 318/to/336/by/6 }
+  360: { step: 342/to/360/by/6 }
+

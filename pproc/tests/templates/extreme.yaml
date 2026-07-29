@@ -16,7 +16,7 @@ parameters:
         request:
           param: 228004
           step:
-            12-36: 0-24
+            12-36: 0-24 
     accumulations:
       step:
         type: legacywindow
@@ -52,10 +52,10 @@ inputs:
         stream: enfo
         date: 20240507
         time: 12
-        type: pf
+        type: pf 
         number: [1, 2, 3, 4, 5]
     source:
-      type: fdb
+      type: fdb   
   clim:
     request:
       class: od

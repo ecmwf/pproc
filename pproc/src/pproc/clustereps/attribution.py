@@ -24,6 +24,7 @@ from pproc.config.types import ClusterAttributionStandaloneConfig, SeasonConfig
 
 
 def read_clim_file(filePath: str, nRecords: int, dtype: str = ">f4"):
+
     arr = list()
     with FortranFile(filePath, "r", header_dtype=">u4") as fin:
         for _ in range(nRecords):
@@ -289,7 +290,7 @@ def main() -> int:
             fmt="%-3d",
             delimiter=3 * " ",
         )
-
+    
     cfg.clean()
     return 0
 

@@ -18,10 +18,10 @@ import eccodes
 from earthkit.meteo.stats import iter_quantiles
 from meters import ResourceMeter
 from conflator import Conflator
-from earthkit.workflows.plugins.pproc.utils.metadata import fill_template_values
 
 from pproc.common.accumulation import Accumulator
 from pproc.common.accumulation_manager import AccumulationManager
+from pproc.common.grib_helpers import fill_template_values
 from pproc.common.io import write_grib
 from pproc.common.parallel import (
     create_executor,
@@ -116,7 +116,9 @@ def main():
                 cfg.inputs,
                 param.total_fields,
             )
-            quantiles_partial = functools.partial(quantiles_iteration, cfg, param)
+            quantiles_partial = functools.partial(
+                quantiles_iteration, cfg, param
+            )
             for keys, data in parallel_data_retrieval(
                 cfg.parallelisation.n_par_read,
                 accum_manager.dims,

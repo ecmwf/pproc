@@ -1,7 +1,7 @@
 import pytest
 
 from pproc.config import types
-from ppcore.utils.requests import deep_update
+from pproc.config.utils import deep_update
 
 BASE_OUTPUT = {
     "target": "fdb",

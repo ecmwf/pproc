@@ -7,7 +7,9 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
+from typing import Dict
 import numpy as np
+import re
 
 import eccodes
 from earthkit.data.utils.message import CodesHandle

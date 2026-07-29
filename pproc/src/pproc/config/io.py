@@ -23,8 +23,6 @@ from pydantic import (
     model_validator,
     field_validator,
 )
-from ppcore.utils.dicts import deep_update
-from ppcore.utils.entrypoint import validate_overrides
 
 from pproc.config import utils
 from pproc.config.targets import (
@@ -121,7 +119,7 @@ class InputsCollection(ConfigModel):
     names: ClassVar[list[str]]
     overrides: Annotated[
         dict,
-        BeforeValidator(validate_overrides),
+        BeforeValidator(utils.validate_overrides),
         CLIArg(
             "--override-input",
             action="append",
@@ -141,7 +139,7 @@ class InputsCollection(ConfigModel):
         def_source = data["default"]
         for sub in cls.names:
             subsec = data.setdefault(sub, {})
-            data[sub] = deep_update(subsec, def_source)
+            data[sub] = utils.deep_update(subsec, def_source)
         return data
 
 
@@ -186,7 +184,7 @@ class OutputsCollection(ConfigModel):
     default: Output = Output()
     overrides: Annotated[
         dict,
-        BeforeValidator(validate_overrides),
+        BeforeValidator(utils.validate_overrides),
         CLIArg(
             "--override-output",
             action="append",

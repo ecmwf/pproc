@@ -25,7 +25,6 @@ import eccodes
 import numpy as np
 from conflator import Conflator
 from meters import ResourceMeter
-from earthkit.workflows.plugins.pproc.utils.metadata import fill_template_values
 
 from pproc.common.io import write_grib
 from pproc.common.accumulation import Accumulator
@@ -36,6 +35,7 @@ from pproc.common.parallel import (
     sigterm_handler,
 )
 from pproc.common.param_requester import ParamConfig, ParamRequester
+from pproc.common.grib_helpers import fill_template_values
 from pproc.config.types import EnsmsConfig
 
 
@@ -58,6 +58,7 @@ def ensms_iteration(
     accum: Accumulator,
     template_ens: eccodes.GRIBMessage,
 ):
+
     ens = accum.values
     assert ens is not None
 
