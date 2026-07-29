@@ -1,0 +1,223 @@
+log:
+  level: INFO
+  format: '%(asctime)s; %(name)s; %(levelname)s - %(message)s'
+execution:
+  hosts: 1
+  workers: 1
+products:
+- name: ensemble
+  preprocessing:
+    actions: []
+  accumulations: {}
+  statistics:
+    metadata:
+      localDefinitionNumber: 30
+      oceanAtmosphereCoupling: 2
+      legBaseDate: 20240507
+      legBaseTime: 1200
+      legNumber: 1
+      perturbationNumber: 0
+      bitsPerValue: 16
+      numberOfForecastsInEnsemble: '{num_fields}:int'
+      stream: enfo
+      type: em
+    operation: mean
+  output:
+    targets:
+      - name: fdb
+    request: {}
+  inputs:
+    fc:
+      sources:
+      - name: fdb
+        stream: true
+      requests:
+      - class: od
+        date: 20240507
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: 12
+        type: cf
+        param: 167
+        step: 12
+      - class: od
+        date: 20240507
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: 12
+        type: pf
+        param: 167
+        step: 12
+        number:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+      dtype: float64
+- name: ensemble
+  preprocessing:
+    actions: []
+  accumulations: {}
+  statistics:
+    metadata:
+      localDefinitionNumber: 30
+      oceanAtmosphereCoupling: 2
+      legBaseDate: 20240507
+      legBaseTime: 1200
+      legNumber: 1
+      perturbationNumber: 0
+      bitsPerValue: 16
+      numberOfForecastsInEnsemble: '{num_fields}:int'
+      stream: enfo
+      type: es
+    operation: std
+  output:
+    targets:
+      - name: fdb
+    request: {}
+  inputs:
+    fc:
+      sources:
+      - name: fdb
+        stream: true
+      requests:
+      - class: od
+        date: 20240507
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: 12
+        type: cf
+        param: 167
+        step: 12
+      - class: od
+        date: 20240507
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: 12
+        type: pf
+        param: 167
+        step: 12
+        number:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+      dtype: float64
+- name: ensemble
+  preprocessing:
+    actions: []
+  accumulations: {}
+  statistics:
+    metadata:
+      localDefinitionNumber: 30
+      oceanAtmosphereCoupling: 2
+      legBaseDate: 20240507
+      legBaseTime: 1200
+      legNumber: 1
+      perturbationNumber: 0
+      bitsPerValue: 16
+      numberOfForecastsInEnsemble: '{num_fields}:int'
+      stream: enfo
+      type: em
+    operation: mean
+  output:
+    targets:
+      - name: fdb
+    request: {}
+  inputs:
+    fc:
+      sources:
+      - name: fdb
+        stream: true
+      requests:
+      - class: od
+        date: 20240507
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: 12
+        type: cf
+        param: 167
+        step: 36
+      - class: od
+        date: 20240507
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: 12
+        type: pf
+        param: 167
+        step: 36
+        number:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+      dtype: float64
+- name: ensemble
+  preprocessing:
+    actions: []
+  accumulations: {}
+  statistics:
+    metadata:
+      localDefinitionNumber: 30
+      oceanAtmosphereCoupling: 2
+      legBaseDate: 20240507
+      legBaseTime: 1200
+      legNumber: 1
+      perturbationNumber: 0
+      bitsPerValue: 16
+      numberOfForecastsInEnsemble: '{num_fields}:int'
+      stream: enfo
+      type: es
+    operation: std
+  output:
+    targets:
+      - name: fdb
+    request: {}
+  inputs:
+    fc:
+      sources:
+      - name: fdb
+        stream: true
+      requests:
+      - class: od
+        date: 20240507
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: 12
+        type: cf
+        param: 167
+        step: 36
+      - class: od
+        date: 20240507
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: 12
+        type: pf
+        param: 167
+        step: 36
+        number:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+      dtype: float64

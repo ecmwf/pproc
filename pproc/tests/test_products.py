@@ -17,9 +17,9 @@ from pproc.probabilities import main as prob_main
 from pproc.ensms import main as ensms_main
 from pproc.extreme import main as extreme_main
 from pproc.quantiles import main as quantiles_main
-from pproc.wind import main as wind_main
 from pproc.thermal_indices import main as thermo_main
 from pproc.clustereps.__main__ import main as clustereps_main
+from ppcore.product import main as ppcore_main
 from conftest import DATA_DIR
 
 TEST_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -80,7 +80,7 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
         ],
         [
             "wind",
-            wind_main,
+            ensms_main,
             [],
             {
                 "type": "es",
@@ -155,9 +155,9 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
         "clustereps",
     ],
 )
-def test_products(tmpdir, monkeypatch, fdb, product, main, custom_args, req, length):
+def test_products_v2(tmpdir, monkeypatch, fdb, product, main, custom_args, req, length):
     monkeypatch.chdir(tmpdir)  # To avoid polluting cwd with grib templates
-    args = [product, "--config", f"{TEST_DIR}/templates/{product}.yaml"] + [
+    args = [product, "--config", f"{TEST_DIR}/templates/v2/{product}.yaml"] + [
         x.format_map(
             {
                 "test_dir": str(tmpdir),
@@ -169,6 +169,64 @@ def test_products(tmpdir, monkeypatch, fdb, product, main, custom_args, req, len
     ]
     monkeypatch.setattr("sys.argv", args)
     main()
+    test_fdb = pyfdb.FDB()
+    request = {
+        "class": "od",
+        "expver": "0001",
+        "stream": "enfo",
+        "date": 20240507,
+        "time": 12,
+        "levtype": "sfc",
+        "domain": "g",
+    }
+    request.update(req)
+    messages = list(eccodes.StreamReader(test_fdb.retrieve(request)))
+    assert len(messages) == length
+
+
+@pytest.mark.parametrize(
+    "product, req, length",
+    [
+        [
+            "ensms",
+            {"type": "em", "param": 167, "step": [12, 36]},
+            2,
+        ],
+        [
+            "prob",
+            {"type": "ep", "param": 131073, "step": ["12", "12-36"]},
+            2,
+        ],
+        [
+            "quantiles",
+            {
+                "type": "pb",
+                "param": 167,
+                "step": [12, 18, 24, 30, 36],
+                "quantile": ["{}:3".format(x) for x in range(4)],
+            },
+            20,
+        ],
+        [
+            "thermo",
+            {
+                "stream": "oper",
+                "type": "fc",
+                "param": [261002, 261001, 260004, 260005, 260255, 260242, 261016, 261018, 261015, 261014, 261023],
+                "step": [1],
+                "date": 20260720,
+                "time": 12,
+            },
+            11,
+        ],
+    ],
+    ids=["ensms", "prob", "quantiles", "thermo"],
+)
+def test_products_v3(tmpdir, monkeypatch, fdb, product, req, length):
+    monkeypatch.chdir(tmpdir)  # To avoid polluting cwd with grib templates
+    args = [product, "--config", f"{TEST_DIR}/templates/v3/{product}.yaml"]
+    monkeypatch.setattr("sys.argv", args)
+    ppcore_main()
     test_fdb = pyfdb.FDB()
     request = {
         "class": "od",
