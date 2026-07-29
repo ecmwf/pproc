@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 from earthkit.data import FieldList
 from earthkit.data.core.metadata import Metadata as ekdMetadata
 

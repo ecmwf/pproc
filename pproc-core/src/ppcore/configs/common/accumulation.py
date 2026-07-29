@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
 from typing import Optional, Union, Literal, Annotated, Any
 
 from pydantic import Discriminator, Field, Tag, field_validator, model_validator
