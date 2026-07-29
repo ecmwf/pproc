@@ -496,6 +496,7 @@ class Action(fluent.Action):
                 operation=None,
                 coords=[[steps[x], steps[x + 1]] for x in range(len(steps) - 1)],
                 deaccumulate=True,
+                metadata={"stepType": "diff"},
             )
             deaccum = type(self)(
                 nodetree_from_dict(
@@ -522,10 +523,13 @@ class Action(fluent.Action):
             param_action._squeeze_dimension("step")
             param_action = param_action.combine_branches(dim=dim)
 
-        ret = param_action._wrapped_reduction(
-            fluent.Payload(func=function, kwargs={"metadata": metadata or {}}),
-            dim=dim,
-        )
+        if method := getattr(param_action, function, None):
+            ret = method(dim=dim, metadata=metadata)
+        else:
+            ret = param_action._wrapped_reduction(
+                fluent.Payload(func=function, kwargs={"metadata": metadata or {}}),
+                dim=dim,
+            )
         ret._add_dimension(dim, str(metadata.get("paramId")))
         if not join:
             return ret
