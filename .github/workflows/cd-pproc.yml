@@ -9,6 +9,6 @@ jobs:
 
   pypi:
     uses: ecmwf/reusable-workflows/.github/workflows/cd-pypi.yml@v2
-    with: 
+    with:
       working-directory: pproc
     secrets: inherit

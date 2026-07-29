@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag X.Y.Z'
+        description: 'Release tag ppruntime-X.Y.Z'
         required: true
         type: string
       environment:
@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        python_version: ["3.11", "3.12", "3.13"]
+        python_version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -41,13 +41,6 @@ jobs:
   publish:
     needs: test
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: true
-      matrix:
-        python_version: ["3.11", "3.12", "3.13"]
-    permissions:
-      id-token: write
-      contents: read
 
     steps:
       - uses: actions/checkout@v4
@@ -55,9 +48,9 @@ jobs:
           ref: ${{ inputs.tag }}
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
-          python-version: ${{ matrix.python_version }}
+          python-version: "3.x"
 
       - name: Install dependencies
         run: |
