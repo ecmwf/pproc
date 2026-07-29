@@ -16,7 +16,6 @@ from ppruntime.thermo.helpers import (
     step_interval,
     validate_utci,
     create_output,
-    create_surface_output,
 )
 from ppruntime.metadata import resolve_metadata
 
@@ -73,7 +72,7 @@ def calc_cossza(*fields: FieldList, metadata: Optional[dict] = None) -> FieldLis
     return create_output(
         cossza,
         metadata_intensity(summed_fields)[:1],
-        {**resolve_metadata(metadata), "paramId": "214001"},
+        {**resolve_metadata(metadata)},
     )
 
 
@@ -83,10 +82,10 @@ def calc_hmdx(*fields: FieldList, metadata: Optional[dict] = None) -> FieldList:
     logger.debug(f"calc_hmdx: {summed_fields.ls(namespace='mars')}")
     inputs = field_values(summed_fields, [167, 168])
     hmdx = thermofeel.calculate_humidex(*inputs)
-    return create_surface_output(
+    return create_output(
         hmdx,
         metadata_intensity(summed_fields),
-        {**resolve_metadata(metadata), "paramId": "261016"},
+        {**resolve_metadata(metadata)},
     )
 
 
@@ -96,10 +95,10 @@ def calc_rhp(*fields: FieldList, metadata: Optional[dict] = None) -> FieldList:
     logger.debug(f"calc_rhp: {summed_fields.ls(namespace='mars')}")
     inputs = field_values(summed_fields, [167, 168])
     rhp = thermofeel.calculate_relative_humidity_percent(*inputs)
-    return create_surface_output(
+    return create_output(
         rhp,
         metadata_intensity(summed_fields),
-        {**resolve_metadata(metadata), "paramId": "260242"},
+        {**resolve_metadata(metadata)},
     )
 
 
@@ -109,10 +108,10 @@ def calc_heatx(*fields: FieldList, metadata: Optional[dict] = None) -> FieldList
     logger.debug(f"calc_heatx: {summed_fields.ls(namespace='mars')}")
     inputs = field_values(summed_fields, [167, 168])
     heatx = thermofeel.calculate_heat_index_adjusted(*inputs)
-    return create_surface_output(
+    return create_output(
         heatx,
         metadata_intensity(summed_fields),
-        {**resolve_metadata(metadata), "paramId": "260004"},
+        {**resolve_metadata(metadata)},
     )
 
 
@@ -129,7 +128,7 @@ def calc_dsrp(*fields: FieldList, metadata: Optional[dict] = None):
     return create_output(
         dsrp,
         metadata_accumulation(summed_fields),
-        {**resolve_metadata(metadata), "paramId": "47"},
+        {**resolve_metadata(metadata)},
     )
 
 
@@ -158,10 +157,10 @@ def calc_utci(*fields: FieldList, metadata: Optional[dict] = None, validate=True
             validate_utci(utci[index], missing, lats, lons)
         utci[index][missing] = np.nan
 
-    return create_surface_output(
+    return create_output(
         utci,
         metadata_intensity(summed_fields),
-        {**resolve_metadata(metadata), "paramId": "261001"},
+        {**resolve_metadata(metadata)},
     )
 
 
@@ -171,10 +170,10 @@ def calc_wbgt(*fields: FieldList, metadata: Optional[dict] = None):
     logger.debug(f"calc_wbgt: {summed_fields.ls(namespace='mars')}")
     inputs = field_values(summed_fields, [167, 261002, 207, 168])
     wbgt = thermofeel.calculate_wbgt(*inputs)
-    return create_surface_output(
+    return create_output(
         wbgt,
         metadata_intensity(summed_fields),
-        {**resolve_metadata(metadata), "paramId": "261014"},
+        {**resolve_metadata(metadata)},
     )
 
 
@@ -186,10 +185,10 @@ def calc_gt(*fields: FieldList, metadata: Optional[dict] = None):
 
     gt = thermofeel.calculate_bgt(*inputs)
 
-    return create_surface_output(
+    return create_output(
         gt,
         metadata_intensity(summed_fields),
-        {**resolve_metadata(metadata), "paramId": "261015"},
+        {**resolve_metadata(metadata)},
     )
 
 
@@ -199,10 +198,10 @@ def calc_wbt(*fields: FieldList, metadata: Optional[dict] = None):
     logger.debug(f"calc_wbt: {summed_fields.ls(namespace='mars')}")
     inputs = field_values(summed_fields, [167, 260242])
     wbt = thermofeel.calculate_wbt(*inputs)
-    return create_surface_output(
+    return create_output(
         wbt,
         metadata_intensity(summed_fields),
-        {**resolve_metadata(metadata), "paramId": "261023"},
+        {**resolve_metadata(metadata)},
     )
 
 
@@ -212,10 +211,10 @@ def calc_nefft(*fields: FieldList, metadata: Optional[dict] = None):
     logger.debug(f"calc_nefft: {summed_fields.ls(namespace='mars')}")
     inputs = field_values(summed_fields, [167, 207, 260242])
     nefft = thermofeel.calculate_normal_effective_temperature(*inputs)
-    return create_surface_output(
+    return create_output(
         nefft,
         metadata_intensity(summed_fields),
-        {**resolve_metadata(metadata), "paramId": "261018"},
+        {**resolve_metadata(metadata)},
     )
 
 
@@ -225,10 +224,10 @@ def calc_wcf(*fields: FieldList, metadata: Optional[dict] = None):
     logger.debug(f"calc_wcf: {summed_fields.ls(namespace='mars')}")
     inputs = field_values(summed_fields, [167, 207])
     wcf = thermofeel.calculate_wind_chill(*inputs)
-    return create_surface_output(
+    return create_output(
         wcf,
         metadata_intensity(summed_fields),
-        {**resolve_metadata(metadata), "paramId": "260005"},
+        {**resolve_metadata(metadata)},
     )
 
 
@@ -238,10 +237,10 @@ def calc_aptmp(*fields: FieldList, metadata: Optional[dict] = None):
     logger.debug(f"calc_aptmp: {summed_fields.ls(namespace='mars')}")
     inputs = field_values(summed_fields, [167, 207, 260242])
     aptmp = thermofeel.calculate_apparent_temperature(*inputs)
-    return create_surface_output(
+    return create_output(
         aptmp,
         metadata_intensity(summed_fields),
-        {**resolve_metadata(metadata), "paramId": "260255"},
+        {**resolve_metadata(metadata)},
     )
 
 
@@ -266,8 +265,8 @@ def calc_mrt(*fields: FieldList, metadata: Optional[dict] = None):
         ssrd * f, ssr * f, dsrp * f, strd * f, fdir * f, strr * f, cossza
     )  # Kelvin
 
-    return create_surface_output(
+    return create_output(
         mrt,
         metadata_intensity(summed_fields),
-        {**resolve_metadata(metadata), "paramId": "261002"},
+        {**resolve_metadata(metadata)},
     )

@@ -178,17 +178,3 @@ def step_interval(fields) -> int:
 def create_output(values: np.ndarray, template: list[Metadata], metadata: dict):
     template = [x.override(**metadata) for x in template]
     return earthkit.data.FieldList.from_array(values, template)
-
-
-def create_surface_output(values: np.ndarray, template: list[Metadata], metadata: dict):
-    template = [x.override(**metadata) for x in template]
-    template = [
-        x.override(
-            **metadata,
-            typeOfFirstFixedSurface=1,
-            scaleFactorOfFirstFixedSurface="MISSING",
-            scaledValueOfFirstFixedSurface="MISSING",
-        )
-        for x in template
-    ]
-    return earthkit.data.FieldList.from_array(values, template)
