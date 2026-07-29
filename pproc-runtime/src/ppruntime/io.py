@@ -32,6 +32,9 @@ def mir_job(
     mir_options: dict,
     cache: Optional[str] = None,
 ) -> FieldList:
+    # Convert vod2uv bool to string int
+    if "vod2uv" in mir_options:
+        mir_options["vod2uv"] = "1" if mir_options["vod2uv"] else "0"
     job = mir.Job(**mir_options)  # type: ignore[ty:unresolved-attribute]
     stream = BytesIO()
     job.execute(input, stream)
@@ -49,7 +52,7 @@ def fdb_retrieve(request: dict, stream: bool = False, **kwargs) -> FieldList:
     if mir_options is None:
         return from_source("fdb", request, stream=stream, read_all=True, **kwargs)  # type: ignore[ty:invalid-return-type]
 
-    if mir_options.get("vod2uv", "0") == "1":
+    if mir_options.get("vod2uv", False):
         stream = False
 
     reader: FieldList = from_source(
@@ -58,7 +61,7 @@ def fdb_retrieve(request: dict, stream: bool = False, **kwargs) -> FieldList:
     if stream:
         return mir_job(reader._source._stream, mir_options)  # type: ignore[ty:unresolved-attribute]
 
-    if mir_options.get("vod2uv", "0") == "1":
+    if mir_options.get("vod2uv", False):
         if len(request["param"]) != 2:
             raise ValueError("Wind vod2uv requires two parameters")
         inp = mir.MultiDimensionalGribFileInput(reader.path, 2)  # type: ignore[ty:unresolved-attribute]
@@ -75,7 +78,7 @@ def mars_retrieve(request: dict, **kwargs) -> FieldList:
     if mir_options is None:
         return ds
 
-    if mir_options.get("vod2uv", "0") == "1":
+    if mir_options.get("vod2uv", False):
         if len(request["param"]) != 2:
             raise ValueError("Wind vod2uv requires two parameters")
         inp = mir.MultiDimensionalGribFileInput(ds.path, 2)  # type: ignore[ty:unresolved-attribute]
