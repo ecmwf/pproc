@@ -6,8 +6,10 @@
 from typing import Optional, Iterator
 from dataclasses import dataclass
 import numpy as np
+import logging
 
 from earthkit.workflows.fluent import merge
+from earthkit.workflows.nodetree import nodetree_dimensions
 from earthkit.workflows.plugins.pproc.fluent import (
     Action,
     from_source,
@@ -18,6 +20,9 @@ from earthkit.workflows.plugins.pproc.utils.request import Request
 from ppcore.utils.mars import extract_mars
 from ppcore.configs.product.ensemble import Config
 from ppcore.products.base import Product
+
+
+logger = logging.Logger(__name__)
 
 
 @dataclass
@@ -73,21 +78,32 @@ class Ensemble(Product):
         preprocessing_dim: Optional[str] = None,
         ensemble_dim: Optional[str] = None,
     ) -> Action:
+        ens_dim = ensemble_dim or self.ensemble_dim
+        preprocess_dim = preprocessing_dim or self.preprocessing_dim
         if forecast:
+            logger.debug(f"Forecast {forecast.nodes}")
             actions = []
+            is_ensemble = ens_dim in nodetree_dimensions(forecast.nodes)
             for req in self.config.inputs.fc.requests:
-                req.setdefault("number", [0])
+                if is_ensemble:
+                    req.setdefault(ens_dim, [0])
                 selected = forecast.sel(req)
-                selected.set_path(path_from_request(req))
-                if np.size(req["number"]) == 1:
-                    selected._add_dimension("number", np.atleast_1d(req["number"])[0])
+                selected = selected.set_path(path_from_request(req))
+                for dim in [
+                    ens_dim,
+                    preprocess_dim,
+                    "step",
+                    *self.config.accumulations.keys(),
+                ]:
+                    if dim in req and np.size(req[dim]) == 1:
+                        selected._add_dimension(dim, np.atleast_1d(req[dim])[0])
                 actions.append(selected)
             ret = merge(*actions)
         else:
             ret = self.source(ensemble_dim=ensemble_dim)
         for preprocessing in self.config.preprocessing.actions:
             ret = ret.preprocessing(
-                dim=preprocessing_dim or self.preprocessing_dim,
+                dim=preprocess_dim,
                 **preprocessing.model_dump(),
             )
         for dim, accumulation in self.config.accumulations.items():
@@ -97,7 +113,7 @@ class Ensemble(Product):
             )
         if self.config.statistics is not None:
             ret = ret.ensemble_statistics(
-                dim=ensemble_dim or self.ensemble_dim,
+                dim=ens_dim,
                 **self.config.statistics.model_dump(),
             )
 
