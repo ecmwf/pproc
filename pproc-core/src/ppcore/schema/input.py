@@ -39,6 +39,7 @@ from ppcore.schema.exceptions import PProcInputSchemaError, PProcDatasetError
 from ppcore.utils.requests import (
     validate_request,
     update_request,
+    expand,
 )
 from ppcore.utils.mars import extract_mars
 from ppcore.utils.qube import union
@@ -390,7 +391,7 @@ class InputSchema(BaseSchema):
         """
         Assumes inputs are from the same forecast for a single date and time
         """
-        output_template = validate_request(output_template or {})
+        output_template = output_template or {}
         forecast = definition_to_dataset(forecast)
         if climatology is not None:
             climatology = definition_to_dataset(climatology)
@@ -403,21 +404,23 @@ class InputSchema(BaseSchema):
             raise ValueError(
                 f"Output template must contain {required} to derive outputs from inputs"
             )
-        # Derive output requests and corresponding input configs that match the template
-        for base_output, config in self.reconstruct(
-            output_template=output_template,
-            from_inputs=True,
-            method=method,
-            enable_cache=enable_cache,
-        ):
-            logger.debug("Reconstructed output %s", base_output)
-            config = InputConfig(**config)
-            # Perform intersection with the forecast and climatology qubes to determine
-            # the actual output requests that can be generated from the inputs
-            for mout in config.matched_outputs(
-                base_output, forecast, climatology, step_schema
+        for template in expand(output_template, dim=self.all_filters):
+            template = validate_request(template)
+            # Derive output requests and corresponding input configs that match the template
+            for base_output, config in self.reconstruct(
+                output_template=template,
+                from_inputs=True,
+                method=method,
+                enable_cache=enable_cache,
             ):
-                inputs = list(config.inputs(mout, forecast, climatology))
-                mout = extract_mars(self._set_defaults(mout, inputs))
-                logger.info("Output %s, requiring inputs %s", mout, inputs)
-                yield mout, inputs
+                logger.debug("Reconstructed output %s", base_output)
+                config = InputConfig(**config)
+                # Perform intersection with the forecast and climatology qubes to determine
+                # the actual output requests that can be generated from the inputs
+                for mout in config.matched_outputs(
+                    base_output, forecast, climatology, step_schema
+                ):
+                    inputs = list(config.inputs(mout, forecast, climatology))
+                    mout = extract_mars(self._set_defaults(mout, inputs))
+                    logger.info("Output %s, requiring inputs %s", mout, inputs)
+                    yield mout, inputs
