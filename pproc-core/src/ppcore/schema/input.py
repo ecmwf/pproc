@@ -35,6 +35,7 @@ from ppcore.schema.filters import (
     _steplength,
     _steptype,
 )
+from ppcore.schema.exceptions import PProcInputSchemaError, PProcDatasetError
 from ppcore.utils.requests import (
     validate_request,
     update_request,
@@ -196,9 +197,9 @@ class ClimatologyInput(ForecastInput):
         cls, derive: dict[str, list[ClimatologyDeriver]]
     ) -> dict[str, list[ClimatologyDeriver]]:
         if "step" not in derive:
-            raise ValueError("Step driver required for climatology input")
+            raise PProcInputSchemaError("Step driver required for climatology input")
         if "date" not in derive:
-            raise ValueError("Date driver required for climatology input")
+            raise PProcInputSchemaError("Date driver required for climatology input")
         return derive
 
     def create_selection(
@@ -244,7 +245,7 @@ class InputConfig(PProcBaseModel):
         for inp in self.fc_inputs:
             inputs = list(inp.requests(output_request, forecast))
             if len(inputs) == 0:
-                raise ValueError(
+                raise PProcDatasetError(
                     f"No forecast inputs matched for {output_request}, requiring {inp}"
                 )
             if sample_input is None:
@@ -278,13 +279,15 @@ class InputConfig(PProcBaseModel):
             return iter([])
 
         if self.clim_inputs and len(fc_inputs) > 1:
-            raise ValueError("Climatology should be uniquely tied to forecast")
+            raise PProcDatasetError("Climatology should be uniquely tied to forecast")
         # Determine output steps that can be generated
         step_schema = step_schema or StepSchema({})
         fc_steps = list(fc_inputs[0].axes()["step"])
         if len(fc_steps) > 1:
             if any("-" in str(x) for x in fc_steps):
-                raise ValueError("Combining different step ranges is not supported")
+                raise NotImplementedError(
+                    "Combining different step ranges is not supported"
+                )
             fc_steps = sorted(list(map(int, fc_steps)))
 
         sample = forecast.sample_datacube(fc_inputs[0], pop=["step", "number"])
@@ -301,9 +304,10 @@ class InputConfig(PProcBaseModel):
             out = {**sample_datacube, **request, step_dim: step}
             # Determine climatology is present
             if self.clim_inputs:
-                assert (
-                    climatology is not None
-                ), "Climatology input defined but no climatology provided"
+                if climatology is None:
+                    raise PProcDatasetError(
+                        "Climatology input required but no climatology provided"
+                    )
                 clim_input = [
                     union(paired_inputs)
                     for paired_inputs in zip(
@@ -316,7 +320,9 @@ class InputConfig(PProcBaseModel):
                 if len(clim_input) == 0:
                     continue
                 if len(clim_input) > 1:
-                    raise ValueError("Climatology should be uniquely tied to forecast")
+                    raise PProcDatasetError(
+                        "Climatology should be uniquely tied to forecast"
+                    )
             yield out
 
 
@@ -327,6 +333,7 @@ def _update_inputs(config, update) -> dict:
 
 
 class InputSchema(BaseSchema):
+    exception = PProcInputSchemaError
     custom_update = {
         "fc_inputs": _update_inputs,
         "clim_inputs": _update_inputs,

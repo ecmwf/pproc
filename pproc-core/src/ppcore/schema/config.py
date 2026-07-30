@@ -5,17 +5,16 @@
 import numpy as np
 
 from earthkit.workflows.plugins.pproc.utils.metadata import fill_template_value
-from ppcore.schema.base import BaseSchema
-from ppcore.schema.base import dict_update
-from ppcore.schema.filters import _selection
-from ppcore.schema.filters import _steplength
-from ppcore.schema.filters import _steptype
+from ppcore.schema.base import BaseSchema, dict_update
+from ppcore.schema.filters import _selection, _steplength, _steptype
+from ppcore.schema.exceptions import PProcConfigSchemaError
 from ppcore.utils.dicts import dict_apply
 from ppcore.utils.helpers import to_list
 from ppcore.utils.requests import validate_request
 
 
 class ConfigSchema(BaseSchema):
+    exception = PProcConfigSchemaError
     custom_filter = {
         "steplength": _steplength,
         "selection": _selection,
