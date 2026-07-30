@@ -1263,11 +1263,16 @@ dependencies = [
     { name = "code-meters" },
     { name = "conflator" },
     { name = "earthkit-time" },
-    { name = "earthkit-workflows", extra = ["vizualize"] },
+    { name = "earthkit-workflows" },
     { name = "numpy" },
     { name = "pandas" },
     { name = "pydantic" },
     { name = "qubed" },
+]
+
+[package.optional-dependencies]
+vizualize = [
+    { name = "earthkit-workflows", extra = ["vizualize"] },
 ]
 
 [package.dev-dependencies]
@@ -1282,12 +1287,14 @@ requires-dist = [
     { name = "code-meters" },
     { name = "conflator", specifier = ">=0.1.8" },
     { name = "earthkit-time" },
-    { name = "earthkit-workflows", extras = ["vizualize"], specifier = ">=0.15.4" },
+    { name = "earthkit-workflows", specifier = ">=0.15.4" },
+    { name = "earthkit-workflows", extras = ["vizualize"], marker = "extra == 'vizualize'", specifier = ">=0.15.4" },
     { name = "numpy" },
     { name = "pandas" },
     { name = "pydantic" },
-    { name = "qubed", specifier = ">=0.3.0,<0.4.4" },
+    { name = "qubed", specifier = ">=0.3,<0.4.4" },
 ]
+provides-extras = ["vizualize"]
 
 [package.metadata.requires-dev]
 dev = [

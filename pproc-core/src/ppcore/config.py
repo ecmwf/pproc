@@ -12,8 +12,6 @@ import yaml
 import json
 from pydantic import TypeAdapter
 
-from earthkit.workflows.visualise import visualise
-
 from ppcore.configs import from_outputs as config_from_outputs
 from ppcore.configs import from_inputs as config_from_inputs
 from ppcore.configs.entrypoint.base import EntrypointConfig
@@ -171,6 +169,8 @@ def plot(args):
         entrypoint_config.input_overrides,
         entrypoint_config.output_overrides,
     )
+    from earthkit.workflows.visualise import visualise
+
     visualise(graph, args.file)
 
 

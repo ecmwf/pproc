@@ -33,11 +33,15 @@ dependencies = [
   "code-meters",
   "conflator>=0.1.8",
   "earthkit-time",
-  "earthkit-workflows[vizualize]>=0.15.4",
+  "earthkit-workflows>=0.15.4",
   "numpy",
   "pandas",
   "pydantic",
   "qubed>=0.3,<0.4.4",
+]
+
+optional-dependencies.vizualize = [
+  "earthkit-workflows[vizualize]>=0.15.4",
 ]
 
 scripts.ppcore-config = "ppcore.config:main"
