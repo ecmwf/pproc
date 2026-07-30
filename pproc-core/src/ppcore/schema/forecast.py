@@ -12,6 +12,7 @@ import logging
 
 from earthkit.workflows.plugins.pproc.utils.pydantic_utils import PProcBaseModel
 from ppcore.utils.requests import validate_request
+from ppcore.schema.exceptions import PProcDatasetError
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,7 @@ class ForecastDefinition(BaseDefinition):
     @model_validator(mode="after")
     def validate_qube(self) -> Self:
         if self.wave is None and any(["param" not in cube for cube in self.datacubes]):
-            raise ValueError(
+            raise PProcDatasetError(
                 "Forecast must contain a list of parameters or a wave configuration"
             )
         return self
@@ -86,7 +87,7 @@ class Dataset:
     @cached_property
     def wave_qube(self) -> Qube:
         if self.wave is None:
-            raise ValueError("No wave configuration defined for this forecast")
+            raise PProcDatasetError("No wave configuration defined for this forecast")
         wave_qube = Qube.empty()
         for condition in self.wave:
             wave_qube = wave_qube | self.qube.select(condition)
@@ -95,12 +96,12 @@ class Dataset:
     @cached_property
     def atmos_qube(self) -> Qube:
         if self.wave is None:
-            raise ValueError("No wave configuration defined for this forecast")
+            raise PProcDatasetError("No wave configuration defined for this forecast")
         return self.qube - self.wave_qube
 
     def stream(self, request: dict) -> str:
         if self.wave is None:
-            raise ValueError("No wave configuration defined for this forecast")
+            raise PProcDatasetError("No wave configuration defined for this forecast")
         for condition in self.wave:
             if all([request[key] == value for key, value in condition.items()]):
                 return "wave"
@@ -153,7 +154,7 @@ class Dataset:
         if time is not None and len(qube.axes().get("time", [])) > 1:
             qube = self.qube.select({"time": time})
             if qube.n_leaves == 0:
-                raise ValueError(f"No datacubes available for time {time}")
+                raise PProcDatasetError(f"No datacubes available for time {time}")
         steps = list(qube.axes()["step"])
         return sorted(
             steps, key=lambda x: int(x.split("-")[0]) if isinstance(x, str) else x
@@ -162,7 +163,7 @@ class Dataset:
     def sample_datacube(self, qube: Optional[Qube] = None) -> dict:
         qube = qube or self.qube
         if qube.n_leaves == 0:
-            raise ValueError("No datacubes available for this forecast")
+            raise PProcDatasetError("No datacubes available for this forecast")
         return validate_request(list(qube.datacubes())[0])
 
 

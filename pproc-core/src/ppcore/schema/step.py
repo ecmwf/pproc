@@ -14,8 +14,8 @@ from pydantic import RootModel
 
 from earthkit.workflows.plugins.pproc.utils.pydantic_utils import PProcBaseModel
 from ppcore.schema.base import BaseSchema
-from ppcore.utils.stepseq import steprange_to_fcmonth
-from ppcore.utils.stepseq import stepseq_monthly
+from ppcore.schema.exceptions import PProcStepSchemaError
+from ppcore.utils.stepseq import steprange_to_fcmonth, stepseq_monthly
 
 
 class Instantaneous(PProcBaseModel):
@@ -86,6 +86,8 @@ StepType = RootModel[
 
 
 class StepSchema(BaseSchema):
+    exception = PProcStepSchemaError
+
     @classmethod
     def _create_steps(cls, step_config: list[dict]) -> list[int]:
         steps = set(
@@ -109,7 +111,7 @@ class StepSchema(BaseSchema):
         config = self.traverse(request, {})
         step_configs = config.get("out_steps", None)
         if step_configs is None:
-            raise ValueError(f"No output steps defined {request}")
+            raise self.exception(f"No output steps defined {request}")
 
         if isinstance(step_configs, dict):
             step_configs = [step_configs]

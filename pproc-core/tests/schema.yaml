@@ -3114,6 +3114,9 @@ inputs:
                 select:
                   param: "140232"
     pb:
+      fc_inputs:
+        select:
+          ensemble: True
       filter:param:
         "121/122/123":
           fc_inputs:

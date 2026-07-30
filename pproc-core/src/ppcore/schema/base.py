@@ -16,6 +16,7 @@ import json
 from typing_extensions import Self
 
 from ppcore.utils.dicts import deep_update
+from ppcore.schema.exceptions import PProcSchemaError
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,7 @@ DEFAULT_MATCH: MatchFunc = lambda _, value, expected: value == expected
 
 
 class BaseSchema:
+    exception = PProcSchemaError
     custom_update: dict[str, UpdateFunc] = {}
     custom_filter: dict[str, FilterFunc] = {}
     custom_match: dict[str, MatchFunc] = {}
@@ -108,24 +110,38 @@ class BaseSchema:
         return "filter" in key
 
     @classmethod
-    def subschema(cls, key: str, schema: dict, request: dict) -> dict:
+    def subschema(
+        cls, key: str, schema: dict, request: dict, traversed: list[str]
+    ) -> dict:
         _, mars_key = key.split(":")
         filter_value = cls.custom_filter.get(mars_key, DEFAULT_FILTER)(
             request, mars_key
         )
-        ret = schema.get(filter_value, schema.get("*", None))
-        if ret is None:
-            raise ValueError(
-                f"Filter value {filter_value} not found in schema {schema}, and no default provided"
-            )
-        assert isinstance(ret, dict), "Subschema must be a dictionary."
+        if filter_value in schema:
+            ret = schema[filter_value]
+            traversed.append(f"{mars_key}={filter_value}")
+        else:
+            ret = schema.get("*", None)
+            if ret is None:
+                raise cls.exception(
+                    f"No match for {mars_key}={filter_value} along path {','.join(traversed)}, and no default provided"
+                )
+            traversed.append(f"{mars_key}=*")
+
+        if not isinstance(ret, dict):
+            raise cls.exception("Subschema must be a dictionary.")
         return ret
 
     @classmethod
-    def _traverse(cls, sub_schema: dict, request: dict, config: dict) -> dict:
+    def _traverse(
+        cls, sub_schema: dict, request: dict, config: dict, traversed: list[str]
+    ) -> dict:
         for key, value in sub_schema.items():
             if cls.is_subschema(key):
-                cls._traverse(cls.subschema(key, value, request), request, config)
+                path = traversed.copy()
+                cls._traverse(
+                    cls.subschema(key, value, request, path), request, config, path
+                )
             else:
                 # TODO: Remove copies?
                 cls.custom_update.get(key, DEFAULT_UPDATE)(
@@ -135,10 +151,11 @@ class BaseSchema:
 
     def traverse(self, request: dict, config: Optional[dict] = None) -> dict:
         if len(set.intersection(set(request.keys()), self.filters)) < len(self.filters):
-            raise ValueError(
+            raise self.exception(
                 f"Request {request} does not contain all required filters {self.filters}"
             )
-        return self._traverse(self.schema, request, config or {})
+        traversed = []
+        return self._traverse(self.schema, request, config or {}, traversed)
 
     @classmethod
     def _find_matching(
@@ -291,7 +308,7 @@ class BaseSchema:
         configs = self._get_cached_matching(cache_key)
 
         if method not in ["dfs", "bfs"]:
-            raise ValueError(f"Invalid method '{method}'. Must be 'dfs' or 'bfs'.")
+            raise self.exception(f"Invalid method '{method}'. Must be 'dfs' or 'bfs'.")
         method_func = (
             self._find_matching_dfs if method == "dfs" else self._find_matching
         )

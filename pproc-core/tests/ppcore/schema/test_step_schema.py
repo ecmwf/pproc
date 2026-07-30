@@ -5,6 +5,7 @@
 import pytest
 from conftest import schema
 
+from ppcore.schema.exceptions import PProcStepSchemaError
 from ppcore.schema.step import StepSchema
 from ppcore.schema.step import StepType
 from ppcore.schema.forecast import DatasetDefinitions, definition_to_dataset
@@ -117,3 +118,11 @@ def test_out_steps(out, dataset, expected, in_steps):
         in_steps = definition_to_dataset(datasets.definition(dataset)).steps(out)
     _, out_steps = test_schema.out_steps(out, in_steps)
     assert out_steps == expected
+
+
+def test_exception():
+    step_schema = StepSchema(schema("windows"))
+    with pytest.raises(PProcStepSchemaError, match="type=ep,stream=enfo"):
+        step_schema.traverse(
+            {"type": "ep", "stream": "enfo", "param": "unknown", "time": "0000"}
+        )
