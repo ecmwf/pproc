@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
 # SPDX-License-Identifier: Apache-2.0
 
-import concurrent.futures
+import functools
 import signal
 import sys
 
@@ -13,16 +13,16 @@ import pandas as pd
 
 from pproc.common.accumulation_manager import AccumulationManager
 from pproc.common.parallel import (
-    create_executor,
+    parallel_processing,
     sigterm_handler,
 )
 from pproc.common.param_requester import ParamRequester
 from pproc.common.utils import dict_product
-from pproc.config.types import RegionalMeansParamConfig, RegionalMeansConfig
+from pproc.config.types import ParamConfig, RegionalMeansConfig
 
 
 def crop(field: Field, bbox):
-    """Latitude and field values cropped to a lat-lon bounding box"""
+    """Latitude and field values cropped to a lat-lon bounding box."""
     lat, lon, values = field.data(["lat", "lon", "value"], flatten=True)
     n, w, s, e = bbox
     mask = (n >= lat) & (lat >= s) & (e >= lon) & (lon >= w)
@@ -30,22 +30,31 @@ def crop(field: Field, bbox):
 
 
 def area_weighted_mean(field: Field, area) -> float:
-    """Area-weighted mean of the field in a lat-lon bounding box
-    
-    cos(lat) weighting assumes a lat-lon grid with regularly spaced latitudes
+    """Area-weighted mean of the field in a lat-lon bounding box.
+
+    cos(lat) weighting assumes a lat-lon grid with regularly spaced latitudes.
     """
     lat, values = crop(field, area)
     area_weights = np.cos(np.deg2rad(lat))
     return np.average(values, weights=area_weights)
 
 
+def get_metadata(field, key):
+    value = field.metadata(key)
+    if key == "forecast_reference_time":
+        return pd.to_datetime(value)
+    if key == "step":
+        return pd.to_timedelta(value, unit="h")
+    return value
+
+
 def regional_mean_iteration(
     config: RegionalMeansConfig,
-    pconfig: RegionalMeansParamConfig,
+    pconfig: ParamConfig,
     dims: dict
 ):
     ids = ", ".join(f"{k}={v}" for k, v in dims.items())
-    rows = []
+    target = config.outputs.timeseries.target
     for src_name in config.inputs.names:
         src_param = getattr(pconfig, src_name, pconfig)
         total = pconfig.compute_totalfields(config.inputs, src_name)
@@ -55,14 +64,13 @@ def regional_mean_iteration(
         with ResourceMeter("Compute means"):
             for md, arr in zip(metadata, data):
                 field = ArrayField(arr, md.to_ekmetadata())
-                rows.append([
-                    *field.metadata(pconfig.out_coords),
-                    *(area_weighted_mean(field, bbox) for bbox in pconfig.areas.values())
-                ])
-    return pd.DataFrame.from_records(rows, columns=[
-        *pconfig.out_coords,
-        *(f"{pconfig.name}_{name}" for name in pconfig.areas.keys())
-    ])
+                target.write(
+                    index=[get_metadata(field, key) for key in target.columns.index],
+                    values=[
+                        area_weighted_mean(field, config.bbox[region])
+                        for region in target.columns.values
+                    ],
+                )
 
 
 def main():
@@ -73,34 +81,26 @@ def main():
     cfg.initialise()
     cfg.print()
 
-    with create_executor(cfg.parallelisation) as executor:
-        futures = []
-        for param in cfg.parameters:
-            accum_manager = AccumulationManager.create(
-                param.accumulations,
-            )
-            for dims in dict_product(accum_manager.dims):
-                if cfg.recovery.existing_checkpoint(param=param.name, **dims):
-                    print(f"Recovery: skipping dims: {param.name} {dims}")
-                    continue  # TODO should create a future that loads already computed data
+    plan = []
+    for param in cfg.parameters:
+        accum_manager = AccumulationManager.create(
+            param.accumulations,
+        )
+        for dims in dict_product(accum_manager.dims):
+            if cfg.recovery.existing_checkpoint(param=param.name, **dims):
+                print(f"Recovery: skipping dims: {param.name} {dims}")
+                continue
+            plan.append((param, dims))
 
-                futures.append(
-                    executor.submit(regional_mean_iteration, cfg, param, dims)
-                )
+    iteration = functools.partial(regional_mean_iteration, cfg)
+    parallel_processing(
+        iteration,
+        plan,
+        cfg.parallelisation,
+    )
 
-        # TODO needs more complexity when there are multiple parameters
-        df = pd.concat([future.result() for future in concurrent.futures.as_completed(futures)])
-
-    # Parse dates and datetimes (TODO earthkit-data 1.0 should remove the need for this)
-    if "forecast_reference_time" in df.columns:
-        df["forecast_reference_time"] = pd.to_datetime(df["forecast_reference_time"])
-    if "step" in df.columns:
-        df["step"] = pd.to_timedelta(df["step"], unit="h")
-
-    with ResourceMeter(f"Write to {cfg.outputs.default.target.path}"):
-        ds = df.set_index(param.out_coords).sort_index().to_xarray()
-        # TODO: covjson output
-        ds.to_netcdf(cfg.outputs.default.target.path)
+    cfg.outputs.timeseries.target.flush()
+    cfg.outputs.timeseries.target.clean()
 
     cfg.clean()
 

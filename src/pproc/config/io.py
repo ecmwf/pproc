@@ -28,6 +28,7 @@ from pproc.config import utils
 from pproc.config.targets import (
     FDBTarget,
     FileSetTarget,
+    DataFrameTarget,
     FileTarget,
     NullTarget,
     OverrideTargetWrapper,
@@ -155,6 +156,7 @@ class Output(ConfigModel):
             Annotated[NullTarget, Tag("null")],
             Annotated[FileTarget, Tag("file")],
             Annotated[FileSetTarget, Tag("fileset")],
+            Annotated[DataFrameTarget, Tag("dataframe")],
             Annotated[FDBTarget, Tag("fdb")],
             Annotated[OverrideTargetWrapper, Tag("override")],
         ],
@@ -301,4 +303,4 @@ ClusterAttributionInputModel = create_input_model(
 FlightLevelsInputModel = create_input_model("FlightLevels", ["fc", "lnsp"])
 FlightLevelsOutputModel = create_output_model("FlightLevels", ["levels"])
 RegionalMeansInputModel = create_input_model("RegionalMeans", ["fc"])
-RegionalMeansOutputModel = create_output_model("RegionalMeans", {})  # TODO should only allow file target
+RegionalMeansOutputModel = create_output_model("RegionalMeans", ["timeseries"])
