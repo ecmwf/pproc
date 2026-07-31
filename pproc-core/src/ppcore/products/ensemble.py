@@ -97,7 +97,11 @@ class Ensemble(Product):
                     *self.config.accumulations.keys(),
                 ]:
                     if dim in req and np.size(req[dim]) == 1:
-                        selected._add_dimension(dim, np.atleast_1d(req[dim])[0])
+                        selected.set_scalar_coords(
+                            {dim: np.atleast_1d(req[dim])[0]},
+                            override=True,
+                            make_dim=True,
+                        )
                 actions.append(selected)
             ret = merge(*actions)
         else:
@@ -145,7 +149,7 @@ class Ensemble(Product):
             },
             override=True,
         )
-        return ret
+        return ret.set_path(path_from_request(self.config.output.request))
 
     def in_mars(self, sources: Optional[list[str]] = None) -> Iterator[dict]:
         if self.config.inputs is None:
