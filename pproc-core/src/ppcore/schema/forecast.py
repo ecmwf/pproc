@@ -9,6 +9,7 @@ from qubed import Qube
 from pydantic import Field, model_validator, field_validator
 import bisect
 import logging
+import numpy as np
 
 from earthkit.workflows.plugins.pproc.utils.pydantic_utils import PProcBaseModel
 from ppcore.utils.requests import validate_request
@@ -142,6 +143,11 @@ class Dataset:
             logger.debug(f"Selecting {key}:{vals} from {qube}")
             if key in qube.axes():
                 qube = qube.select({key: vals})
+                if len(qube.axes().get(key, [])) != len(np.atleast_1d(vals)):
+                    logger.debug(
+                        f"Not all required inputs retrieved, got {qube.axes().get(key, [])}"
+                    )
+                    return Qube.empty(), {}
             elif select_to_override:
                 overrides[key] = vals
             else:
