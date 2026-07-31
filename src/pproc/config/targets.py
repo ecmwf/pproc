@@ -165,19 +165,21 @@ class FDBTarget(Target):
 class _DataFrameColumns(BaseModel):
     index: list[str] = []
     values: list[str] = []
+    # TODO consider allowing renaming: map from column names to metadata keys
 
     def __len__(self):
         return len(self.index) + len(self.values)
 
 
 class DataFrameTarget(Target):
-    """Collect individual rows of a DataFrame and write to file."""
+    """Collect individual rows of a DataFrame and write to a file."""
 
     type_: Literal["dataframe"] = Field("dataframe", alias="type")
     path: str
     format: Literal["netcdf"] | Literal["csv"]
     columns: _DataFrameColumns = _DataFrameColumns()
     sort_index: bool = True
+    clean_lock: bool = True
 
     _rows: list[Any] = []
     _lock: FileLock = None
@@ -189,46 +191,51 @@ class DataFrameTarget(Target):
         return self
 
     def flush(self):
-        df = self.dataframe
-        with self._lock:
-            if self.format == "netcdf":
-                df.to_xarray().to_netcdf(self.path)
-            elif self.format == "csv":
-                # TODO csv would allow for incremental writes if rows don't have to be sorted
+        if self.format == "netcdf":
+            ds = self.as_dataset()
+            with self._lock:
+                ds.to_netcdf(self.path)
+        elif self.format == "csv":
+            # TODO csv would allow for incremental writes if not sort_index
+            df = self.as_dataframe()
+            with self._lock:
                 df.to_csv(self.path)
-            else:
-                raise NotImplementedError(self.format)
+        raise NotImplementedError(self.format)
 
     def write(self, index, values):
         if len(index) != len(self.columns.index):
-            raise ValueError(f"Expected {len(self.columns.index)} index columns, got {len(index)}")
+            raise ValueError(
+                f"Expected {len(self.columns.index)} index columns, got {len(index)}"
+            )
         if len(values) != len(self.columns.values):
-            raise ValueError(f"Expected {len(self.columns.values)} value columns, got {len(values)}")
+            raise ValueError(
+                f"Expected {len(self.columns.values)} value columns, got {len(values)}"
+            )
         self._rows.append([*index, *values])
 
     def enable_recovery(self):
-        raise NotImplementedError
+        raise NotImplementedError("Recovery is not implemented for DataFrameTarget")
 
     def enable_parallel(self):
         self._rows = _shared_list()
 
     def clean(self):
-        if os.path.exists(self._lock.lock_file):
+        if self.clean_lock and os.path.exists(self._lock.lock_file):
             os.remove(self._lock.lock_file)
 
-    @property
-    def dataframe(self):
+    def as_dataframe(self):
         import pandas as pd
 
         columns = [*self.columns.index, *self.columns.values]
-        df = (
-            pd.DataFrame
-            .from_records(self._rows, columns=columns)
-            .set_index(self.columns.index)
+        df = pd.DataFrame.from_records(self._rows, columns=columns).set_index(
+            self.columns.index
         )
         if self.sort_index:
             df = df.sort_index()
         return df
+
+    def as_dataset(self):
+        return self.dataframe.to_xarray()
 
 
 class OverrideTargetWrapper(ConfigModel, Target):

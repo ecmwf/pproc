@@ -62,6 +62,7 @@ def regional_mean_iteration(
         with ResourceMeter(f"Retrieve {src_name} {ids}"):
             metadata, data = requester.retrieve_data(**dims)
         with ResourceMeter("Compute means"):
+            # One row output for each field input, one value/column per region
             for md, arr in zip(metadata, data):
                 field = ArrayField(arr, md.to_ekmetadata())
                 target.write(
@@ -100,8 +101,6 @@ def main():
     )
 
     cfg.outputs.timeseries.target.flush()
-    cfg.outputs.timeseries.target.clean()
-
     cfg.clean()
 
 
