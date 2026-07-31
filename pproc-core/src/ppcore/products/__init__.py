@@ -6,10 +6,11 @@ import os
 from typing import Optional, Union
 
 from earthkit.workflows.graph import Graph, deduplicate_nodes
-from earthkit.workflows.fluent import Action
-from earthkit.workflows.nodetree import combine_by_coords, datacubes
+from earthkit.workflows.fluent import Action, merge
+from earthkit.workflows.nodetree import datacubes
 from qubed import Qube
 
+from earthkit.workflows.plugins.pproc.fluent import path_from_request
 from ppcore.utils.requests import expand
 from ppcore.configs import from_outputs as config_from_outputs
 from ppcore.configs.product import ProductConfig
@@ -93,9 +94,15 @@ def action_from_outputs(
         qube = qube | qube.from_datacube(request)
     promote = {dim for dim, values in qube.axes().items() if len(values) > 1}
 
-    nodes = []
+    actions = []
     for request in expanded_requests:
-        nodes.append(
+        request_path = ""
+        for datacube in qube.datacubes():
+            if all([request[x] in datacube.get(x, []) for x in request.keys()]):
+                request_path = path_from_request(datacube)
+                break
+        assert len(request_path) != 0
+        actions.append(
             product_from_output(
                 request,
                 pproc_schema=pproc_schema,
@@ -104,9 +111,9 @@ def action_from_outputs(
                 metadata=metadata,
             )
             .action(**action_kwargs, final_dims=promote)
-            .nodes
+            .set_path(request_path)
         )
-    return Action(combine_by_coords(nodes))
+    return merge(*actions)
 
 
 def graph_from_outputs(
