@@ -8,26 +8,18 @@ config:
   filter:param:
     "*": {}
     "10":
-      filter:type:
-        em/es/ep/pb:
-          preprocessing:
-            - operation: expand
-              internal_dim: ["param", ["u", "v"]]
-              backend_kwargs: {"method": "sel"}
-            - operation: norm
-          interp_keys:
-            intgrid: "none"
-            legendre-loader: "shmem"
-            matrix-loader: "file-io"
-            vod2uv: true
-          input:
-            expand_exclude: ["param"]
-        "*":
-          preprocessing:
-            - operation: reshape
-              shape: 2
-            - operation: norm
-          vod2uv: true
+      preprocessing:
+        - operation: expand
+          internal_dim: ["param", ["u", "v"]]
+          backend_kwargs: {"method": "sel"}
+        - operation: norm
+      interp_keys:
+        intgrid: "none"
+        legendre-loader: "shmem"
+        matrix-loader: "file-io"
+        vod2uv: true
+      input:
+        expand_exclude: ["param"]
     "131/132":
       filter:type:
         taem/taes: {}
@@ -137,6 +129,8 @@ config:
                 number: {}
         "*":
           filter:param:
+            "*":
+              entrypoint: pproc-accumulate
             "200189/200142/200143/200144/228216/200228":
               entrypoint: pproc-accumulate
               accumulations:
@@ -2806,6 +2800,10 @@ inputs:
       filter:stream:
         enfo/waef:
           filter:param:
+            "10":
+              fc_inputs:
+                select:
+                  param: ["138", "155"]
             "121/122/123":
               fc_inputs:
                 select:

@@ -77,6 +77,7 @@ class Ensemble(Product):
         forecast: Optional[Action] = None,
         preprocessing_dim: Optional[str] = None,
         ensemble_dim: Optional[str] = None,
+        final_dims: Optional[set[str]] = None,
     ) -> Action:
         ens_dim = ensemble_dim or self.ensemble_dim
         preprocess_dim = preprocessing_dim or self.preprocessing_dim
@@ -122,10 +123,27 @@ class Ensemble(Product):
             out_metadata = output_config["metadata"].copy()
             out_metadata.update(self.output_overrides)
             ret = ret.write(output_config["targets"], metadata=out_metadata)
+
+        final_dims = final_dims or []
+        if preprocess_dim in final_dims:
+            # Stream is uniquely determined by parameter
+            final_dims.discard("stream")
+        if ens_dim in final_dims:
+            # Stream/type of member is determined by ensemble number
+            final_dims.discard("type")
+            final_dims.discard("stream")
         ret.set_scalar_coords(
-            {k: str(v) for k, v in self.config.output.request.items()},
+            {k: v for k, v in self.config.output.request.items() if k in final_dims},
             override=True,
             make_dim=True,
+        )
+        ret.set_scalar_coords(
+            {
+                k: v
+                for k, v in self.config.output.request.items()
+                if k not in final_dims
+            },
+            override=True,
         )
         return ret
 

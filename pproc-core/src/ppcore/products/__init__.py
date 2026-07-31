@@ -8,6 +8,7 @@ from typing import Optional, Union
 from earthkit.workflows.graph import Graph, deduplicate_nodes
 from earthkit.workflows.fluent import Action
 from earthkit.workflows.nodetree import combine_by_coords, datacubes
+from qubed import Qube
 
 from ppcore.utils.requests import expand
 from ppcore.configs import from_outputs as config_from_outputs
@@ -80,8 +81,20 @@ def action_from_outputs(
         clim_dataset = ClimatologyDefinition(datacubes=datacubes(climatology.nodes))
     else:
         clim_dataset = climatology
+
+    expanded_requests = list(expand(requests))
+
+    # Determine coords that might be joined over and promote to dimension
+    # TODO: enable generating outputs with a mix of instantaneous steps and step ranges
+    # Should be done with changing more generally all values for "step" in requests to be
+    # strings
+    qube = Qube.empty()
+    for request in expanded_requests:
+        qube = qube | qube.from_datacube(request)
+    promote = {dim for dim, values in qube.axes().items() if len(values) > 1}
+
     nodes = []
-    for request in expand(requests):
+    for request in expanded_requests:
         nodes.append(
             product_from_output(
                 request,
@@ -90,7 +103,7 @@ def action_from_outputs(
                 climatology=clim_dataset,
                 metadata=metadata,
             )
-            .action(**action_kwargs)
+            .action(**action_kwargs, final_dims=promote)
             .nodes
         )
     return Action(combine_by_coords(nodes))

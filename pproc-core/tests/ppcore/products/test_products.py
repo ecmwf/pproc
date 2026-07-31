@@ -27,14 +27,42 @@ INPUTS = {
             "stream": "oper",
             "type": "fc",
             "step": list(range(0, 24, 3)),
-            "param": ["228", "167"],
+            "param": [
+                "228",
+                "47",
+                "165",
+                "166",
+                "167",
+                "168",
+                "169",
+                "175",
+                "176",
+                "177",
+                "228021",
+                "138",
+                "155",
+            ],
             "levtype": "sfc",
         },
         {
             "stream": "enfo",
             "type": "pf",
             "step": list(range(0, 24, 3)),
-            "param": ["228", "167"],
+            "param": [
+                "228",
+                "47",
+                "165",
+                "166",
+                "167",
+                "168",
+                "169",
+                "175",
+                "176",
+                "177",
+                "228021",
+                "138",
+                "155",
+            ],
             "number": list(range(1, 5)),
             "levtype": "sfc",
         },
@@ -74,8 +102,6 @@ INPUTS = {
                 "228021",
             ],
             "levtype": "sfc",
-            "date": "20260721",
-            "time": "1200",
         },
         {
             "stream": "oper",
@@ -84,46 +110,45 @@ INPUTS = {
             "param": ["130"],
             "levtype": "pl",
             "levelist": [250, 500, 850],
-            "date": "20260721",
-            "time": "1200",
         },
     ],
 }
 
 
 @pytest.mark.parametrize(
-    "requests",
-    [
-        os.path.join(ROOT_DIR, "templates", "ensms.yaml"),
-        os.path.join(ROOT_DIR, "templates", "prob.yaml"),
-        os.path.join(ROOT_DIR, "templates", "quantiles.yaml"),
-        os.path.join(ROOT_DIR, "templates", "thermo.yaml"),
-    ],
-    ids=["ensms", "prob", "quantiles", "thermo"],
+    "filename",
+    ["ensms", "prob", "quantiles", "thermo_fc", "thermo_ens", "wind"],
 )
-def test_graph_construction(requests):
-    with open(requests, "r") as f:
+def test_graph_construction(filename):
+    path = os.path.join(ROOT_DIR, "templates", f"{filename}.yaml")
+    with open(path, "r") as f:
         output_requests = yaml.safe_load(f)
     graph_from_outputs(output_requests, SCHEMA, forecast="enfo")
 
 
-def test_action_construction():
-    with open(os.path.join(ROOT_DIR, "templates", "ensms.yaml"), "r") as f:
+@pytest.mark.parametrize("filename", ["ensms", "quantiles", "thermo_ens", "wind"])
+def test_action_construction(filename):
+    # TODO: Enable prob when we can handle mixed step types in output requests
+    path = os.path.join(ROOT_DIR, "templates", f"{filename}.yaml")
+    with open(path, "r") as f:
         output_requests = yaml.safe_load(f)
     action_from_outputs(output_requests, SCHEMA, forecast="enfo")
 
 
 @pytest.mark.parametrize(
-    "input_name, requests",
+    "input_name, filename",
     [
-        ["ensemble", os.path.join(ROOT_DIR, "templates", "ensms.yaml")],
-        ["ensemble", os.path.join(ROOT_DIR, "templates", "quantiles.yaml")],
-        ["deterministic", os.path.join(ROOT_DIR, "templates", "thermo.yaml")],
+        ["ensemble", "ensms"],
+        ["ensemble", "quantiles"],
+        ["ensemble", "wind"],
+        ["deterministic", "thermo_fc"],
+        ["ensemble", "thermo_ens"],
     ],
-    ids=["ensms", "quantiles", "thermo"],
+    ids=["ensms", "quantiles", "wind", "thermo_fc", "thermo_ens"],
 )
-def test_custom_source(input_name, requests):
-    with open(requests, "r") as f:
+def test_custom_source(input_name, filename):
+    path = os.path.join(ROOT_DIR, "templates", f"{filename}.yaml")
+    with open(path, "r") as f:
         output_requests = yaml.safe_load(f)
 
     graph = Graph([])
