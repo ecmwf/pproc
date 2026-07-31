@@ -819,4 +819,4 @@ def from_source(
 
 
 def path_from_request(request: dict, keys: list[str] = ["levtype", "param"]) -> str:
-    return "/".join([str(request[x]) for x in keys])
+    return "/".join([str(request[x]) for x in keys if x in request])
