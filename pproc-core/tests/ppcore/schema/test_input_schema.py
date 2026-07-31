@@ -527,6 +527,33 @@ def test_input_format():
                     {
                         "class": "od",
                         "stream": "oper",
+                        "levtype": "sfc",
+                        "param": [
+                            "165",
+                            "166",
+                            "167",
+                            "168",
+                            "169",
+                            "175",
+                            "176",
+                            "177",
+                        ],
+                        "step": [0, 1],
+                        "type": "fc",
+                        "time": "0000",
+                    },
+                ],
+                unperturbed={"stream": "oper", "type": "fc"},
+            ),
+            {"stream": "oper", "type": "fc", "step": 1},
+            8,
+        ],
+        [
+            ForecastDefinition(
+                datacubes=[
+                    {
+                        "class": "od",
+                        "stream": "oper",
                         "param": ["228246", "228247"],
                         "type": "fc",
                         "levtype": "sfc",
@@ -588,9 +615,15 @@ def test_input_format():
             1,
         ],
     ],
-    ids=["redundant-steps", "redundant-params", "not-from-inputs", "levels"],
+    ids=[
+        "redundant-steps",
+        "redundant-params",
+        "insufficient-params",
+        "not-from-inputs",
+        "levels",
+    ],
 )
-def test_redundant_inputs(inputs, template, num_outputs):
+def test_non_exact_inputs(inputs, template, num_outputs):
     input_schema = InputSchema(schema("inputs"))
     step_schema = StepSchema(schema("windows"))
     generated = list(
