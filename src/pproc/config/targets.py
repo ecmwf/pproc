@@ -167,21 +167,18 @@ class _DataFrameColumns(BaseModel):
     values: list[str] = []
     # TODO consider allowing renaming: map from column names to metadata keys
 
-    def __len__(self):
-        return len(self.index) + len(self.values)
-
 
 class DataFrameTarget(Target):
-    """Collect individual rows of a DataFrame and write to a file."""
+    """Collect rows of a DataFrame and write to a file."""
 
     type_: Literal["dataframe"] = Field("dataframe", alias="type")
     path: str
-    format: Literal["netcdf"] | Literal["csv"]
+    format: Literal["csv"] | Literal["netcdf"]
     columns: _DataFrameColumns = _DataFrameColumns()
     sort_index: bool = True
     clean_lock: bool = True
 
-    _rows: list[Any] = []
+    _rows: list[tuple] = []
     _lock: FileLock = None
 
     @model_validator(mode="after")
@@ -191,18 +188,20 @@ class DataFrameTarget(Target):
         return self
 
     def flush(self):
-        if self.format == "netcdf":
-            ds = self.as_dataset()
-            with self._lock:
-                ds.to_netcdf(self.path)
-        elif self.format == "csv":
-            # TODO csv would allow for incremental writes if not sort_index
+        """Write the dataframe to disk, replacing an existing file if present."""
+        if self.format == "csv":
             df = self.as_dataframe()
             with self._lock:
                 df.to_csv(self.path)
-        raise NotImplementedError(self.format)
+        elif self.format == "netcdf":
+            ds = self.as_dataset()
+            with self._lock:
+                ds.to_netcdf(self.path)
+        else:
+            raise NotImplementedError(self.format)
 
     def write(self, index, values):
+        """Insert a new row into the dataframe."""
         if len(index) != len(self.columns.index):
             raise ValueError(
                 f"Expected {len(self.columns.index)} index columns, got {len(index)}"
@@ -211,10 +210,33 @@ class DataFrameTarget(Target):
             raise ValueError(
                 f"Expected {len(self.columns.values)} value columns, got {len(values)}"
             )
-        self._rows.append([*index, *values])
+        self._rows.append((*index, *values))
 
     def enable_recovery(self):
-        raise NotImplementedError("Recovery is not implemented for DataFrameTarget")
+        """Load all rows from a previoulsy written DataFrame."""
+        if not os.path.exists(self.path):
+            raise FileNotFoundError(f"recovery content not found: {self.path}")
+        if self.format == "csv":
+            # Pandas does not restore timedeltas as proper types, which results
+            # in a mixed str-timedelta column and inconsistent formatting
+            raise NotImplementedError("unable to recover from csv file")
+        if self.format == "netcdf":
+            import xarray as xr
+
+            with self._lock, xr.open_dataset(self.path) as ds:
+                df = ds.to_dataframe(dim_order=self.columns.index)
+        # Verify column order of recovered data
+        if df.index.names != self.columns.index:
+            raise ValueError(
+                f"Expected index columns {self.columns.index!r}, got {df.index.names!r}"
+            )
+        if list(df.columns) != self.columns.values:
+            raise ValueError(
+                f"Expected values columns {self.columns.values!r}, got {list(df.columns)!r}"
+            )
+        # Insert recovered rows
+        for row in df.reset_index().itertuples(index=False):
+            self._rows.append(tuple(row))
 
     def enable_parallel(self):
         self._rows = _shared_list()
@@ -224,6 +246,7 @@ class DataFrameTarget(Target):
             os.remove(self._lock.lock_file)
 
     def as_dataframe(self):
+        """Assemble the collected rows into a pandas.DataFrame."""
         import pandas as pd
 
         columns = [*self.columns.index, *self.columns.values]
@@ -235,7 +258,8 @@ class DataFrameTarget(Target):
         return df
 
     def as_dataset(self):
-        return self.dataframe.to_xarray()
+        """Assemble the collected rows into an xarray.Dataset."""
+        return self.as_dataframe().to_xarray()
 
 
 class OverrideTargetWrapper(ConfigModel, Target):

@@ -1,5 +1,5 @@
 checkpointing:
-  enable: false
+  enable: true
 
 parallelisation: 2
 

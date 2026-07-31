@@ -72,6 +72,8 @@ def regional_mean_iteration(
                         for region in target.columns.values
                     ],
                 )
+    target.flush()
+    config.recovery.add_checkpoint(param=pconfig.name, **dims)
 
 
 def main():
@@ -100,7 +102,6 @@ def main():
         cfg.parallelisation,
     )
 
-    cfg.outputs.timeseries.target.flush()
     cfg.clean()
 
 
