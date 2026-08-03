@@ -91,7 +91,13 @@ class Recovery(BaseRecovery):
 
         else:
             self.clean()
-        self.lock = FileLock(self.filename + ".lock", thread_local=False)
+       self._lock = None
+
+    @property
+    def lock(self) -> FileLock:
+        if self._lock is None:
+            self._lock =  FileLock(self.filename + ".lock", thread_local=False)
+        return self._lock
 
     def computed(self, **matching) -> List[dict]:
         ret = []
