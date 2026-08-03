@@ -25,8 +25,13 @@ from pproc.common.grib_helpers import fill_template_value
             {"start_coord": "20240507"},
             "clim_{start_coord[0:4]}",
         ),
+        (
+            "{start_coord[0:4]}",
+            {"end_coord": "20240507"},
+            "{start_coord[0:4]}",
+        ),
     ],
-    ids=["no-type", "typed-int", "slice-str", "slice-int", "slice-expression", "noop"],
+    ids=["no-type", "typed-int", "slice-str", "slice-int", "slice-expression", "noop", "missing-key"],
 )
 def test_fill_template_value(value, template_map, expected):
     assert fill_template_value(value, template_map) == expected
