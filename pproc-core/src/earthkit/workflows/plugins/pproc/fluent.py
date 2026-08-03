@@ -523,7 +523,11 @@ class Action(fluent.Action):
             ret = method(dim=dim, metadata=metadata)
         else:
             ret = param_action._wrapped_reduction(
-                fluent.Payload(func=function, kwargs={"metadata": metadata or {}}),
+                fluent.Payload(
+                    func=function,
+                    kwargs={"metadata": metadata or {}},
+                    metadata={"environment": ENVIRONMENT["ppruntime"]},
+                ),
                 dim=dim,
             )
         ret._add_dimension(dim, str(metadata.get("paramId")))
