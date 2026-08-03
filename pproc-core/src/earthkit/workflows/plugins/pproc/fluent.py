@@ -203,7 +203,8 @@ class Action(fluent.Action):
     ) -> Action:
         return super().multiply(other, backend_kwargs={"metadata": metadata})
 
-    scale = multiply
+    def scale(self, value: float, metadata: dict | None = None) -> Action:
+        return super().multiply(value, backend_kwargs={"metadata": metadata})
 
     def power(
         self, other: Union[Action, float], metadata: dict | None = None
