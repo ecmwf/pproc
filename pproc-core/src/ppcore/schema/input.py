@@ -140,8 +140,8 @@ class ForecastInput(PProcBaseModel):
             if cube["type"] in ["fcmean", "fcmax", "fcstdev", "fcmin"]:
                 cube.setdefault("number", 0)
             cube.update(extra)
-            yield validate_request(cube)
-            # yield {key: val if len(val) > 1 else val[0] for key, val in cube.items()}
+            # Sort request keys for consistent ordering in output configs
+            yield validate_request({k: v for k, v in sorted(cube.items())})
 
     def create_selection(
         self, base_request: dict, forecast: Dataset, include_derived: bool = True
