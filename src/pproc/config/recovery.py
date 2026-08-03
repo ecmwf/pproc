@@ -91,7 +91,7 @@ class Recovery(BaseRecovery):
 
         else:
             self.clean()
-       self._lock = None
+        self._lock = None
 
     @property
     def lock(self) -> FileLock:
