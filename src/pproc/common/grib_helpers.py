@@ -73,11 +73,14 @@ def fill_template_value(val: str, template_map: dict):
         expr_match = _EXPR_TEMPLATE_RE.fullmatch(val)
         if expr_match is None:
             return val
-        return eval(
-            expr_match.group(1).strip(),
-            {"__builtins__": {}},
-            {**_TYPES, **template_map},
-        )
+        try:
+            return eval(
+                expr_match.group(1).strip(),
+                {"__builtins__": {}},
+                {**_TYPES, **template_map},
+            )
+        except NameError:
+            return val
     value, tp = m.groups()
     if value not in template_map:
         return val
@@ -90,4 +93,9 @@ def fill_template_values(metadata: dict, template_map: dict) -> dict:
     for key, val in metadata.items():
         if isinstance(val, str):
             metadata[key] = fill_template_value(val, template_map)
+        if isinstance(val, list):
+            metadata[key] = [
+                fill_template_value(v, template_map) if isinstance(v, str) else v
+                for v in val
+            ]
     return metadata
