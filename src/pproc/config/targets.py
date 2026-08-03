@@ -70,13 +70,10 @@ class FileTarget(Target):
     clean_lock: bool = True
 
     _opened_files: list[str] = []
-    _lock: FileLock = None
 
     @property
     def lock(self) -> FileLock:
-        if self._lock is None:
-            self._lock =  FileLock(self.path + ".lock", thread_local=False)
-        return self._lock
+        return FileLock(self.path + ".lock", thread_local=False)
 
     @property
     def mode(self):

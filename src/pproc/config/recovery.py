@@ -91,13 +91,10 @@ class Recovery(BaseRecovery):
 
         else:
             self.clean()
-        self._lock = None
 
     @property
     def lock(self) -> FileLock:
-        if self._lock is None:
-            self._lock =  FileLock(self.filename + ".lock", thread_local=False)
-        return self._lock
+        return FileLock(self.filename + ".lock", thread_local=False)
 
     def computed(self, **matching) -> List[dict]:
         ret = []
@@ -147,8 +144,8 @@ class Recovery(BaseRecovery):
         """
         if os.path.exists(self.filename):
             os.remove(self.filename)
-        if os.path.exists(self.filename + ".lock"):
-            os.remove(self.filename + ".lock")
+        if os.path.exists(self.lock.lock_file):
+            os.remove(self.lock.lock_file)
 
 
 def create_recovery(
