@@ -9,6 +9,7 @@
 
 from abc import ABCMeta, abstractmethod
 from typing import Any, Dict
+from functools import cached_property
 
 from earthkit.meteo import extreme
 from eccodes import GRIBMessage
@@ -71,6 +72,25 @@ class SOT(Index):
         self.eps = float(options.get("eps", -1.0))
         self.sot = options.get("sot", [])
 
+    @cached_property
+    def sot_perc(self) -> list[int]:
+        perc = []
+        for p in self.sot:
+            if isinstance(p, str) and p.endswith(":100"):
+                percentiles, _ = p.split(":")
+                percentiles = list(map(int, percentiles.split("-")))
+                if all(p < 50 for p in percentiles):
+                    perc.append(percentiles[-1])
+                elif all(p > 50 for p in percentiles):
+                    perc.append(percentiles[0])
+                else:
+                    raise ValueError(
+                        f"Could not determine SOT percentile value from {p}"
+                    )
+            else:
+                perc.append(int(p))
+        return perc
+
     def compute(
         self,
         clim: np.ndarray,
@@ -80,21 +100,7 @@ class SOT(Index):
         out_template: GRIBMessage,
         metadata: dict,
     ):
-        for perc in self.sot:
-            if isinstance(perc, str) and perc.endswith(":100"):
-                # SOT values in GRIB2 are encoded as quantiles 1-10:100, 90-99:100
-                percentiles, _ = perc.split(":")
-                percentiles = list(map(int, percentiles.split("-")))
-                if all(p < 50 for p in percentiles):
-                    perc = percentiles[-1]
-                elif all(p > 50 for p in percentiles):
-                    perc = percentiles[0]
-                else:
-                    raise ValueError(
-                        f"Could not determine SOT percentile value from {perc}"
-                    )
-            else:
-                perc = int(perc)
+        for perc in self.sot_perc:
             sot = extreme.sot(clim, ens, perc, self.eps)
             sot_keys = sot_metadata(out_template, perc, metadata)
             common.io.write_grib(target, out_template, sot, sot_keys)
