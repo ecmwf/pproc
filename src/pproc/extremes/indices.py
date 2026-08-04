@@ -82,11 +82,12 @@ class SOT(Index):
     ):
         for perc in self.sot:
             if isinstance(perc, str) and perc.endswith(":100"):
+                # SOT values in GRIB2 are encoded as quantiles 1-10:100, 90-99:100
                 percentiles, _ = perc.split(":")
                 percentiles = list(map(int, percentiles.split("-")))
-                if all([percentiles < 50]):
+                if all(p < 50 for p in percentiles):
                     perc = percentiles[-1]
-                elif all([percentiles > 50]):
+                elif all(p > 50 for p in percentiles):
                     perc = percentiles[0]
                 else:
                     raise ValueError(
