@@ -178,7 +178,6 @@ def efi_metadata_control(template, metadata) -> dict:
 
 def sot_metadata(template, sot, metadata) -> dict:
     metadata = metadata.copy()
-    metadata["marsType"] = 38
 
     if sot == 90:
         efi_order = 99
@@ -190,6 +189,7 @@ def sot_metadata(template, sot, metadata) -> dict:
         )
     edition = metadata.get("edition", template["edition"])
     if edition == 1:
+        metadata["marsType"] = 38
         metadata["number"] = sot
         metadata["efiOrder"] = efi_order
     elif edition == 2:
@@ -200,6 +200,7 @@ def sot_metadata(template, sot, metadata) -> dict:
                 "numberOfAdditionalParametersForReferencePeriod": 2,
                 "scaleFactorOfAdditionalParameterForReferencePeriod": [0, 0],
                 "scaledValueOfAdditionalParameterForReferencePeriod": [sot, efi_order],
+                "marsType": 38,
             }
         )
     else:
