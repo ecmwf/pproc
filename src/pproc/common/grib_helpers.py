@@ -28,7 +28,11 @@ def construct_message(template_grib, metadata: dict):
     arr_grib_keys = {
         key: value for key, value in metadata.items() if np.ndim(value) > 0
     }
-    missing = [key for key, value in metadata.items() if value == "MISSING"]
+    missing = [
+        key
+        for key, value in metadata.items()
+        if key not in arr_grib_keys and value == "MISSING"
+    ]
     for arr_key in missing + list(arr_grib_keys.keys()):
         key_values.pop(arr_key)
 
@@ -74,7 +78,7 @@ def fill_template_value(val: str, template_map: dict):
         if value not in template_map:
             return val
         return template_map[value] if len(tp) == 0 else _TYPES[tp](template_map[value])
-        
+
     expr_match = _EXPR_TEMPLATE_RE.fullmatch(val)
     in_map = any(k in val for k in template_map.keys())
     if expr_match is None or not in_map:
@@ -84,6 +88,7 @@ def fill_template_value(val: str, template_map: dict):
         {"__builtins__": {}},
         {**_TYPES, **template_map},
     )
+
 
 def fill_template_values(metadata: dict, template_map: dict) -> dict:
     metadata = metadata.copy()
