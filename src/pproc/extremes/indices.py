@@ -69,7 +69,7 @@ class SOT(Index):
     def __init__(self, options):
         super().__init__(options)
         self.eps = float(options.get("eps", -1.0))
-        self.sot = list(map(int, options.get("sot", [])))
+        self.sot = options.get("sot", [])
 
     def compute(
         self,
@@ -92,6 +92,8 @@ class SOT(Index):
                     raise ValueError(
                         f"Could not determine SOT percentile value from {perc}"
                     )
+            else:
+                perc = int(perc)
             sot = extreme.sot(clim, ens, perc, self.eps)
             sot_keys = sot_metadata(out_template, perc, metadata)
             common.io.write_grib(target, out_template, sot, sot_keys)
