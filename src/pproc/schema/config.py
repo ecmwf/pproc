@@ -28,7 +28,14 @@ class ConfigSchema(BaseSchema):
     def config(self, output_request: dict) -> dict:
         output_request = validate_request(output_request)
         config = self.traverse(output_request)
-        if "quantile" in output_request:
+        if output_request["type"] == "sot":
+            sot_key = "number" if "number" in output_request else "quantile"
+            if sot_key not in output_request:
+                raise ValueError(
+                    f"Output request of type 'sot' must contain either 'number' or 'quantile', but got: {output_request}"
+                )
+            config["sot"] = to_list(output_request[sot_key])
+        elif "quantile" in output_request:
             out_quantiles = to_list(output_request["quantile"])
             numbers = np.zeros(len(out_quantiles))
             totals = np.zeros(len(out_quantiles))
@@ -45,8 +52,6 @@ class ConfigSchema(BaseSchema):
             else:
                 quantiles = list(numbers / totals)
             config["quantiles"] = quantiles
-        if output_request["type"] == "sot":
-            config["sot"] = to_list(output_request["number"])
 
         out_vals = output_request.copy()
         date = str(output_request["date"])

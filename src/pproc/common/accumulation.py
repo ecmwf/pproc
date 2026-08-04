@@ -17,11 +17,10 @@ from typing import Dict, Iterable, List, Optional, Tuple, Union
 import numpy as np
 from numpy.typing import DTypeLike
 
-from earthkit.time.calendar import MonthInYear
+from earthkit.time.calendar import MonthInYear, parse_date
 from earthkit.time.sequence import MonthlySequence
 
 from pproc.common.grib_helpers import fill_template_values
-
 
 NumericCoord = int
 NumericCoords = Union[List[int], range]
@@ -57,6 +56,45 @@ def coords_name(coords: Coords, name_config: Optional[dict] = None) -> str:
     else:
         raise ValueError(f"Unknown name type {name_type}")
     return f"{prefix}{start}-{end}{suffix}"
+
+
+def coords_span(dim: str, start: Coord, end: Coord) -> Optional[int]:
+    if dim == "date":
+        return (parse_date(str(end)) - parse_date(str(start))).days
+
+    if dim == "hdate":
+        return parse_date(str(end)).year - parse_date(str(start)).year
+
+    if isinstance(start, int) and isinstance(end, int):
+        return end - start
+
+    # Can not determine span for non-numeric/date coords. Return
+    # value that will raise error if set
+    return None
+
+
+def coords_increment(dim: str, coords: Coords) -> Optional[int]:
+    if len(coords) == 1:
+        return 0
+
+    if dim == "date":
+        diff = np.diff([parse_date(str(c)) for c in coords])
+        if np.all(diff == diff[0]):
+            return diff[0].days
+
+    if dim == "hdate":
+        diff = np.diff([parse_date(str(c)).year for c in coords])
+        if np.all(diff == diff[0]):
+            return diff[0]
+
+    if all(isinstance(c, int) for c in coords):
+        diff = np.diff(coords)
+        if np.all(diff == diff[0]):
+            return diff[0]
+
+    # Couldn't determine increment, either non-unique or non-numeric/date
+    # coords. Return value that will raise error if set
+    return None
 
 
 class Accumulation(metaclass=ABCMeta):
@@ -145,6 +183,8 @@ class Accumulation(metaclass=ABCMeta):
                 "num_coords": len(self.coords),
                 "start_coord": start,
                 "end_coord": end,
+                "coords_span": coords_span(dim, start, end),
+                "coords_increment": coords_increment(dim, self.coords),
             },
         )
 

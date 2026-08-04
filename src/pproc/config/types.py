@@ -621,7 +621,7 @@ class ExtremeParamConfig(ClimParamConfig):
     vmin: Optional[float] = None
     vmax: Optional[float] = None
     eps: float = -1.0
-    sot: list[int] = []
+    sot: Union[list[int], list[str]] = []
     cpf_eps: Optional[float] = None
     cpf_symmetric: bool = False
     cpf_from_zero: bool = True
@@ -689,7 +689,11 @@ class ExtremeConfig(BaseConfig):
     def _format_out(self, param: ParamConfig, req: dict) -> dict:
         req = super()._format_out(param, req)
         if req["type"] == "sot":
-            req["number"] = param.sot
+            if isinstance(param.sot[0], str) and param.sot[0].endswith(":100"):
+                sot_key = "quantile"
+            else:
+                sot_key = "number"
+            req[sot_key] = param.sot
         return req
 
     @classmethod

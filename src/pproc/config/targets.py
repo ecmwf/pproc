@@ -70,13 +70,10 @@ class FileTarget(Target):
     clean_lock: bool = True
 
     _opened_files: list[str] = []
-    _lock: FileLock = None
 
-    @model_validator(mode="after")
-    def create_lock(self) -> Self:
-        if self._lock is None:
-            self._lock = FileLock(self.path + ".lock", thread_local=False)
-        return self
+    @property
+    def lock(self) -> FileLock:
+        return FileLock(self.path + ".lock", thread_local=False)
 
     @property
     def mode(self):
@@ -92,14 +89,14 @@ class FileTarget(Target):
         self._opened_files = _shared_list()
 
     def write(self, message):
-        with self._lock:
+        with self.lock:
             with open(self.path, self.mode) as file:
                 message.write_to(file)
 
     def clean(self):
         if self.clean_lock:
-            if os.path.exists(self._lock.lock_file):
-                os.remove(self._lock.lock_file)
+            if os.path.exists(self.lock.lock_file):
+                os.remove(self.lock.lock_file)
 
 
 class FileSetTarget(Target):

@@ -526,6 +526,91 @@ def test_grib_header(config, grib_key_values):
     assert header == grib_key_values
 
 
+@pytest.mark.parametrize(
+    "config, dim, expected",
+    [
+        pytest.param(
+            {
+                "coords": [6, 12, 18],
+                "operation": "mean",
+                "metadata": {
+                    "span": "{coords_span}",
+                    "increment": "{coords_increment}",
+                },
+            },
+            "step",
+            {"stepRange": "6-18", "stepType": "max", "span": 12, "increment": 6},
+            id="step-coords",
+        ),
+        pytest.param(
+            {
+                "coords": ["20240101", "20240103", "20240105"],
+                "metadata": {
+                    "span": "{coords_span}",
+                    "start": "{int(start_coord[0:4]) - 20}",
+                    "increment": "{coords_increment}",
+                },
+            },
+            "date",
+            {"span": 4, "increment": 2, "start": 2004},
+            id="date-coords",
+        ),
+        pytest.param(
+            {
+                "coords": [20240101, 20240103, 20240105],
+                "metadata": {
+                    "span": "{coords_span}",
+                    "increment": "{coords_increment}",
+                },
+            },
+            "date",
+            {"span": 4, "increment": 2},
+            id="date-coords-int",
+        ),
+        pytest.param(
+                    {
+                        "coords": ["20040101", "20060101", "20080101"],
+                        "metadata": {
+                            "span": "{coords_span}",
+                            "start": "{int(end_coord[0:4]) - 4}",
+                            "increment": "{coords_increment}",
+                        },
+                    },
+                    "hdate",
+                    {"span": 4, "increment": 2, "start": 2004},
+                    id="hdate-coords",
+                ),
+        pytest.param(
+            {
+                "coords": ["0-168"],
+                "metadata": {
+                    "span": "{coords_span}",
+                    "increment": "{coords_increment}",
+                },
+            },
+            "step",
+            {"stepRange": "0-168", "span": 168, "increment": 0},
+            id="precomputed-coords",
+        ),
+        pytest.param(
+            {
+                "coords": ["x", "y"],
+                "metadata": {
+                    "span": "{coords_span}",
+                    "increment": "{coords_increment}",
+                },
+            },
+            "dim",
+            {"span": None, "increment": None},
+            id="non-numeric-coords",
+        ),
+    ],
+)
+def test_grib_header_coords(config, dim, expected):
+    accum = create_accumulation(config)
+    assert accum.grib_keys(dim) == expected
+
+
 def test_accumulator_contains():
     assert {"step": 12} in Accumulator({"step": Mean(range(6, 24, 6))})
     assert {"hdate": 20200301, "step": 6, "example": "a"} in Accumulator(
