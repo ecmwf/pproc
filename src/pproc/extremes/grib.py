@@ -66,7 +66,7 @@ def extreme_template(accum, template_fc, template_clim, allow_grib1_to_grib2=Fal
         ]
         grib_keys.update(
             {
-                "productDefinitionTemplateNumber": 105,
+                "productDefinitionTemplateNumber": 107,
                 **{key: template_clim[key] for key in clim_keys},
             }
         )
