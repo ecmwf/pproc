@@ -404,7 +404,7 @@ class InputSchema(BaseSchema):
             raise ValueError(
                 f"Output template must contain {required} to derive outputs from inputs"
             )
-        for template in expand(output_template, dim=self.all_filters):
+        for template in expand(output_template, dim=list(self.all_filters) + ["step"]):
             template = validate_request(template)
             # Derive output requests and corresponding input configs that match the template
             for base_output, config in self.reconstruct(
