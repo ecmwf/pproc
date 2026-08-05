@@ -2,7 +2,16 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from typing import Any
+
+from ppcore.schema.exceptions import PProcSchemaError
 from ppcore.utils.stepseq import fcmonth_to_steprange
+
+
+def default_filter(request: dict, key: str) -> Any:
+    if key not in request:
+        raise PProcSchemaError(f"Filter key '{key}' not found in request {request}")
+    return request[key]
 
 
 def _steptype(request: dict, key: str) -> str:
@@ -26,7 +35,7 @@ def _selection(request: dict, key: str) -> str:
 
 
 def _members(request: dict, key: str) -> str:
-    number = request["number"]
+    number = default_filter(request, "number")
     if isinstance(number, (int, str)):
         number = [number]
     number = list(map(int, number))

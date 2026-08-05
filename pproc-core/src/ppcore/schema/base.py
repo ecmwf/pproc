@@ -16,6 +16,7 @@ import json
 from typing_extensions import Self
 
 from ppcore.utils.dicts import deep_update
+from ppcore.schema.filters import default_filter
 from ppcore.schema.exceptions import PProcSchemaError
 
 logger = logging.getLogger(__name__)
@@ -31,7 +32,7 @@ def dict_update(base: dict, update: dict) -> dict:
 
 
 DEFAULT_UPDATE: UpdateFunc = deep_update
-DEFAULT_FILTER: FilterFunc = dict.__getitem__
+DEFAULT_FILTER: FilterFunc = default_filter
 DEFAULT_MATCH: MatchFunc = lambda _, value, expected: value == expected
 
 
@@ -150,10 +151,6 @@ class BaseSchema:
         return config
 
     def traverse(self, request: dict, config: Optional[dict] = None) -> dict:
-        if len(set.intersection(set(request.keys()), self.filters)) < len(self.filters):
-            raise self.exception(
-                f"Request {request} does not contain all required filters {self.filters}"
-            )
         traversed = []
         return self._traverse(self.schema, request, config or {}, traversed)
 
