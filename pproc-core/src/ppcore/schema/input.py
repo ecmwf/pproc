@@ -137,7 +137,7 @@ class ForecastInput(PProcBaseModel):
             cube.update(override)
             for key in pop:
                 cube.pop(key, None)
-            if cube["type"] in ["fcmean", "fcmax", "fcstdev", "fcmin"]:
+            if cube.get("type", "") in ["fcmean", "fcmax", "fcstdev", "fcmin"]:
                 cube.setdefault("number", 0)
             cube.update(extra)
             # Sort request keys for consistent ordering in output configs
