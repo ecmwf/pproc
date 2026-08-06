@@ -65,9 +65,9 @@ class Schema:
             "name", f"{base_request['param']}_{output_request['levtype']}"
         )
         for key in config.pop("metadata_from_output", []):
-            if key in output_request and base_request.get(key, None) != VALUE_TYPES.get(key, str)(
-                output_request[key]
-            ):
+            if key in output_request and base_request.get(key, None) != VALUE_TYPES.get(
+                key, str
+            )(output_request[key]):
                 metadata_key = METADATA_KEYS.get(key, key)
                 metadata[metadata_key] = VALUE_TYPES.get(metadata_key, str)(
                     output_request[key]
