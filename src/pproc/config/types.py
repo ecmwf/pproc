@@ -1716,3 +1716,19 @@ class FlightLevelsConfig(AccumConfig):
         req["levtype"] = "fl"
         req["levelist"] = self.target_flight_levels
         return req
+
+
+class DewpointPLConfig(AccumConfig):
+    parallelisation: int = 1
+    inputs: io.DewpointPLInputModel
+    outputs: io.DewpointOutputModel = io.DewpointOutputModel()
+    parameters: list[ParamConfig]
+
+
+class DewpointMLConfig(AccumConfig):
+    parallelisation: int = 1
+    inputs: io.DewpointMLInputModel
+    outputs: io.DewpointOutputModel = io.DewpointOutputModel()
+    parameters: list[ParamConfig]
+    model: str
+    n_levels: int
