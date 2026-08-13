@@ -15,7 +15,7 @@ class Threshold(PProcBaseModel):
     lower_scale_factor: int
     lower_comparison: Comparisons
     lower_value: float
-    upper_scale_factor: int = 0
+    upper_scale_factor: Optional[int] = None
     upper_comparison: Optional[Comparisons] = None
     upper_value: Optional[float] = None
 
@@ -37,7 +37,7 @@ class Threshold(PProcBaseModel):
                         "Upper threshold should not be used without lower threshold. If only a single threshold is needed, use lower_comparison and lower_value."
                     )
 
-            # Derive scale factors for custom thresholds
+            # Derive scale factors, if not specified
             for value in ["lower_value", "upper_value"]:
                 upper_or_lower = value.split("_")[0]
                 if value in data and f"{upper_or_lower}_scale_factor" not in data:
