@@ -1,0 +1,71 @@
+name: ci
+
+on:
+  # Trigger the workflow manually
+  workflow_dispatch: ~
+
+  push:
+    branches:
+      - 'main'
+      - 'develop'
+
+  pull_request: ~
+
+jobs:
+  ppruntime_test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        python-version: ['3.10', '3.11', '3.12', '3.13']
+    steps:
+    - uses: actions/checkout@v4
+    - uses: astral-sh/setup-uv@v7
+    - name: Run checks and tests
+      run: |
+        cd pproc-runtime
+        export UV_FROZEN=1
+        uv sync --python "${{ matrix.python_version }}" --all-packages
+        uv run prek --directory . --config ../.pre-commit-config.yaml
+        uv run ty check
+        if [ -d "tests" ]; then
+          uv run -m pytest tests/ -v
+        fi
+
+  ppcore_test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        python-version: ['3.11', '3.12', '3.13']
+    steps:
+    - uses: actions/checkout@v4
+    - uses: astral-sh/setup-uv@v7
+    - name: Run checks and tests
+      run: |
+        cd pproc-core
+        export UV_FROZEN=1
+        uv sync --python "${{ matrix.python_version }}" --all-packages
+        uv run prek --directory . --config ../.pre-commit-config.yaml
+        if [ -d "tests" ]; then
+          uv run -m pytest tests/ -v
+        fi
+
+  pproc_test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        python-version: ['3.11', '3.12', '3.13']
+    steps:
+    - uses: actions/checkout@v4
+    - uses: astral-sh/setup-uv@v7
+    - name: Run pproc tests
+      run: |
+        cd pproc
+        export UV_FROZEN=1
+        uv sync --python "${{ matrix.python_version }}" --all-packages
+        # uv run prek --directory . --config ../.pre-commit-config.yaml
+        if [ -d "tests" ]; then
+          uv run -m pytest tests/ -v
+        fi

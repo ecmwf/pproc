@@ -1,0 +1,85 @@
+# (C) Copyright 2024 ECMWF.
+#
+# This software is licensed under the terms of the Apache Licence Version 2.0
+# which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
+# In applying this licence, ECMWF does not waive the privileges and immunities
+# granted to it by virtue of its status as an intergovernmental organisation
+# nor does it submit to any jurisdiction.
+
+[build-system]
+build-backend = "setuptools.build_meta"
+
+requires = [ "setuptools>=65", "setuptools-scm[toml]>=6.2" ]
+
+[project]
+name = "pproc-core"
+description = "An earthkit-workflows interface to PProc"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = [ "LICENSE" ]
+authors = [
+  { name = "European Centre for Medium-Range Weather Forecasts (ECMWF)", email = "software.support@ecmwf.int" },
+]
+requires-python = ">=3.11"
+classifiers = [
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+dynamic = [ "version" ]
+
+dependencies = [
+  "code-meters",
+  "conflator>=0.1.8",
+  "earthkit-time",
+  "earthkit-workflows>=0.15.5",
+  "numpy",
+  "pandas",
+  "pydantic",
+  "qubed>=0.3,<0.4.4",
+]
+
+optional-dependencies.vizualize = [
+  "earthkit-workflows[vizualize]>=0.15.4",
+]
+
+scripts.ppcore-config = "ppcore.config:main"
+scripts.pproc-product = "ppcore.product:main"
+
+[dependency-groups]
+dev = [
+  "prek>=0.4.4",
+  "pytest>=9.0.3",
+  "ty>=0.0.43",
+]
+
+[tool.setuptools]
+include-package-data = true
+zip-safe = false
+
+[tool.setuptools.packages.find]
+where = [ "src" ]
+
+[tool.setuptools_scm]
+write_to = "src/earthkit/workflows/plugins/pproc/_version.py"
+write_to_template = '''# Do not change! Do not track in version control!
+__version__ = "{version}"
+'''
+root = ".."
+local_scheme = "no-local-version"
+fallback_version = "0.0.0"
+
+[tool.setuptools_scm.tag]
+prefix = "ppcore-"
+strict = true
+
+[tool.ruff]
+lint.ignore = [ "E722", "E731", "E741" ]
+
+[tool.pytest.ini_options]
+log_cli = true
+testpaths = [ "tests/" ]
+
+[tool.uv]
+package = true

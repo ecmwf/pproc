@@ -1,0 +1,79 @@
+parallelisation:
+  n_par_compute: 2
+defs:
+  base_request: &base_request
+      class: od
+      domain: g
+      expver: '0001'
+      levtype: sfc
+      time: 0000
+      stream: oper
+      type: fc
+  accum_params: &accum_params
+      - 47
+      - 228021
+      - 169
+      - 175
+      - 176
+      - 177
+  inst_params: &inst_params
+      - 165
+      - 166
+      - 167
+      - 168
+parameters:
+  2r:
+    out_params:
+      - 2r
+    accumulations:
+      step:
+        coords: [[0]]
+  indices:
+    inputs:
+      accum:
+        request:
+          <<: *base_request
+          date: 20240605
+          param: *accum_params
+        source:
+          type: fdb
+    accumulations:
+      step:
+        operation: difference
+        coords: [[0, 1], [1, 2], [2, 3]]
+    out_params:
+      - mrt
+      - utci
+      - heatx
+      - wcf
+      - aptmp
+      - hmdx
+      - nefft
+      - gt
+      - wbt
+      - wbgt
+      - 2r
+inputs:
+  inst:
+    request:
+      <<: *base_request
+      date: 20240605
+      param: *inst_params
+    source:
+      type: fdb
+outputs:
+  default:
+    metadata:
+      edition: 2
+      typeOfGeneratingProcess: 2
+  accum:
+    target:
+      type: file
+      path: "accum.grib"
+  intermediate:
+    target:
+      type: file
+      path: "intermediate.grib"
+  indices:
+    target:
+      type: fdb
