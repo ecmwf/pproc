@@ -150,9 +150,8 @@ def efi_metadata(template, metadata) -> dict:
         metadata["efiOrder"] = 0
         metadata["number"] = 0
     elif edition == 2:
-        metadata.update(
-            {"typeOfRelationToReferenceDataset": 20, "typeOfProcessedData": 5}
-        )
+        metadata["typeOfRelationToReferenceDataset"] = 20
+        metadata.setdefault("typeOfProcessedData", 5)
     else:
         raise Exception(f"Unsupported GRIB edition {edition}")
     return metadata
@@ -168,9 +167,8 @@ def efi_metadata_control(template, metadata) -> dict:
         metadata["totalNumber"] = 1
         metadata["number"] = 0
     elif edition == 2:
-        metadata.update(
-            {"typeOfRelationToReferenceDataset": 20, "typeOfProcessedData": 3}
-        )
+        metadata["typeOfRelationToReferenceDataset"] = 20
+        metadata.setdefault("typeOfProcessedData", 3)
     else:
         raise Exception(f"Unsupported GRIB edition {edition}")
     return metadata
@@ -193,10 +191,10 @@ def sot_metadata(template, sot, metadata) -> dict:
         metadata["number"] = sot
         metadata["efiOrder"] = efi_order
     elif edition == 2:
+        metadata.setdefault("typeOfProcessedData", 5)
         metadata.update(
             {
                 "typeOfRelationToReferenceDataset": 21,
-                "typeOfProcessedData": 5,
                 "numberOfAdditionalParametersForReferencePeriod": 2,
                 "scaleFactorOfAdditionalParameterForReferencePeriod": [0, 0],
                 "scaledValueOfAdditionalParameterForReferencePeriod": [sot, efi_order],
@@ -219,9 +217,8 @@ def cpf_metadata(template, metadata) -> dict:
     if edition == 1:
         metadata["number"] = 0
     elif edition == 2:
-        metadata.update(
-            {"typeOfRelationToReferenceDataset": 24, "typeOfProcessedData": 5}
-        )
+        metadata["typeOfRelationToReferenceDataset"] = 24
+        metadata.setdefault("typeOfProcessedData", 5)
     else:
         raise Exception(f"Unsupported GRIB edition {edition}")
     return metadata
