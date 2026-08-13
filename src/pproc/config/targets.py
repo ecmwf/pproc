@@ -7,6 +7,7 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
+import functools
 import multiprocessing
 import os
 from typing import Any, Literal, Optional, Union
@@ -14,7 +15,9 @@ from typing_extensions import Self
 import yaml
 
 import eccodes
+import numpy as np
 import pyfdb
+import xarray as xr
 from annotated_types import Annotated
 from conflator import ConfigModel
 from filelock import FileLock
@@ -200,3 +203,104 @@ class OverrideTargetWrapper(ConfigModel, Target):
 
     def clean(self):
         return self.wrapped.clean()
+
+
+class CombineKwargs(BaseModel):
+    """Arguments for :func:`xarray.combine_by_coords`."""
+
+    model_config = ConfigDict(extra="forbid")  # join and fill value set by XarrayTarget
+
+    compat: str = "no_conflicts"
+    data_vars: str = "all"
+    coords: str = "minimal"
+    combine_attrs: str = "drop_conflicts"
+
+
+class XarrayTarget(Target):
+    """Transactional xarray.Dataset builder with (optional) flushing to disk.
+
+    DataArrays are staged in the local process until flushed. Only complete
+    datacubes can be flushed (to ensure safe merging).
+
+    Formats:
+    - "netcdf" (replaces file on every flush)
+    - "memory" (only collects in memory, writing is left to entrypoint)
+    """
+
+    type_: Literal["xarray"] = Field("xarray", alias="type")
+    path: str | None = None
+    format: Literal["netcdf", "memory"] = "netcdf"
+    clean_lock: bool = True
+    combine_kwargs: CombineKwargs = CombineKwargs()
+
+    _staged: list[xr.DataArray] = []
+    _committed: list[xr.Dataset] = []  # oldest first
+
+    @model_validator(mode="after")
+    def validate_path(self):
+        if self.format != "memory" and self.path is None:
+            raise ValueError(f"path is required for format {self.format}")
+        return self
+
+    @property
+    def lock(self) -> FileLock:
+        return FileLock(self.path + ".lock", thread_local=False)
+
+    @property
+    def _tmp_path(self) -> str:
+        return self.path + ".tmp"
+
+    def flush(self):
+        """Commit everything written/staged since the last flush."""
+        if not self._staged:
+            return
+        ds_staged = xr.combine_by_coords(
+            self._staged,
+            join="exact",  # enforce full datacubes
+            fill_value=np.nan,
+            **self.combine_kwargs.model_dump(),
+        ).load()  # force computation of values
+        if self.format == "memory":
+            self._committed.append(ds_staged)
+        elif self.format == "netcdf":
+            with self.lock:
+                ds_out = self._consolidate([*self._committed, ds_staged])
+                ds_out.to_netcdf(self._tmp_path)
+                os.replace(self._tmp_path, self.path)
+                # Replace collected parts with consolidated dataset while lock is aquired
+                self._committed[:] = [ds_out]
+        else:
+            raise NotImplementedError(f"format {self.format}")
+        self._staged.clear()
+
+    def write(self, ds):
+        self._staged.append(ds)
+
+    def enable_recovery(self):
+        if self.format == "memory":
+            raise NotImplementedError("Recovery is not supported with format memory")
+        if os.path.exists(self.path):
+            self._committed.append(xr.load_dataset(self.path))
+
+    def enable_parallel(self):
+        self._committed = _shared_list()
+
+    def clean(self):
+        if self.path is None:
+            return
+        if os.path.exists(self._tmp_path):
+            os.remove(self._tmp_path)
+        if self.clean_lock and os.path.exists(self.lock.lock_file):
+            os.remove(self.lock.lock_file)
+
+    @staticmethod
+    def _consolidate(generations: list[xr.Dataset]) -> xr.Dataset:
+        """Merge generations given oldest first, later ones overriding earlier ones."""
+        if not generations:
+            return xr.Dataset()
+        return functools.reduce(
+            lambda newer, older: newer.combine_first(older), reversed(generations)
+        )
+
+    def as_dataset(self) -> xr.Dataset:
+        return self._consolidate(list(self._committed))
