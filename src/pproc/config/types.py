@@ -475,6 +475,16 @@ class AnomalyConfig(BaseConfig):
         return req
 
 
+class QuantileProbParamConfig(ClimParamConfig):
+    denominators: list[Annotated[int, Field(gt=1)]]
+    _merge_exclude = ("accumulations", "inputs", "clim", "denominators")
+
+
+class QuantileProbConfig(AnomalyConfig):
+    outputs: io.QuantileProbOutputModel = io.QuantileProbOutputModel()
+    parameters: list[QuantileProbParamConfig]
+
+
 def anom_discriminator(config: Any) -> str:
     clim = _get(config, "clim", None)
     return "clim" if clim else "base"
