@@ -780,6 +780,69 @@ class WindConfig(BaseConfig):
         return req
 
 
+class CapeProductConfig(ConfigModel):
+    """Configuration for a single CAPE/CIN product variant."""
+
+    parcel_type: str = "mu"
+    layer_depth: float | None = None
+    cape_output: str
+    cin_output: str
+
+
+class CapeConfig(BaseConfig):
+    parallelisation: int = 1
+    inputs: io.CapeInputModel
+    outputs: io.CapeOutputModel = io.CapeOutputModel()
+    parameters: list[ParamConfig]
+    pressure_levels: list[int]
+    model: str = "aifs"
+    cape_products: list[CapeProductConfig] = [
+        CapeProductConfig(
+            parcel_type="mu",
+            cape_output="mucape",
+            cin_output="mucin",
+        ),
+    ]
+
+    @model_validator(mode="after")
+    def validate_split_params(self) -> Self:
+        for param in self.parameters:
+            param.split_params = False
+        return self
+
+    @model_validator(mode="after")
+    def validate_pressure_levels(self) -> Self:
+        pl_request = self.inputs.pl.request
+        if isinstance(pl_request, list):
+            pl_request = pl_request[0]
+        levelist = pl_request.get("levelist", None)
+        if levelist is not None:
+            if set(self.pressure_levels) != set(
+                levelist if isinstance(levelist, list) else [levelist]
+            ):
+                raise ValueError(
+                    f"pressure_levels {self.pressure_levels} must match "
+                    f"levelist {levelist} in pl input request"
+                )
+        return self
+
+    @model_validator(mode="after")
+    def validate_cape_product_outputs(self) -> Self:
+        output_names = set(self.outputs.names)
+        for product in self.cape_products:
+            if product.cape_output not in output_names:
+                raise ValueError(
+                    f"cape_output '{product.cape_output}' not in outputs: "
+                    f"{output_names}"
+                )
+            if product.cin_output not in output_names:
+                raise ValueError(
+                    f"cin_output '{product.cin_output}' not in outputs: "
+                    f"{output_names}"
+                )
+        return self
+
+
 class ThermoParamConfig(ParamConfig):
     out_params: list[str | int]
 

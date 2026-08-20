@@ -38,6 +38,7 @@ class ConfigFactory:
         "pproc-ecpoint": types.ECPointConfig,
         "pproc-clustereps": types.ClusterFullConfig,
         "pproc-flight-levels": types.FlightLevelsConfig,
+        "pproc-cape": types.CapeConfig,
     }
 
     @classmethod

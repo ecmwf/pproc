@@ -20,6 +20,7 @@ from pproc.quantiles import main as quantiles_main
 from pproc.wind import main as wind_main
 from pproc.thermal_indices import main as thermo_main
 from pproc.clustereps.__main__ import main as clustereps_main
+from pproc.cape_cin import main as cape_main
 from conftest import DATA_DIR
 
 TEST_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -143,6 +144,22 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
             },
             18,
         ],
+        [
+            "cape",
+            cape_main,
+            [],
+            {
+                "class": "ai",
+                "stream": "oper",
+                "type": "fc",
+                "date": 20260201,
+                "time": 0,
+                "model": "aifs-single",
+                "param": [228231, 228232, 228233, 228234, 228235, 228236],
+                "step": [0, 6],
+            },
+            12,
+        ],
     ],
     ids=[
         "prob",
@@ -153,6 +170,7 @@ TEST_DIR = os.path.dirname(os.path.realpath(__file__))
         "wind",
         "thermofeel",
         "clustereps",
+        "cape",
     ],
 )
 def test_products(tmpdir, monkeypatch, fdb, product, main, custom_args, req, length):

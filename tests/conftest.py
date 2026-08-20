@@ -107,6 +107,7 @@ spaces:
             "cluster.grib",
             "has_missing.grib",
             "thermo.grib",
+            "cape.grib",
         ],
     )
 

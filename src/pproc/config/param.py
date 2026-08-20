@@ -42,6 +42,7 @@ class ParamConfig(BaseModel):
     metadata: Dict[str, Any] = {}
     total_fields: int = 0
     vod2uv: bool = False
+    split_params: bool = True
     _merge_exclude: tuple[str] = ("accumulations",)
 
     @model_validator(mode="after")
@@ -82,7 +83,7 @@ class ParamConfig(BaseModel):
                 continue
             fields = 1
             for key, value in req.items():
-                if key == "param" and not self.vod2uv:
+                if key == "param" and not self.vod2uv and self.split_params:
                     continue
                 if keys is None or key in keys:
                     fields *= np.size(value)
@@ -111,7 +112,7 @@ class ParamConfig(BaseModel):
             **inputs.overrides,
         )
 
-        if self.vod2uv:
+        if self.vod2uv or not self.split_params:
             requests = [reqs]
         else:
             requests = [list(expand(reqs, "param"))]

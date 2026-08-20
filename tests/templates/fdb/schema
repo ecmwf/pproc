@@ -121,6 +121,12 @@ method:     Integer;
                [ step, levelist?, param ]]
 ]
 
+# AI models (e.g. aifs-single)
+[ class=ai, expver, stream, date, time, domain?, model
+       [ type, levtype
+               [ step, levelist?, param ]]
+]
+
 ########################################################
 # The are the rules matching most of the fields
 # oper/dcda
