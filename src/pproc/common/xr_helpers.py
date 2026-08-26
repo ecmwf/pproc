@@ -26,7 +26,10 @@ class DatasetBuilder:
         self._committed = manager.list(self._committed)
 
     def stage(self, ds):
+        if isinstance(ds, xr.DataArray) and ds.name is None:
+            raise ValueError("DataArrays must have a name")
         self._staged.append(ds)
+        return self
 
     def commit(self):
         if not self._staged:
@@ -34,9 +37,11 @@ class DatasetBuilder:
         ds_staged = xr.combine_by_coords(self._staged, **self._combine_kwargs)
         self._committed.append(ds_staged.load())  # force computation of values
         self.reset_staged()
+        return self
 
     def reset_staged(self):
         self._staged.clear()
+        return self
 
     def undo_commit(self, *, stage=False):
         if not self._committed:
@@ -44,9 +49,11 @@ class DatasetBuilder:
         removed = self._committed.pop()
         if stage:
             self.stage(removed)
+        return self
 
     def squash_commits(self):
         self._committed[:] = [self.to_dataset()]
+        return self
 
     def to_dataset(self) -> xr.Dataset:
         if not self._committed:

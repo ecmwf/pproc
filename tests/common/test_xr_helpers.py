@@ -48,6 +48,10 @@ class TestDatasetBuilder:
         builder.stage(make_da())
         xr.testing.assert_identical(builder.to_dataset(), xr.Dataset())
 
+    def test_stage_rejects_unnamed_dataarray(self, builder):
+        with pytest.raises(ValueError):
+            builder.stage(make_da(name=None))
+
     def test_commit_without_stages(self, builder):
         builder.commit()
         xr.testing.assert_identical(builder.to_dataset(), xr.Dataset())

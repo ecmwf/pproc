@@ -244,7 +244,7 @@ class NetCDFTarget(Target):
         with self.lock:
             self._builder.commit()
             ds_out = self.to_dataset()
-            if not ds_out:
+            if not ds_out.data_vars:
                 return
             try:
                 ds_out.to_netcdf(self._tmp_path)
