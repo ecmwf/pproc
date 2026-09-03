@@ -69,6 +69,7 @@ def anomaly_iteration(
                 anom,
                 {
                     **accum.grib_keys(),
+                    **clim_accum.grib_keys(),
                     **config.outputs.ens.metadata,
                     "number": index,
                 },
@@ -82,6 +83,7 @@ def anomaly_iteration(
             ensm_anom,
             {
                 **accum.grib_keys(),
+                **clim_accum.grib_keys(),
                 **config.outputs.ensm.metadata,
             },
         )
