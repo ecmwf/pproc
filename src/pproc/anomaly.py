@@ -60,10 +60,7 @@ def anomaly_iteration(
         ens = accum.values
         assert ens is not None
 
-        accum_keys = accum.grib_keys()
-        accum_keys.update(
-            {k: v for k, v in clim_accum.grib_keys().items() if k not in accum_keys}
-        )
+        accum_keys = clim_accum.grib_keys() | accum.grib_keys()
 
         # Anomaly for each ensemble member
         for index, member in enumerate(ens):
