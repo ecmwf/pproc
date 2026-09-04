@@ -151,13 +151,17 @@ def signi_iteration(
     with ResourceMeter(f"{param.name}, window {window_id}: Compute significance"):
         fc = accum.values
         assert fc is not None
+        accum_keys = accum.grib_keys()
+        accum_keys.update(
+            {k: v for k, v in clim_grib_keys.items() if k not in accum_keys}
+        )
         signi(
             fc,
             clim,
             template,
             clim_template,
             config.outputs.signi.target,
-            out_keys={**accum.grib_keys(), **clim_grib_keys},
+            out_keys=accum_keys,
             epsilon=param.epsilon,
             epsilon_is_abs=param.epsilon_is_abs,
         )
