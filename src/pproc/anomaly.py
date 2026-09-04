@@ -60,6 +60,8 @@ def anomaly_iteration(
         ens = accum.values
         assert ens is not None
 
+        accum_keys = clim_accum.grib_keys() | accum.grib_keys()
+
         # Anomaly for each ensemble member
         for index, member in enumerate(ens):
             anom = member - clim[0]
@@ -68,7 +70,7 @@ def anomaly_iteration(
                 template,
                 anom,
                 {
-                    **accum.grib_keys(),
+                    **accum_keys,
                     **config.outputs.ens.metadata,
                     "number": index,
                 },
@@ -81,7 +83,7 @@ def anomaly_iteration(
             template,
             ensm_anom,
             {
-                **accum.grib_keys(),
+                **accum_keys,
                 **config.outputs.ensm.metadata,
             },
         )

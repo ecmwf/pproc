@@ -43,6 +43,7 @@ class Range(BaseModel):
     end: Optional[int] = None
     interval: int
     width: int
+    allow_missing_zero: bool = False
     dim: Literal["step"] = "step"
 
     def generate_steps(self, steps: list[int | str]) -> list[str]:
@@ -51,6 +52,8 @@ class Range(BaseModel):
         assert all(
             isinstance(x, int) for x in steps
         ), "Steps can not be a mix of strings and integers"
+        if self.start == 0 and 0 not in steps and self.allow_missing_zero:
+            steps = [0] + steps
         start = self.start or steps[0]
         end = min((self.end or steps[-1]), steps[-1]) - self.width
         rstarts = set(range(start, end + 1, self.interval))

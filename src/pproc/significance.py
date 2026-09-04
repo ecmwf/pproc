@@ -129,6 +129,7 @@ def signi_iteration(
         )
         clim = clim_accum.values
         assert clim is not None
+        clim_grib_keys = clim_accum.grib_keys()
         if config.use_clim_anomaly:
             clim_em_accum, _ = retrieve_clim(
                 param.clim_em,
@@ -145,17 +146,19 @@ def signi_iteration(
                 clim_em.shape == exp_shape
             ), f"Wrong ensemble mean shape {clim_em.shape}, expected {exp_shape}"
             clim -= clim_em
+            clim_grib_keys.update(clim_em_accum.grib_keys())
 
     with ResourceMeter(f"{param.name}, window {window_id}: Compute significance"):
         fc = accum.values
         assert fc is not None
+        accum_keys = clim_grib_keys | accum.grib_keys()
         signi(
             fc,
             clim,
             template,
             clim_template,
             config.outputs.signi.target,
-            out_keys=accum.grib_keys(),
+            out_keys=accum_keys,
             epsilon=param.epsilon,
             epsilon_is_abs=param.epsilon_is_abs,
         )
