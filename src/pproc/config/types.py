@@ -483,6 +483,58 @@ class QuantileProbParamConfig(ClimParamConfig):
 class QuantileProbConfig(AnomalyConfig):
     outputs: io.QuantileProbOutputModel = io.QuantileProbOutputModel()
     parameters: list[QuantileProbParamConfig]
+    _merge_exclude = ("parameters", "outputs")
+
+    @classmethod
+    def from_schema(cls, schema_config: dict, **overrides) -> Self:
+        paramId = schema_config["metadata"].pop("paramId", None)
+        if paramId is not None:
+            paramId = str(paramId)
+            outputs = deep_update(
+                copy.deepcopy(schema_config.get("outputs", {})),
+                overrides.get("outputs", {}),
+            )
+            defaults = outputs.pop("default", {})
+            if not any(
+                deep_update(copy.deepcopy(defaults), output)
+                .get("metadata", {})
+                .get("paramId", None)
+                == paramId
+                for output in outputs.values()
+            ):
+                raise ValueError(
+                    f"Cannot match paramId {paramId} with any configured output"
+                )
+        return super().from_schema(schema_config, **overrides)
+
+    def _merge_outputs(self, other: Self) -> io.QuantileProbOutputModel:
+        merged = self.outputs.model_dump(by_alias=True)
+        assert self.outputs.names == other.outputs.names
+        for name in self.outputs.names:
+            self_out = getattr(self.outputs, name)
+            other_out = getattr(other.outputs, name)
+            if not partial_equality(self_out, other_out, exclude=("metadata",)):
+                raise ValueError("Can only merge outputs that are equal except for 'metadata'")
+            self_md = self_out.metadata
+            other_md = other_out.metadata
+            if self_md == other_md:
+                continue
+            keys = set(self_md.keys()).union(other_md.keys())
+            keys.discard("paramId")
+            sentinel = object()
+            if any(self_md.get(key, sentinel) != other_md.get(key, sentinel) for key in keys):
+                raise ValueError(f"Can only merge outputs with the same metadata except for 'paramId'")
+            self_pid = self_md.get("paramId")
+            other_pid = other_md.get("paramId")
+            merged_pid = None
+            if self_pid is None:
+                merged_pid = other_pid
+            elif other_pid is None:
+                merged_pid = self_pid
+            else:
+                raise ValueError(f"Cannot merge outputs with different paramIds")
+            merged[name]["metadata"]["paramId"] = merged_pid
+        return io.QuantileProbOutputModel(**merged)
 
 
 def anom_discriminator(config: Any) -> str:
