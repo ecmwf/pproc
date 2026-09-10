@@ -54,7 +54,7 @@ class ConfigFactory:
     ) -> BaseConfig:
         if entrypoint not in cls.types:
             raise ValueError(
-                f"Config generation current not supported for {entrypoint}"
+                f"Config generation currently not supported for {entrypoint}"
             )
         return cls.types[entrypoint].from_schema(schema_config, **overrides)
 
