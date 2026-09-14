@@ -146,7 +146,7 @@ class InputsCollection(ConfigModel):
 def target_discriminator(target: Any):
     if utils._get(target, "overrides", None):
         return "override"
-    return utils._get(target, "type", "null")
+    return utils._get(target, "type", utils._get(target, "type_", "null"))
 
 
 class Output(ConfigModel):
