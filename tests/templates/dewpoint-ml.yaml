@@ -1,0 +1,50 @@
+parallelisation: 1
+
+model: ifs
+n_levels: 137
+
+parameters:
+  q:
+    inputs:
+      ml:
+        request:
+          param: 133
+          grid: O1280
+      lnsp:
+        request:
+          param: 152
+          grid: O1280
+
+inputs:
+  ml:
+    request:
+      class: od
+      date: 20260528
+      expver: '0001'
+      levelist: [1, 2]
+      levtype: ml
+      step: [0, 96]
+      stream: oper
+      time: 00
+      type: fc
+    source:
+      type: fdb
+  lnsp:
+    request:
+      class: od
+      date: 20260528
+      expver: '0001'
+      levelist: [1]
+      levtype: ml
+      step: [0, 96]
+      stream: oper
+      time: 00
+      type: fc
+    source:
+      type: fdb
+
+outputs:
+  dpt:
+    units: K
+    target:
+      type: fdb

@@ -300,3 +300,8 @@ ClusterAttributionInputModel = create_input_model(
 )
 FlightLevelsInputModel = create_input_model("FlightLevels", ["fc", "lnsp"])
 FlightLevelsOutputModel = create_output_model("FlightLevels", ["levels"])
+
+
+DewpointPLInputModel = create_input_model("DewpointPL", ["pl"])
+DewpointMLInputModel = create_input_model("DewpointML", ["ml", "lnsp"])
+DewpointOutputModel = create_output_model("Dewpoint", ["dpt"])
