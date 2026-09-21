@@ -8,6 +8,7 @@
 # nor does it submit to any jurisdiction.
 
 import copy
+import itertools
 import os
 from typing import Literal, Optional, List, Any, Annotated, ClassVar, Iterator
 from typing_extensions import Self, Union
@@ -514,7 +515,9 @@ class QuantileProbConfig(AnomalyConfig):
             self_out = getattr(self.outputs, name)
             other_out = getattr(other.outputs, name)
             if not partial_equality(self_out, other_out, exclude=("metadata",)):
-                raise ValueError("Can only merge outputs that are equal except for 'metadata'")
+                raise ValueError(
+                    "Can only merge outputs that are equal except for 'metadata'"
+                )
             self_md = self_out.metadata
             other_md = other_out.metadata
             if self_md == other_md:
@@ -522,8 +525,13 @@ class QuantileProbConfig(AnomalyConfig):
             keys = set(self_md.keys()).union(other_md.keys())
             keys.discard("paramId")
             sentinel = object()
-            if any(self_md.get(key, sentinel) != other_md.get(key, sentinel) for key in keys):
-                raise ValueError(f"Can only merge outputs with the same metadata except for 'paramId'")
+            if any(
+                self_md.get(key, sentinel) != other_md.get(key, sentinel)
+                for key in keys
+            ):
+                raise ValueError(
+                    f"Can only merge outputs with the same metadata except for 'paramId'"
+                )
             self_pid = self_md.get("paramId")
             other_pid = other_md.get("paramId")
             merged_pid = None
@@ -535,6 +543,38 @@ class QuantileProbConfig(AnomalyConfig):
                 raise ValueError(f"Cannot merge outputs with different paramIds")
             merged[name]["metadata"]["paramId"] = merged_pid
         return io.QuantileProbOutputModel(**merged)
+
+    def out_mars(self, targets: Optional[list[str]] = None) -> Iterator:
+        output_names = []
+        for name in self.outputs.names:
+            if name == "default":
+                continue
+            output = getattr(self.outputs, name)
+            out_type = output.target.type_
+            if out_type == "null" or (targets and out_type not in targets):
+                continue
+            output_names.append(name)
+
+        seen = []
+        for param, output_name in itertools.product(self.parameters, output_names):
+            output = getattr(self.outputs, output_name)
+            for req in param.out_keys(self.inputs, output.metadata):
+                req["target"] = (
+                    output.target.path
+                    if hasattr(output.target, "path")
+                    else output.target.type_
+                )
+                req.update(extract_mars(self.outputs.overrides))
+                req["quantile"] = [
+                    f"{num}:{den}"
+                    for den in param.denominators
+                    for num in range(1, (den if output_name == "bound" else den + 1))
+                ]
+                req = self._format_out(param, req)
+                req.pop("interpolate", None)
+                if req not in seen:
+                    seen.append(req)
+                    yield req
 
 
 def anom_discriminator(config: Any) -> str:
