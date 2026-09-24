@@ -10,7 +10,7 @@
 from dataclasses import dataclass
 from io import BytesIO
 import os
-from typing import Optional, Union, List, Dict, Any
+from typing import Iterable, Optional, Union, List, Dict, Any
 from typing_extensions import Self
 
 import numpy as np
@@ -192,14 +192,29 @@ def mir_wind_input(fdb_reader, request, cached_file=None):
     return mir.MultiDimensionalGribFileInput(cached_file, 2), cached_file
 
 
+def regrid(in_stream, mir_options, request):
+    cached_file = None
+    if mir_options.get("vod2uv", False):
+        mir_options = mir_options.copy()
+        mir_options["vod2uv"] = "1"
+        in_stream, cached_file = mir_wind_input(in_stream, request)
+    job = mir.Job(**mir_options)
+    out_stream = BytesIO()
+    job.execute(in_stream, out_stream)
+    out_stream.seek(0)
+    if cached_file:
+        os.remove(cached_file)
+    return out_stream
+
+
 def fdb_retrieve(fdb, request, mir_options=None):
     """Retrieve grib messages from FDB from request and returns fdb reader object
     If mir options specified, also performs interpolation
 
     Parameters
     ----------
-    messages: grib messages
-    dims: tuple of strings
+    fdb: FDB instance
+    request: dict
     mir_options: dict
 
     Returns
@@ -209,18 +224,7 @@ def fdb_retrieve(fdb, request, mir_options=None):
     """
     fdb_reader = fdb.retrieve(request)
     if mir_options:
-        cached_file = None
-        if mir_options.get("vod2uv", False):
-            mir_options = mir_options.copy()
-            mir_options["vod2uv"] = "1"
-            fdb_reader, cached_file = mir_wind_input(fdb_reader, request)
-        job = mir.Job(**mir_options)
-        stream = BytesIO()
-        job.execute(fdb_reader, stream)
-        stream.seek(0)
-        fdb_reader = stream
-        if cached_file:
-            os.remove(cached_file)
+        fdb_reader = regrid(fdb_reader, mir_options, request)
     return fdb_reader
 
 
@@ -433,3 +437,19 @@ class GribMetadata(eccodes.Message):
         return StandAloneGribMetadata(
             GribCodesHandle(eccodes.codes_clone(self._handle), None, None)
         )
+
+class MessageStream:
+    def __init__(self, messages: Iterable[eccodes.Message]):
+        self.messages = iter(messages)
+        self.current = b""
+
+    def read(self, size: int) -> bytes:
+        while len(self.current) < size:
+            msg = next(self.messages, None)
+            if msg is None:
+                break
+            self.current += msg.get_buffer()
+        size = min(size, len(self.current))
+        chunk = self.current[:size]
+        self.current = self.current[size:]
+        return chunk
