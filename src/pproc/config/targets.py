@@ -14,13 +14,16 @@ from typing_extensions import Self
 import yaml
 
 import eccodes
+import numpy as np
 import pyfdb
+import xarray as xr
 from annotated_types import Annotated
 from conflator import ConfigModel
 from filelock import FileLock
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, model_validator
 
 from pproc.config import utils
+from pproc.common.xr_helpers import DatasetBuilder
 
 _manager = None
 
@@ -200,3 +203,73 @@ class OverrideTargetWrapper(ConfigModel, Target):
 
     def clean(self):
         return self.wrapped.clean()
+
+
+class CombineKwargs(BaseModel):
+    """Arguments for :func:`xarray.combine_by_coords`."""
+
+    model_config = ConfigDict(extra="forbid")  # join and fill value set by XarrayTarget
+
+    compat: str = "no_conflicts"
+    data_vars: str = "all"
+    coords: str = "minimal"
+    combine_attrs: str = "drop_conflicts"
+
+
+class NetCDFTarget(Target):
+    type_: Literal["netcdf"] = Field("netcdf", alias="type")
+    path: str
+    clean_lock: bool = True
+    combine_kwargs: CombineKwargs = CombineKwargs()
+
+    _builder: DatasetBuilder
+
+    @model_validator(mode="after")
+    def validate_builder(self):
+        self._builder = DatasetBuilder(combine_kwargs=self.combine_kwargs.model_dump())
+        return self
+
+    @property
+    def lock(self) -> FileLock:
+        return FileLock(self.path + ".lock", thread_local=False)
+
+    @property
+    def _tmp_path(self) -> str:
+        return self.path + ".tmp"
+
+    def write(self, ds):
+        self._builder.stage(ds)
+
+    def flush(self):
+        with self.lock:
+            self._builder.commit()
+            ds_out = self.to_dataset()
+            if not ds_out.data_vars:
+                return
+            try:
+                ds_out.to_netcdf(self._tmp_path)
+                os.replace(self._tmp_path, self.path)
+            except:
+                # The file was not replaced. (Soft-)revert the last commit
+                # while the lock is aquired to synchronise the committed
+                # state of the builder with the actual file content
+                self._builder.undo_commit(stage=True)
+                raise
+
+    def enable_parallel(self):
+        # TODO find something better than messing with a builder internal
+        self._builder._committed = _shared_list()
+
+    def enable_recovery(self):
+        if os.path.exists(self.path):
+            self._builder.stage(xr.load_dataset(self.path))
+            self._builder.commit()
+
+    def clean(self):
+        if os.path.exists(self._tmp_path):
+            os.remove(self._tmp_path)
+        if self.clean_lock and os.path.exists(self.lock.lock_file):
+            os.remove(self.lock.lock_file)
+
+    def to_dataset(self):
+        return self._builder.to_dataset()
