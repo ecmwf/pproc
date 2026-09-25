@@ -151,7 +151,7 @@ class Accumulation(metaclass=ABCMeta):
                 start = int(steps[0].split("_")[-1])
                 end = int(steps[-1].split("_")[0])
             else:
-                start = self.coords[0]
+                start = int(self.coords[0])
                 end = start
 
             if end > start:
