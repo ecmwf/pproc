@@ -19,9 +19,11 @@ import mir
 
 from pproc.common.io import (
     FileTarget,
+    MessageStream,
     NullTarget,
     fdb,
     fdb_retrieve,
+    regrid,
     split_location,
     mir_wind_input,
 )
@@ -103,19 +105,8 @@ def _mars_retrieve_interp(
     )
     mars_reader = mars_retrieve(request, mars_cmd=mars_cmd, tmpdir=tmpdir)
     if mir_options:
-        cached_file = None
         with mars_reader:
-            if mir_options.get("vod2uv", False):
-                mir_options = mir_options.copy()
-                mir_options["vod2uv"] = "1"
-                mars_reader, cached_file = mir_wind_input(mars_reader, request)
-            job = mir.Job(**mir_options)
-            stream = BytesIO()
-            job.execute(mars_reader, stream)
-        stream.seek(0)
-        mars_reader = stream
-        if cached_file:
-            os.remove(cached_file)
+            mars_reader = regrid(mars_reader, mir_options, request)
     return CachedReader(mars_reader, cache=cache)
 
 
@@ -167,16 +158,28 @@ def _open_dataset_fileset(
     if not isinstance(reqs, list):
         reqs = [reqs]
     update_func = kwargs.pop("update", None)
+    interp_extra = kwargs.pop("interpolate", {})
     for req in reqs:
         req = copy.deepcopy(req)
         req.update(kwargs)
         if update_func is not None:
             update_func(req)
+        interp = req.pop("interpolate", None)
+        if interp_extra:
+            if interp is None:
+                interp = {}
+            interp.update(interp_extra)
         template = req.pop("location")
         path = template.format(**req)
         print(f"File path: {path!r}")
         print(f"Request: {req!r}")
-        yield FilteredReader(eccodes.FileReader(path), **req)
+        if interp is None:
+            yield FilteredReader(eccodes.FileReader(path), **req)
+        else:
+            print(f"Interpolation: {interp!r}")
+            with FilteredReader(eccodes.FileReader(path), **req) as reader:
+                stream = regrid(MessageStream(reader), interp, req)
+            yield eccodes.StreamReader(stream)
 
 
 def _open_dataset_fdbmars(
