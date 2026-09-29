@@ -43,15 +43,18 @@ class ConfigSchema(BaseSchema):
                 number, total = map(int, quantile.split(":"))
                 numbers[index] = number
                 totals[index] = total
-            if (
-                np.all(totals == totals[0])
-                and np.all(np.diff(numbers) == 1)
-                and len(numbers) == total + 1
-            ):
-                quantiles = int(totals[0])
+            if config.get("entrypoint") == "pproc-quantile-probabilities":
+                config["denominators"] = sorted(set(totals.astype(np.int32)))
             else:
-                quantiles = list(numbers / totals)
-            config["quantiles"] = quantiles
+                if (
+                    np.all(totals == totals[0])
+                    and np.all(np.diff(numbers) == 1)
+                    and len(numbers) == total + 1
+                ):
+                    quantiles = int(totals[0])
+                else:
+                    quantiles = list(numbers / totals)
+                config["quantiles"] = quantiles
 
         out_vals = output_request.copy()
         date = str(output_request["date"])

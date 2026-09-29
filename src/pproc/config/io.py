@@ -270,6 +270,9 @@ AnomalyOutputModel = create_output_model(
     "Anomaly", {"ens": {"type": "fcmean"}, "ensm": {"type": "taem"}}
 )
 ProbOutputModel = create_output_model("Prob", {"prob": {"type": "ep"}})
+QuantileProbOutputModel = create_output_model(
+    "QuantileProb", {"bound": {"type": "pb"}, "prob": {"type": "pd"}}
+)
 ExtremeOutputModel = create_output_model("Extreme", SUPPORTED_INDICES)
 WindOutputModel = create_output_model(
     "Wind",
