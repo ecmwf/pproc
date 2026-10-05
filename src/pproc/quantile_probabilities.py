@@ -74,11 +74,18 @@ def compute_boundaries(
 
     if out_keys is None:
         out_keys = {}
+    edition = out_keys.get("edition", template["edition"])
     for d, qbounds in bounds.items():
         for n, bound in enumerate(qbounds, start=1):
             metadata = out_keys.copy()
-            metadata["numberOfForecastsInEnsemble"] = d
-            metadata["perturbationNumber"] = n
+            if edition == 1:
+                metadata["numberOfForecastsInEnsemble"] = d
+                metadata["perturbationNumber"] = n
+            elif edition == 2:
+                metadata["totalNumberOfQuantiles"] = d
+                metadata["quantileValue"] = n
+            else:
+                raise ValueError(f"Unsupported GRIB edition {edition}")
             write_grib(target, template, bound, metadata)
 
     return bounds
@@ -114,6 +121,8 @@ def compute_probabilities(
     if out_keys is None:
         out_keys = {}
 
+    edition = out_keys.get("edition", template["edition"])
+
     # TODO: add safeguard: if quantile boundaries are too close to each other
     # (e.g. 10**-10), output an uniform distribution
 
@@ -138,8 +147,19 @@ def compute_probabilities(
             prob[missing] = np.nan
 
             metadata = out_keys.copy()
-            metadata["numberOfForecastsInEnsemble"] = d
-            metadata["perturbationNumber"] = n + 1
+            if edition == 1:
+                metadata["numberOfForecastsInEnsemble"] = d
+                metadata["perturbationNumber"] = n + 1
+            elif edition == 2:
+                metadata["probabilityType"] = 10
+                # When using entry 10, the lower limit is used to encode the
+                # quantile q (must be an integer between 0 and Q) while the
+                # upper limit is used to encode the total number of quantiles Q
+                # (WMO manual on codes, code table 4.9 "Probability type")
+                metadata["lowerLimit"] = n + 1
+                metadata["upperLimit"] = d
+            else:
+                raise ValueError(f"Unsupported GRIB edition {edition}")
             write_grib(target, template, prob, metadata)
 
 
