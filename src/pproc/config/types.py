@@ -522,26 +522,14 @@ class QuantileProbConfig(AnomalyConfig):
             other_md = other_out.metadata
             if self_md == other_md:
                 continue
-            keys = set(self_md.keys()).union(other_md.keys())
-            keys.discard("paramId")
+            keys = set(self_md.keys()).intersection(other_md.keys())
             sentinel = object()
             if any(
                 self_md.get(key, sentinel) != other_md.get(key, sentinel)
                 for key in keys
             ):
-                raise ValueError(
-                    f"Can only merge outputs with the same metadata except for 'paramId'"
-                )
-            self_pid = self_md.get("paramId")
-            other_pid = other_md.get("paramId")
-            merged_pid = None
-            if self_pid is None:
-                merged_pid = other_pid
-            elif other_pid is None:
-                merged_pid = self_pid
-            else:
-                raise ValueError(f"Cannot merge outputs with different paramIds")
-            merged[name]["metadata"]["paramId"] = merged_pid
+                raise ValueError(f"Can only merge outputs with compatible metadata")
+            merged[name]["metadata"] = self_md | other_md
         return io.QuantileProbOutputModel(**merged)
 
     def out_mars(self, targets: Optional[list[str]] = None) -> Iterator:
