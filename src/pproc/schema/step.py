@@ -13,6 +13,7 @@ import numpy as np
 import bisect
 
 from pproc.schema.base import BaseSchema
+from pproc.schema.filters import _selection
 from pproc.common.stepseq import stepseq_monthly, steprange_to_fcmonth
 
 
@@ -87,6 +88,10 @@ StepType = RootModel[
 
 
 class StepSchema(BaseSchema):
+    custom_filter = {
+        "selection": _selection,
+    }
+
     @classmethod
     def _create_steps(cls, step_config: list[dict]) -> list[int]:
         steps = set(

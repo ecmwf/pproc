@@ -8,6 +8,7 @@
 # nor does it submit to any jurisdiction.
 
 import copy
+import itertools
 import os
 from typing import Literal, Optional, List, Any, Annotated, ClassVar, Iterator
 from typing_extensions import Self, Union
@@ -473,6 +474,95 @@ class AnomalyConfig(BaseConfig):
 
         self._append_number(param, req)
         return req
+
+
+class QuantileProbParamConfig(ClimParamConfig):
+    denominators: list[Annotated[int, Field(gt=1)]]
+    _merge_exclude = ("accumulations", "inputs", "clim", "denominators")
+
+
+class QuantileProbConfig(AnomalyConfig):
+    outputs: io.QuantileProbOutputModel = io.QuantileProbOutputModel()
+    parameters: list[QuantileProbParamConfig]
+    _merge_exclude = ("parameters", "outputs")
+
+    @classmethod
+    def from_schema(cls, schema_config: dict, **overrides) -> Self:
+        paramId = schema_config["metadata"].pop("paramId", None)
+        if paramId is not None:
+            paramId = str(paramId)
+            outputs = deep_update(
+                copy.deepcopy(schema_config.get("outputs", {})),
+                overrides.get("outputs", {}),
+            )
+            defaults = outputs.pop("default", {})
+            if not any(
+                deep_update(copy.deepcopy(defaults), output)
+                .get("metadata", {})
+                .get("paramId", None)
+                == paramId
+                for output in outputs.values()
+            ):
+                raise ValueError(
+                    f"Cannot match paramId {paramId} with any configured output"
+                )
+        return super().from_schema(schema_config, **overrides)
+
+    def _merge_outputs(self, other: Self) -> io.QuantileProbOutputModel:
+        merged = self.outputs.model_dump(by_alias=True)
+        assert self.outputs.names == other.outputs.names
+        for name in self.outputs.names:
+            self_out = getattr(self.outputs, name)
+            other_out = getattr(other.outputs, name)
+            if not partial_equality(self_out, other_out, exclude=("metadata",)):
+                raise ValueError(
+                    "Can only merge outputs that are equal except for 'metadata'"
+                )
+            self_md = self_out.metadata
+            other_md = other_out.metadata
+            if self_md == other_md:
+                continue
+            keys = set(self_md.keys()).intersection(other_md.keys())
+            sentinel = object()
+            if any(
+                self_md.get(key, sentinel) != other_md.get(key, sentinel)
+                for key in keys
+            ):
+                raise ValueError(f"Can only merge outputs with compatible metadata")
+            merged[name]["metadata"] = self_md | other_md
+        return io.QuantileProbOutputModel(**merged)
+
+    def out_mars(self, targets: Optional[list[str]] = None) -> Iterator:
+        output_names = []
+        for name in self.outputs.names:
+            if name == "default":
+                continue
+            output = getattr(self.outputs, name)
+            out_type = output.target.type_
+            if out_type == "null" or (targets and out_type not in targets):
+                continue
+            output_names.append(name)
+
+        seen = []
+        for param, output_name in itertools.product(self.parameters, output_names):
+            output = getattr(self.outputs, output_name)
+            for req in param.out_keys(self.inputs, output.metadata):
+                req["target"] = (
+                    output.target.path
+                    if hasattr(output.target, "path")
+                    else output.target.type_
+                )
+                req.update(extract_mars(self.outputs.overrides))
+                req["quantile"] = [
+                    f"{num}:{den}"
+                    for den in param.denominators
+                    for num in range(1, (den if output_name == "bound" else den + 1))
+                ]
+                req = self._format_out(param, req)
+                req.pop("interpolate", None)
+                if req not in seen:
+                    seen.append(req)
+                    yield req
 
 
 def anom_discriminator(config: Any) -> str:
