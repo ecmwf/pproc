@@ -185,5 +185,8 @@ def extract_mars(keys: dict, additional: list[str] = None) -> dict:
         "method",
         "origin",
         "system",
+        "timespan", 
+        "paramtype", 
+        "stattype"
     ]
     return {k: v for k, v in keys.items() if (k in mars_namespace) or (k in additional)}
