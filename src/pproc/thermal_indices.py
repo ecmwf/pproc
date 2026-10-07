@@ -214,7 +214,7 @@ def main():
                         )
                         # Set step range for de-accumulated fields
                         accum_metadata = accum_fields.metadata()
-                        if accum_metadata[0]["steptype"] not in ["diff", "accum"]:
+                        if accum_metadata[0]["stepType"] not in ["diff", "accum"]:
                             coords = list(map(str, accum["step"].coords))
                             if len(coords) == 1:
                                 coords = ["0"] + coords
