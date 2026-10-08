@@ -212,27 +212,19 @@ def main():
                         logger.debug(
                             f"Write out accum fields to target {cfg.outputs.accum}"
                         )
-                        # Set step range for de-accumulated fields
-                        accum_metadata = accum_fields.metadata()
-                        if accum_metadata[0]["stepType"] not in ["diff", "accum"]:
-                            coords = list(map(str, accum["step"].coords))
-                            if len(coords) == 1:
-                                coords = ["0"] + coords
-                            accum_metadata = [
+                        accum_fields = earthkit.data.FieldList.from_array(
+                            accum.values,
+                            [
                                 x.override(
-                                    stepType="diff",
-                                    stepRange="-".join(coords),
+                                    **cfg.outputs.accum.metadata, 
+                                    **accum.grib_keys(),
                                 )
                                 for x in accum_metadata
                             ]
-                        accum_fields = earthkit.data.FieldList.from_array(
-                            accum.values,
-                            accum_metadata,
                         )
                         helpers.write(
                             cfg.outputs.accum.target,
                             accum_fields,
-                            metadata=cfg.outputs.accum.metadata,
                         )
                         fields += accum_fields
 
