@@ -1036,7 +1036,9 @@ class ThermoConfig(BaseConfig):
     def sort_inputs(cls, inputs: list[dict]) -> dict:
         sorted_requests = {}
         for inp in inputs:
-            if isinstance(inp["step"], list) and len(inp["step"]) > 1:
+            if (isinstance(inp["step"], list) and len(inp["step"]) > 1) or inp.get(
+                "timespan", "none"
+            ) != "none":
                 src_name = "accum"
             else:
                 src_name = "inst"
