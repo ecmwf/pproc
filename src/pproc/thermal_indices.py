@@ -216,11 +216,11 @@ def main():
                             accum.values,
                             [
                                 x.override(
-                                    **cfg.outputs.accum.metadata, 
+                                    **cfg.outputs.accum.metadata,
                                     **accum.grib_keys(),
                                 )
-                                for x in accum_metadata
-                            ]
+                                for x in accum_fields.metadata()
+                            ],
                         )
                         helpers.write(
                             cfg.outputs.accum.target,
