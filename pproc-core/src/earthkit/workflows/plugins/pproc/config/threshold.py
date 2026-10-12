@@ -45,6 +45,6 @@ class Threshold(PProcBaseModel):
                     threshold = data[value]
                     while not threshold.is_integer():
                         scale_factor += 1
-                        threshold = threshold * 10**scale_factor
+                        threshold *= 10
                     data[f"{upper_or_lower}_scale_factor"] = scale_factor
         return data
