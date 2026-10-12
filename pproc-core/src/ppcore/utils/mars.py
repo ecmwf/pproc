@@ -7,6 +7,30 @@ from datetime import datetime, date
 from math import ceil
 
 METADATA_KEYS = {"param": "paramId", "date": "dataDate"}
+NAMESPACE = [
+    "class",
+    "type",
+    "stream",
+    "expver",
+    "model",
+    "levtype",
+    "levelist",
+    "param",
+    "date",
+    "year",
+    "month",
+    "hdate",
+    "fcmonth",
+    "fcperiod",
+    "time",
+    "step",
+    "number",
+    "domain",
+    "quantile",
+    "method",
+    "origin",
+    "system",
+]
 
 
 def _val_to_mars(val):
@@ -50,28 +74,5 @@ def extract_mars(keys: dict, additional: Optional[list[str]] = None) -> dict:
     for key, metadata_key in METADATA_KEYS.items():
         if metadata_key in keys:
             keys[key] = keys.pop(metadata_key)
-    mars_namespace = [
-        "class",
-        "type",
-        "stream",
-        "expver",
-        "model",
-        "levtype",
-        "levelist",
-        "param",
-        "date",
-        "year",
-        "month",
-        "hdate",
-        "fcmonth",
-        "fcperiod",
-        "time",
-        "step",
-        "number",
-        "domain",
-        "quantile",
-        "method",
-        "origin",
-        "system",
-    ]
-    return {k: v for k, v in keys.items() if (k in mars_namespace) or (k in additional)}
+
+    return {k: v for k, v in keys.items() if (k in NAMESPACE) or (k in additional)}

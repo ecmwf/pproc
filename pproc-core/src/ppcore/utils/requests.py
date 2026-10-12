@@ -123,7 +123,7 @@ def update_request(
     if len(update) == 0:
         return copy.deepcopy(base)
     if len(base) == 0:
-        return copy.deepcopy(update)
+        return [{**ureq, **kwargs} for ureq in update]
     if method == "map":
         if len(base) == len(update):
             combinations = zip(base, update)

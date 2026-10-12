@@ -41,25 +41,25 @@ from ppcore.utils.requests import (
     update_request,
     expand,
 )
-from ppcore.utils.mars import extract_mars
+from ppcore.utils.mars import NAMESPACE, extract_mars
 from ppcore.utils.qube import union
 
 logger = logging.getLogger(__name__)
 
 
 INHERIT_FROM_OUTPUT = [
-    "class",
-    "expver",
-    "date",
-    "time",
-    "levtype",
-    "levelist",
-    "param",
-    "step",
-    "model",
-    "method",
-    "origin",
-    "system",
+    x
+    for x in NAMESPACE
+    if x
+    not in [
+        "type",
+        "stream",
+        "hdate",
+        "fcmonth",
+        "fcperiod",
+        "number",
+        "quantile",
+    ]
 ]
 
 

@@ -43,6 +43,7 @@ INPUTS = {
                 "155",
             ],
             "levtype": "sfc",
+            "domain": "g",
         },
         {
             "stream": "enfo",
@@ -65,6 +66,7 @@ INPUTS = {
             ],
             "number": list(range(1, 5)),
             "levtype": "sfc",
+            "domain": "g",
         },
         {
             "stream": "oper",
@@ -73,6 +75,7 @@ INPUTS = {
             "param": ["130"],
             "levtype": "pl",
             "levelist": [250, 500, 850],
+            "domain": "g",
         },
         {
             "stream": "enfo",
@@ -82,6 +85,7 @@ INPUTS = {
             "levtype": "pl",
             "levelist": [250, 500, 850],
             "number": list(range(1, 5)),
+            "domain": "g",
         },
     ],
     "deterministic": [
@@ -102,6 +106,7 @@ INPUTS = {
                 "228021",
             ],
             "levtype": "sfc",
+            "domain": "g",
         },
         {
             "stream": "oper",
@@ -110,6 +115,7 @@ INPUTS = {
             "param": ["130"],
             "levtype": "pl",
             "levelist": [250, 500, 850],
+            "domain": "g",
         },
     ],
 }
