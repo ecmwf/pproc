@@ -41,6 +41,8 @@ parameters:
       step:
         operation: difference
         coords: [[0, 1], [1, 2], [2, 3]]
+        metadata:
+          stepType: accum
     out_params:
       - mrt
       - utci
