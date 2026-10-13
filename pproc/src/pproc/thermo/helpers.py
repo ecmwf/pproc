@@ -158,8 +158,11 @@ def check_field_sizes(fields: earthkit.data.FieldList):
 
 
 def step_interval(fields) -> int:
-    # Derive step interval from de-accumulated fields
-    accum_field = fields.sel(stepType="diff")
+    # Derive step interval from accumulated fields
+    for step_type in ["diff", "accum"]:
+        accum_field = fields.sel(stepType=step_type)
+        if len(accum_field) > 0:
+            break
     if len(accum_field) == 0:
         raise ValueError("No accumulation fields found, can not derive step interval")
     delta = (

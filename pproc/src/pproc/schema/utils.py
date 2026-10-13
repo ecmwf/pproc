@@ -2,7 +2,6 @@ import copy
 from typing import Any
 import numpy as np
 
-
 VALUE_TYPES = {
     "param": str,
     "paramId": int,

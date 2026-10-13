@@ -69,24 +69,33 @@ class BaseSchema:
         return "filter" in key
 
     @classmethod
-    def subschema(cls, key: str, schema: dict, request: dict) -> dict:
+    def subschema(cls, key: str, schema: dict, request: dict, path: Optional[list[tuple[str, str]]] = None) -> dict:
         _, mars_key = key.split(":")
         filter_value = cls.custom_filter.get(mars_key, DEFAULT_FILTER)(
             request, mars_key
         )
+        if filter_value in schema:
+            path.append((mars_key, str(filter_value)))
+        elif "*" in schema:
+            path.append((mars_key, "*"))
         ret = schema.get(filter_value, schema.get("*", None))
         if ret is None:
+            crumbs = ""
+            if path is not None:
+                crumbs = " (" + " > ".join(f"{fkey}={fval}" for fkey, fval in path) + ")"
             raise ValueError(
-                f"Filter value {filter_value} not found in schema {schema}, and no default provided"
+                f"Filter value {filter_value} not found in schema {schema}{crumbs}, and no default provided"
             )
         assert isinstance(ret, dict), f"Subschema must be a dictionary."
         return ret
 
     @classmethod
-    def _traverse(cls, sub_schema: dict, request: dict, config: dict) -> dict:
+    def _traverse(cls, sub_schema: dict, request: dict, config: dict, path: Optional[list[tuple[str, str]]] = None) -> dict:
         for key, value in sub_schema.items():
             if cls.is_subschema(key):
-                cls._traverse(cls.subschema(key, value, request), request, config)
+                if path is not None:
+                    path = path.copy()
+                cls._traverse(cls.subschema(key, value, request, path), request, config, path)
             else:
                 # TODO: Remove copies?
                 cls.custom_update.get(key, DEFAULT_UPDATE)(
@@ -99,7 +108,7 @@ class BaseSchema:
             raise ValueError(
                 f"Request {request} does not contain all required filters {self.filters}"
             )
-        return self._traverse(self.schema, request, config or {})
+        return self._traverse(self.schema, request, config or {}, path=[])
 
     @classmethod
     def _find_matching(

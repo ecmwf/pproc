@@ -146,7 +146,7 @@ class InputsCollection(ConfigModel):
 def target_discriminator(target: Any):
     if utils._get(target, "overrides", None):
         return "override"
-    return utils._get(target, "type", "null")
+    return utils._get(target, "type", utils._get(target, "type_", "null"))
 
 
 class Output(ConfigModel):
@@ -270,6 +270,9 @@ AnomalyOutputModel = create_output_model(
     "Anomaly", {"ens": {"type": "fcmean"}, "ensm": {"type": "taem"}}
 )
 ProbOutputModel = create_output_model("Prob", {"prob": {"type": "ep"}})
+QuantileProbOutputModel = create_output_model(
+    "QuantileProb", {"bound": {"type": "pb"}, "prob": {"type": "pd"}}
+)
 ExtremeOutputModel = create_output_model("Extreme", SUPPORTED_INDICES)
 WindOutputModel = create_output_model(
     "Wind",
