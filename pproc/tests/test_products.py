@@ -19,8 +19,14 @@ from pproc.extreme import main as extreme_main
 from pproc.quantiles import main as quantiles_main
 from pproc.thermal_indices import main as thermo_main
 from pproc.clustereps.__main__ import main as clustereps_main
-from ppcore.product import main as ppcore_main
 from conftest import DATA_DIR
+
+try:
+    import ppcore  # noqa
+
+    NO_PPCORE = False
+except Exception:
+    NO_PPCORE = True
 
 TEST_DIR = os.path.dirname(os.path.realpath(__file__))
 
@@ -212,7 +218,19 @@ def test_products_v2(tmpdir, monkeypatch, fdb, product, main, custom_args, req, 
             {
                 "stream": "oper",
                 "type": "fc",
-                "param": [261002, 261001, 260004, 260005, 260255, 260242, 261016, 261018, 261015, 261014, 261023],
+                "param": [
+                    261002,
+                    261001,
+                    260004,
+                    260005,
+                    260255,
+                    260242,
+                    261016,
+                    261018,
+                    261015,
+                    261014,
+                    261023,
+                ],
                 "step": [1],
                 "date": 20240605,
                 "time": 00,
@@ -222,7 +240,10 @@ def test_products_v2(tmpdir, monkeypatch, fdb, product, main, custom_args, req, 
     ],
     ids=["ensms", "prob", "quantiles", "thermo"],
 )
+@pytest.mark.skipif(NO_PPCORE, reason="pproc-core is not available")
 def test_products_v3(tmpdir, monkeypatch, fdb, product, req, length):
+    from ppcore.product import main as ppcore_main
+
     monkeypatch.chdir(tmpdir)  # To avoid polluting cwd with grib templates
     args = [product, "--config", f"{TEST_DIR}/templates/v3/{product}.yaml"]
     monkeypatch.setattr("sys.argv", args)

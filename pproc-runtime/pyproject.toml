@@ -27,12 +27,12 @@ dependencies = [
   "code-meters",
   "earthkit-data[mars,fdb]<1",
   "earthkit-meteo",
-  "eccodes",
-  "fdb5lib",
   "mir-python",
   "numpy",
   "thermofeel",
 ]
+
+optional-dependencies.fdb = [ "fdb5lib" ]
 
 [dependency-groups]
 dev = [

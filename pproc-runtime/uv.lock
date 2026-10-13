@@ -1611,13 +1611,16 @@ dependencies = [
     { name = "code-meters" },
     { name = "earthkit-data", extra = ["fdb", "mars"] },
     { name = "earthkit-meteo" },
-    { name = "eccodes" },
-    { name = "fdb5lib" },
     { name = "mir-python" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
     { name = "numpy", version = "2.5.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "thermofeel" },
+]
+
+[package.optional-dependencies]
+fdb = [
+    { name = "fdb5lib" },
 ]
 
 [package.dev-dependencies]
@@ -1631,14 +1634,14 @@ dev = [
 requires-dist = [
     { name = "array-api-compat" },
     { name = "code-meters" },
-    { name = "earthkit-data", extras = ["fdb", "mars"], specifier = "<1.0" },
+    { name = "earthkit-data", extras = ["fdb", "mars"], specifier = "<1" },
     { name = "earthkit-meteo" },
-    { name = "eccodes" },
-    { name = "fdb5lib" },
+    { name = "fdb5lib", marker = "extra == 'fdb'" },
     { name = "mir-python" },
     { name = "numpy" },
     { name = "thermofeel" },
 ]
+provides-extras = ["fdb"]
 
 [package.metadata.requires-dev]
 dev = [
