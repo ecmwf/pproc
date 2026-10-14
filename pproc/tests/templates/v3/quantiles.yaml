@@ -1,0 +1,1209 @@
+log:
+  level: INFO
+  format: '%(asctime)s; %(name)s; %(levelname)s - %(message)s'
+execution:
+  hosts: 1
+  workers: 1
+products:
+- name: ensemble
+  preprocessing:
+    actions: []
+  accumulations: {}
+  statistics:
+    metadata:
+      localDefinitionNumber: 30
+      stream: enfo
+      type: pb
+    operation: quantiles
+    quantiles: 0:3
+  inputs:
+    fc:
+      sources:
+      - name: fdb
+        stream: true
+      requests:
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: cf
+        param: '167.128'
+        step: 12
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: pf
+        param: '167.128'
+        number:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        step: 12
+      dtype: float32
+  output:
+    targets:
+    - name: fdb
+    request:
+      class: od
+      date: 20240507
+      domain: g
+      levtype: sfc
+      expver: '0001'
+      stream: enfo
+      time: 12
+      type: pb
+      param: '167.128'
+      step: 12
+      quantile: 0:3
+    metadata: {}
+- name: ensemble
+  preprocessing:
+    actions: []
+  accumulations: {}
+  statistics:
+    metadata:
+      localDefinitionNumber: 30
+      stream: enfo
+      type: pb
+    operation: quantiles
+    quantiles: '1:3'
+  inputs:
+    fc:
+      sources:
+      - name: fdb
+        stream: true
+      requests:
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: cf
+        param: '167.128'
+        step: 12
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: pf
+        param: '167.128'
+        number:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        step: 12
+      dtype: float32
+  output:
+    targets:
+    - name: fdb
+    request:
+      class: od
+      date: 20240507
+      domain: g
+      levtype: sfc
+      expver: '0001'
+      stream: enfo
+      time: 12
+      type: pb
+      param: '167.128'
+      step: 12
+      quantile: '1:3'
+    metadata: {}
+- name: ensemble
+  preprocessing:
+    actions: []
+  accumulations: {}
+  statistics:
+    metadata:
+      localDefinitionNumber: 30
+      stream: enfo
+      type: pb
+    operation: quantiles
+    quantiles: '2:3'
+  inputs:
+    fc:
+      sources:
+      - name: fdb
+        stream: true
+      requests:
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: cf
+        param: '167.128'
+        step: 12
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: pf
+        param: '167.128'
+        number:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        step: 12
+      dtype: float32
+  output:
+    targets:
+    - name: fdb
+    request:
+      class: od
+      date: 20240507
+      domain: g
+      levtype: sfc
+      expver: '0001'
+      stream: enfo
+      time: 12
+      type: pb
+      param: '167.128'
+      step: 12
+      quantile: '2:3'
+    metadata: {}
+- name: ensemble
+  preprocessing:
+    actions: []
+  accumulations: {}
+  statistics:
+    metadata:
+      localDefinitionNumber: 30
+      stream: enfo
+      type: pb
+    operation: quantiles
+    quantiles: '3:3'
+  inputs:
+    fc:
+      sources:
+      - name: fdb
+        stream: true
+      requests:
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: cf
+        param: '167.128'
+        step: 12
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: pf
+        param: '167.128'
+        number:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        step: 12
+      dtype: float32
+  output:
+    targets:
+    - name: fdb
+    request:
+      class: od
+      date: 20240507
+      domain: g
+      levtype: sfc
+      expver: '0001'
+      stream: enfo
+      time: 12
+      type: pb
+      param: '167.128'
+      step: 12
+      quantile: '3:3'
+    metadata: {}
+- name: ensemble
+  preprocessing:
+    actions: []
+  accumulations: {}
+  statistics:
+    metadata:
+      localDefinitionNumber: 30
+      stream: enfo
+      type: pb
+    operation: quantiles
+    quantiles: 0:3
+  inputs:
+    fc:
+      sources:
+      - name: fdb
+        stream: true
+      requests:
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: cf
+        param: '167.128'
+        step: 18
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: pf
+        param: '167.128'
+        number:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        step: 18
+      dtype: float32
+  output:
+    targets:
+    - name: fdb
+    request:
+      class: od
+      date: 20240507
+      domain: g
+      levtype: sfc
+      expver: '0001'
+      stream: enfo
+      time: 12
+      type: pb
+      param: '167.128'
+      step: 18
+      quantile: 0:3
+    metadata: {}
+- name: ensemble
+  preprocessing:
+    actions: []
+  accumulations: {}
+  statistics:
+    metadata:
+      localDefinitionNumber: 30
+      stream: enfo
+      type: pb
+    operation: quantiles
+    quantiles: '1:3'
+  inputs:
+    fc:
+      sources:
+      - name: fdb
+        stream: true
+      requests:
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: cf
+        param: '167.128'
+        step: 18
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: pf
+        param: '167.128'
+        number:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        step: 18
+      dtype: float32
+  output:
+    targets:
+    - name: fdb
+    request:
+      class: od
+      date: 20240507
+      domain: g
+      levtype: sfc
+      expver: '0001'
+      stream: enfo
+      time: 12
+      type: pb
+      param: '167.128'
+      step: 18
+      quantile: '1:3'
+    metadata: {}
+- name: ensemble
+  preprocessing:
+    actions: []
+  accumulations: {}
+  statistics:
+    metadata:
+      localDefinitionNumber: 30
+      stream: enfo
+      type: pb
+    operation: quantiles
+    quantiles: '2:3'
+  inputs:
+    fc:
+      sources:
+      - name: fdb
+        stream: true
+      requests:
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: cf
+        param: '167.128'
+        step: 18
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: pf
+        param: '167.128'
+        number:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        step: 18
+      dtype: float32
+  output:
+    targets:
+    - name: fdb
+    request:
+      class: od
+      date: 20240507
+      domain: g
+      levtype: sfc
+      expver: '0001'
+      stream: enfo
+      time: 12
+      type: pb
+      param: '167.128'
+      step: 18
+      quantile: '2:3'
+    metadata: {}
+- name: ensemble
+  preprocessing:
+    actions: []
+  accumulations: {}
+  statistics:
+    metadata:
+      localDefinitionNumber: 30
+      stream: enfo
+      type: pb
+    operation: quantiles
+    quantiles: '3:3'
+  inputs:
+    fc:
+      sources:
+      - name: fdb
+        stream: true
+      requests:
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: cf
+        param: '167.128'
+        step: 18
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: pf
+        param: '167.128'
+        number:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        step: 18
+      dtype: float32
+  output:
+    targets:
+    - name: fdb
+    request:
+      class: od
+      date: 20240507
+      domain: g
+      levtype: sfc
+      expver: '0001'
+      stream: enfo
+      time: 12
+      type: pb
+      param: '167.128'
+      step: 18
+      quantile: '3:3'
+    metadata: {}
+- name: ensemble
+  preprocessing:
+    actions: []
+  accumulations: {}
+  statistics:
+    metadata:
+      localDefinitionNumber: 30
+      stream: enfo
+      type: pb
+    operation: quantiles
+    quantiles: 0:3
+  inputs:
+    fc:
+      sources:
+      - name: fdb
+        stream: true
+      requests:
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: cf
+        param: '167.128'
+        step: 24
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: pf
+        param: '167.128'
+        number:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        step: 24
+      dtype: float32
+  output:
+    targets:
+    - name: fdb
+    request:
+      class: od
+      date: 20240507
+      domain: g
+      levtype: sfc
+      expver: '0001'
+      stream: enfo
+      time: 12
+      type: pb
+      param: '167.128'
+      step: 24
+      quantile: 0:3
+    metadata: {}
+- name: ensemble
+  preprocessing:
+    actions: []
+  accumulations: {}
+  statistics:
+    metadata:
+      localDefinitionNumber: 30
+      stream: enfo
+      type: pb
+    operation: quantiles
+    quantiles: '1:3'
+  inputs:
+    fc:
+      sources:
+      - name: fdb
+        stream: true
+      requests:
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: cf
+        param: '167.128'
+        step: 24
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: pf
+        param: '167.128'
+        number:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        step: 24
+      dtype: float32
+  output:
+    targets:
+    - name: fdb
+    request:
+      class: od
+      date: 20240507
+      domain: g
+      levtype: sfc
+      expver: '0001'
+      stream: enfo
+      time: 12
+      type: pb
+      param: '167.128'
+      step: 24
+      quantile: '1:3'
+    metadata: {}
+- name: ensemble
+  preprocessing:
+    actions: []
+  accumulations: {}
+  statistics:
+    metadata:
+      localDefinitionNumber: 30
+      stream: enfo
+      type: pb
+    operation: quantiles
+    quantiles: '2:3'
+  inputs:
+    fc:
+      sources:
+      - name: fdb
+        stream: true
+      requests:
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: cf
+        param: '167.128'
+        step: 24
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: pf
+        param: '167.128'
+        number:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        step: 24
+      dtype: float32
+  output:
+    targets:
+    - name: fdb
+    request:
+      class: od
+      date: 20240507
+      domain: g
+      levtype: sfc
+      expver: '0001'
+      stream: enfo
+      time: 12
+      type: pb
+      param: '167.128'
+      step: 24
+      quantile: '2:3'
+    metadata: {}
+- name: ensemble
+  preprocessing:
+    actions: []
+  accumulations: {}
+  statistics:
+    metadata:
+      localDefinitionNumber: 30
+      stream: enfo
+      type: pb
+    operation: quantiles
+    quantiles: '3:3'
+  inputs:
+    fc:
+      sources:
+      - name: fdb
+        stream: true
+      requests:
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: cf
+        param: '167.128'
+        step: 24
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: pf
+        param: '167.128'
+        number:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        step: 24
+      dtype: float32
+  output:
+    targets:
+    - name: fdb
+    request:
+      class: od
+      date: 20240507
+      domain: g
+      levtype: sfc
+      expver: '0001'
+      stream: enfo
+      time: 12
+      type: pb
+      param: '167.128'
+      step: 24
+      quantile: '3:3'
+    metadata: {}
+- name: ensemble
+  preprocessing:
+    actions: []
+  accumulations: {}
+  statistics:
+    metadata:
+      localDefinitionNumber: 30
+      stream: enfo
+      type: pb
+    operation: quantiles
+    quantiles: 0:3
+  inputs:
+    fc:
+      sources:
+      - name: fdb
+        stream: true
+      requests:
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: cf
+        param: '167.128'
+        step: 30
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: pf
+        param: '167.128'
+        number:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        step: 30
+      dtype: float32
+  output:
+    targets:
+    - name: fdb
+    request:
+      class: od
+      date: 20240507
+      domain: g
+      levtype: sfc
+      expver: '0001'
+      stream: enfo
+      time: 12
+      type: pb
+      param: '167.128'
+      step: 30
+      quantile: 0:3
+    metadata: {}
+- name: ensemble
+  preprocessing:
+    actions: []
+  accumulations: {}
+  statistics:
+    metadata:
+      localDefinitionNumber: 30
+      stream: enfo
+      type: pb
+    operation: quantiles
+    quantiles: '1:3'
+  inputs:
+    fc:
+      sources:
+      - name: fdb
+        stream: true
+      requests:
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: cf
+        param: '167.128'
+        step: 30
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: pf
+        param: '167.128'
+        number:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        step: 30
+      dtype: float32
+  output:
+    targets:
+    - name: fdb
+    request:
+      class: od
+      date: 20240507
+      domain: g
+      levtype: sfc
+      expver: '0001'
+      stream: enfo
+      time: 12
+      type: pb
+      param: '167.128'
+      step: 30
+      quantile: '1:3'
+    metadata: {}
+- name: ensemble
+  preprocessing:
+    actions: []
+  accumulations: {}
+  statistics:
+    metadata:
+      localDefinitionNumber: 30
+      stream: enfo
+      type: pb
+    operation: quantiles
+    quantiles: '2:3'
+  inputs:
+    fc:
+      sources:
+      - name: fdb
+        stream: true
+      requests:
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: cf
+        param: '167.128'
+        step: 30
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: pf
+        param: '167.128'
+        number:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        step: 30
+      dtype: float32
+  output:
+    targets:
+    - name: fdb
+    request:
+      class: od
+      date: 20240507
+      domain: g
+      levtype: sfc
+      expver: '0001'
+      stream: enfo
+      time: 12
+      type: pb
+      param: '167.128'
+      step: 30
+      quantile: '2:3'
+    metadata: {}
+- name: ensemble
+  preprocessing:
+    actions: []
+  accumulations: {}
+  statistics:
+    metadata:
+      localDefinitionNumber: 30
+      stream: enfo
+      type: pb
+    operation: quantiles
+    quantiles: '3:3'
+  inputs:
+    fc:
+      sources:
+      - name: fdb
+        stream: true
+      requests:
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: cf
+        param: '167.128'
+        step: 30
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: pf
+        param: '167.128'
+        number:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        step: 30
+      dtype: float32
+  output:
+    targets:
+    - name: fdb
+    request:
+      class: od
+      date: 20240507
+      domain: g
+      levtype: sfc
+      expver: '0001'
+      stream: enfo
+      time: 12
+      type: pb
+      param: '167.128'
+      step: 30
+      quantile: '3:3'
+    metadata: {}
+- name: ensemble
+  preprocessing:
+    actions: []
+  accumulations: {}
+  statistics:
+    metadata:
+      localDefinitionNumber: 30
+      stream: enfo
+      type: pb
+    operation: quantiles
+    quantiles: 0:3
+  inputs:
+    fc:
+      sources:
+      - name: fdb
+        stream: true
+      requests:
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: cf
+        param: '167.128'
+        step: 36
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: pf
+        param: '167.128'
+        number:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        step: 36
+      dtype: float32
+  output:
+    targets:
+    - name: fdb
+    request:
+      class: od
+      date: 20240507
+      domain: g
+      levtype: sfc
+      expver: '0001'
+      stream: enfo
+      time: 12
+      type: pb
+      param: '167.128'
+      step: 36
+      quantile: 0:3
+    metadata: {}
+- name: ensemble
+  preprocessing:
+    actions: []
+  accumulations: {}
+  statistics:
+    metadata:
+      localDefinitionNumber: 30
+      stream: enfo
+      type: pb
+    operation: quantiles
+    quantiles: '1:3'
+  inputs:
+    fc:
+      sources:
+      - name: fdb
+        stream: true
+      requests:
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: cf
+        param: '167.128'
+        step: 36
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: pf
+        param: '167.128'
+        number:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        step: 36
+      dtype: float32
+  output:
+    targets:
+    - name: fdb
+    request:
+      class: od
+      date: 20240507
+      domain: g
+      levtype: sfc
+      expver: '0001'
+      stream: enfo
+      time: 12
+      type: pb
+      param: '167.128'
+      step: 36
+      quantile: '1:3'
+    metadata: {}
+- name: ensemble
+  preprocessing:
+    actions: []
+  accumulations: {}
+  statistics:
+    metadata:
+      localDefinitionNumber: 30
+      stream: enfo
+      type: pb
+    operation: quantiles
+    quantiles: '2:3'
+  inputs:
+    fc:
+      sources:
+      - name: fdb
+        stream: true
+      requests:
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: cf
+        param: '167.128'
+        step: 36
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: pf
+        param: '167.128'
+        number:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        step: 36
+      dtype: float32
+  output:
+    targets:
+    - name: fdb
+    request:
+      class: od
+      date: 20240507
+      domain: g
+      levtype: sfc
+      expver: '0001'
+      stream: enfo
+      time: 12
+      type: pb
+      param: '167.128'
+      step: 36
+      quantile: '2:3'
+    metadata: {}
+- name: ensemble
+  preprocessing:
+    actions: []
+  accumulations: {}
+  statistics:
+    metadata:
+      localDefinitionNumber: 30
+      stream: enfo
+      type: pb
+    operation: quantiles
+    quantiles: '3:3'
+  inputs:
+    fc:
+      sources:
+      - name: fdb
+        stream: true
+      requests:
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: cf
+        param: '167.128'
+        step: 36
+      - class: od
+        date: '20240507'
+        domain: g
+        levtype: sfc
+        expver: '0001'
+        stream: enfo
+        time: '1200'
+        type: pf
+        param: '167.128'
+        number:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        step: 36
+      dtype: float32
+  output:
+    targets:
+    - name: fdb
+    request:
+      class: od
+      date: 20240507
+      domain: g
+      levtype: sfc
+      expver: '0001'
+      stream: enfo
+      time: 12
+      type: pb
+      param: '167.128'
+      step: 36
+      quantile: '3:3'
+    metadata: {}
+input_overrides: {}
+output_overrides: {}
