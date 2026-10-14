@@ -1,0 +1,3138 @@
+config:
+  interp_keys:
+    intgrid: "none"
+    legendre-loader: "shmem"
+    matrix-loader: "file-io"
+  metadata_from_output: ["param", "stream", "date"]
+
+  filter:param:
+    "*": {}
+    "10":
+      preprocessing:
+        - operation: expand
+          internal_dim: ["param", ["u", "v"]]
+          backend_kwargs: {"method": "sel"}
+        - operation: norm
+      interp_keys:
+        intgrid: "none"
+        legendre-loader: "shmem"
+        matrix-loader: "file-io"
+        vod2uv: true
+      input:
+        expand_exclude: ["param"]
+    "131/132":
+      filter:type:
+        taem/taes: {}
+        cf/pf/fc/fcmean/fcstdev/fcmax/fcmin:
+          filter:levtype:
+            pl:
+              metadata_from_output: ["stream", "date"]
+              vod2uv: true
+    "121/122/123/228026/228027":
+      filter:type:
+        em/es/pb:
+          statistics:
+            metadata:
+              timeRangeIndicator: 2
+          accumulations:
+            step:
+              name:
+                type: default
+                length: "{steplength}:int"
+        "*": {}
+    "207":
+      filter:stream:
+        msmm:
+          preprocessing:
+            - operation: norm
+        "*": {}
+    "140249":
+      filter:type:
+        fc/cf/pf/em/es/pb/fcmean/fcstdev/fcmin/fcmax:
+          preprocessing:
+            - operation: "direction"
+        cd: {}
+    "172008/172009/172142/172143/172144/172146/172147/172169/172175/172176/172177/172178/172179/172180/172181/172182/172189/172205/172212/172228":
+      filter:type:
+        fcmean/fcstdev/fcmin/fcmax:
+          filter:param:
+            172142/172143/172144/172228:
+              vmin: 0.
+            "172189":
+              vmin: 0.
+              vmax: 1.
+            "*": {}
+          preprocessing:
+            - operation: scale
+              value: 0.00001157407
+          filter:stream:
+            enfh/enwh/eefh/weeh:
+              accumulations:
+                hdate: {}
+            "*": {}
+          accumulations:
+            step:
+              deaccumulate: true
+        taem/taes: {}
+    "260033/260053":
+      preprocessing:
+        - operation: sum
+      metadata:
+        shortName: tprate
+        edition: 2
+    "200189/200142/200143/200144/228216/200228":
+      accumulations:
+        step:
+          type: legacywindow
+          operation: difference
+          name:
+            type: default
+            length: "{steplength}:int"
+          metadata:
+            timeRangeIndicator: 5
+            stepType: diff
+    "234167":
+      metadata:
+        bitsPerValue: 24
+    "234228":
+      preprocessing:
+        - operation: scale
+          value: 604800000
+  filter:type:
+    pf/cf/fc:
+      filter:levtype:
+        fl:
+          entrypoint: pproc-flight-levels
+          target_flight_levels: "{levelist}"
+          metadata:
+            edition: 2
+            bitsPerValue: 16
+          filter:type:
+            fc:
+              metadata:
+                productDefinitionTemplateNumber: 1
+                typeOfGeneratingProcess: 4
+                typeOfProcessedData: 3
+                typeOfEnsembleForecast: 5
+                perturbationNumber: 0
+                numberOfForecastsInEnsemble: 51 # TODO: Remove in 50r2 when oper/fc encodes this correctly
+                localTablesVersion: 1
+                deletePV: 1
+            pf:
+              metadata:
+                grib2LocalSectionNumber: 1
+                typeOfEnsembleForecast: 6
+                localTablesVersion: 1
+                deletePV: 1
+              accumulations:
+                step: {}
+                number: {}
+        "*":
+          filter:param:
+            "*":
+              entrypoint: pproc-accumulate
+            "200189/200142/200143/200144/228216/200228":
+              entrypoint: pproc-accumulate
+              accumulations:
+                step:
+                  type: legacywindow
+                  operation: difference
+                  name:
+                    type: default
+                    length: "{steplength}:int"
+                  metadata:
+                    timeRangeIndicator: 5
+                    stepType: diff
+            "261016":
+              entrypoint: pproc-thermal-indices
+              preprocessing:
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_hmdx"
+                  params: ["167", "168"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 261016
+                  join: false
+            "261023":
+              entrypoint: pproc-thermal-indices
+              preprocessing:
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_rhp"
+                  params: ["167", "168"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 260242
+                  join: true
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_wbt"
+                  params: ["167", "260242"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 261023
+                  join: false
+            "260242":
+              entrypoint: pproc-thermal-indices
+              preprocessing:
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_rhp"
+                  params: ["167", "168"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 260242
+                  join: false
+            "260004":
+              entrypoint: pproc-thermal-indices
+              preprocessing:
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_heatx"
+                  params: ["167", "168"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 260004
+                  join: false
+            "260005":
+              entrypoint: pproc-thermal-indices
+              preprocessing:
+                - operation: thermal_index
+                  function: norm
+                  params: ["165", "166"]
+                  metadata:
+                    paramId: 207
+                  join: true
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_wcf"
+                  params: ["167", "207"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 260005
+                  join: false
+            "214001":
+              entrypoint: pproc-thermal-indices
+              preprocessing:
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_cossza"
+                  params: ["167", "228021"]
+                  deaccumulate: ["228021"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 214001
+                  join: false
+            "47":
+              entrypoint: pproc-thermal-indices
+              preprocessing:
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_cossza"
+                  params: ["167", "228021"]
+                  deaccumulate: ["228021"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 214001
+                  join: true
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_dsrp"
+                  params: ["228021", "214001"]
+                  deaccumulate: ["228021"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 47
+                  join: false
+            "261002":
+              entrypoint: pproc-thermal-indices
+              preprocessing:
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_cossza"
+                  params: ["167", "228021"]
+                  deaccumulate: ["228021"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 214001
+                  join: true
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_mrt"
+                  params: ["167", "214001", "47", "169", "228021", "175", "177", "176"]
+                  deaccumulate: ["47", "169", "228021", "175", "177", "176"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 261002
+                  join: false
+            "261001":
+              entrypoint: pproc-thermal-indices
+              preprocessing:
+                - operation: thermal_index
+                  function: norm
+                  params: ["165", "166"]
+                  metadata:
+                    paramId: 207
+                  join: true
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_cossza"
+                  params: ["167", "228021"]
+                  deaccumulate: ["228021"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 214001
+                  join: true
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_mrt"
+                  params: ["167", "214001", "47", "169", "228021", "175", "177", "176"]
+                  deaccumulate: ["47", "169", "228021", "175", "177", "176"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 261002
+                  join: true
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_utci"
+                  params: ["167", "168", "207", "261002"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 261001
+                  join: false
+            "261014":
+              entrypoint: pproc-thermal-indices
+              preprocessing:
+                - operation: thermal_index
+                  function: norm
+                  params: ["165", "166"]
+                  metadata:
+                    paramId: 207
+                  join: true
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_cossza"
+                  params: ["167", "228021"]
+                  deaccumulate: ["228021"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 214001
+                  join: true
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_mrt"
+                  params: ["167", "214001", "47", "169", "228021", "175", "177", "176"]
+                  deaccumulate: ["47", "169", "228021", "175", "177", "176"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 261002
+                  join: true
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_wbgt"
+                  params: ["167", "168", "207", "261002"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 261014
+                  join: false
+            "261015":
+              entrypoint: pproc-thermal-indices
+              preprocessing:
+                - operation: thermal_index
+                  function: norm
+                  params: ["165", "166"]
+                  metadata:
+                    paramId: 207
+                  join: true
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_cossza"
+                  params: ["167", "228021"]
+                  deaccumulate: ["228021"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 214001
+                  join: true
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_mrt"
+                  params: ["167", "214001", "47", "169", "228021", "175", "177", "176"]
+                  deaccumulate: ["47", "169", "228021", "175", "177", "176"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 261002
+                  join: true
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_gt"
+                  params: ["167", "207", "261002"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 261015
+                  join: false
+            "261018":
+              entrypoint: pproc-thermal-indices
+              preprocessing:
+                - operation: thermal_index
+                  function: norm
+                  params: ["165", "166"]
+                  metadata:
+                    paramId: 207
+                  join: true
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_rhp"
+                  params: ["167", "168"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 260242
+                  join: true
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_nefft"
+                  params: ["167", "207", "260242"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 261018
+                  join: false
+            "260255":
+              entrypoint: pproc-thermal-indices
+              preprocessing:
+                - operation: thermal_index
+                  function: norm
+                  params: ["165", "166"]
+                  metadata:
+                    paramId: 207
+                  join: true
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_rhp"
+                  params: ["167", "168"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 260242
+                  join: true
+                - operation: thermal_index
+                  function: "ppruntime.thermal_indices.calc_aptmp"
+                  params: ["167", "260242", "207"]
+                  metadata:
+                    edition: 2
+                    bitsPerValue: 16
+                    packingType: "grid_ccsds"
+                    typeOfGeneratingProcess: 2
+                    paramId: 260255
+                  join: false
+    em/es:
+      entrypoint: "pproc-ensms"
+      metadata_from_output: ["param", "stream", "date", "type"]
+      filter:type:
+        em:
+          statistics:
+            operation: mean
+        es:
+          statistics:
+            operation: std
+      filter:stream:
+        enfo/waef/eefo/weef:
+          input:
+            dtype: float64
+          statistics:
+            metadata:
+              localDefinitionNumber: 30
+              oceanAtmosphereCoupling: 2
+              legBaseDate: "{date}:int"
+              legBaseTime: "{time}:int"
+              legNumber: 1
+              perturbationNumber: 0
+              bitsPerValue: 16
+              numberOfForecastsInEnsemble: "{num_fields}:int"
+          filter:param:
+            "10":
+              statistics:
+                metadata:
+                  bitsPerValue: 24
+            "*": {}
+        efhs/wehs/eehs:
+          filter:steptype:
+            range:
+              statistics:
+                metadata:
+                  localDefinitionNumber: 19
+                  bitsPerValue: 12
+                  sampleSizeOfModelClimate: "{num_fields}:int"
+                  versionOfModelClimate: 0
+                  efiOrder: 0
+                  numberOfReforecastYearsInModelClimate: 20
+              accumulations:
+                date:
+                  operation: "aggregation"
+              filter:steplength:
+                "*":
+                  statistics:
+                    metadata:
+                      numberOfDaysInClimateSamplingWindow: 31
+                "168":
+                  statistics:
+                    metadata:
+                      numberOfDaysInClimateSamplingWindow: 7
+            instantaneous:
+              input:
+                dtype: float64
+              statistics:
+                metadata:
+                  perturbationNumber: 0
+                  numberOfForecastsInEnsemble: "{num_fields}:int"
+                  bitsPerValue: 16
+                  dataDate: "{date}:int"
+              accumulations:
+                step: {}
+              filter:param:
+                "129":
+                  statistics:
+                    metadata:
+                      bitsPerValue: 24
+                "*": {}
+    efi/sot/efic:
+      entrypoint: pproc-extreme
+      dtype: float64
+      accumulations:
+        step:
+          type: legacywindow
+          name:
+            type: default
+            length: "{steplength}:int"
+      filter:param:
+        "132044":
+          eps: 1e-4
+          preprocessing:
+          - operation: mask
+            select: {param: "228036"}
+            mask: [{param: "228035"}, "<=", 10]
+          accumulations:
+            step:
+              operation: maximum
+          metadata:
+            typeOfStatisticalProcessing: 1
+            edition: 1
+            bitsPerValue: 12
+            indicatorOfTypeOfLevel: 1
+            localDefinitionNumber: 19
+        "132059":
+          eps: 1e-4
+          preprocessing:
+          - operation: mask
+            select: {param: "228035"}
+            mask: [{param: "228035"}, "<=", 10]
+          accumulations:
+            step:
+              operation: maximum
+          metadata:
+            typeOfStatisticalProcessing: 1
+            edition: 1
+            bitsPerValue: 12
+            indicatorOfTypeOfLevel: 1
+            localDefinitionNumber: 19
+        "132045":
+          eps: -1e-4
+          preprocessing:
+            - operation: norm
+          accumulations:
+            step:
+              operation: mean
+          metadata:
+            edition: 1
+            localDefinitionNumber: 19
+            bitsPerValue: 12
+            timeRangeIndicator: 3
+            stepType: avg
+        132165/132167:
+          eps: -1e-4
+          accumulations:
+            step:
+              operation: mean
+          metadata:
+            edition: 1
+            localDefinitionNumber: 19
+            bitsPerValue: 12
+            timeRangeIndicator: 3
+            stepType: avg
+        132049/132201:
+          eps: -1e-4
+          accumulations:
+            step:
+              operation: maximum
+          metadata:
+            edition: 1
+            localDefinitionNumber: 19
+            bitsPerValue: 12
+        "132216":
+          eps: 1e-4
+          preprocessing:
+          - operation: mask
+            select: {param: "140229"}
+            mask: [{param: "140229"}, "<=", 0.1]
+          accumulations:
+            step:
+              operation: maximum
+          metadata:
+            edition: 1
+            localDefinitionNumber: 19
+            bitsPerValue: 12
+        "132144":
+          eps: 1e-4
+          accumulations:
+            step:
+              operation: difference
+          metadata:
+            edition: 1
+            localDefinitionNumber: 19
+            bitsPerValue: 12
+            timeRangeIndicator: 5
+            stepType: diff
+        "132202":
+          eps: -1e-4
+          accumulations:
+            step:
+              operation: minimum
+          metadata:
+            edition: 1
+            localDefinitionNumber: 19
+            bitsPerValue: 12
+        "132228":
+          eps: 1e-4
+          accumulations:
+            step:
+              operation: difference
+          metadata:
+            edition: 1
+            localDefinitionNumber: 19
+            bitsPerValue: 12
+            timeRangeIndicator: 5
+            stepType: diff
+          filter:stream:
+            "*": {}
+            "eefo":
+              preprocessing:
+                - operation: scale
+                  value: 604800000
+    ep:
+      entrypoint: pproc-probabilities
+      metadata_from_output: ["param", "stream", "date", "type"]
+      statistics:
+        operation: threshold_probability
+      input:
+        dtype: float64
+      filter:steptype:
+        instantaneous:
+          accumulations:
+            step:
+        range:
+          accumulations:
+            step:
+              name:
+                type: default
+                length: "{steplength}:int"
+      filter:param:
+        "131060/131061/131062/131063/131064":
+          accumulations:
+            step:
+              operation: difference
+              metadata:
+                timeRangeIndicator: 5
+                stepType: diff
+        "131098/131099/131085":
+          accumulations:
+            step:
+              operation: difference
+              metadata:
+                stepType: "accum"
+                stepRange: "0-0"
+        "131065/131066/131067":
+          accumulations:
+            step:
+              operation: difference_rate
+              factor: 0.041666666666666664
+              metadata:
+                timeRangeIndicator: 5
+                stepType: diff
+        "131068/131069":
+          preprocessing:
+            - operation: norm
+          accumulations:
+            step:
+              operation: maximum
+        "131070/131071/131072/131074/131075/131076/131077/131078/131079/131080/131081":
+          accumulations:
+            step:
+              operation: maximum
+        "131073":
+          accumulations:
+            step:
+              operation: minimum
+        "131100":
+          accumulations:
+            step:
+              operation: maximum
+        131020/131021/131022/131023/131024/131025/133093/133094/133095/133096/133097/133098:
+          config: anomaly
+          filter:param:
+            "131020/131021":
+              accumulations:
+                step:
+                  operation: "mean"
+            "131022/131023":
+              accumulations:
+                step:
+                  operation: minimum
+            "131024/131025":
+              accumulations:
+                step:
+                  operation: maximum
+            "133093/133094/133095":
+              accumulations:
+                step:
+                  operation: maximum
+                  std_anomaly: true
+            "133096/133097/133098":
+              accumulations:
+                step:
+                  operation: minimum
+                  std_anomaly: true
+        "260290": {}
+      filter:selection:
+        "default":
+          filter:param:
+            "131020":
+              statistics:
+                threshold:
+                  comparison: "<"
+                  value: -2
+                metadata:
+                  bitsPerValue: 24
+            "131021":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 2
+                metadata:
+                  bitsPerValue: 24
+            "131022":
+              statistics:
+                threshold:
+                  comparison: "<"
+                  value: -8
+                metadata:
+                  bitsPerValue: 24
+            "131023":
+              statistics:
+                threshold:
+                  comparison: "<"
+                  value: -4
+                metadata:
+                  bitsPerValue: 24
+            "131024":
+              statistics:
+                threshold:
+                  comparison: ">"
+                  value: 4
+                metadata:
+                  bitsPerValue: 24
+            "131025":
+              statistics:
+                threshold:
+                  comparison: ">"
+                  value: 8
+                metadata:
+                  bitsPerValue: 24
+            "131060":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 0.001
+                  scale_factor: 3
+                metadata:
+                  bitsPerValue: 8
+            "131061":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 0.005
+                  scale_factor: 3
+                metadata:
+                  bitsPerValue: 8
+            "131062":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 0.01
+                  scale_factor: 3
+                metadata:
+                  bitsPerValue: 8
+            "131063":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 0.02
+                  scale_factor: 3
+                metadata:
+                  bitsPerValue: 8
+            "131064":
+              statistics:
+                threshold:
+                  comparison: '<'
+                  value: 0.0001
+                  scale_factor: 4
+                metadata:
+                  bitsPerValue: 8
+            "131065":
+              statistics:
+                threshold:
+                  comparison: '<'
+                  value: 0.001
+                  scale_factor: 4
+                metadata:
+                  bitsPerValue: 8
+            "131066":
+              statistics:
+                threshold:
+                  comparison: '>='
+                  value: 0.003
+                  scale_factor: 4
+                metadata:
+                  bitsPerValue: 8
+            "131067":
+              statistics:
+                threshold:
+                  comparison: '>='
+                  value: 0.005
+                  scale_factor: 4
+                metadata:
+                  bitsPerValue: 8
+            "131068":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 10
+                metadata:
+                  bitsPerValue: 8
+            "131069":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 15
+                metadata:
+                  bitsPerValue: 8
+            "131070":
+             statistics:
+                threshold:
+                  comparison: ">="
+                  value: 15
+                metadata:
+                  bitsPerValue: 8
+            "131071":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 20
+                metadata:
+                  bitsPerValue: 8
+            "131072":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 25
+                metadata:
+                  bitsPerValue: 8
+            "131073":
+              statistics:
+                threshold:
+                  comparison: "<="
+                  value: 273.15
+                  scale_factor: 2
+                metadata:
+                  bitsPerValue: 8
+            "131074":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 2
+                metadata:
+                  bitsPerValue: 8
+            "131075":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 4
+                metadata:
+                  bitsPerValue: 8
+            "131076":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 6
+                metadata:
+                  bitsPerValue: 8
+            "131077":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 8
+                metadata:
+                  bitsPerValue: 8
+            "131078":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 8
+                metadata:
+                  bitsPerValue: 8
+            "131079":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 10
+                metadata:
+                  bitsPerValue: 8
+            "131080":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 12
+                metadata:
+                  bitsPerValue: 8
+            "131081":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 15
+                metadata:
+                  bitsPerValue: 8
+            "131085":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 0.1
+                  scale_factor: 3
+                metadata:
+                  localDefinitionNumber: 5
+                  edition: 2
+                  typeOfGeneratingProcess: 5
+                  indicatorOfUnitForTimeIncrement: 1
+                  timeIncrement: 12
+                  packingType: "grid_ccsds"
+                  bitsPerValue: 8
+                  scaleFactorOfLowerLimit: 0
+            "131098":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 0.025
+                  scale_factor: 3
+                metadata:
+                  localDefinitionNumber: 5
+                  edition: 2
+                  typeOfGeneratingProcess: 5
+                  indicatorOfUnitForTimeIncrement: 1
+                  timeIncrement: 12
+                  packingType: "grid_ccsds"
+                  bitsPerValue: 8
+                  scaleFactorOfLowerLimit: 0
+            "131099":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 0.05
+                  scale_factor: 3
+                metadata:
+                  localDefinitionNumber: 5
+                  edition: 2
+                  typeOfGeneratingProcess: 5
+                  indicatorOfUnitForTimeIncrement: 1
+                  timeIncrement: 12
+                  packingType: "grid_ccsds"
+                  bitsPerValue: 8
+                  scaleFactorOfLowerLimit: 0
+            "131100":
+              statistics:
+                threshold:
+                  comparison: ">="
+                  value: 10
+                metadata:
+                  localDefinitionNumber: 5
+                  edition: 2
+                  productDefinitionTemplateNumber: 9
+                  typeOfGeneratingProcess: 5
+                  indicatorOfUnitForTimeIncrement: 1
+                  timeIncrement: 12
+                  typeOfTimeIncrement: 2
+                  packingType: "grid_ccsds"
+                  bitsPerValue: 8
+            "133093":
+              statistics:
+                threshold:
+                  comparison: '>'
+                  value: 1
+                metadata:
+                  localDefinitionNumber: 30
+                  edition: 2
+                  productDefinitionTemplateNumber: 9
+                  oceanAtmosphereCoupling: 2
+                  legBaseDate: "{date}:int"
+                  legBaseTime: "{time}:int"
+                  legNumber: 1
+                  typeOfGeneratingProcess: 5
+                  indicatorOfUnitForTimeIncrement: 1
+                  paramId: 0
+                  timeIncrement: 12
+                  typeOfStatisticalProcessing: 10
+                  packingType: "grid_ccsds"
+                  bitsPerValue: 24
+            "133094":
+              statistics:
+                threshold:
+                  comparison: '>'
+                  value: 1.5
+                  scale_factor: 1
+                metadata:
+                  localDefinitionNumber: 30
+                  edition: 2
+                  productDefinitionTemplateNumber: 9
+                  oceanAtmosphereCoupling: 2
+                  legBaseDate: "{date}:int"
+                  legBaseTime: "{time}:int"
+                  legNumber: 1
+                  typeOfGeneratingProcess: 5
+                  indicatorOfUnitForTimeIncrement: 1
+                  paramId: 0
+                  timeIncrement: 12
+                  typeOfStatisticalProcessing: 10
+                  packingType: "grid_ccsds"
+                  bitsPerValue: 24
+                  scaleFactorOfLowerLimit: 1
+            "133095":
+              statistics:
+                threshold:
+                  comparison: '>'
+                  value: 2
+                metadata:
+                  localDefinitionNumber: 30
+                  edition: 2
+                  productDefinitionTemplateNumber: 9
+                  oceanAtmosphereCoupling: 2
+                  legBaseDate: "{date}:int"
+                  legBaseTime: "{time}:int"
+                  legNumber: 1
+                  typeOfGeneratingProcess: 5
+                  indicatorOfUnitForTimeIncrement: 1
+                  paramId: 0
+                  timeIncrement: 12
+                  typeOfStatisticalProcessing: 10
+                  packingType: "grid_ccsds"
+                  bitsPerValue: 24
+            "133096":
+              statistics:
+                threshold:
+                  comparison: '<'
+                  value: -1
+                  limit_type: lower
+                metadata:
+                  localDefinitionNumber: 30
+                  edition: 2
+                  productDefinitionTemplateNumber: 9
+                  oceanAtmosphereCoupling: 2
+                  legBaseDate: "{date}:int"
+                  legBaseTime: "{time}:int"
+                  legNumber: 1
+                  typeOfGeneratingProcess: 5
+                  indicatorOfUnitForTimeIncrement: 1
+                  paramId: 0
+                  timeIncrement: 12
+                  typeOfStatisticalProcessing: 10
+                  packingType: "grid_ccsds"
+                  bitsPerValue: 24
+            "133097":
+              statistics:
+                threshold:
+                  comparison: '<'
+                  value: -1.5
+                  scale_factor: 1
+                  limit_type: lower
+                metadata:
+                  localDefinitionNumber: 30
+                  edition: 2
+                  productDefinitionTemplateNumber: 9
+                  oceanAtmosphereCoupling: 2
+                  legBaseDate: "{date}:int"
+                  legBaseTime: "{time}:int"
+                  legNumber: 1
+                  typeOfGeneratingProcess: 5
+                  indicatorOfUnitForTimeIncrement: 1
+                  paramId: 0
+                  timeIncrement: 12
+                  typeOfStatisticalProcessing: 10
+                  packingType: "grid_ccsds"
+                  bitsPerValue: 24
+                  scaleFactorOfLowerLimit: 1
+            "133098":
+              statistics:
+                threshold:
+                  comparison: '<'
+                  value: -2
+                  limit_type: lower
+                metadata:
+                  localDefinitionNumber: 30
+                  edition: 2
+                  productDefinitionTemplateNumber: 9
+                  oceanAtmosphereCoupling: 2
+                  legBaseDate: "{date}:int"
+                  legBaseTime: "{time}:int"
+                  legNumber: 1
+                  typeOfGeneratingProcess: 5
+                  indicatorOfUnitForTimeIncrement: 1
+                  paramId: 0
+                  timeIncrement: 12
+                  typeOfStatisticalProcessing: 10
+                  packingType: "grid_ccsds"
+                  bitsPerValue: 24
+        "eccharts":
+          filter:param:
+            statistics:
+              "131060":
+                threshold:
+                  comparison: ">="
+                  value: "{threshold}:float"
+                  scale_factor: 3
+                metadata:
+                  bitsPerValue: 8
+            "260290":
+              statistics:
+                threshold: "{threshold}"
+                metadata:
+                  edition: 2
+                  productDefinitionTemplateNumber: 5
+                  typeOfGeneratingProcess: 5
+    pb:
+      entrypoint: pproc-quantiles
+      metadata_from_output: ["param", "stream", "date", "type"]
+      statistics:
+        operation: quantiles
+      filter:stream:
+        enfo/waef:
+          statistics:
+            metadata:
+              localDefinitionNumber: 30
+        "*": {}
+    fcmean:
+      filter:param:
+        171001/171002/171006/171007/171078/171079/171033/171034/171121/171122/171129/171130/171131/171132/171133/171136/171137/171139/171141/171151/171164/171165/171166/171167/171168/171201/171202/173142/173143/173144/173189/173228:
+          filter:stream:
+            eefo:
+              entrypoint: pproc-anomaly
+              dtype: float64
+              metadata:
+                bitsPerValue: 24
+              accumulations:
+                step:
+                  type: legacywindow
+                  name:
+                    type: default
+                    length: "{steplength}:int"
+                  metadata:
+                    timeRangeIndicator: 3
+                    stepType: avg
+              clim:
+                accumulations:
+                  step: {}
+                  levelist: {}
+                  date:
+                    operation: mean
+        "*":
+          dtype: float64
+          filter:stream:
+            enfo/waef/eefo/weef:
+              entrypoint: pproc-accumulate
+              accumulations:
+                step:
+                  type: legacywindow
+                  name:
+                    type: default
+                    length: "{steplength}:int"
+                  operation: mean
+                  metadata:
+                    bitsPerValue: 16
+                    legBaseDate: 0
+                    legNumber: 0
+                    stepType: avg
+                    type: fcmean
+              filter:param:
+                "*":
+                  accumulations:
+                    step:
+                      metadata:
+                        timeRangeIndicator: 3
+                        numberIncludedInAverage: "{num_coords}:int"
+                "201":
+                  metadata_from_output: ["stream", "date"]
+                  accumulations:
+                    step:
+                      metadata:
+                        paramId: 201
+                        timeRangeIndicator: 3
+                        numberIncludedInAverage: "{num_coords}:int"
+                "202":
+                  metadata_from_output: ["stream", "date"]
+                  accumulations:
+                    step:
+                      metadata:
+                        paramId: 202
+                        timeRangeIndicator: 3
+                        numberIncludedInAverage: "{num_coords}:int"
+                "235117":
+                  metadata_from_output: ["stream", "date"]
+                  accumulations:
+                    step:
+                      metadata:
+                        edition: 2
+                        paramId: 235117
+                        discipline: 0
+                        parameterCategory: 7
+                        parameterNumber: 6
+                        typeOfFirstFixedSurface: 17
+                        typeOfStatisticalProcessing: 0
+                        indicatorOfUnitForTimeIncrement: 1
+                        timeIncrement: 6
+            "enfh/enwh/eefh/weeh":
+              entrypoint: pproc-accumulate
+              filter:selection:
+                mclimate:
+                  dtype: float32
+                  accumulations:
+                    step:
+                      type: legacywindow
+                      name:
+                        type: default
+                        length: "{steplength}:int"
+                    levelist: {}
+                    hdate: {}
+                  filter:param:
+                    "140229":
+                      preprocessing:
+                        - operation: mask
+                          select: {param: "140229"}
+                          mask: [{param: "140229"}, "<=", 0.1]
+                      accumulations:
+                        step:
+                          metadata:
+                            bitsPerValue: 12
+                            type: fcmean
+                            timeRangeIndicator: 2
+                            stepType: max
+                    "123":
+                      vmin: 0.
+                      accumulations:
+                        step:
+                          metadata:
+                            bitsPerValue: 12
+                            type: fcmean
+                            timeRangeIndicator: 2
+                            stepType: max
+                    "140249":
+                      vmin: 0.
+                      vmax: 360.
+                      accumulations:
+                        step:
+                          metadata:
+                            bitsPerValue: 12
+                            type: fcmean
+                    "162071":
+                      preprocessing:
+                        - operation: norm
+                      accumulations:
+                        step:
+                          metadata:
+                            edition: 1
+                            bitsPerValue: 12
+                            type: fcmean
+                            timeRangeIndicator: 3
+                            stepType: avg
+                    "164":
+                      vmin: 0.
+                      vmax: 1.
+                      accumulations:
+                        step:
+                          metadata:
+                            bitsPerValue: 12
+                            type: fcmean
+                            timeRangeIndicator: 3
+                            stepType: avg
+                    "167":
+                      accumulations:
+                        step:
+                          metadata:
+                            bitsPerValue: 12
+                            type: fcmean
+                            timeRangeIndicator: 3
+                            stepType: avg
+                    "228/144":
+                      vmin: 0.
+                      accumulations:
+                        step:
+                          metadata:
+                            bitsPerValue: 12
+                            type: fcmean
+                            timeRangeIndicator: 5
+                            stepType: diff
+                    "121":
+                      accumulations:
+                        step:
+                          metadata:
+                            bitsPerValue: 12
+                            type: fcmean
+                            timeRangeIndicator: 2
+                            stepType: max
+                    "122":
+                      accumulations:
+                        step:
+                          metadata:
+                            bitsPerValue: 12
+                            type: fcmean
+                            timeRangeIndicator: 2
+                    "207":
+                      vmin: 0.
+                      preprocessing:
+                        - operation: norm
+                      accumulations:
+                        step:
+                          metadata:
+                            bitsPerValue: 12
+                            type: fcmean
+                            timeRangeIndicator: 3
+                            stepType: avg
+                    "228044":
+                      vmin: 0
+                      preprocessing:
+                      - operation: mask
+                        select: {param: "228036"}
+                        mask: [{param: "228035"}, "<=", 10]
+                      accumulations:
+                        step:
+                          metadata:
+                            typeOfStatisticalProcessing: 1
+                            edition: 1
+                            bitsPerValue: 12
+                            indicatorOfTypeOfLevel: 1
+                            type: fcmean
+                            timeRangeIndicator: 2
+                            stepType: max
+                    "59":
+                      vmin: 0
+                      preprocessing:
+                      - operation: mask
+                        select: {param: "228035"}
+                        mask: [{param: "228035"}, "<=", 10]
+                      accumulations:
+                        step:
+                          metadata:
+                            typeOfStatisticalProcessing: 1
+                            edition: 1
+                            bitsPerValue: 12
+                            indicatorOfTypeOfLevel: 1
+                            type: fcmean
+                            timeRangeIndicator: 2
+                            stepType: max
+                  filter:steplength:
+                    "*":
+                      filter:param:
+                        "228/144":
+                          accumulations:
+                            step:
+                              operation: difference
+                              metadata:
+                                numberIncludedInAverage: "{num_coords}:int"
+                        "123/140229/121/228044/59":
+                          accumulations:
+                            step:
+                              operation: maximum
+                              metadata:
+                                numberIncludedInAverage: "{num_coords}:int"
+                        "122":
+                          accumulations:
+                            step:
+                              operation: minimum
+                              metadata:
+                                numberIncludedInAverage: "{num_coords}:int"
+                        "164/167/162071/207":
+                          accumulations:
+                            step:
+                              operation: mean
+                              metadata:
+                                numberIncludedInAverage: "{num_coords}:int"
+                        "140249":
+                          accumulations:
+                            step:
+                              operation: aggregation
+                              metadata:
+                                  numberIncludedInAverage: "{num_coords}:int"
+                    "168":
+                      accumulations:
+                        step:
+                          operation: aggregation
+                      filter:param:
+                        "228":
+                          preprocessing:
+                          - operation: scale
+                            value: 604800000
+                        "167": {}
+                "*":
+                  accumulations:
+                    hdate: {}
+                    levelist: {}
+                    step:
+                      type: legacywindow
+                      operation: mean
+                      name:
+                        type: default
+                        length: "{steplength}:int"
+                      metadata:
+                        bitsPerValue: 16
+                        legBaseDate: 0
+                        legNumber: 0
+                        stepType: avg
+                        type: fcmean
+                  filter:param:
+                    "*":
+                      accumulations:
+                        step:
+                          metadata:
+                            timeRangeIndicator: 3
+                            numberIncludedInAverage: "{num_coords}:int"
+                    "201":
+                      metadata_from_output: ["stream", "date"]
+                      accumulations:
+                        step:
+                          metadata:
+                            paramId: 201
+                            timeRangeIndicator: 3
+                            numberIncludedInAverage: "{num_coords}:int"
+                    "202":
+                      metadata_from_output: ["stream", "date"]
+                      accumulations:
+                        step:
+                          metadata:
+                            paramId: 202
+                            timeRangeIndicator: 3
+                            numberIncludedInAverage: "{num_coords}:int"
+                    "235117":
+                      metadata_from_output: ["stream", "date"]
+                      accumulations:
+                        step:
+                          metadata:
+                            edition: 2
+                            paramId: 235117
+                            stepType: avg
+                            discipline: 0
+                            parameterCategory: 7
+                            parameterNumber: 6
+                            typeOfFirstFixedSurface: 17
+                            typeOfStatisticalProcessing: 0
+                            indicatorOfUnitForTimeIncrement: 1
+                            timeIncrement: 6
+            msmm/swmm:
+              entrypoint: pproc-monthly-stats
+              accumulations:
+                step:
+                  type: legacywindow
+                  operation: mean
+                  name:
+                    type: monthly
+                    date: "{date}:str"
+                  metadata:
+                    type: fcmean
+                    bitsPerValue: 16
+windows:
+  filter:type:
+    em/es/pb:
+      filter:stream:
+        enfo/waef:
+          filter:param:
+            "*":
+              out_steps:
+                - type: instantaneous
+                  end: 90
+                  interval: 3
+                - type: instantaneous
+                  start: 90
+            121/122:
+              out_steps:
+                type: instantaneous
+                interval: 6
+            228026/228027:
+              out_steps:
+                type: instantaneous
+                interval: 3
+        eefo/weef:
+          type: instantaneous
+        efhs/wehs/eehs:
+          out_steps: &efhs_em_steps
+            type: instantaneous
+            interval: 6
+    fc/cf/pf:
+      filter:stream:
+        "*":
+          filter:param:
+            "*":
+              out_steps:
+                type: instantaneous
+            261001/261014/261015/261002:
+              out_steps:
+                type: instantaneous
+                deaccumulate: true
+    fcmean/fcstdev/fcmax/fcmin:
+      filter:stream:
+        "enfo/eefo/oper/eefh/weef":
+          out_steps:
+            type: range
+            interval: 24
+            width: 168
+        "enfh/enwh":
+          out_steps:
+            filter:param:
+              "*":
+                out_steps:
+                  - type: range
+                    width: 24
+                    interval: 24
+                  - type: range
+                    width: 72
+                    end: 240
+                    interval: 24
+                  - type: range
+                    width: 120
+                    end: 240
+                    interval: 24
+                  - "0-240"
+                  - "0-360"
+                  - "240-360"
+              121/122/123/140229/59/228044/140249/164:
+                out_steps:
+                  type: range
+                  end: 168
+                  width: 24
+                  interval: 24
+        "eefh/weeh":
+          filter:param:
+            "*":
+              out_steps:
+                type: range
+                interval: 24
+                width: 168
+        "msmm":
+          out_steps:
+            type: monthly
+            date: "{date}"
+    taem/taes:
+      filter:stream:
+        "enfo/eefo/oper/efhs/eehs":
+          out_steps:
+            type: range
+            interval: 24
+            width: 168
+    ep:
+      filter:stream:
+        enfo:
+          filter:param:
+            131060/131061/131062/131063/131098/131099/131085/131070/131071/131072/131100:
+              out_steps:
+                type: range
+                width: 24
+                interval: 12
+            131064/131065/131066/131067/131070/131071/131072/131100/131020/131021/131073:
+              out_steps:
+                - type: range
+                  width: 120
+                  start: 120
+                  interval: 120
+                - "120-168"
+                - "168-240"
+            131068/131069/131073/131022/131023/131024/131025/133093/133094/133095/133096/133097/133098:
+              out_steps:
+                type: instantaneous
+                start: 12
+                interval: 12
+            "260290":
+              out_steps:
+                - type: instantaneous
+                  start: 0
+                  end: 90
+                  interval: 1
+                - type: instantaneous
+                  start: 91
+                  end: 144
+                  interval: 3
+                - type: instantaneous
+                  start: 150
+                  end: 360
+                  interval: 6
+        waef:
+          filter:param:
+            131074/131075/131076/131077/131078/131079/131080/131081:
+              out_steps:
+                - type: instantaneous
+                  start: 12
+                  interval: 12
+                - type: range
+                  width: 120
+                  start: 120
+                  interval: 120
+                - "120-168"
+                - "168-240"
+    efi/efic/sot:
+      filter:stream:
+        "eefo/weef":
+          out_steps:
+            type: range
+            interval: 24
+            width: 168
+        "enfo/waef":
+          filter:param:
+            "*":
+              filter:time:
+                "1200":
+                  out_steps:
+                    - type: range
+                      start: 12
+                      end: 240
+                      width: 24
+                      interval: 24
+                    - type: range
+                      start: 12
+                      end: 240
+                      width: 72
+                      interval: 24
+                    - type: range
+                      start: 12
+                      end: 240
+                      width: 120
+                      interval: 24
+                    - type: range
+                      start: 240
+                      width: 24
+                      interval: 24
+                    - "0-240"
+                    - "0-360"
+                    - "240-360"
+                "0000":
+                  out_steps:
+                    - type: range
+                      width: 24
+                      interval: 24
+                    - type: range
+                      width: 72
+                      end: 240
+                      interval: 24
+                    - type: range
+                      width: 120
+                      end: 240
+                      interval: 24
+                    - "0-240"
+                    - "0-360"
+                    - "240-360"
+                "0600/1800":
+                  out_steps:
+                    - type: range
+                      width: 24
+                      end: 144
+                      interval: 12
+            132201/132202/132049/132144/132216/132059/132044:
+              filter:time:
+                "1200":
+                  out_steps:
+                    type: range
+                    start: 12
+                    end: 180
+                    width: 24
+                    interval: 24
+                "0000":
+                  out_steps:
+                    type: range
+                    end: 168
+                    width: 24
+                    interval: 24
+                "0600/1800":
+                  out_steps:
+                    - type: range
+                      width: 24
+                      end: 144
+                      interval: 12
+    cd:
+      filter:stream:
+        efhs/wehs:
+          filter:param:
+            "*":
+              out_steps: &efhs_cd_steps
+                - type: range
+                  width: 24
+                  interval: 12
+                - type: range
+                  width: 72
+                  end: 240
+                  interval: 12
+                - type: range
+                  width: 120
+                  end: 240
+                  interval: 12
+                - "0-240"
+                - "0-360"
+                - "240-360"
+            "202/201/49/140200/59/228044/140249/228006":
+              out_steps:
+                type: range
+                width: 24
+                interval: 12
+        eehs: &eehs_cd_steps
+          out_steps:
+            type: range
+            width: 168
+            interval: 24
+    gwt/pfc:
+      filter:param:
+        "228/201/202":
+          out_steps:
+            type: range
+            width: 12
+            interval: 6
+    cm/cr:
+      filter:stream:
+        enfo:
+          out_steps:
+            - "72-96"
+            - "120-168"
+            - "192-240"
+            - "240-360"
+datasets:
+  enfo:
+    dataset_type: forecast
+    unperturbed:
+      type: fc
+    datacubes:
+      - class: od
+        stream: oper
+        type: fc
+        time: ["0000", "1200"]
+        step: &mr_steps
+          - from: 0
+            to: 90
+            by: 1
+          - from: 93
+            to: 144
+            by: 3
+          - from: 150
+            to: 360
+            by: 6
+        domain: g
+      - class: od
+        stream: wave
+        type: fc
+        time: ["0000", "1200"]
+        step: *mr_steps
+        domain: g
+      - class: od
+        stream: enfo
+        type: pf
+        members:
+          start: 1
+          end: 50
+        time: ["0000", "1200"]
+        step: *mr_steps
+        domain: g
+      - class: od
+        stream: waef
+        type: pf
+        members:
+          start: 1
+          end: 50
+        time: ["0000", "1200"]
+        step: *mr_steps
+        domain: g
+      - class: od
+        stream: oper
+        type: fc
+        time: ["0600", "1800"]
+        step: &bc_steps
+          - from: 0
+            to: 90
+            by: 1
+          - from: 93
+            to: 144
+            by: 3
+        domain: g
+      - class: od
+        stream: wave
+        type: fc
+        time: ["0600", "1800"]
+        step: *bc_steps
+        domain: g
+      - class: od
+        stream: enfo
+        type: pf
+        members:
+          start: 1
+          end: 50
+        time: ["0600", "1800"]
+        step: *bc_steps
+        domain: g
+      - class: od
+        stream: waef
+        type: pf
+        members:
+          start: 1
+          end: 50
+        time: ["0600", "1800"]
+        step: *bc_steps
+        domain: g
+    wave:
+      - stream: wave
+      - stream: waef
+  eefo:
+    dataset_type: forecast
+    unperturbed:
+      type: cf
+    datacubes:
+      - class: od
+        stream: eefo
+        type: cf
+        time: "0000"
+        levtype: sfc
+        step: &subs_steps
+          - from: 0
+            to: 1104
+            by: 6
+        domain: g
+      - class: od
+        stream: weef
+        type: cf
+        time: "0000"
+        levtype: sfc
+        step: *subs_steps
+        domain: g
+      - class: od
+        stream: eefo
+        type: pf
+        time: "0000"
+        levtype: sfc
+        members:
+          start: 1
+          end: 100
+        step: *subs_steps
+        domain: g
+      - class: od
+        stream: weef
+        type: pf
+        time: "0000"
+        levtype: sfc
+        members:
+          start: 1
+          end: 100
+        step: *subs_steps
+        domain: g
+    wave:
+      - stream: weef
+  seasonal:
+    dataset_type: forecast
+    datacubes:
+      - class: od
+        stream: mmsf
+        type: fc
+        members:
+          start: 0
+          end: 50
+        step: &seas_steps
+          - from: 0
+            to: 5160
+            by: 6
+        domain: g
+      - class: od
+        stream: wasf
+        type: fc
+        members:
+          start: 0
+          end: 50
+        step: *seas_steps
+        domain: g
+    wave:
+      - stream: wasf
+  enfh:
+    dataset_type: reforecast
+    unperturbed:
+      type: cf
+    datacubes:
+      - stream: enfh
+        type: cf
+        step: &mr_hind_steps
+          - from: 0
+            to: 360
+            by: 6
+      - stream: enwh
+        type: cf
+        step: *mr_hind_steps
+      - stream: enfh
+        type: pf
+        members:
+          start: 1
+          end: 10
+        step: *mr_hind_steps
+      - stream: enwh
+        type: pf
+        members:
+          start: 1
+          end: 10
+        step: *mr_hind_steps
+    wave:
+      - stream: enwh
+    scheme: ecmwf-4days
+  eefh:
+    dataset_type: reforecast
+    unperturbed:
+      type: cf
+    datacubes:
+      - stream: eefh
+        type: cf
+        step: &subs_hind_steps
+          - from: 0
+            to: 1104
+            by: 6
+      - stream: weeh
+        type: cf
+        step: *subs_hind_steps
+      - stream: eefh
+        type: pf
+        members:
+          start: 1
+          end: 10
+        step: *subs_hind_steps
+      - stream: weeh
+        type: pf
+        members:
+          start: 1
+          end: 10
+        step: *subs_hind_steps
+    wave:
+      - stream: weeh
+    scheme: ecmwf-2days
+  efhs-cd:
+    dataset_type: climatology
+    datacubes:
+      - stream: efhs
+        type: cd
+        quantile: 100
+        step: *efhs_cd_steps
+      - stream: wehs
+        type: cd
+        quantile: 100
+        step: *efhs_cd_steps
+    wave:
+      - stream: wehs
+    scheme: ecmwf-4days
+  eehs-cd:
+    dataset_type: climatology
+    datacubes:
+      - stream: efhs
+        type: cd
+        quantile: 100
+        step: *eehs_cd_steps
+    scheme: ecmwf-4days
+  efhs-em:
+    dataset_type: climatology
+    datacubes:
+      - stream: efhs
+        type: em
+        step: *efhs_em_steps
+      - stream: efhs
+        type: es
+        step: *efhs_em_steps
+    scheme: ecmwf-4days
+inputs:
+  fc_inputs:
+    select_to_override: true
+  filter:type:
+    fc/cf/pf:
+      filter:type:
+        pf:
+          fc_inputs:
+            select:
+              type: pf
+              number: "{number}"
+        "*":
+          fc_inputs:
+            select:
+              type: "{type}"
+      filter:param:
+        "*":
+          fc_inputs:
+            select:
+              param: "{param}"
+              type: "{type}"
+        "10/131/132":
+          fc_inputs:
+            select:
+              param: ["138", "155"]
+        "207":
+          fc_inputs:
+            select:
+              param: ["165", "166"]
+        "260290":
+          filter:levtype:
+            "fl":
+              fc_inputs:
+                - select:
+                    levtype: ml
+                    levelist: [58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137]
+                    param: 260290
+                - select:
+                    levtype: ml
+                    levelist: 1
+                    param: 152
+            "*":
+              fc_inputs:
+                select:
+                  param: "{param}"
+                  levtype: "{levtype}"
+                  type: "{type}"
+        "261001":
+          fc_inputs:
+            - select:
+                param: ["169", "175", "176", "177", "228021", "47"]
+              derive:
+                step:
+                  name: step_deaccumulate
+            - select:
+                param: ["165", "166", "167", "168"]
+        "261014":
+          fc_inputs:
+            - select:
+                param: ["169", "175", "176", "177", "228021", "47"]
+              derive:
+                step:
+                  name: step_deaccumulate
+            - select:
+                param: ["165", "166", "167", "168"]
+        "261015":
+          fc_inputs:
+            - select:
+                param: ["169", "175", "176", "177", "228021", "47"]
+              derive:
+                step:
+                  name: step_deaccumulate
+            - select:
+                param: ["165", "166", "167", "168"]
+        "260004":
+          fc_inputs:
+            select:
+              param: ["167", "168"]
+        "260242":
+          fc_inputs:
+            select:
+              param: ["167", "168"]
+        "261016":
+          fc_inputs:
+            select:
+              param: ["167", "168"]
+        "260005":
+          fc_inputs:
+            select:
+              param:  ["165", "166", "167"]
+        "260255":
+          fc_inputs:
+            select:
+              param: ["165", "166", "167", "168"]
+        "261018":
+          fc_inputs:
+            select:
+              param: ["165", "166", "167", "168"]
+        "261002":
+          fc_inputs:
+            - select:
+                param: ["47", "228021", "169", "175", "176", "177"]
+              derive:
+                step:
+                  name: step_deaccumulate
+            - select:
+                param: "167" # Required for metadata of cossza
+        "261023":
+          fc_inputs:
+            select:
+              param: ["167", "168"]
+    fcmean:
+      filter:stream:
+        enfo/waef/eefo/weef:
+          filter:members:
+            only_zero:
+              fc_inputs:
+                select:
+                  type: unperturbed
+            no_zero:
+              fc_inputs:
+                select:
+                  type: perturbed
+                  number: "{number}"
+            contains_zero:
+              from_inputs: false
+              fc_inputs:
+                - select:
+                    type: unperturbed
+                - select:
+                    type: perturbed
+                    number: "{number}"
+          filter:param:
+            "31/33/34/39/49/78/79/121/122/136/137/139/141/151/151130/151131/151132/151145/151148/151163/151164/151175/159/164/165/166/167/168/201/202/207/228246/228247/235117/237117/238117/239117":
+              fc_inputs:
+                select:
+                  param: "{param}"
+                derive:
+                  step:
+                    name: step_default
+            40/41/42/170/140229/140231/140232/140233/140245:
+              fc_inputs:
+                select:
+                  param: "{param}"
+                derive:
+                  step:
+                    name: step_default
+                    by: 24
+            "172228":
+              fc_inputs:
+                select:
+                  param: "228"
+                derive:
+                  step:
+                    name: step_default
+                    include_start: true
+                    by: 24
+            1/2/3/54/60/129/130/131/132/133/138/155/203:
+              fc_inputs:
+                select:
+                  param: "{param}"
+                derive:
+                  step:
+                    name: step_default
+                    by: 12
+        msmm/swmm:
+          fc_inputs:
+            select:
+              number: "{number}"
+          filter:param:
+            "34/139/151/164/165/166/167/168/168/229/230":
+              fc_inputs:
+                select:
+                  param: "{param}"
+                derive:
+                  step:
+                    name: step_monthly
+            31/33/39/40/41/42/49/51/52/78/79/137/141/170/183/186/206/236/243/140220/140221/140229/140231/140232/140233/140244/140245/228008/228014:
+              fc_inputs:
+                select:
+                  param: "{param}"
+                derive:
+                  step:
+                    name: step_monthly
+                    by: 24
+            "207":
+              fc_inputs:
+                select:
+                  param: ["165", "166"]
+                derive:
+                  step:
+                    name: step_monthly
+            "172228":
+              fc_inputs:
+                select:
+                  param: "228"
+                derive:
+                  step:
+                    name: step_monthly
+                    include_start: true
+                    allow_missing_zero: true
+                    by: 24
+            129/130/133/138/155/203:
+              fc_inputs:
+                select:
+                  param: "{param}"
+                derive:
+                  step:
+                    name: step_monthly
+                    by: 12
+    efi/efic/sot:
+      filter:type:
+        efic:
+          fc_inputs:
+            select:
+              type: unperturbed
+        efi/sot: {}
+      filter:param:
+        "132044":
+          fc_inputs:
+            select:
+              param: ["228036", "228035"]
+          clim_inputs:
+            select:
+              param: "228044"
+              type: cd
+              time: "0000"
+          filter:stream:
+            eefo:
+              clim_inputs:
+                derive:
+                  date:
+                    name: clim_date
+                    option: nearest
+                  step:
+                    name: clim_step_range
+            enfo:
+              fc_inputs:
+                derive:
+                  step:
+                    name: step_default
+                    by: 6
+              clim_inputs:
+                derive:
+                  date:
+                    - name: clim_date
+                      option: next
+                      sequence:
+                        type: daily
+                    - name: clim_date
+                      option: previous
+                      strict: false
+                  step:
+                    name: clim_step_range
+        "132045":
+          fc_inputs:
+            select:
+              param: ["162071", "162072"]
+          clim_inputs:
+            select:
+              param: "162045"
+              type: cd
+              time: "0000"
+          filter:stream:
+            eefo:
+              clim_inputs:
+                derive:
+                  date:
+                    name: clim_date
+                    option: nearest
+                  step:
+                    name: clim_step_range
+            enfo:
+              fc_inputs:
+                derive:
+                  step:
+                    name: step_default
+                    by: 6
+              clim_inputs:
+                derive:
+                  date:
+                    - name: clim_date
+                      option: next
+                      sequence:
+                        type: daily
+                    - name: clim_date
+                      option: previous
+                      strict: false
+                  step:
+                    name: clim_step_range
+        "132049":
+          fc_inputs:
+            select:
+              param: "123"
+          clim_inputs:
+            select:
+              param: "49"
+              type: cd
+              time: "0000"
+          filter:stream:
+            eefo:
+              clim_inputs:
+                derive:
+                  date:
+                    name: clim_date
+                    option: nearest
+                  step:
+                    name: clim_step_range
+            enfo:
+              fc_inputs:
+                derive:
+                  step:
+                    name: step_default
+                    by: 6
+              clim_inputs:
+                derive:
+                  date:
+                    - name: clim_date
+                      option: next
+                      sequence:
+                        type: daily
+                    - name: clim_date
+                      option: previous
+                      strict: false
+                  step:
+                    name: clim_step_range
+        "132059":
+          fc_inputs:
+            select:
+              param: "228035"
+          clim_inputs:
+            select:
+              param: "59"
+              type: cd
+              time: "0000"
+          filter:stream:
+            eefo:
+              clim_inputs:
+                derive:
+                  date:
+                    name: clim_date
+                    option: nearest
+                  step:
+                    name: clim_step_range
+            enfo:
+              fc_inputs:
+                derive:
+                  step:
+                    name: step_default
+                    by: 6
+              clim_inputs:
+                derive:
+                  date:
+                    - name: clim_date
+                      option: next
+                      sequence:
+                        type: daily
+                    - name: clim_date
+                      option: previous
+                      strict: false
+                  step:
+                    name: clim_step_range
+        "132144":
+          fc_inputs:
+            select:
+              param: "144"
+          clim_inputs:
+            select:
+              param: "144"
+              type: cd
+              time: "0000"
+          filter:stream:
+            eefo:
+              clim_inputs:
+                derive:
+                  date:
+                    name: clim_date
+                    option: nearest
+                  step:
+                    name: clim_step_range
+            enfo:
+              fc_inputs:
+                derive:
+                  step:
+                    name: step_deaccumulate
+              clim_inputs:
+                derive:
+                  date:
+                    - name: clim_date
+                      option: next
+                      sequence:
+                        type: daily
+                    - name: clim_date
+                      option: previous
+                      strict: false
+                  step:
+                    name: clim_step_range
+        "132165":
+          fc_inputs:
+            select:
+              param: "207"
+          clim_inputs:
+            select:
+              param: "228005"
+              type: cd
+              time: "0000"
+          filter:stream:
+            eefo:
+              clim_inputs:
+                derive:
+                  date:
+                    name: clim_date
+                    option: nearest
+                  step:
+                    name: clim_step_range
+            enfo:
+              fc_inputs:
+                derive:
+                  step:
+                    name: step_default
+                    by: 6
+              clim_inputs:
+                derive:
+                  date:
+                    - name: clim_date
+                      option: next
+                      sequence:
+                        type: daily
+                    - name: clim_date
+                      option: previous
+                      strict: false
+                  step:
+                    name: clim_step_range
+        "132167":
+          fc_inputs:
+            select:
+              param: "167"
+          clim_inputs:
+            select:
+              param: "228004"
+              type: cd
+              time: "0000"
+          filter:stream:
+            eefo:
+              clim_inputs:
+                derive:
+                  date:
+                    name: clim_date
+                    option: nearest
+                  step:
+                    name: clim_step_range
+            enfo:
+              fc_inputs:
+                derive:
+                  step:
+                    name: step_default
+                    by: 6
+              clim_inputs:
+                derive:
+                  date:
+                    - name: clim_date
+                      option: next
+                      sequence:
+                        type: daily
+                    - name: clim_date
+                      option: previous
+                      strict: false
+                  step:
+                    name: clim_step_range
+        "132201":
+          fc_inputs:
+            select:
+              param: "121"
+          clim_inputs:
+            select:
+              param: "201"
+              type: cd
+              time: "0000"
+          filter:stream:
+            eefo:
+              clim_inputs:
+                derive:
+                  date:
+                    name: clim_date
+                    option: nearest
+                  step:
+                    name: clim_step_range
+            enfo:
+              fc_inputs:
+                derive:
+                  step:
+                    name: step_default
+                    by: 6
+              clim_inputs:
+                derive:
+                  date:
+                    - name: clim_date
+                      option: next
+                      sequence:
+                        type: daily
+                    - name: clim_date
+                      option: previous
+                      strict: false
+                  step:
+                    name: clim_step_range
+        "132202":
+          fc_inputs:
+            select:
+              param: "122"
+          clim_inputs:
+            select:
+              param: "202"
+              type: cd
+              time: "0000"
+          filter:stream:
+            eefo:
+              clim_inputs:
+                derive:
+                  date:
+                    name: clim_date
+                    option: nearest
+                  step:
+                    name: clim_step_range
+            enfo:
+              fc_inputs:
+                derive:
+                  step:
+                    name: step_default
+                    by: 6
+              clim_inputs:
+                derive:
+                  date:
+                    - name: clim_date
+                      option: next
+                      sequence:
+                        type: daily
+                    - name: clim_date
+                      option: previous
+                      strict: false
+                  step:
+                    name: clim_step_range
+        "132216":
+          fc_inputs:
+            select:
+              param: "140229"
+          clim_inputs:
+            select:
+              param: "140200"
+              type: cd
+              time: "0000"
+          filter:stream:
+            eefo:
+              clim_inputs:
+                derive:
+                  date:
+                    name: clim_date
+                    option: nearest
+                  step:
+                    name: clim_step_range
+            enfo:
+              fc_inputs:
+                derive:
+                  step:
+                    name: step_default
+                    by: 6
+              clim_inputs:
+                derive:
+                  date:
+                    - name: clim_date
+                      option: next
+                      sequence:
+                        type: daily
+                    - name: clim_date
+                      option: previous
+                      strict: false
+                  step:
+                    name: clim_step_range
+        "132228":
+          filter:stream:
+            eefo:
+              fc_inputs:
+                select:
+                  param: "172228"
+              clim_inputs:
+                select:
+                  param: "228"
+                  type: cd
+                  time: "0000"
+                derive:
+                  date:
+                    name: clim_date
+                    option: nearest
+                  step:
+                    name: clim_step_range
+            enfo:
+              fc_inputs:
+                select:
+                  param: "228"
+                derive:
+                  step:
+                    name: step_deaccumulate
+              clim_inputs:
+                select:
+                  param: "228"
+                derive:
+                  date:
+                    - name: clim_date
+                      option: next
+                      sequence:
+                        type: daily
+                    - name: clim_date
+                      option: previous
+                      strict: false
+                  step:
+                    name: clim_step_range
+    taem/taes:
+      fc_inputs:
+        select:
+          ensemble: True
+      filter:stream:
+        eefo:
+          filter:param:
+            "*": {}
+            171001/171002/171006/171007/171078/171079/171033/171034/171121/171122/171129/171130/171131/171132/171133/171136/171137/171139/171141/171151/171164/171165/171166/171167/171168/171201/171202/173142/173143/173144/173189/173228:
+              fc_inputs:
+                derive:
+                  step:
+                    name: step_precomputed
+              clim_inputs:
+                select:
+                  type: taem
+                derive:
+                  date:
+                    - name: clim_date
+                      option: nearest
+                    - name: clim_date
+                      option: bracket
+                      num: 2
+                      strict: False
+                  step:
+                    name: clim_step_range
+            234167/234139/234151/234228:
+              fc_inputs:
+                derive:
+                  step:
+                    name: step_precomputed
+              clim_inputs:
+                - select:
+                    type: fcmean
+                    ensemble: True
+                  derive:
+                    date:
+                      - name: clim_date
+                        option: nearest
+                      - name: clim_date
+                        option: bracket
+                        num: 1
+                        strict: False
+                    step:
+                      name: clim_step_range
+                - select:
+                    type: taem
+                  derive:
+                    date:
+                      - name: clim_date
+                        option: nearest
+                      - name: clim_date
+                        option: bracket
+                        num: 1
+                        strict: False
+                    step:
+                      name: clim_step_range
+        efhs/wehs/eehs:
+          fc_inputs:
+            select:
+              type: "fcmean"
+            derive:
+              step:
+                name: step_precomputed
+              hdate:
+                name: hindcast_dates
+                rstart: -20
+                rend: 0
+                recurrence: "yearly"
+                include_endpoint: false
+    cd:
+      filter:stream:
+        efhs/eehs:
+          from_inputs: false
+          fc_inputs:
+            - select:
+                type: "fcmean"
+              derive:
+                step:
+                  name: step_precomputed
+          filter:steplength:
+            "*":
+              filter:stream:
+                efhs:
+                  fc_inputs:
+                    derive:
+                      date:
+                        name: clim_date
+                        option: bracket
+                        num: 4
+                        strict: False
+            "168":
+              fc_inputs:
+                derive:
+                  date:
+                    name: clim_date
+                    option: bracket
+                    num: 2
+                    strict: False
+          filter:param:
+            "228004":
+              fc_inputs:
+                select:
+                  param: "167.128"
+            "49":
+              fc_inputs:
+                select:
+                  param: "123.128"
+            "228005":
+              fc_inputs:
+                select:
+                  param: "207.128"
+            "201":
+              fc_inputs:
+                select:
+                  param: "121.128"
+            "202":
+              fc_inputs:
+                select:
+                  param: "122.128"
+            "162045":
+              fc_inputs:
+                select:
+                  param: "71.162"
+            "228006":
+              fc_inputs:
+                select:
+                  param: "164.128"
+            "228":
+              fc_inputs:
+                select:
+                  param: "228.128"
+            "144":
+              fc_inputs:
+                select:
+                  param: "144.128"
+            "59":
+              fc_inputs:
+                select:
+                  param: "59.128"
+            "228044":
+              fc_inputs:
+                select:
+                  param: "44.228"
+            "140249":
+              fc_inputs:
+                select:
+                  param: "249.140"
+                override:
+                  members: null
+        "wehs":
+          from_inputs: false
+          fc_inputs:
+            - select:
+                type: "fcmean"
+              derive:
+                step:
+                  type: step_precomputed
+          filter:steplength:
+            "*":
+              fc_inputs:
+                derive:
+                  date:
+                    - name: clim_date
+                      option: bracket
+                      num: 4
+                      strict: False
+            "168":
+              fc_inputs:
+                derive:
+                  date:
+                    - name: clim_date
+                      option: bracket
+                      num: 2
+                      strict: False
+          filter:param:
+            "140200":
+              fc_inputs:
+                select:
+                  param: "229.140"
+    em/es:
+      fc_inputs:
+        select:
+          ensemble: true
+      filter:stream:
+        enfo/waef:
+          filter:param:
+            "10":
+              fc_inputs:
+                select:
+                  param: ["138", "155"]
+            "121/122/123":
+              fc_inputs:
+                select:
+                  param: "{param}"
+                derive:
+                  step:
+                    name: step_default
+                    by: 6
+            "228026/228027":
+              fc_inputs:
+                select:
+                  param: "{param}"
+                derive:
+                  step:
+                    name: step_default
+                    by: 3
+            "200228":
+              fc_inputs:
+                select:
+                  param: ["228"]
+                derive:
+                  step:
+                    name: step_deaccumulate
+            "*": {}
+        eefo/weef:
+          filter:steplength:
+            "168":
+              fc_inputs:
+                select:
+                  type: fcmean
+                derive:
+                  step:
+                    name: step_precomputed
+            "*": {}
+        efhs/eehs:
+          filter:steptype:
+            range:
+              from_inputs: false
+              fc_inputs:
+                select:
+                  type: fcmean
+                derive:
+                  step:
+                    name: step_precomputed
+              filter:steplength:
+                "*":
+                  filter:stream:
+                    efhs:
+                      fc_inputs:
+                        derive:
+                          date:
+                            name: clim_date
+                            option: bracket
+                            num: 4
+                            strict: False
+                "168":
+                  fc_inputs:
+                    derive:
+                      date:
+                        name: clim_date
+                        option: bracket
+                        num: 4
+                        strict: False
+              filter:param:
+                "228004":
+                  fc_inputs:
+                    select:
+                      param: "167.128"
+                "49":
+                  fc_inputs:
+                    select:
+                      param: "123.128"
+                "228005":
+                  fc_inputs:
+                    select:
+                      param: "207.128"
+                "201":
+                  fc_inputs:
+                    select:
+                      param: "121.128"
+                "202":
+                  fc_inputs:
+                    select:
+                      param: "122.128"
+                "162045":
+                  fc_inputs:
+                    select:
+                      param: "71.162"
+                "228006":
+                  fc_inputs:
+                    select:
+                      param: "164.128"
+                "228":
+                  fc_inputs:
+                    select:
+                      param: "228.128"
+                "144":
+                  fc_inputs:
+                    select:
+                      param: "144.128"
+                "59":
+                  fc_inputs:
+                    select:
+                      param: "59.128"
+                "228044":
+                  fc_inputs:
+                    select:
+                      param: "44.228"
+            instantaneous:
+              fc_inputs:
+                derive:
+                  hdate:
+                    name: hindcast_dates
+                    rstart: -20
+                    rend: 0
+                    recurrence: "yearly"
+                    include_endpoint: false
+        "wehs":
+          filter:steptype:
+            range:
+              from_inputs: false
+              filter:param:
+                "140200":
+                  fc_inputs:
+                    select:
+                      param: "229.140"
+                      type: "fcmean"
+                    derive:
+                      step:
+                        type: step_precomputed
+                      date:
+                        - name: clim_date
+                          option: bracket
+                          num: 4
+                          strict: False
+            instantaneous:
+              fc_inputs:
+                derive:
+                  hdate:
+                    name: hindcast_dates
+                    rstart: -20
+                    rend: 0
+                    recurrence: "yearly"
+                    include_endpoint: false
+    gwt:
+      filter:param:
+        "228":
+          filter:steplength:
+            "6":
+              fc_inputs:
+                - select:
+                    param: "228"
+                  derive:
+                    step:
+                      name: step_deaccumulate
+                - select:
+                    param: ["138", "155"]
+                    levtype: pl
+                    levelist: 700
+                  derive:
+                    step:
+                      type: step_default
+                      include_start: true
+                      by: 3
+                - select:
+                    param: "143"
+                  derive:
+                    step:
+                      name: step_deaccumulate
+                - select:
+                    param: "228022"
+                  derive:
+                    step:
+                      name: step_deaccumulate
+                      by: 24
+                - select:
+                    param: "228035"
+                  derive:
+                    step:
+                      name: step_default
+                      by: 6
+                - select:
+                    param: [167, 168]
+                  derive:
+                    step:
+                      name: step_default
+                      by: 3
+                      include_start: true
+    pfc:
+      fc_inputs:
+        select:
+          ensemble: true
+        derive:
+          step:
+            name: step_precomputed
+    ep:
+      fc_inputs:
+        select:
+          ensemble: True
+      filter:selection:
+        custom: {}
+        default:
+          filter:param:
+            131020/131021/131022/131023/131024/131025/133093/133094/133095/133096/133097/133098:
+              fc_inputs:
+                select:
+                  param: "130"
+                derive:
+                  step:
+                    name: step_default
+                    include_start: true
+                    by: 6
+              clim_inputs:
+                - select:
+                    param: "130"
+                    type: "em"
+                    time: "0000"
+                  derive:
+                    step:
+                      name: clim_step_inst
+                    date:
+                      name: clim_date
+                      option: previous
+                      strict: False
+                - select:
+                    param: "130"
+                    type: "es"
+                    time: "0000"
+                  derive:
+                    step:
+                      name: clim_step_inst
+                    date:
+                      name: clim_date
+                      option: previous
+                      strict: False
+            131022/131023/131024/131025/133093/133094/133095/133096/133097/133098:
+              fc_inputs:
+                select:
+                  param: "130"
+                derive:
+                  step:
+                    name: step_default
+                    by: 6
+              clim_inputs:
+                - select:
+                    param: "130"
+                    type: "em"
+                    time: "0000"
+                  derive:
+                    step:
+                      name: clim_step_inst
+                    date:
+                      name: clim_date
+                      option: previous
+                      strict: False
+                - select:
+                    param: "130"
+                    type: "es"
+                    time: "0000"
+                  derive:
+                    step:
+                      name: clim_step_inst
+                    date:
+                      name: clim_date
+                      option: previous
+                      strict: False
+            131060/131061/131062/131063/131064/131065/131066/131067/131098/131099/131085:
+              fc_inputs:
+                select:
+                  param: "228"
+                derive:
+                  step:
+                    name: step_deaccumulate
+            "131068/131069":
+              fc_inputs:
+                select:
+                  param: ["165", "166"]
+            131070/131071/131072/131100:
+              fc_inputs:
+                select:
+                  param: "123"
+                derive:
+                  step:
+                    name: step_default
+                    by: 6
+            "131073":
+              filter:steptype:
+                instantaneous:
+                  fc_inputs:
+                    select:
+                      param: "167"
+                range:
+                  fc_inputs:
+                    select:
+                      param: "122"
+                    derive:
+                      step:
+                        name: step_default
+                        by: 6
+            131074/131075/131076/131077:
+              fc_inputs:
+                select:
+                  param: "140229"
+            131078/131079/131080/131081:
+              fc_inputs:
+                select:
+                  param: "140232"
+    pb:
+      fc_inputs:
+        select:
+          ensemble: True
+      filter:param:
+        "121/122/123":
+          fc_inputs:
+            derive:
+              step:
+                name: step_default
+                by: 6
+        "228026/228027":
+          fc_inputs:
+            derive:
+              step:
+                name: step_default
+                by: 3
+        "200228":
+          fc_inputs:
+            select:
+              param: ["228"]
+            derive:
+              step:
+                name: step_deaccumulate
+        "*": {}

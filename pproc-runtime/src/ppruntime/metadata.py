@@ -1,0 +1,146 @@
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
+from typing import Optional
+
+
+from earthkit.data import FieldList
+
+
+def resolve_metadata(metadata: Optional[dict]) -> dict:
+    return metadata if metadata is not None else {}
+
+
+def extreme(clim: FieldList, ens: FieldList, metadata: dict) -> dict:
+    edition = metadata.get("edition", ens[0].metadata().get("edition", 1))
+    clim_edition = clim[0].metadata().get("edition", 1)
+    ret = {}
+    if edition == 1 and clim_edition == 1:
+        # set clim keys
+        clim_keys = [
+            "versionNumberOfExperimentalSuite",
+            "implementationDateOfModelCycle",
+            "numberOfReforecastYearsInModelClimate",
+            "numberOfDaysInClimateSamplingWindow",
+            "sampleSizeOfModelClimate",
+            "versionOfModelClimate",
+        ]
+        for key in clim_keys:
+            ret[key] = clim[0].metadata()[key]
+
+        # set fc keys
+        fc_keys = [
+            "date",
+            "subCentre",
+            "totalNumber",
+        ]
+        for key in fc_keys:
+            ret[key] = ens[0].metadata()[key]
+    elif edition == 2 and clim_edition == 2:
+        clim_keys = [
+            "typeOfReferenceDataset",
+            "yearOfStartOfReferencePeriod",
+            "dayOfStartOfReferencePeriod",
+            "monthOfStartOfReferencePeriod",
+            "hourOfStartOfReferencePeriod",
+            "minuteOfStartOfReferencePeriod",
+            "secondOfStartOfReferencePeriod",
+            "sampleSizeOfReferencePeriod",
+            "numberOfReferencePeriodTimeRanges",
+            "typeOfStatisticalProcessingForTimeRangeForReferencePeriod",
+            "indicatorOfUnitForTimeRangeForReferencePeriod",
+            "lengthOfTimeRangeForReferencePeriod",
+        ]
+        ret.update(
+            {
+                "productDefinitionTemplateNumber": 105,
+                **{key: clim[0].metadata()[key] for key in clim_keys},
+            }
+        )
+    else:
+        raise Exception(
+            f"Unsupported GRIB edition {edition} and clim edition {clim_edition}"
+        )
+    return ret
+
+
+def efi(ens: FieldList, clim: FieldList, metadata: dict) -> dict:
+    ret = extreme(ens, clim, metadata)
+    edition = metadata.get("edition", ens[0].metadata().get("edition", 1))
+    if edition not in [1, 2]:
+        raise Exception(f"Unsupported GRIB edition {edition}")
+
+    if len(ens) == 1 and ens.metadata()[0].get("type") in ["cf", "fc"]:
+        ret["marsType"] = 28
+        if edition == 1:
+            ret["efiOrder"] = 0
+            ret["totalNumber"] = 1
+            ret["number"] = 0
+        else:
+            ret.update(
+                {"typeOfRelationToReferenceDataset": 20, "typeOfProcessedData": 3}
+            )
+    else:
+        ret["marsType"] = 27
+        if edition == 1:
+            ret["efiOrder"] = 0
+            ret["number"] = 0
+        else:
+            ret.update(
+                {"typeOfRelationToReferenceDataset": 20, "typeOfProcessedData": 5}
+            )
+    return ret
+
+
+def sot(ens: FieldList, clim: FieldList, metadata: dict, number: int) -> dict:
+    ret = extreme(ens, clim, metadata)
+    ret["marsType"] = 38
+
+    if number == 90:
+        efi_order = 99
+    elif number == 10:
+        efi_order = 1
+    else:
+        raise Exception(
+            f"SOT value '{number}' not supported in template! Only accepting 10 and 90"
+        )
+    edition = metadata.get("edition", ens[0].metadata().get("edition", 1))
+    if edition == 1:
+        ret["number"] = sot
+        ret["efiOrder"] = efi_order
+    elif edition == 2:
+        ret.update(
+            {
+                "typeOfRelationToReferenceDataset": 21,
+                "typeOfProcessedData": 5,
+                "numberOfAdditionalParametersForReferencePeriod": 2,
+                "scaleFactorOfAdditionalParameterForReferencePeriod": [0, 0],
+                "scaledValueOfAdditionalParameterForReferencePeriod": [sot, efi_order],
+            }
+        )
+    else:
+        raise Exception(f"Unsupported GRIB edition {edition}")
+    return ret
+
+
+def extract(fields: FieldList, keys: list[str]) -> dict:
+    return {key: fields.metadata()[0].get(key) for key in keys}
+
+
+def quantiles(
+    ens: FieldList, metadata: dict, pert_number: int, total_number: int
+) -> dict:
+    edition = metadata.get("edition", ens[0].metadata().get("edition", 1))
+    if edition == 1:
+        return {
+            "totalNumber": total_number,
+            "perturbationNumber": pert_number,
+        }
+    return {
+        "productDefinitionTemplateNumber": metadata.get(
+            "productDefinitionTemplateNumber", 86
+        ),
+        "totalNumberOfQuantiles": total_number,
+        "quantileValue": pert_number,
+    }
