@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
-import inspect
 from typing import Optional, Union, Any
 from pydantic import TypeAdapter
 import logging
@@ -18,7 +17,6 @@ from earthkit.workflows import fluent
 from earthkit.workflows.nodetree import (
     nodetree_array,
     nodetree_arrays,
-    nodetree_dimensions,
     nodetree_from_dict,
 )
 from earthkit.workflows.plugins.pproc.utils.request import MultiSourceRequest
@@ -376,10 +374,9 @@ class Action(fluent.Action):
         ret = self.concatenate(dim).transform(_quantiles_transform, params, new_dim)
         return ret  # type: ignore
 
-    def _wrapped_reduction(
+    def _resolve_operation(
         self,
         operation: fluent.Payload | None,
-        dim: str,
         **kwargs,
     ) -> Action:
         if operation is None:
@@ -388,23 +385,13 @@ class Action(fluent.Action):
         if isinstance(operation, str):
             # operation is fluent method
             if hasattr(self, operation):
-                op = getattr(self, operation)
-                sig = inspect.signature(op)
-                args = [
-                    p.name
-                    for p in sig.parameters.values()
-                    if p.kind == p.POSITIONAL_OR_KEYWORD
-                ]
-                if "dim" in args:
-                    kwargs["dim"] = dim
-                return op(**kwargs)
-            # operation is TaskInstance
+                return getattr(self, operation)(**kwargs)
+            # create payload from operation
             op_function = getattr(FieldListBackend, operation, None) or operation
             operation = fluent.create_task_instance(
                 op_function,
             )
-        # Fallback on applying reduction operation during payload
-        return self.reduce(operation, dim=dim, **kwargs)  # type: ignore
+        return self.reduce(operation, **kwargs)  # type: ignore
 
     def preprocessing(
         self,
@@ -424,7 +411,9 @@ class Action(fluent.Action):
         ------
         Action
         """
-        return self._wrapped_reduction(operation, dim, **kwargs)
+        if operation == "scale":
+            return self.scale(**kwargs)
+        return self._resolve_operation(operation, dim=dim, **kwargs)
 
     def thermal_index(
         self,
@@ -451,35 +440,43 @@ class Action(fluent.Action):
             f"Thermal index: function {function}, params {params}, deaccumulate {deaccumulate}"
         )
         if deaccumulate is not None:
-            deaccum = self.sel(param=deaccumulate)
+            deaccum = self.sel(param=deaccumulate, expand=True)
             array = nodetree_array(deaccum.nodes)
             steps = array.coords["step"].data.tolist()
+            coords = []
+            if len(steps) == 1:
+                coords = [[steps[0]]]
+                length = steps[0]
+            else:
+                coords = [[steps[x], steps[x + 1]] for x in range(len(steps) - 1)]
+                length = steps[1] - steps[0]
             deaccum = deaccum.accumulation(
                 operation=None,
-                coords=[[steps[x], steps[x + 1]] for x in range(len(steps) - 1)],
+                coords=coords,
                 deaccumulate=True,
                 metadata={"stepType": "diff"},
+                name=Default(length=length),
             )
             deaccum = type(self)(
                 nodetree_from_dict(
                     {
                         path: array.assign_coords(
-                            {"step": steps[1] if len(steps) <= 2 else steps[1:]}
+                            {"step": steps[-1] if len(steps) <= 2 else steps[1:]}
                         )
                         for path, array in nodetree_arrays(deaccum.nodes)
                     }
                 )
-            )
-            param_action = fluent.merge(
+            ).set_path("/accum")
+            param_action = (
                 self.select(
                     param=[x for x in params if x not in deaccumulate],
-                    step=steps[1:],
                     expand=True,
-                ),
-                deaccum,
+                )
+                .select(step=[x[-1] for x in coords])
+                .combine_branches(dim=dim)
+                .set_path("/inst")
             )
-            param_action._squeeze_dimension("step")
-            param_action = param_action.combine_branches(dim=dim)
+            param_action = fluent.merge(param_action, deaccum).combine_branches(dim=dim)
         else:
             param_action = self.select(param=params, expand=True)
             param_action._squeeze_dimension("step")
@@ -578,7 +575,7 @@ class Action(fluent.Action):
             break
 
         kwargs.setdefault("metadata", {}).update(stat_metadata)
-        return self._wrapped_reduction(operation, dim, **kwargs)
+        return self._resolve_operation(operation, dim=dim, **kwargs)
 
     def accumulation(
         self,
@@ -718,18 +715,30 @@ def _accum_transform(
     name: Union[AccumName, dict] = Default(),
     kwargs: dict = {},
 ) -> fluent.Action:
-    if deaccumulate:
-        accum_action = action.select({dim: coords[:-1]})
-        accum_action = accum_action.subtract(action.select({dim: coords[1:]}))
-    else:
-        if len(coords) == 1 and dim not in nodetree_dimensions(action.nodes):
-            accum_action = action
-        else:
-            accum_action = action.select({dim: coords})
-
     if isinstance(name, dict):
-        name = TypeAdapter(AccumName, name).validate_python()
+        name = TypeAdapter(AccumName).validate_python(name)
     accum_name = name.name(coords)
+    if deaccumulate:
+        if len(coords) == 1:
+            accum_action = action.select({dim: coords[0]}, expand=True)
+        else:
+            accum_action = action.select({dim: coords[:-1]}, expand=True).subtract(
+                action.select({dim: coords[1:]}, expand=True)
+            )
+
+        # deaccum_start = int(accum_name.split("-")[0])
+        # if deaccum_start == 0 and deaccum_start not in coords:
+        #     # To handle forecasts with missing step 0 for accumulated parameters,
+        #     # where they would be zero anyway
+        #     initial_deaccum = action.select({dim: coords[0]})
+        #     initial_deaccum.set_scalar_coords({dim: 0}, override=True, make_dim=True)
+        #     accum_action = fluent.merge(
+        #         initial_deaccum,
+        #         accum_action,
+        #     )
+    else:
+        accum_action = action.select({dim: coords})
+
     accum_metadata = accumulation_metadata(dim, coords, accum_name, metadata)
 
     if operation is None:
@@ -744,14 +753,18 @@ def _accum_transform(
     else:
         if isinstance(operation, TaskInstance):
             operation.static_input_kw.setdefault("metadata", {}).update(accum_metadata)
-        else:
+        elif len(accum_metadata) > 0:
             kwargs["metadata"] = accum_metadata
-        accum_action = accum_action._wrapped_reduction(
+        accum_action = accum_action._resolve_operation(
             operation,
             dim=dim,
             **kwargs,
         )
 
+    try:
+        accum_name = int(accum_name)
+    except ValueError:
+        pass
     accum_action._add_dimension(dim, accum_name)
 
     return accum_action
@@ -763,7 +776,7 @@ def from_source(
     dtype: Optional[str] = None,
     join_key: str = "",
 ):
-    all_actions = None
+    all_actions = {}
     for request in requests:
         if isinstance(request, dict):
             request = Request(request)
@@ -786,13 +799,8 @@ def from_source(
         if len(join_key) != 0 and join_key not in new_action.nodes.coords:
             new_action._add_dimension(join_key, request[join_key])
 
-        if all_actions is None:
-            all_actions = new_action
-        else:
-            if len(join_key) == 0:
-                raise ValueError("Join key must be specified for multiple requests")
-            all_actions = all_actions.join(new_action, join_key)
-    return all_actions
+        all_actions[path_from_request(request)] = new_action
+    return fluent.merge(**all_actions)
 
 
 def path_from_request(request: dict, keys: list[str] = ["levtype", "param"]) -> str:

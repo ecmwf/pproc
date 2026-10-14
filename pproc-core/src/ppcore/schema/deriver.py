@@ -77,7 +77,11 @@ class DeaccumulateStepDeriver(BaseDeriver):
         if step == 0:
             raise ValueError("Cannot perform de-accumulation for step 0")
         if step == fc_steps[0]:
-            return [step]
+            if self.allow_missing_zero:
+                return [step]
+            raise ValueError(
+                "Cannot perform de-accumulation for first forecast step with allow_missing_zero=False"
+            )
         start = fc_steps[fc_steps.index(step) - 1]
         return self._range(start, step, fc_steps)
 

@@ -55,4 +55,30 @@ class Monthly(PProcBaseModel):
         return f"{start}-{end}"
 
 
-AccumName = Annotated[Union[Default, Monthly], Field(discriminator="type")]
+class EndCoord(PProcBaseModel):
+    model_config = ConfigDict(validate_by_name=True)
+
+    type_: Literal["end"] = Field("end", alias="type")
+    length: Optional[int] = None
+
+    def name(self, coords: Coords) -> str:
+        if len(coords) == 0:
+            return ""
+        return str(coords[-1])
+
+
+class StartCoord(PProcBaseModel):
+    model_config = ConfigDict(validate_by_name=True)
+
+    type_: Literal["start"] = Field("start", alias="type")
+    length: Optional[int] = None
+
+    def name(self, coords: Coords) -> str:
+        if len(coords) == 0:
+            return ""
+        return str(coords[0])
+
+
+AccumName = Annotated[
+    Union[Default, Monthly, StartCoord, EndCoord], Field(discriminator="type_")
+]

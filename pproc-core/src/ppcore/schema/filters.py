@@ -15,7 +15,7 @@ def default_filter(request: dict, key: str) -> Any:
 
 
 def _steptype(request: dict, key: str) -> str:
-    step = request.get("step", "")
+    step = default_filter(request, "step")
     steprange = str(step).split("-")
     return "range" if len(steprange) == 2 else "instantaneous"
 
@@ -24,7 +24,7 @@ def _steplength(request: dict, key: str) -> str:
     if "fcmonth" in request:
         step = fcmonth_to_steprange(str(request["date"]), int(request["fcmonth"]))
     else:
-        step = request.get("step", "")
+        step = default_filter(request, "step")
     steprange = list(map(int, str(step).split("-")))
     length = str(0) if len(steprange) == 1 else str(steprange[1] - steprange[0])
     return length
