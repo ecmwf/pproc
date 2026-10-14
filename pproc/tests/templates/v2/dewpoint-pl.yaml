@@ -1,0 +1,31 @@
+parallelisation: 1
+
+parameters:
+  q:
+    inputs:
+      pl:
+        request:
+          param: "133.128"
+          grid: O1280
+
+inputs:
+  pl:
+    request:
+      class: od
+      date: 20260528
+      expver: 1
+      levelist: [500, 850]
+      levtype: pl
+      number: [1, 2]
+      step: [0, 24]
+      stream: enfo
+      time: 00
+      type: pf
+    source:
+      type: fdb
+
+outputs:
+  dpt:
+    units: K
+    target:
+      type: fdb
