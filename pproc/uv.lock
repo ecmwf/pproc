@@ -1588,7 +1588,7 @@ requires-dist = [
     { name = "earthkit-utils", specifier = ">=0.2.1" },
     { name = "eccodes", specifier = ">=1.6.1" },
     { name = "fdb5lib", marker = "extra == 'fdb'" },
-    { name = "filelock", specifier = ">=3.12,<3.32" },
+    { name = "filelock", specifier = ">=3.12" },
     { name = "mir-python", specifier = ">=0.2" },
     { name = "numexpr" },
     { name = "numpy", specifier = ">=1.21.2" },

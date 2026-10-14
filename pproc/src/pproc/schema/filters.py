@@ -1,4 +1,12 @@
+from typing import Any
+
 from pproc.common.stepseq import fcmonth_to_steprange
+
+
+def default_filter(request: dict, key: str) -> Any:
+    if key not in request:
+        raise ValueError(f"Filter key '{key}' not found in request {request}")
+    return request[key]
 
 
 def _steptype(request: dict, key: str) -> str:
