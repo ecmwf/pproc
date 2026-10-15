@@ -28,11 +28,15 @@ from pproc.common.xr_helpers import DatasetBuilder
 _manager = None
 
 
-def _shared_list():
+def _get_manager():
     global _manager
     if _manager is None:
         _manager = multiprocessing.Manager()
-    return _manager.list()
+    return _manager
+
+    
+def _shared_list():
+    return _get_manager().list()
 
 
 class Target(BaseModel):
@@ -257,8 +261,7 @@ class NetCDFTarget(Target):
                 raise
 
     def enable_parallel(self):
-        # TODO find something better than messing with a builder internal
-        self._builder._committed = _shared_list()
+        self._builder.enable_parallel(_get_manager())
 
     def enable_recovery(self):
         if os.path.exists(self.path):
