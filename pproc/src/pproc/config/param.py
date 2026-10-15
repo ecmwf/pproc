@@ -23,7 +23,7 @@ from pproc.config.accumulation import AccumulationConfig
 from pproc.config.utils import extract_mars, deep_update
 from pproc.config.io import Source, Input, InputsCollection
 from pproc.config.utils import update_request, expand
-from pproc.src.pproc.common.stepseq import steprange_to_timespan
+from pproc.common.stepseq import steprange_to_timespan
 
 logger = logging.getLogger(__name__)
 
