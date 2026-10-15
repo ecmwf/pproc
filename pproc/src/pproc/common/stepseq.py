@@ -73,3 +73,28 @@ def stepseq_ranges(
 ) -> Iterator:
     for start in range(start, end - width + 1, interval):
         yield range(start, start + width + 1, by)
+
+
+def timespan_to_steprange(step: int, timespan: str) -> str:
+    if timespan == "none":
+        return str(step)
+    if timespan == "fs":
+        return f"0-{step}"
+    if "h" not in timespan:
+        raise ValueError(f"Expected hourly timespan, got {timespan}")
+    end = step
+    start = step - int(timespan.replace("h", ""))
+    if start < 0:
+        raise ValueError(f"Start of step range cannot be negative, got {start}")
+    return f"{start}-{end}"
+
+
+def steprange_to_timespan(step: int | str, original_timespan: str) -> tuple[int, str]:
+    steps = list(map(int, str(step).split("-")))
+    if len(steps) == 1:
+        return steps[0], original_timespan
+    start, end = steps
+    timespan = f"{end - start}h"
+    if original_timespan == "fs" and start == 0:
+        timespan = original_timespan
+    return end, timespan

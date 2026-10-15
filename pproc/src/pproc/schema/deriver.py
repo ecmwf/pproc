@@ -16,7 +16,7 @@ import numpy as np
 from earthkit.time import Sequence
 from earthkit.time.climatology import RelativeYear, date_range
 
-from pproc.common.stepseq import fcmonth_to_steprange
+from pproc.common.stepseq import fcmonth_to_steprange, timespan_to_steprange
 
 
 class DefaultStepDeriver(BaseModel):
@@ -53,7 +53,13 @@ class DefaultStepDeriver(BaseModel):
         return fc_steps[start_index : fc_steps.index(end) + 1]
 
     def derive(self, output_request: dict, fc_steps: list[int]) -> list[int]:
-        steps = list(map(int, str(output_request["step"]).split("-")))
+        if "timespan" in output_request:
+            steprange = timespan_to_steprange(
+                int(output_request["step"]), output_request["timespan"]
+            )
+        else:
+            steprange = str(output_request["step"])
+        steps = list(map(int, steprange.split("-")))
         if len(steps) == 1:
             return self._inst_step(int(steps[0]), fc_steps)
         return self._range(*steps, fc_steps)
@@ -84,7 +90,13 @@ class DeaccumulateStepDeriver(BaseModel):
         return [start, end]
 
     def derive(self, output_request: dict, fc_steps: list[int]) -> list[int]:
-        steps = list(map(int, str(output_request["step"]).split("-")))
+        if "timespan" in output_request:
+            steprange = timespan_to_steprange(
+                int(output_request["step"]), output_request["timespan"]
+            )
+        else:
+            steprange = str(output_request["step"])
+        steps = list(map(int, steprange.split("-")))
         if len(steps) == 1:
             return self._inst_step(int(steps[0]), fc_steps)
         return self._range(*steps, fc_steps)
@@ -94,9 +106,12 @@ class PrecomputedStepDeriver(BaseModel):
     type_: Literal["precomputed"] = Field("precomputed", alias="type")
 
     def derive(self, output_request: dict, fc_steps: list[int]) -> list[int]:
-        if not isinstance(output_request["step"], str):
+        if (
+            not isinstance(output_request["step"], str)
+            and output_request.get("timespan", "none") == "none"
+        ):
             raise ValueError(
-                f"Step {output_request['step']} must be step range for pre-computed steps"
+                f"Step {output_request['step']} must be step range, or request but contain non-trivial timespan,for pre-computed steps"
             )
         return [output_request["step"]]
 
