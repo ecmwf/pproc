@@ -41,8 +41,62 @@ class TestDatasetBuilder:
     def builder(self):
         return DatasetBuilder()
 
-    def test_to_dataset_without_commits(self, builder):
-        xr.testing.assert_identical(builder.to_dataset(), xr.Dataset())
+    @pytest.fixture
+    def manager(self):
+        with multiprocessing.Manager() as manager:
+            yield manager
+
+    # __init__
+
+    def test_init_combine_kwargs_passed_through(self):
+        a = make_da(lons=(0.0, 10.0))
+        b = make_da(lons=(20.0, 30.0))
+        a.attrs["origin"] = "a"
+        b.attrs["origin"] = "b"
+        with pytest.raises(ValueError):
+            commit(DatasetBuilder(), [a, b])
+        builder = DatasetBuilder({"combine_attrs": "drop"})
+        commit(builder, [a, b])
+        assert builder.to_dataset().attrs == {}
+
+    def test_init_combine_kwargs_cannot_override_join_and_fill_value(self):
+        builder = DatasetBuilder({"join": "outer", "fill_value": 0})
+        a, b, _, d = make_da_blocks()
+        builder.stage(a)
+        builder.stage(b)
+        builder.stage(d)
+        with pytest.raises(ValueError):
+            builder.commit()
+
+    def test_init_combine_kwargs_has_internal_copy(self):
+        kwargs = {"combine_attrs": "drop"}
+        DatasetBuilder(kwargs)
+        assert kwargs == {"combine_attrs": "drop"}
+
+    # enable_parallel
+
+    def test_enable_parallel_keeps_existing_commits(self, builder, manager):
+        a, b, _, _ = make_da_blocks()
+        commit(builder, [a])
+        builder.enable_parallel(manager)
+        commit(builder, [b])
+        xr.testing.assert_identical(builder.to_dataset(), xr.combine_by_coords([a, b]))
+
+    def test_enable_parallel_commits_reach_the_parent(self, builder, manager):
+        builder.enable_parallel(manager)
+        blocks = make_da_blocks()
+        parallel.parallel_processing(
+            commit,
+            [(builder, [block]) for block in blocks],
+            2,
+        )
+        expected = xr.combine_by_coords(blocks)
+        xr.testing.assert_identical(expected, builder.to_dataset())
+
+    # stage
+
+    def test_stage_returns_self(self, builder):
+        assert builder.stage(make_da()) is builder
 
     def test_stage_does_not_commit(self, builder):
         builder.stage(make_da())
@@ -51,6 +105,19 @@ class TestDatasetBuilder:
     def test_stage_rejects_unnamed_dataarray(self, builder):
         with pytest.raises(ValueError):
             builder.stage(make_da(name=None))
+
+    def test_stage_dataset(self, builder):
+        foo, bar = make_da("foo"), make_da("bar")
+        builder.stage(foo.to_dataset())
+        builder.stage(bar)
+        builder.commit()
+        xr.testing.assert_identical(builder.to_dataset(), xr.merge([foo, bar]))
+
+    # commit
+
+    def test_commit_allows_method_chaining(self, builder):
+        assert builder.commit() is builder
+        assert builder.stage(make_da()).commit() is builder
 
     def test_commit_without_stages(self, builder):
         builder.commit()
@@ -82,6 +149,120 @@ class TestDatasetBuilder:
         builder.stage(make_da())
         with pytest.raises(ValueError):
             builder.commit()
+        xr.testing.assert_identical(builder.to_dataset(), xr.Dataset())
+
+    def test_commit_loads_dask_arrays(self, builder):
+        pytest.importorskip("dask")
+        commit(builder, [make_da().chunk()])
+        assert not builder.to_dataset().chunks
+
+    def test_commit_does_not_mutate_inputs(self, builder):
+        a, b, _, _ = make_da_blocks()
+        a_orig, b_orig = a.copy(deep=True), b.copy(deep=True)
+        commit(builder, [a, b])
+        xr.testing.assert_identical(a, a_orig)
+        xr.testing.assert_identical(b, b_orig)
+
+    # reset_staged
+
+    def test_reset_staged_allows_method_chaining(self, builder):
+        assert builder.reset_staged() is builder
+
+    def test_reset_staged_discards_pending_by_default(self, builder):
+        builder.stage(make_da())
+        builder.reset_staged()
+        builder.commit()
+        xr.testing.assert_identical(builder.to_dataset(), xr.Dataset())
+
+    def test_reset_staged_after_failed_commit(self, builder):
+        builder.stage(make_da())
+        builder.stage(make_da())
+        with pytest.raises(ValueError):
+            builder.commit()
+        builder.reset_staged()
+        commit(builder, [make_da()])
+        xr.testing.assert_identical(builder.to_dataset(), make_da().to_dataset())
+
+    # undo_commit
+
+    def test_undo_commit_allows_method_chaining(self, builder):
+        assert builder.stage(make_da()).commit().undo_commit() is builder
+
+    def test_undo_commit_without_commits(self, builder):
+        with pytest.raises(RuntimeError):
+            builder.undo_commit()
+
+    def test_undo_commit_removes_last_commit(self, builder):
+        a, b, c, d = make_da_blocks()
+        commit(builder, [a, b])
+        commit(builder, [c, d])
+        builder.undo_commit()
+        xr.testing.assert_identical(builder.to_dataset(), xr.combine_by_coords([a, b]))
+
+    def test_undo_commit_without_restage_leaves_staging_empty(self, builder):
+        a, b, c, d = make_da_blocks()
+        commit(builder, [a, b])
+        commit(builder, [c, d])
+        builder.undo_commit()
+        builder.commit()  # nothing staged, nothing happens
+        xr.testing.assert_identical(builder.to_dataset(), xr.combine_by_coords([a, b]))
+
+    def test_undo_commit_restage_recommits_identically(self, builder):
+        a, b, c, d = make_da_blocks()
+        commit(builder, [a, b])
+        commit(builder, [c, d])
+        before = builder.to_dataset()
+        builder.undo_commit(stage=True)
+        builder.commit()
+        xr.testing.assert_identical(builder.to_dataset(), before)
+
+    # squash_commits
+
+    def test_squash_commits_allows_method_chaining(self, builder):
+        assert builder.squash_commits() is builder
+
+    def test_squash_commits_empty(self, builder):
+        builder.squash_commits()
+        xr.testing.assert_identical(builder.to_dataset(), xr.Dataset())
+
+    def test_squash_commits_preserves_dataset(self, builder):
+        commit(builder, [make_da(region="nh", val=1.0), make_da(region="sh", val=1.0)])
+        commit(builder, [make_da(region="nh", val=9.0)])
+        before = builder.to_dataset()
+        builder.squash_commits()
+        xr.testing.assert_identical(builder.to_dataset(), before)
+
+    def test_squash_commits_leaves_single_commit(self, builder):
+        a, b, _, _ = make_da_blocks()
+        commit(builder, [a])
+        commit(builder, [b])
+        builder.squash_commits()
+        builder.undo_commit()
+        xr.testing.assert_identical(builder.to_dataset(), xr.Dataset())
+
+    def test_squash_commits_then_later_commit_overrides(self, builder):
+        commit(builder, [make_da(region="nh", val=1.0), make_da(region="sh", val=1.0)])
+        builder.squash_commits()
+        commit(builder, [make_da(region="nh", val=9.0)])
+        expected = xr.concat(
+            [make_da(region="nh", val=9.0), make_da(region="sh", val=1.0)], dim="region"
+        ).to_dataset()
+        xr.testing.assert_identical(builder.to_dataset(), expected)
+
+    def test_squash_commits_on_shared_list(self, builder, manager):
+        a, b, _, _ = make_da_blocks()
+        builder.enable_parallel(manager)
+        commit(builder, [a])
+        commit(builder, [b])
+        expected = xr.combine_by_coords([a, b])
+        builder.squash_commits()
+        xr.testing.assert_identical(builder.to_dataset(), expected)
+        builder.undo_commit()
+        xr.testing.assert_identical(builder.to_dataset(), xr.Dataset())
+
+    # to_dataset
+
+    def test_to_dataset_without_commits(self, builder):
         xr.testing.assert_identical(builder.to_dataset(), xr.Dataset())
 
     def test_to_dataset_one_dataarray(self, builder):
@@ -119,6 +300,12 @@ class TestDatasetBuilder:
         expected = xr.combine_by_coords([foo, bar_nh, bar_sh])
         xr.testing.assert_identical(builder.to_dataset(), expected)
 
+    def test_to_dataset_two_variables_two_commits(self, builder):
+        foo, bar = make_da("foo"), make_da("bar")
+        commit(builder, [foo])
+        commit(builder, [bar])
+        xr.testing.assert_identical(builder.to_dataset(), xr.merge([foo, bar]))
+
     def test_to_dataset_is_repeatable(self, builder):
         a, b, c, d = make_da_blocks()
         commit(builder, [a, b])
@@ -129,7 +316,12 @@ class TestDatasetBuilder:
         expected = xr.combine_by_coords([a, b, c, d])
         xr.testing.assert_identical(builder.to_dataset(), expected)
 
-    def test_later_commit_overrides_earlier(self, builder):
+    def test_to_dataset_result_is_copy(self, builder):
+        commit(builder, [make_da()])
+        builder.to_dataset()["foo"].values[:] = 99.0
+        xr.testing.assert_identical(builder.to_dataset(), make_da().to_dataset())
+
+    def test_to_dataset_later_commit_overrides_earlier(self, builder):
         commit(builder, [make_da(region="nh", val=1.0), make_da(region="sh", val=1.0)])
         commit(builder, [make_da(region="nh", val=9.0)])
         expected = xr.concat(
@@ -137,7 +329,25 @@ class TestDatasetBuilder:
         ).to_dataset()
         xr.testing.assert_identical(builder.to_dataset(), expected)
 
-    def test_commits_may_form_a_sparse_cube(self, builder):
+    def test_to_dataset_later_nan_does_not_override(self, builder):
+        commit(builder, [make_da(val=1.0)])
+        later = make_da()
+        later.values[:] = [np.nan, 9.0, 9.0]
+        commit(builder, [later])
+        np.testing.assert_array_equal(
+            builder.to_dataset()["foo"].values, [1.0, 9.0, 9.0]
+        )
+
+    def test_to_dataset_earlier_nan_is_filled_by_later(self, builder):
+        earlier = make_da()
+        earlier.values[:] = [1.0, np.nan, 3.0]
+        commit(builder, [earlier])
+        commit(builder, [make_da(val=9.0)])
+        np.testing.assert_array_equal(
+            builder.to_dataset()["foo"].values, [9.0, 9.0, 9.0]
+        )
+
+    def test_to_dataset_commits_may_form_a_sparse_cube(self, builder):
         a, b, c, _ = make_da_blocks()
         # Each commit is a cube on its own, the union of the two is not
         commit(builder, [b])
@@ -145,19 +355,16 @@ class TestDatasetBuilder:
         expected = xr.combine_by_coords([a, b, c], join="outer", fill_value=np.nan)
         xr.testing.assert_identical(builder.to_dataset(), expected)
 
-    def test_commits_may_stage_a_variable(self, builder):
-        commit(builder, [make_da("foo")])
-        commit(builder, [make_da("bar")])
-        assert sorted(builder.to_dataset().data_vars) == ["bar", "foo"]
+    def test_to_dataset_outer_join_promotes_int_to_float(self, builder):
+        a, b, _, _ = make_da_blocks()
+        commit(builder, [a.astype(int)])
+        assert builder.to_dataset()["foo"].dtype == int
+        commit(builder, [b.astype(int)])
+        assert builder.to_dataset()["foo"].dtype == float
 
-    def test_parallel_commits_reach_the_parent(self, builder):
-        manager = multiprocessing.Manager()
-        builder.enable_parallel(manager)
-        blocks = make_da_blocks()
-        parallel.parallel_processing(
-            commit,
-            [(builder, [block]) for block in blocks],
-            2,
-        )
-        expected = xr.combine_by_coords(blocks)
-        xr.testing.assert_identical(expected, builder.to_dataset())
+    def test_to_dataset_identical_coordinates_preserve_int(self, builder):
+        commit(builder, [make_da(val=1).astype(int)])
+        commit(builder, [make_da(val=2).astype(int)])
+        result = builder.to_dataset()
+        assert result["foo"].dtype == int
+        np.testing.assert_array_equal(result["foo"].values, [2, 2, 2])
