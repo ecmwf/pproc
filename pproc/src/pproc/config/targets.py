@@ -225,6 +225,11 @@ class NetCDFTarget(Target):
     path: str
     clean_lock: bool = True
     combine_kwargs: CombineKwargs = CombineKwargs()
+    attrs: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Global attributes of the output dataset. They replace "
+        "attributes of the same name and are added otherwise.",
+    )
 
     _builder: DatasetBuilder
 
@@ -274,5 +279,9 @@ class NetCDFTarget(Target):
         if self.clean_lock and os.path.exists(self.lock.lock_file):
             os.remove(self.lock.lock_file)
 
-    def to_dataset(self):
-        return self._builder.to_dataset()
+    def to_dataset(self) -> xr.Dataset:
+        ds = self._builder.to_dataset()
+        # Applied after the merge, so the configured values win over merged
+        # or conflicting (dropped) attributes. The builder returns a copy.
+        ds.attrs.update(self.attrs)
+        return ds

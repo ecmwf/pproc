@@ -32,6 +32,11 @@ def make_da_blocks(**kwargs):
     ]
 
 
+def make_ds(attrs, **kwargs):
+    """Dataset with global attributes, unlike DataArray.attrs (variable attrs)."""
+    return make_da(**kwargs).to_dataset().assign_attrs(attrs)
+
+
 def commit(target, dataarrays):
     """Write and flush, as an entrypoint iteration does."""
     for da in dataarrays:
@@ -55,8 +60,8 @@ class TestNetCDFTarget:
         assert not os.path.exists(target.path)
 
     def test_targets_do_not_share_writes(self, tmpdir):
-        first = NetCDFTarget(path=str(tmpdir / "first.nc"), format="netcdf")
-        second = NetCDFTarget(path=str(tmpdir / "second.nc"), format="netcdf")
+        first = NetCDFTarget(path=str(tmpdir / "first.nc"))
+        second = NetCDFTarget(path=str(tmpdir / "second.nc"))
         commit(first, [make_da("foo")])
         commit(second, [make_da("bar")])
         xr.testing.assert_identical(
@@ -140,7 +145,7 @@ class TestNetCDFTarget:
         commit(target, [da])
         assert os.path.isfile(target.path)
         resumed = NetCDFTarget(
-            path=target.path, format="netcdf"
+            path=target.path
         )  # as a resumed run would create
         resumed.enable_recovery()
         xr.testing.assert_identical(resumed.to_dataset(), da.to_dataset())
@@ -149,7 +154,7 @@ class TestNetCDFTarget:
         # Recovery is opt-in, so without it the previous results are replaced
         commit(target, [make_da(region="nh", val=1.0)])
         assert os.path.isfile(target.path)
-        fresh = NetCDFTarget(path=target.path, format="netcdf")
+        fresh = NetCDFTarget(path=target.path)
         commit(fresh, [make_da(region="sh", val=2.0)])
         xr.testing.assert_identical(
             xr.load_dataset(fresh.path), make_da(region="sh", val=2.0).to_dataset()
@@ -159,7 +164,7 @@ class TestNetCDFTarget:
         a, b, c, d = make_da_blocks()
         a99 = a.copy(data=np.full_like(a.data, fill_value=99.0))
         commit(target, [a, c])
-        resumed = NetCDFTarget(path=target.path, format="netcdf")
+        resumed = NetCDFTarget(path=target.path)
         resumed.enable_recovery()
         # nh is recomputed, and a block that was never reached is added
         commit(resumed, [a99])  # "recomputed"
@@ -181,3 +186,40 @@ class TestNetCDFTarget:
         resumed = NetCDFTarget(path=target.path)
         resumed.enable_recovery()
         xr.testing.assert_identical(resumed.to_dataset(), a.to_dataset())
+
+    def test_attrs_override_and_add(self, tmpdir):
+        target = NetCDFTarget(
+            path=str(tmpdir / "test.nc"), attrs={"title": "b", "new": 2}
+        )
+        commit(target, [make_ds({"title": "a", "keep": 1})])
+        assert xr.load_dataset(target.path).attrs == {
+            "title": "b",
+            "keep": 1,
+            "new": 2,
+        }
+
+    def test_attrs_persist_across_flushes(self, tmpdir):
+        target = NetCDFTarget(path=str(tmpdir / "test.nc"), attrs={"title": "x"})
+        commit(target, [make_da(region="nh", val=1.0)])
+        assert xr.load_dataset(target.path).attrs == {"title": "x"}
+        commit(target, [make_da(region="sh", val=2.0)])
+        assert xr.load_dataset(target.path).attrs == {"title": "x"}
+
+    def test_attrs_survive_recovery(self, tmpdir):
+        path = str(tmpdir / "test.nc")
+        commit(NetCDFTarget(path=path, attrs={"title": "x"}), [make_da(region="nh")])
+        resumed = NetCDFTarget(path=path, attrs={"title": "x"})
+        resumed.enable_recovery()
+        commit(resumed, [make_da(region="sh")])
+        assert xr.load_dataset(path).attrs == {"title": "x"}
+
+    def test_attrs_do_not_modify_committed_state(self, tmpdir):
+        target = NetCDFTarget(path=str(tmpdir / "test.nc"), attrs={"title": "x"})
+        commit(target, [make_da()])
+        assert target.to_dataset().attrs == {"title": "x"}
+        assert target._builder.to_dataset().attrs == {}
+
+    def test_attrs_default_to_empty(self, target):
+        assert target.attrs == {}
+        commit(target, [make_da()])
+        assert xr.load_dataset(target.path).attrs == {}
