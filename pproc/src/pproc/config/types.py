@@ -908,7 +908,10 @@ class ThermoParamConfig(ParamConfig):
     ) -> Iterator:
         for req in super().out_keys(inputs, metadata):
             req["param"] = self.out_params
+            # Thermofeel outputs treated like instantaneous forecast outputs
             req["step"] = [end_step(x) for x in req["step"]]
+            if "timespan" in req:
+                req["timespan"] = "none"
             yield req
 
     def _merge_inputs(self, other: Self) -> dict:

@@ -1,6 +1,6 @@
 from typing import Any
 
-from pproc.common.stepseq import fcmonth_to_steprange
+from pproc.common.stepseq import fcmonth_to_steprange, timespan_to_steprange
 
 
 def default_filter(request: dict, key: str) -> Any:
@@ -18,6 +18,8 @@ def _steptype(request: dict, key: str) -> str:
 def _steplength(request: dict, key: str) -> str:
     if "fcmonth" in request:
         step = fcmonth_to_steprange(str(request["date"]), int(request["fcmonth"]))
+    elif "timespan" in request:
+        step = timespan_to_steprange(request["step"], request["timespan"])
     else:
         step = request.get("step", "")
     steprange = list(map(int, str(step).split("-")))
