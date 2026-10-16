@@ -277,6 +277,14 @@ class TestDatasetBuilder:
         builder.undo_commit()
         xr.testing.assert_identical(builder.to_dataset(), xr.Dataset())
 
+    def test_squash_commits_preserves_merged_attrs(self, builder):
+        commit(builder, [make_ds({"title": "a", "only_a": 1})])
+        commit(builder, [make_ds({"title": "b"}, lons=(30.0,))])
+        before = builder.to_dataset()
+        builder.squash_commits()
+        xr.testing.assert_identical(builder.to_dataset(), before)
+        assert builder.to_dataset().attrs == {"title": "b", "only_a": 1}
+
     # to_dataset
 
     def test_to_dataset_without_commits(self, builder):
@@ -458,10 +466,13 @@ class TestDatasetBuilder:
         assert result.attrs == {"title": "a"}
         assert result["foo"].attrs == {"units": "K"}
 
-    def test_squash_commits_preserves_merged_attrs(self, builder):
-        commit(builder, [make_ds({"title": "a", "only_a": 1})])
-        commit(builder, [make_ds({"title": "b"}, lons=(30.0,))])
-        before = builder.to_dataset()
-        builder.squash_commits()
-        xr.testing.assert_identical(builder.to_dataset(), before)
-        assert builder.to_dataset().attrs == {"title": "b", "only_a": 1}
+    def test_to_dataset_drops_encoding(self, builder):
+        ds = make_ds(lons=(0.0, 10.0))
+        ds["foo"].encoding.update({"dtype": "int16", "scale_factor": 0.5})
+        ds["lon"].encoding.update({"dtype": "float32"})
+        ds.encoding.update({"unlimited_dims": {"lon"}})
+        commit(builder, [ds])
+        result = builder.to_dataset()
+        assert result["foo"].encoding == {}
+        assert result["lon"].encoding == {}
+        assert result.encoding == {}

@@ -43,8 +43,9 @@ class DatasetBuilder:
     precedence over those from older commits. For values, NaNs are treated as
     missing values and later NaNs do not override earlier non-NaN values. A
     missing attribute in a later commit will not remove an attribute from an
-    earlier commit. Race conditions arise when multiple concurrent commits set
-    values over a common range of coordinates.
+    earlier commit. Variable encodings are always dropped. Race conditions
+    arise when multiple concurrent commits set values over a common range of
+    coordinates.
 
     Because commits that do not cover identical coordinates are outer-joined and
     gaps are filled with NaN, integer variables can be promoted to float. Only
@@ -110,6 +111,12 @@ class DatasetBuilder:
         if not self._committed:
             return xr.Dataset()
         if len(self._committed) == 1:
-            return self._committed[0].copy(deep=True)
-        # Merge with later commits overriding earlier ones
-        return functools.reduce(_combine_first, self._committed)
+            ds = self._committed[0].copy(deep=True)
+        else:
+            # Merge with later commits overriding earlier ones
+            ds = functools.reduce(_combine_first, self._committed)
+        # Drop encoding
+        for var in ds.variables.values():
+            var.encoding = {}
+        ds.encoding = {}
+        return ds
