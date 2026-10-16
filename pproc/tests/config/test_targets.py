@@ -223,3 +223,17 @@ class TestNetCDFTarget:
         assert target.attrs == {}
         commit(target, [make_da()])
         assert xr.load_dataset(target.path).attrs == {}
+
+    def test_recovery_keeps_attrs_of_the_existing_file(self, tmpdir):
+        path = str(tmpdir / "test.nc")
+        first = make_ds({"title": "a", "only_file": 1}, lons=(0.0, 10.0))
+        first["foo"].attrs["units"] = "K"
+        commit(NetCDFTarget(path=path), [first])
+
+        resumed = NetCDFTarget(path=path)
+        resumed.enable_recovery()
+        commit(resumed, [make_da(lons=(20.0, 30.0))])  # new data without attrs
+
+        written = xr.load_dataset(path)
+        assert written.attrs == {"title": "a", "only_file": 1}
+        assert written["foo"].attrs == {"units": "K"}

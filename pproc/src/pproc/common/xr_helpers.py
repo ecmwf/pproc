@@ -9,12 +9,26 @@ from typing import Any, Self, cast
 import xarray as xr
 
 
+def _combine_first(older: xr.Dataset, newer: xr.Dataset) -> xr.Dataset:
+    merged = newer.combine_first(older)
+    # combine_first only keeps the attributes of newer. Merge them per key instead,
+    # in line with the values, so what newer does not specify is kept from older.
+    merged.attrs = {**older.attrs, **newer.attrs}
+    for name, var in merged.variables.items():  # data variables and coordinates
+        var.attrs = {
+            **(older.variables[name].attrs if name in older.variables else {}),
+            **(newer.variables[name].attrs if name in newer.variables else {}),
+        }
+    return merged
+
+
 class DatasetBuilder:
     """Transactional xarray.Dataset builder.
 
-    Collects Datasets and DataArrays in a staging area. When the staged contents
-    form a proper datacube, they can be committed. The final dataset is created
-    by outer-joining all committed cubes in the order they were committed in.
+    Collects Datasets and DataArrays in a staging area (local per process). When
+    the staged contents form a proper datacube, they can be committed. The final
+    dataset is created by outer-joining all committed cubes in the order they
+    were committed in.
 
     Parameters
     ----------
@@ -25,19 +39,16 @@ class DatasetBuilder:
 
     Notes
     -----
-    Commits are merged with :py:meth:`xarray.Dataset.combine_first`, with later
-    commits taking precedence. This has three consequences:
+    Commits are merged such that values and attributes from later commits take
+    precedence over those from older commits. For values, NaNs are treated as
+    missing values and later NaNs do not override earlier non-NaN values. A
+    missing attribute in a later commit will not remove an attribute from an
+    earlier commit. Race conditions arise when multiple concurrent commits set
+    values over a common range of coordinates.
 
-    - The result depends on the commit order. Commits can be submitted from
-      concurrent processes but race conditions arise when multiple commits set
-      values over a common range of coordinates. The staging area remains local
-      to the process.
-    - NaN is treated as a missing value. A NaN in a later commit does not replace
-      an earlier non-NaN value, and an earlier NaN is filled by a later non-NaN
-      value. A NaN cannot be used to erase or mask earlier data.
-    - Commits that do not cover identical coordinates are outer-joined. The gaps
-      are filled with NaN, so integer variables are promoted to floating point.
-      Single commits and commits over identical coordinates keep their dtype.
+    Because commits that do not cover identical coordinates are outer-joined and
+    gaps are filled with NaN, integer variables can be promoted to float. Only
+    single commits and commits over identical coordinates will keep their dtype.
     """
 
     def __init__(self, combine_kwargs: Mapping[str, Any] | None = None) -> None:
@@ -101,7 +112,4 @@ class DatasetBuilder:
         if len(self._committed) == 1:
             return self._committed[0].copy(deep=True)
         # Merge with later commits overriding earlier ones
-        return functools.reduce(
-            lambda older, newer: newer.combine_first(older),
-            self._committed,
-        )
+        return functools.reduce(_combine_first, self._committed)

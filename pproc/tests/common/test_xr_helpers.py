@@ -30,6 +30,15 @@ def make_da_blocks(**kwargs):
     ]
 
 
+def make_ds(attrs=None, var_attrs=None, lon_attrs=None, name="foo", **kwargs):
+    """Dataset with attributes on the dataset, its variable and the lon coordinate."""
+    ds = make_da(name=name, **kwargs).to_dataset()
+    ds.attrs.update(attrs or {})
+    ds[name].attrs.update(var_attrs or {})
+    ds["lon"].attrs.update(lon_attrs or {})
+    return ds
+
+
 def commit(target, dataarrays):
     for da in dataarrays:
         target.stage(da)
@@ -199,6 +208,14 @@ class TestDatasetBuilder:
         builder.undo_commit()
         xr.testing.assert_identical(builder.to_dataset(), xr.combine_by_coords([a, b]))
 
+    def test_undo_commit_restores_overridden_values(self, builder):
+        commit(builder, [make_da(val=1.0)])
+        commit(builder, [make_da(lons=(10.0,), val=9.0)])
+        builder.undo_commit()
+        xr.testing.assert_identical(
+            builder.to_dataset(), make_da(val=1.0).to_dataset()
+        )
+
     def test_undo_commit_without_restage_leaves_staging_empty(self, builder):
         a, b, c, d = make_da_blocks()
         commit(builder, [a, b])
@@ -329,6 +346,35 @@ class TestDatasetBuilder:
         ).to_dataset()
         xr.testing.assert_identical(builder.to_dataset(), expected)
 
+    def test_to_dataset_three_commits_latest_wins(self, builder):
+        commit(builder, [make_da(val=1.0)])
+        commit(builder, [make_da(lons=(10.0, 20.0), val=2.0)])
+        commit(builder, [make_da(lons=(20.0,), val=3.0)])
+        expected = make_da()
+        expected.values[:] = [1.0, 2.0, 3.0]
+        xr.testing.assert_identical(builder.to_dataset(), expected.to_dataset())
+
+    def test_to_dataset_three_commits_with_gap(self, builder):
+        # The middle commit does not overlap the newest one
+        commit(builder, [make_da(val=1.0)])
+        commit(builder, [make_da(lons=(30.0,), val=5.0)])
+        commit(builder, [make_da(lons=(10.0, 30.0), val=3.0)])
+        expected = make_da(lons=(0.0, 10.0, 20.0, 30.0))
+        expected.values[:] = [1.0, 3.0, 1.0, 3.0]
+        xr.testing.assert_identical(builder.to_dataset(), expected.to_dataset())
+
+    def test_to_dataset_overlapping_commits_different_variables(self, builder):
+        lons = (0.0, 10.0)
+        commit(
+            builder,
+            [make_da("foo", lons=lons, val=1.0), make_da("bar", lons=lons, val=7.0)],
+        )
+        commit(builder, [make_da("foo", lons=(10.0,), val=2.0)])
+        foo = make_da("foo", lons=lons)
+        foo.values[:] = [1.0, 2.0]
+        bar = make_da("bar", lons=lons, val=7.0)
+        xr.testing.assert_identical(builder.to_dataset(), xr.merge([foo, bar]))
+
     def test_to_dataset_later_nan_does_not_override(self, builder):
         commit(builder, [make_da(val=1.0)])
         later = make_da()
@@ -368,3 +414,54 @@ class TestDatasetBuilder:
         result = builder.to_dataset()
         assert result["foo"].dtype == int
         np.testing.assert_array_equal(result["foo"].values, [2, 2, 2])
+
+    def test_to_dataset_attrs_are_merged_per_key(self, builder):
+        commit(builder, [make_ds({"title": "a", "only_a": 1}, lons=(0.0, 10.0))])
+        commit(builder, [make_ds({"title": "b", "only_b": 2}, lons=(20.0, 30.0))])
+        assert builder.to_dataset().attrs == {"title": "b", "only_a": 1, "only_b": 2}
+
+    def test_to_dataset_later_commit_without_attrs_keeps_earlier_attrs(self, builder):
+        commit(builder, [make_ds({"title": "a"}, {"units": "K"}, {"units": "deg"})])
+        commit(builder, [make_ds(lons=(30.0, 40.0))])
+        result = builder.to_dataset()
+        assert result.attrs == {"title": "a"}
+        assert result["foo"].attrs == {"units": "K"}
+        assert result["lon"].attrs == {"units": "deg"}
+
+    def test_to_dataset_variable_attrs_are_merged_per_key(self, builder):
+        commit(builder, [make_ds(var_attrs={"units": "K", "long_name": "temp"})])
+        commit(builder, [make_ds(var_attrs={"units": "degC"}, lons=(30.0, 40.0))])
+        assert builder.to_dataset()["foo"].attrs == {
+            "units": "degC",
+            "long_name": "temp",
+        }
+
+    def test_to_dataset_attrs_of_variables_from_different_commits(self, builder):
+        commit(builder, [make_ds(var_attrs={"units": "K"}, name="foo")])
+        commit(builder, [make_ds(var_attrs={"units": "m"}, name="bar")])
+        result = builder.to_dataset()
+        assert result["foo"].attrs == {"units": "K"}
+        assert result["bar"].attrs == {"units": "m"}
+
+    def test_to_dataset_attrs_over_three_commits(self, builder):
+        commit(builder, [make_ds({"a": 1, "title": "first"})])
+        commit(builder, [make_ds({"b": 2, "title": "second"}, lons=(30.0,))])
+        commit(builder, [make_ds(lons=(40.0,))])  # specifies nothing
+        assert builder.to_dataset().attrs == {"a": 1, "b": 2, "title": "second"}
+
+    def test_to_dataset_merging_attrs_does_not_modify_commits(self, builder):
+        commit(builder, [make_ds({"title": "a"}, {"units": "K"})])
+        commit(builder, [make_ds({"title": "b"}, {"units": "m"}, lons=(30.0,))])
+        builder.to_dataset()
+        builder.undo_commit()
+        result = builder.to_dataset()
+        assert result.attrs == {"title": "a"}
+        assert result["foo"].attrs == {"units": "K"}
+
+    def test_squash_commits_preserves_merged_attrs(self, builder):
+        commit(builder, [make_ds({"title": "a", "only_a": 1})])
+        commit(builder, [make_ds({"title": "b"}, lons=(30.0,))])
+        before = builder.to_dataset()
+        builder.squash_commits()
+        xr.testing.assert_identical(builder.to_dataset(), before)
+        assert builder.to_dataset().attrs == {"title": "b", "only_a": 1}
