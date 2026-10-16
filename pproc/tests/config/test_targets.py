@@ -237,3 +237,44 @@ class TestNetCDFTarget:
         written = xr.load_dataset(path)
         assert written.attrs == {"title": "a", "only_file": 1}
         assert written["foo"].attrs == {"units": "K"}
+
+    @staticmethod
+    def zlib_flags(path):
+        """zlib flag of the numeric variables."""
+        with xr.open_dataset(path) as ds:
+            return {
+                name: var.encoding.get("zlib", False)
+                for name, var in ds.variables.items()
+                if var.dtype.kind in "iuf"
+            }
+
+    def test_encoding_defaults_to_none(self, target):
+        assert target.encoding == "none"
+        commit(target, [make_da(region="nh")])
+        flags = self.zlib_flags(target.path)
+        assert set(flags) == {"foo", "lon"}
+        assert not any(flags.values())
+
+    def test_encoding_zlib_compresses_data_variables_only(self, tmpdir):
+        target = NetCDFTarget(path=str(tmpdir / "test.nc"), encoding="zlib")
+        da = make_da(region="nh")
+        commit(target, [da])
+        assert self.zlib_flags(target.path) == {"foo": True, "lon": False}
+        xr.testing.assert_identical(xr.load_dataset(target.path), da.to_dataset())
+
+    def test_encoding_zlib_applies_to_every_flush(self, tmpdir):
+        target = NetCDFTarget(path=str(tmpdir / "test.nc"), encoding="zlib")
+        first, second = make_da(region="nh", val=1.0), make_da(region="sh", val=2.0)
+        commit(target, [first])
+        commit(target, [second])
+        assert self.zlib_flags(target.path)["foo"]
+        expected = xr.concat([first, second], dim="region").to_dataset()
+        xr.testing.assert_identical(xr.load_dataset(target.path), expected)
+
+    def test_encoding_zlib_after_recovery(self, tmpdir):
+        path = str(tmpdir / "test.nc")
+        commit(NetCDFTarget(path=path), [make_da(region="nh")])  # uncompressed
+        resumed = NetCDFTarget(path=path, encoding="zlib")
+        resumed.enable_recovery()
+        commit(resumed, [make_da(region="sh")])
+        assert self.zlib_flags(path)["foo"]

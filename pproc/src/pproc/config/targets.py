@@ -34,7 +34,7 @@ def _get_manager():
         _manager = multiprocessing.Manager()
     return _manager
 
-    
+
 def _shared_list():
     return _get_manager().list()
 
@@ -230,6 +230,10 @@ class NetCDFTarget(Target):
         description="Global attributes of the output dataset. They replace "
         "attributes of the same name and are added otherwise.",
     )
+    encoding: Literal["none", "zlib"] = Field(
+        "none",
+        description="Encoding for the data variables in the output file.",
+    )
 
     _builder: DatasetBuilder
 
@@ -246,6 +250,14 @@ class NetCDFTarget(Target):
     def _tmp_path(self) -> str:
         return self.path + ".tmp"
 
+    def _netcdf_encoding(self, ds: xr.Dataset) -> dict[Any, dict[str, Any]]:
+        # Lossy encodings like int16 packing with an automatic range would
+        # re-quantise the already quantised values on each recovery, with a
+        # scale that changes whenever the data range changes.
+        if self.encoding == "zlib":
+            return {name: {"zlib": True} for name in ds.data_vars}
+        return {}
+
     def write(self, ds):
         self._builder.stage(ds)
 
@@ -256,7 +268,7 @@ class NetCDFTarget(Target):
             if not ds_out.data_vars:
                 return
             try:
-                ds_out.to_netcdf(self._tmp_path)
+                ds_out.to_netcdf(self._tmp_path, encoding=self._netcdf_encoding(ds_out))
                 os.replace(self._tmp_path, self.path)
             except:
                 # The file was not replaced. (Soft-)revert the last commit
