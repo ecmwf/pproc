@@ -191,10 +191,22 @@ class ParamConfig(BaseModel):
             reqs = [{**x, **y} for x, y in itertools.product(reqs, accum.out_mars(dim))]
         for req in reqs:
             if "timespan" in req:
-                start, timespan = steprange_to_timespan(req["step"], req["timespan"])
-                req["step"] = start
-                req["timespan"] = timespan
-            yield req
+                req_timespan = None
+                req_steps = []
+                for step in req["step"]:
+                    start, timespan = steprange_to_timespan(step, req["timespan"])
+                    if req_timespan is None:
+                        req_timespan = timespan
+                        req_steps = [start]
+                    elif req_timespan != timespan:
+                        yield {**req, "timespan": req_timespan, "step": req_steps}
+                        req_timespan = timespan
+                        req_steps = [start]
+                    else:
+                        req_steps.append(start)
+                yield {**req, "timespan": req_timespan, "step": req_steps}
+            else:
+                yield req
 
     def _merge_accumulations(self, other: Self) -> dict:
         if self.accumulations.keys() != other.accumulations.keys():

@@ -139,8 +139,61 @@ BASE_OUTPUT = {
                 },
             ],
         ],
+        [
+            {
+                "parameters": {
+                    "2t": {
+                        "inputs": {
+                            "fc": {
+                                "request": [
+                                    {
+                                        "stream": "oper",
+                                        "type": "fc",
+                                        "timespan": "none",
+                                    },
+                                    {
+                                        "stream": "enfo",
+                                        "type": "pf",
+                                        "number": [1, 2, 3],
+                                        "timespan": "none",
+                                    },
+                                ]
+                            },
+                            "clim": {"request": {"type": "cd"}},
+                        },
+                    },
+                },
+                "outputs": {
+                    "default": {"metadata": {"stream": "enfo"}},
+                },
+            },
+            [
+                {
+                    **BASE_OUTPUT,
+                    "stream": "enfo",
+                    "type": "efi",
+                    "step": [36],
+                    "timespan": "24h",
+                },
+                {
+                    **BASE_OUTPUT,
+                    "stream": "enfo",
+                    "type": "efic",
+                    "step": [36],
+                    "timespan": "24h",
+                },
+                {
+                    **BASE_OUTPUT,
+                    "stream": "enfo",
+                    "type": "sot",
+                    "number": [10, 90],
+                    "step": [36],
+                    "timespan": "24h",
+                },
+            ],
+        ],
     ],
-    ids=["mult-accum", "no-sot", "diff-target", "subseasonal"],
+    ids=["mult-accum", "no-sot", "diff-target", "subseasonal", "timespan"],
 )
 def test_outputs(overrides, expected):
     base_config = {
