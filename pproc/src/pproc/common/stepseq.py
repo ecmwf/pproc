@@ -94,7 +94,4 @@ def steprange_to_timespan(step: int | str, original_timespan: str) -> tuple[int,
     if len(steps) == 1:
         return steps[0], original_timespan
     start, end = steps
-    timespan = f"{end - start}h"
-    if original_timespan == "fs" and start == 0:
-        timespan = original_timespan
-    return end, timespan
+    return end, f"{end - start}h"
