@@ -123,9 +123,6 @@ def compute_probabilities(
 
     edition = out_keys.get("edition", template["edition"])
 
-    # TODO: add safeguard: if quantile boundaries are too close to each other
-    # (e.g. 10**-10), output an uniform distribution
-
     fc = fc.reshape((-1, fc.shape[-1]))
     for d, qbounds in bounds.items():
         assert (
