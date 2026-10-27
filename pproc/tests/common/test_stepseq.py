@@ -89,7 +89,7 @@ def test_timespan_to_steprange(step, timespan, expected_steprange):
     [
         [12, "fs", 12, "fs"],
         [12, "none", 12, "none"],
-        ["0-12", "fs", 12, "fs"],
+        ["0-12", "fs", 12, "12h"],
         ["0-24", "none", 24, "24h"],
         ["6-12", "2h", 12, "6h"],
     ],
