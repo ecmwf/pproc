@@ -9,49 +9,27 @@
 
 """Compute CAPE and CIN from pressure-level and surface data.
 
-Wraps :func:`earthkit.meteo.thermo.cape_cin` with configurable
-parcel type (``"mu"`` for most-unstable, ``"ml"`` for mixed-layer)
-and optional layer depth.  Until the function is available in
-earthkit-meteo, a dummy implementation is used for testing.
+Dispatches to the earthkit-meteo CAPE/CIN functions according to the
+parcel type: ``"surface"`` (:func:`earthkit.meteo.thermo.surface_cape_cin`),
+``"mixed"`` (:func:`earthkit.meteo.thermo.mixed_layer_cape_cin`) or
+``"mu"`` (:func:`earthkit.meteo.thermo.most_unstable_cape_cin`).
 """
 
-from typing import Tuple
+from typing import Any, Callable, Tuple
 
 import numpy as np
+from earthkit.meteo.thermo import (
+    mixed_layer_cape_cin,
+    most_unstable_cape_cin,
+    surface_cape_cin,
+)
 from numpy.typing import ArrayLike
 
-
-def _dummy_cape_cin(
-    p: ArrayLike,
-    zh: ArrayLike,
-    t: ArrayLike,
-    q: ArrayLike,
-    p_sfc: ArrayLike,
-    zh_sfc: ArrayLike,
-    t_sfc: ArrayLike,
-    q_sfc: ArrayLike,
-    parcel_type: str,
-    layer_depth: float | None = None,
-    extra_outputs: list | None = None,
-    vertical_axis: int = 0,
-    ept_method: str = "bolton43",
-    lcl_method: str = "davies",
-) -> Tuple[ArrayLike, ArrayLike]:
-    """Dummy cape_cin returning zero arrays.  Used for testing until
-    :func:`earthkit.meteo.thermo.cape_cin` is released."""
-    horiz_shape = p.shape[1:] if vertical_axis == 0 else p.shape[:-1]
-    cape = np.zeros(horiz_shape, dtype=np.float64)
-    cin = np.zeros(horiz_shape, dtype=np.float64)
-    return cape, cin
-
-
-def _get_cape_cin_func():
-    """Return the real cape_cin if available, else the dummy."""
-    try:
-        from earthkit.meteo.thermo import cape_cin
-        return cape_cin
-    except ImportError:
-        return _dummy_cape_cin
+CAPE_CIN_FUNCTIONS: dict[str, Callable[..., Tuple[np.ndarray, np.ndarray]]] = {
+    "surface": surface_cape_cin,
+    "mixed": mixed_layer_cape_cin,
+    "mu": most_unstable_cape_cin,
+}
 
 
 def compute_cape_cin(
@@ -64,8 +42,8 @@ def compute_cape_cin(
     zh_sfc: ArrayLike,
     p_sfc: ArrayLike,
     parcel_type: str = "mu",
-    layer_depth: float | None = None,
-) -> Tuple[ArrayLike, ArrayLike]:
+    **options: Any,
+) -> Tuple[np.ndarray, np.ndarray]:
     """Compute CAPE and CIN on pressure levels.
 
     Parameters
@@ -91,17 +69,29 @@ def compute_cape_cin(
         Parcel type for the CAPE/CIN computation.  ``"mu"`` for
         most-unstable, ``"mixed"`` for mixed-layer, ``"surface"``
         for surface parcel.
-    layer_depth : float or None
-        Depth of the layer in Pa (e.g. 5000.0 for 50 hPa).
-        Used by ``"mixed"`` and ``"mu"`` parcel types.
+    **options
+        Parcel-specific keyword arguments forwarded to the earthkit-meteo
+        function, e.g. ``layer_depth`` (Pa) for ``"mixed"``, or
+        ``exclude_surface_layer`` and ``max_search_height`` (m) for ``"mu"``.
 
     Returns
     -------
-    cape : array-like
+    cape : np.ndarray
         CAPE (J/kg), shape ``(n_points,)``.
-    cin : array-like
+    cin : np.ndarray
         CIN (J/kg), shape ``(n_points,)``.
+
+    Raises
+    ------
+    ValueError
+        If ``parcel_type`` is not supported.
     """
+    if parcel_type not in CAPE_CIN_FUNCTIONS:
+        raise ValueError(
+            f"Unsupported parcel_type '{parcel_type}', "
+            f"expected one of {list(CAPE_CIN_FUNCTIONS)}"
+        )
+
     t = np.asarray(t, dtype=np.float64)
     q = np.asarray(q, dtype=np.float64)
     zh = np.asarray(zh, dtype=np.float64)
@@ -110,29 +100,10 @@ def compute_cape_cin(
     zh_sfc = np.asarray(zh_sfc, dtype=np.float64)
     p_sfc = np.asarray(p_sfc, dtype=np.float64)
 
-    n_levels = t.shape[0]
-    n_points = t.shape[1] if t.ndim > 1 else 1
-
-    # Build pressure array: broadcast level list (hPa → Pa) to field shape
+    # Broadcast level list (hPa → Pa) to the profile shape
     p_pa = np.array(p_levels_hpa, dtype=np.float64) * 100.0
-    p = np.broadcast_to(p_pa[:, np.newaxis], (n_levels, n_points))
+    p = np.broadcast_to(p_pa.reshape((-1,) + (1,) * (t.ndim - 1)), t.shape)
 
-    cape_cin_func = _get_cape_cin_func()
-
-    kwargs = dict(
-        p=p,
-        zh=zh,
-        t=t,
-        q=q,
-        p_sfc=p_sfc,
-        zh_sfc=zh_sfc,
-        t_sfc=t_sfc,
-        q_sfc=q_sfc,
-        parcel_type=parcel_type,
-        vertical_axis=0,
+    return CAPE_CIN_FUNCTIONS[parcel_type](
+        p, t, q, zh, p_sfc, t_sfc, q_sfc, zh_sfc, vertical_axis=0, **options
     )
-    if layer_depth is not None:
-        kwargs["layer_depth"] = layer_depth
-
-    cape, cin = cape_cin_func(**kwargs)
-    return cape, cin

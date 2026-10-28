@@ -112,8 +112,7 @@ def cape_iteration(
                     q_sfc=q_sfc_vals,
                     zh_sfc=zh_sfc_vals,
                     p_sfc=p_sfc_vals,
-                    parcel_type=product.parcel_type,
-                    layer_depth=product.layer_depth,
+                    **product.parcel_options(),
                 )
 
                 out_cape = getattr(config.outputs, product.cape_output)
