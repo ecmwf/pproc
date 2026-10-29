@@ -1,0 +1,191 @@
+# Copyright 2024 ECMWF.
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
+from typing import Optional, Iterator
+from dataclasses import dataclass
+import numpy as np
+import logging
+
+from earthkit.workflows.fluent import merge
+from earthkit.workflows.nodetree import nodetree_dimensions
+from earthkit.workflows.plugins.pproc.fluent import (
+    Action,
+    from_source,
+    path_from_request,
+)
+from earthkit.workflows.plugins.pproc.utils.request import Request
+
+from ppcore.utils.mars import extract_mars
+from ppcore.configs.product.ensemble import Config
+from ppcore.products.base import Product
+
+
+logger = logging.Logger(__name__)
+
+
+@dataclass
+class Ensemble(Product):
+    config: Config
+    preprocessing_dim: str = "param"
+    ensemble_dim: str = "number"
+
+    def source(self, ensemble_dim: Optional[str] = None) -> Action:
+        input_config = self.config.inputs.fc
+        ensemble_dim = ensemble_dim or self.ensemble_dim
+        expand_dims = {
+            ensemble_dim,
+            self.preprocessing_dim,
+            "step",
+            *self.config.accumulations.keys(),
+        }
+
+        if len(input_config.sources) == 0:
+            raise ValueError("No sources provided for ensemble config")
+        actions = []
+        for req_dict in [
+            dict(x, **self.input_overrides) for x in input_config.requests
+        ]:
+            req = Request(
+                {
+                    k: [val] if np.ndim(val) == 0 and k in expand_dims else val
+                    for k, val in req_dict.items()
+                },
+                no_expand=("number", *input_config.expand_exclude),
+            )
+            new_action = from_source(
+                input_config.sources,
+                [req],
+                input_config.dtype,
+            )
+            new_action = new_action.set_path(path_from_request(req_dict))
+            if "number" in req_dict:
+                new_action = new_action.expand(
+                    "number",
+                    ("number", req["number"]),
+                    backend_kwargs={"method": "sel"},
+                )
+            else:
+                new_action._add_dimension("number", 0)
+            actions.append(new_action)
+        action = merge(*actions)
+        return action
+
+    def action(
+        self,
+        forecast: Optional[Action] = None,
+        preprocessing_dim: Optional[str] = None,
+        ensemble_dim: Optional[str] = None,
+        final_dims: Optional[set[str]] = None,
+    ) -> Action:
+        ens_dim = ensemble_dim or self.ensemble_dim
+        preprocess_dim = preprocessing_dim or self.preprocessing_dim
+        if forecast:
+            logger.debug(f"Forecast {forecast.nodes}")
+            actions = []
+            is_ensemble = ens_dim in nodetree_dimensions(forecast.nodes)
+            for req in self.config.inputs.fc.requests:
+                if is_ensemble:
+                    req.setdefault(ens_dim, [0])
+                selected = forecast.sel(req)
+                selected = selected.set_path(path_from_request(req))
+                for dim in [
+                    ens_dim,
+                    preprocess_dim,
+                    "step",
+                    *self.config.accumulations.keys(),
+                ]:
+                    if dim in req and np.size(req[dim]) == 1:
+                        selected.set_scalar_coords(
+                            {dim: np.atleast_1d(req[dim])[0]},
+                            override=True,
+                            make_dim=True,
+                        )
+                actions.append(selected)
+            ret = merge(*actions)
+        else:
+            ret = self.source(ensemble_dim=ensemble_dim)
+        for preprocessing in self.config.preprocessing.actions:
+            ret = ret.preprocessing(
+                dim=preprocess_dim,
+                **preprocessing.model_dump(),
+            )
+        for dim, accumulation in self.config.accumulations.items():
+            ret = ret.accumulation(
+                dim=dim,
+                **accumulation.create_action(),
+            )
+        if self.config.statistics is not None:
+            ret = ret.ensemble_statistics(
+                dim=ens_dim,
+                **self.config.statistics.model_dump(),
+            )
+
+        if len(self.config.output.targets) > 0:
+            output_config = self.config.output.model_dump()
+            out_metadata = output_config["metadata"].copy()
+            out_metadata.update(self.output_overrides)
+            ret = ret.write(output_config["targets"], metadata=out_metadata)
+
+        final_dims = final_dims or []
+        if preprocess_dim in final_dims:
+            # Stream is uniquely determined by parameter
+            final_dims.discard("stream")
+        if ens_dim in final_dims:
+            # Stream/type of member is determined by ensemble number
+            final_dims.discard("type")
+            final_dims.discard("stream")
+        ret.set_scalar_coords(
+            {k: v for k, v in self.config.output.request.items() if k in final_dims},
+            override=True,
+            make_dim=True,
+        )
+        ret.set_scalar_coords(
+            {
+                k: v
+                for k, v in self.config.output.request.items()
+                if k not in final_dims
+            },
+            override=True,
+        )
+        return ret.set_path(path_from_request(self.config.output.request))
+
+    def in_mars(self, sources: Optional[list[str]] = None) -> Iterator[dict]:
+        if self.config.inputs is None:
+            return
+        inputs = self.config.inputs.fc
+        if not sources or set.intersection(
+            set(sources), set(x.name for x in inputs.sources)
+        ):
+            source = inputs.sources[0]
+            for input in inputs.requests:
+                overridden = input.copy()
+                overridden = extract_mars(overridden)
+                if source.name == "file":
+                    overridden["source"] = source.path
+                elif source.name == "file-pattern":
+                    overridden["source"] = source.pattern
+                else:
+                    overridden["source"] = source.name
+                overridden.update(self.input_overrides)
+                yield overridden
+
+    def out_mars(self, targets: Optional[list[str]] = None) -> Iterator[dict]:
+        output = self.config.output
+        if output is None:
+            return
+        if not targets or set.intersection(
+            set(targets), set(x.name for x in output.targets)
+        ):
+            target = output.targets[0]
+            overridden = output.request.copy()
+            overridden = extract_mars(overridden)
+            if target.name == "file":
+                overridden["target"] = target.file
+            elif target.name == "file-pattern":
+                overridden["target"] = target.file
+            else:
+                overridden["target"] = target.name
+            overridden.update(self.output_overrides)
+            yield overridden

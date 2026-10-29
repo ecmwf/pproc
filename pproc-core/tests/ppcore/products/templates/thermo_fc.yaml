@@ -1,0 +1,22 @@
+- class: od
+  stream: oper
+  type: fc
+  levtype: sfc
+  domain: g
+  param: [261002, 261001, 260004, 260005, 260255, 260242, 261016, 261018, 261015, 261014, 261023]
+  date: "20230914"
+  time: 12
+  expver: "0001"
+  step: [1, 2]
+  sources: "fdb:"
+- class: od
+  stream: oper
+  type: fc
+  levtype: sfc
+  domain: g
+  param: [260242, 261023, 261018, 260255, 260004, 260005, 261016]
+  date: "20230914"
+  time: 12
+  expver: "0001"
+  step: 0
+  sources: "fdb:"
