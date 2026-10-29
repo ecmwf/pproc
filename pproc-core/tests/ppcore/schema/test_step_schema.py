@@ -1,0 +1,128 @@
+# SPDX-FileCopyrightText: 2026 European Centre for Medium-Range Weather Forecasts (ECMWF)
+#
+# SPDX-License-Identifier: Apache-2.0
+
+import pytest
+from conftest import schema
+
+from ppcore.schema.exceptions import PProcStepSchemaError
+from ppcore.schema.step import StepSchema
+from ppcore.schema.step import StepType
+from ppcore.schema.forecast import DatasetDefinitions, definition_to_dataset
+
+
+@pytest.mark.parametrize(
+    "config, steps, expected",
+    [
+        [{"type": "instantaneous"}, [0, 1, 2], [0, 1, 2]],
+        [{"type": "instantaneous", "deaccumulate": True}, [0, 1, 2], [1, 2]],
+        [{"type": "instantaneous", "start": 1, "end": 2}, [0, 1, 2, 3], [1, 2]],
+        [{"type": "instantaneous", "interval": 2}, [0, 1, 2, 3, 4], [0, 2, 4]],
+        [{"type": "instantaneous", "start": 3, "end": 6}, [0, 1, 2], []],
+        [
+            {"type": "range", "interval": 3, "width": 6},
+            list(range(0, 10)),
+            ["0-6", "3-9"],
+        ],
+        [
+            {"type": "range", "interval": 1, "width": 1},
+            list(range(0, 5)),
+            ["0-1", "1-2", "2-3", "3-4"],
+        ],
+        [
+            {"type": "range", "start": 2, "end": 8, "interval": 2, "width": 2},
+            list(range(0, 7)),
+            ["2-4", "4-6"],
+        ],
+        [
+            {"type": "range", "start": 12, "end": 24, "interval": 2, "width": 4},
+            list(range(0, 10)),
+            [],
+        ],
+        [{"type": "monthly", "date": "20240601"}, list(range(0, 800)), [1]],
+        [{"type": "monthly", "date": "20240601"}, list(range(0, 500)), []],
+        [{"type": "monthly", "date": "20240601"}, [0], []],
+    ],
+)
+def test_step_type(config, steps, expected):
+    step_type = StepType(**config).root
+    assert step_type.generate_steps(steps) == expected
+
+
+@pytest.mark.parametrize(
+    "out, dataset, expected, in_steps",
+    [
+        [
+            {"stream": "enfo", "type": "em", "param": "167", "time": "0000"},
+            "enfo",
+            list(range(0, 145, 3)) + list(range(150, 361, 6)),
+            None,
+        ],
+        [
+            {"stream": "enfo", "type": "em", "param": "167", "time": "0000"},
+            "enfo",
+            list(range(0, 361, 12)),
+            list(range(0, 361, 12)),
+        ],
+        [
+            {"stream": "enfo", "type": "cf", "param": "261001", "time": "0000"},
+            "enfo",
+            list(range(1, 91)) + list(range(93, 145, 3)) + list(range(150, 361, 6)),
+            None,
+        ],
+        [
+            {"stream": "eefo", "type": "fcmean", "param": "167", "time": "0000"},
+            "eefo",
+            [f"{x}-{x+168}" for x in list(range(0, 1104 - 168 + 1, 24))],
+            None,
+        ],
+        [
+            {
+                "stream": "msmm",
+                "type": "fcmean",
+                "param": "167",
+                "date": "20241001",
+                "time": "0000",
+            },
+            "seasonal",
+            list(range(1, 8)),
+            None,
+        ],
+        [
+            {"stream": "enfo", "type": "ep", "param": "131064", "time": "0000"},
+            "enfo",
+            ["120-240", "240-360", "120-168", "168-240"],
+            None,
+        ],
+        [
+            {"stream": "oper", "type": "fc", "param": "207", "time": "0000"},
+            "enfo",
+            list(range(1, 91)),
+            list(range(1, 91)),
+        ],
+    ],
+    ids=[
+        "ensms_default",
+        "ensms_insteps",
+        "deaccumulate",
+        "weekly",
+        "monthly",
+        "prob",
+        "fc",
+    ],
+)
+def test_out_steps(out, dataset, expected, in_steps):
+    datasets = DatasetDefinitions(definitions=schema("datasets"))
+    test_schema = StepSchema(schema("windows"))
+    if in_steps is None:
+        in_steps = definition_to_dataset(datasets.definition(dataset)).steps(out)
+    _, out_steps = test_schema.out_steps(out, in_steps)
+    assert out_steps == expected
+
+
+def test_exception():
+    step_schema = StepSchema(schema("windows"))
+    with pytest.raises(PProcStepSchemaError, match="type=ep,stream=enfo"):
+        step_schema.traverse(
+            {"type": "ep", "stream": "enfo", "param": "unknown", "time": "0000"}
+        )

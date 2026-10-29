@@ -1,0 +1,139 @@
+# (C) Copyright 2021- ECMWF.
+#
+# This software is licensed under the terms of the Apache Licence Version 2.0
+# which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# In applying this licence, ECMWF does not waive the privileges and immunities
+# granted to it by virtue of its status as an intergovernmental organisation
+# nor does it submit to any jurisdiction.
+
+import functools
+import sys
+import signal
+
+import eccodes
+import numpy as np
+from meters import ResourceMeter
+from conflator import Conflator
+
+from pproc.common.accumulation import Accumulator
+from pproc.common.accumulation_manager import AccumulationManager
+from pproc.common.io import write_grib
+from pproc.common.parallel import (
+    create_executor,
+    parallel_data_retrieval,
+    sigterm_handler,
+)
+from pproc.common.param_requester import ParamRequester
+from pproc.config.types import AnomalyConfig, ClimParamConfig
+from pproc.signi.clim import retrieve_clim
+
+
+def anomaly_iteration(
+    config: AnomalyConfig,
+    param: ClimParamConfig,
+    template: eccodes.GRIBMessage,
+    window_id: str,
+    accum: Accumulator,
+):
+
+    with ResourceMeter(f"{param.name}, window {window_id}: Retrieve climatology"):
+
+        if "stepRange" in accum.grib_keys():
+            steprange = accum.grib_keys()["stepRange"]
+        else:
+            steprange = template.get("stepRange")
+
+        additional_dims = {"step": steprange}
+        if template.get("levtype") == "pl":
+            additional_dims["levelist"] = template.get("level")
+        clim_accum, _ = retrieve_clim(
+            param.clim,
+            config.inputs,
+            "clim",
+            **additional_dims,
+        )
+        clim = clim_accum.values
+        assert clim is not None
+
+    with ResourceMeter(f"{param.name}, window {window_id}: Compute anomaly"):
+        ens = accum.values
+        assert ens is not None
+
+        accum_keys = clim_accum.grib_keys() | accum.grib_keys()
+
+        # Anomaly for each ensemble member
+        for index, member in enumerate(ens):
+            anom = member - clim[0]
+            write_grib(
+                config.outputs.ens.target,
+                template,
+                anom,
+                {
+                    **accum_keys,
+                    **config.outputs.ens.metadata,
+                    "number": index,
+                },
+            )
+
+        # Anomaly for ensemble mean
+        ensm_anom = np.mean(ens, axis=0) - clim[0]
+        write_grib(
+            config.outputs.ensm.target,
+            template,
+            ensm_anom,
+            {
+                **accum_keys,
+                **config.outputs.ensm.metadata,
+            },
+        )
+
+    config.outputs.ens.target.flush()
+    config.outputs.ensm.target.flush()
+    config.recovery.add_checkpoint(param=param.name, window=window_id)
+
+
+def main():
+    sys.stdout.reconfigure(line_buffering=True)
+    signal.signal(signal.SIGTERM, sigterm_handler)
+
+    cfg = Conflator(app_name="pproc-anomaly", model=AnomalyConfig).load()
+    cfg.initialise()
+    cfg.print()
+
+    with create_executor(cfg.parallelisation) as executor:
+        for param in cfg.parameters:
+            print(f"Processing {param.name}")
+            accum_manager = AccumulationManager.create(
+                param.accumulations,
+                {
+                    **cfg.outputs.default.metadata,
+                    **param.metadata,
+                },
+            )
+            checkpointed_windows = [
+                x["window"] for x in cfg.recovery.computed(param=param.name)
+            ]
+            accum_manager.delete(checkpointed_windows)
+
+            requester = ParamRequester(param, cfg.inputs, param.total_fields, "fc")
+            anom_partial = functools.partial(anomaly_iteration, cfg, param)
+            for keys, data in parallel_data_retrieval(
+                cfg.parallelisation.n_par_read,
+                accum_manager.dims,
+                [requester],
+            ):
+                ids = ", ".join(f"{k}={v}" for k, v in keys.items())
+                metadata, ens = data[0]
+                with ResourceMeter(f"{param.name}, {ids}: Compute accumulation"):
+                    completed_windows = accum_manager.feed(keys, ens)
+                    del ens
+                for window_id, accum in completed_windows:
+                    executor.submit(anom_partial, metadata[0], window_id, accum)
+            executor.wait()
+
+    cfg.clean()
+
+
+if __name__ == "__main__":
+    sys.exit(main())
