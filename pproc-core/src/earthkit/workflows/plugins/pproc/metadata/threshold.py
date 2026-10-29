@@ -90,8 +90,8 @@ def threshold_metadata(
             "probabilityType": 2,
             "scaleFactorOfUpperLimit": threshold.upper_scale_factor,
             "scaledValueOfUpperLimit": round(
-                threshold.upper_value * 10**threshold.upper_scale_factor,
-                0,  # type: ignore
+                threshold.upper_value * 10**threshold.upper_scale_factor, # type: ignore
+                0,  
             ),
         }
     )

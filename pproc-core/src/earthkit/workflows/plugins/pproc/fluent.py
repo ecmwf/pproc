@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import inspect
-from typing import Optional, Union, Any
+from typing import Optional, Union, Any, cast
 from pydantic import TypeAdapter
 import logging
 
@@ -45,94 +45,72 @@ ENVIRONMENT = {
 logger = logging.getLogger(__name__)
 
 
+def metadata_decorator(func):
+    def wrapper(*args, metadata: dict | None = None, **kwargs):
+        if metadata is not None:
+            kwargs["backend_kwargs"] = {"metadata": metadata}
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
 class Action(fluent.Action):
-    def sum(
-        self,
-        dim: str = "",
-        batch_size: int = 0,
-        keep_dim: bool = False,
-        metadata: dict | None = None,
-    ) -> Action:
-        return super().sum(
-            dim=dim,
-            batch_size=batch_size,
-            keep_dim=keep_dim,
-            backend_kwargs={"metadata": metadata},
-        )  # type: ignore
+    @metadata_decorator
+    def sum(self, *args, **kwargs) -> Action:
+        return cast(Action, super().sum(*args, **kwargs))
 
-    def mean(
-        self,
-        dim: str = "",
-        batch_size: int = 0,
-        keep_dim: bool = False,
-        metadata: dict | None = None,
-    ) -> Action:
-        return super().mean(
-            dim=dim,
-            batch_size=batch_size,
-            keep_dim=keep_dim,
-            backend_kwargs={"metadata": metadata},
-        )  # type: ignore
+    @metadata_decorator
+    def mean(self, *args, **kwargs) -> Action:
+        return cast(Action, super().mean(*args, **kwargs))
 
-    def std(
-        self,
-        dim: str = "",
-        batch_size: int = 0,
-        keep_dim: bool = False,
-        metadata: dict | None = None,
-    ) -> Action:
-        return super().std(
-            dim=dim,
-            batch_size=batch_size,
-            keep_dim=keep_dim,
-            backend_kwargs={"metadata": metadata},
-        )  # type: ignore
+    @metadata_decorator
+    def std(self, *args, **kwargs) -> Action:
+        return cast(Action, super().std(*args, **kwargs))
 
-    def max(
-        self,
-        dim: str = "",
-        batch_size: int = 0,
-        keep_dim: bool = False,
-        metadata: dict | None = None,
-    ) -> Action:
-        return super().max(
-            dim=dim,
-            batch_size=batch_size,
-            keep_dim=keep_dim,
-            backend_kwargs={"metadata": metadata},
-        )  # type: ignore
+    @metadata_decorator
+    def max(self, *args, **kwargs) -> Action:
+        return cast(Action, super().max(*args, **kwargs))
 
-    maximum = max
+    @metadata_decorator
+    def min(self, *args, **kwargs) -> Action:
+        return cast(Action, super().min(*args, **kwargs))
 
-    def min(
-        self,
-        dim: str = "",
-        batch_size: int = 0,
-        keep_dim: bool = False,
-        metadata: dict | None = None,
-    ) -> Action:
-        return super().min(
-            dim=dim,
-            batch_size=batch_size,
-            keep_dim=keep_dim,
-            backend_kwargs={"metadata": metadata},
-        )  # type: ignore
+    @metadata_decorator
+    def prod(self, *args, **kwargs) -> Action:
+        return cast(Action, super().prod(*args, **kwargs))
 
-    minimum = min
+    @metadata_decorator
+    def maximum(self, *args, **kwargs) -> Action:
+        return cast(Action, super().max(*args, **kwargs))
 
-    def prod(
-        self,
-        dim: str = "",
-        batch_size: int = 0,
-        keep_dim: bool = False,
-        metadata: dict | None = None,
-    ) -> Action:
-        return super().prod(
-            dim=dim,
-            batch_size=batch_size,
-            keep_dim=keep_dim,
-            backend_kwargs={"metadata": metadata},
-        )  # type: ignore
+    @metadata_decorator
+    def minimum(self, *args, **kwargs) -> Action:
+        return cast(Action, super().min(*args, **kwargs))
+
+    @metadata_decorator
+    def subtract(self, *args, **kwargs) -> Action:
+        return cast(Action, super().subtract(*args, **kwargs))
+
+    @metadata_decorator
+    def divide(self, *args, **kwargs) -> Action:
+        return cast(Action, super().divide(*args, **kwargs))
+
+    @metadata_decorator
+    def add(self, *args, **kwargs) -> Action:
+        return cast(Action, super().add(*args, **kwargs))
+
+    @metadata_decorator
+    def multiply(self, *args, **kwargs) -> Action:
+        return cast(Action, super().multiply(*args, **kwargs))
+
+    @metadata_decorator
+    def power(self, *args, **kwargs) -> Action:
+        return cast(Action, super().power(*args, **kwargs))
+
+    def scale(self, value: float, metadata: dict | None = None) -> Action:
+        return cast(
+            Action, super().multiply(value, backend_kwargs={"metadata": metadata})
+        )
 
     def norm(
         self,
@@ -150,32 +128,6 @@ class Action(fluent.Action):
             batch_size=batch_size,
             keep_dim=keep_dim,
         )  # type: ignore
-
-    def subtract(
-        self, other: Union[Action, float], metadata: dict | None = None
-    ) -> Action:
-        return super().subtract(other, backend_kwargs={"metadata": metadata})  # type: ignore
-
-    def divide(
-        self, other: Union[Action, float], metadata: dict | None = None
-    ) -> Action:
-        return super().divide(other, backend_kwargs={"metadata": metadata})
-
-    def add(self, other: Union[Action, float], metadata: dict | None = None) -> Action:
-        return super().add(other, backend_kwargs={"metadata": metadata})  # type: ignore
-
-    def multiply(
-        self, other: Union[Action, float], metadata: dict | None = None
-    ) -> Action:
-        return super().multiply(other, backend_kwargs={"metadata": metadata})  # type: ignore
-
-    def scale(self, value: float, metadata: dict | None = None) -> Action:
-        return super().multiply(value, backend_kwargs={"metadata": metadata})  # type: ignore
-
-    def power(
-        self, other: Union[Action, float], metadata: dict | None = None
-    ) -> Action:
-        return super().power(other, backend_kwargs={"metadata": metadata})  # type: ignore
 
     def extreme(
         self,
@@ -335,10 +287,10 @@ class Action(fluent.Action):
         std_anomaly: bool = False,
         metadata: dict | None = None,
     ) -> Action:
-        anom = self.subtract(clim_mean, metadata=metadata)  # type: ignore
+        anom = self.subtract(clim_mean, metadata=metadata)
         if not std_anomaly:
             return anom
-        return anom.divide(clim_std)  # type: ignore
+        return anom.divide(clim_std)
 
     def quantiles(
         self,
@@ -764,7 +716,7 @@ def from_source(
     requests: Union[list[dict[str, Any]], list[Request], list[MultiSourceRequest]],
     dtype: Optional[str] = None,
     join_key: str = "",
-):
+) -> Action:
     all_actions = None
     for request in requests:
         if isinstance(request, dict):
@@ -794,7 +746,7 @@ def from_source(
             if len(join_key) == 0:
                 raise ValueError("Join key must be specified for multiple requests")
             all_actions = all_actions.join(new_action, join_key)
-    return all_actions
+    return cast(Action, all_actions)
 
 
 def path_from_request(request: dict, keys: list[str] = ["levtype", "param"]) -> str:
