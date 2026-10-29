@@ -870,6 +870,108 @@ class WindConfig(BaseConfig):
         return req
 
 
+class CapeProductConfig(ConfigModel):
+    """Configuration for a single CAPE/CIN product variant.
+
+    ``parcel_type`` selects the earthkit-meteo function: ``"surface"``
+    (:func:`surface_cape_cin`), ``"mixed"`` (:func:`mixed_layer_cape_cin`)
+    or ``"mu"`` (:func:`most_unstable_cape_cin`). Unset options fall back
+    to the earthkit-meteo defaults.
+    """
+
+    parcel_type: Literal["surface", "mixed", "mu"] = "mu"
+    layer_depth: float | None = None
+    exclude_surface_layer: bool | None = None
+    max_search_height: float | None = None
+    cape_output: str
+    cin_output: str
+
+    _PARCEL_OPTIONS: ClassVar[dict[str, tuple[str, ...]]] = {
+        "surface": (),
+        "mixed": ("layer_depth",),
+        "mu": ("exclude_surface_layer", "max_search_height"),
+    }
+
+    @model_validator(mode="after")
+    def validate_parcel_options(self) -> Self:
+        allowed = self._PARCEL_OPTIONS[self.parcel_type]
+        for option in ("layer_depth", "exclude_surface_layer", "max_search_height"):
+            if option not in allowed and getattr(self, option) is not None:
+                raise ValueError(
+                    f"{option} is not supported for parcel_type '{self.parcel_type}'"
+                )
+        return self
+
+    def parcel_options(self) -> dict[str, Any]:
+        """Return ``parcel_type`` and the explicitly set parcel options.
+
+        Returns
+        -------
+        dict
+            Keyword arguments for :func:`pproc.cape.compute.compute_cape_cin`.
+        """
+        options = {"parcel_type": self.parcel_type}
+        for option in self._PARCEL_OPTIONS[self.parcel_type]:
+            value = getattr(self, option)
+            if value is not None:
+                options[option] = value
+        return options
+
+
+class CapeConfig(BaseConfig):
+    parallelisation: int = 1
+    inputs: io.CapeInputModel
+    outputs: io.CapeOutputModel = io.CapeOutputModel()
+    parameters: list[ParamConfig]
+    pressure_levels: list[int]
+    model: str = "aifs"
+    cape_products: list[CapeProductConfig] = [
+        CapeProductConfig(
+            parcel_type="mu",
+            cape_output="mucape",
+            cin_output="mucin",
+        ),
+    ]
+
+    @model_validator(mode="after")
+    def validate_split_params(self) -> Self:
+        for param in self.parameters:
+            param.split_params = False
+        return self
+
+    @model_validator(mode="after")
+    def validate_pressure_levels(self) -> Self:
+        pl_request = self.inputs.pl.request
+        if isinstance(pl_request, list):
+            pl_request = pl_request[0]
+        levelist = pl_request.get("levelist", None)
+        if levelist is not None:
+            if set(self.pressure_levels) != set(
+                levelist if isinstance(levelist, list) else [levelist]
+            ):
+                raise ValueError(
+                    f"pressure_levels {self.pressure_levels} must match "
+                    f"levelist {levelist} in pl input request"
+                )
+        return self
+
+    @model_validator(mode="after")
+    def validate_cape_product_outputs(self) -> Self:
+        output_names = set(self.outputs.names)
+        for product in self.cape_products:
+            if product.cape_output not in output_names:
+                raise ValueError(
+                    f"cape_output '{product.cape_output}' not in outputs: "
+                    f"{output_names}"
+                )
+            if product.cin_output not in output_names:
+                raise ValueError(
+                    f"cin_output '{product.cin_output}' not in outputs: "
+                    f"{output_names}"
+                )
+        return self
+
+
 class ThermoParamConfig(ParamConfig):
     out_params: list[str | int]
 

@@ -71,6 +71,7 @@ def download_all_test_data():
             "cluster.grib",
             "has_missing.grib",
             "thermo.grib",
+            "cape.grib",
         ],
         NEXUS, 
         DATA_DIR,
@@ -107,6 +108,7 @@ spaces:
         "cluster.grib",
         "has_missing.grib",
         "thermo.grib",
+        "cape.grib",
     ]:
         filepath = os.path.join(DATA_DIR, filename)
         if os.path.isfile(filepath):
