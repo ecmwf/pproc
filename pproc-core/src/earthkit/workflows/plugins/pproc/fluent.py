@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 def metadata_decorator(func):
     def wrapper(*args, metadata: dict | None = None, **kwargs):
         if metadata is not None:
-            kwargs["backend_kwargs"] = {"metadata": metadata}
+            kwargs.setdefault("backend_kwargs", {})["metadata"] = metadata
         return func(*args, **kwargs)
 
     return wrapper
