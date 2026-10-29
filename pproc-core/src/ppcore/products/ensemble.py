@@ -144,7 +144,7 @@ class Ensemble(Product):
             {
                 k: v
                 for k, v in self.config.output.request.items()
-                if str(k) not in final_dims
+                if k not in final_dims
             },
             override=True,
         )
