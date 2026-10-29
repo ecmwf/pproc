@@ -227,7 +227,6 @@ class Forecast(Dataset):
 
         if isinstance(number, int):
             number = [number]
-        number: list[int] = number
         number_axes = sorted(qube.axes()["number"])
         start = bisect.bisect_left(number, number_axes[0])
         end = bisect.bisect_right(number, number_axes[-1])

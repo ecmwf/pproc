@@ -44,7 +44,7 @@ class BaseAccumulation(PProcBaseModel):
             return [values]
         return values
 
-    def create_action(self) -> dict:
+    def action_kwargs(self) -> dict:
         return {
             "operation": self.payload,
             "coords": self.coords,
@@ -113,7 +113,7 @@ class DifferenceRateAccumulation(BaseAccumulation):
             )
         return coords
 
-    def create_action(self) -> dict:
+    def action_kwargs(self) -> dict:
         return {
             "operation": create_task_instance(
                 self.payload,

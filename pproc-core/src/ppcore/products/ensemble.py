@@ -113,7 +113,7 @@ class Ensemble(Product):
         for dim, accumulation in self.config.accumulations.items():
             ret = ret.accumulation(
                 dim=dim,
-                **accumulation.create_action(),
+                **accumulation.action_kwargs(),
             )
         if self.config.statistics is not None:
             ret = ret.ensemble_statistics(

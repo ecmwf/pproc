@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
-import inspect
 from typing import Optional, Union, Any, cast
 from pydantic import TypeAdapter
 import logging
@@ -328,10 +327,9 @@ class Action(fluent.Action):
         ret = self.concatenate(dim).transform(_quantiles_transform, params, new_dim)
         return ret  # type: ignore
 
-    def _wrapped_reduction(
+    def _resolve_operation(
         self,
         operation: fluent.Payload | None,
-        dim: str,
         **kwargs,
     ) -> Action:
         if operation is None:
@@ -340,23 +338,14 @@ class Action(fluent.Action):
         if isinstance(operation, str):
             # operation is fluent method
             if hasattr(self, operation):
-                op = getattr(self, operation)
-                sig = inspect.signature(op)
-                args = [
-                    p.name
-                    for p in sig.parameters.values()
-                    if p.kind == p.POSITIONAL_OR_KEYWORD
-                ]
-                if "dim" in args:
-                    kwargs["dim"] = dim
-                return op(**kwargs)
+                return getattr(self, operation)(**kwargs)
             # operation is TaskInstance
             op_function = getattr(FieldListBackend, operation, None) or operation
             operation = fluent.create_task_instance(
                 op_function,
             )
         # Fallback on applying reduction operation during payload
-        return self.reduce(operation, dim=dim, **kwargs)  # type: ignore
+        return self.reduce(operation, **kwargs)  # type: ignore
 
     def preprocessing(
         self,
@@ -376,7 +365,7 @@ class Action(fluent.Action):
         ------
         Action
         """
-        return self._wrapped_reduction(operation, dim, **kwargs)
+        return self._resolve_operation(operation, dim=dim, **kwargs)
 
     def thermal_index(
         self,
@@ -532,7 +521,7 @@ class Action(fluent.Action):
             break
 
         kwargs.setdefault("metadata", {}).update(stat_metadata)
-        return self._wrapped_reduction(operation, dim, **kwargs)
+        return self._resolve_operation(operation, dim=dim, **kwargs)
 
     def accumulation(
         self,
@@ -700,7 +689,7 @@ def _accum_transform(
             operation.static_input_kw.setdefault("metadata", {}).update(accum_metadata)
         else:
             kwargs["metadata"] = accum_metadata
-        accum_action = accum_action._wrapped_reduction(
+        accum_action = accum_action._resolve_operation(
             operation,
             dim=dim,
             **kwargs,
