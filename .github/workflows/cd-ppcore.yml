@@ -28,7 +28,7 @@ jobs:
         with:
           ref: ${{ inputs.tag }}
 
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@v10
       - name: Run checks and tests
         run: |
           cd pproc-core
