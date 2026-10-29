@@ -3,8 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
-import inspect
-from typing import Optional, Union, Any
+from typing import Optional, Union, Any, cast
 from pydantic import TypeAdapter
 import logging
 
@@ -45,93 +44,71 @@ ENVIRONMENT = {
 logger = logging.getLogger(__name__)
 
 
+def metadata_decorator(func):
+    def wrapper(*args, metadata: dict | None = None, **kwargs):
+        if metadata is not None:
+            kwargs.setdefault("backend_kwargs", {})["metadata"] = metadata
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
 class Action(fluent.Action):
-    def sum(
-        self,
-        dim: str = "",
-        batch_size: int = 0,
-        keep_dim: bool = False,
-        metadata: dict | None = None,
-    ) -> Action:
-        return super().sum(
-            dim=dim,
-            batch_size=batch_size,
-            keep_dim=keep_dim,
-            backend_kwargs={"metadata": metadata},
-        )
+    @metadata_decorator
+    def sum(self, *args, **kwargs) -> Action:
+        return cast(Action, super().sum(*args, **kwargs))
 
-    def mean(
-        self,
-        dim: str = "",
-        batch_size: int = 0,
-        keep_dim: bool = False,
-        metadata: dict | None = None,
-    ) -> Action:
-        return super().mean(
-            dim=dim,
-            batch_size=batch_size,
-            keep_dim=keep_dim,
-            backend_kwargs={"metadata": metadata},
-        )
+    @metadata_decorator
+    def mean(self, *args, **kwargs) -> Action:
+        return cast(Action, super().mean(*args, **kwargs))
 
-    def std(
-        self,
-        dim: str = "",
-        batch_size: int = 0,
-        keep_dim: bool = False,
-        metadata: dict | None = None,
-    ) -> Action:
-        return super().std(
-            dim=dim,
-            batch_size=batch_size,
-            keep_dim=keep_dim,
-            backend_kwargs={"metadata": metadata},
-        )
+    @metadata_decorator
+    def std(self, *args, **kwargs) -> Action:
+        return cast(Action, super().std(*args, **kwargs))
 
-    def max(
-        self,
-        dim: str = "",
-        batch_size: int = 0,
-        keep_dim: bool = False,
-        metadata: dict | None = None,
-    ) -> Action:
-        return super().max(
-            dim=dim,
-            batch_size=batch_size,
-            keep_dim=keep_dim,
-            backend_kwargs={"metadata": metadata},
-        )
+    @metadata_decorator
+    def max(self, *args, **kwargs) -> Action:
+        return cast(Action, super().max(*args, **kwargs))
 
-    maximum = max
+    @metadata_decorator
+    def min(self, *args, **kwargs) -> Action:
+        return cast(Action, super().min(*args, **kwargs))
 
-    def min(
-        self,
-        dim: str = "",
-        batch_size: int = 0,
-        keep_dim: bool = False,
-        metadata: dict | None = None,
-    ) -> Action:
-        return super().min(
-            dim=dim,
-            batch_size=batch_size,
-            keep_dim=keep_dim,
-            backend_kwargs={"metadata": metadata},
-        )
+    @metadata_decorator
+    def prod(self, *args, **kwargs) -> Action:
+        return cast(Action, super().prod(*args, **kwargs))
 
-    minimum = min
+    @metadata_decorator
+    def maximum(self, *args, **kwargs) -> Action:
+        return cast(Action, super().max(*args, **kwargs))
 
-    def prod(
-        self,
-        dim: str = "",
-        batch_size: int = 0,
-        keep_dim: bool = False,
-        metadata: dict | None = None,
-    ) -> Action:
-        return super().prod(
-            dim=dim,
-            batch_size=batch_size,
-            keep_dim=keep_dim,
-            backend_kwargs={"metadata": metadata},
+    @metadata_decorator
+    def minimum(self, *args, **kwargs) -> Action:
+        return cast(Action, super().min(*args, **kwargs))
+
+    @metadata_decorator
+    def subtract(self, *args, **kwargs) -> Action:
+        return cast(Action, super().subtract(*args, **kwargs))
+
+    @metadata_decorator
+    def divide(self, *args, **kwargs) -> Action:
+        return cast(Action, super().divide(*args, **kwargs))
+
+    @metadata_decorator
+    def add(self, *args, **kwargs) -> Action:
+        return cast(Action, super().add(*args, **kwargs))
+
+    @metadata_decorator
+    def multiply(self, *args, **kwargs) -> Action:
+        return cast(Action, super().multiply(*args, **kwargs))
+
+    @metadata_decorator
+    def power(self, *args, **kwargs) -> Action:
+        return cast(Action, super().power(*args, **kwargs))
+
+    def scale(self, value: float, metadata: dict | None = None) -> Action:
+        return cast(
+            Action, super().multiply(value, backend_kwargs={"metadata": metadata})
         )
 
     def norm(
@@ -149,33 +126,7 @@ class Action(fluent.Action):
             dim=dim,
             batch_size=batch_size,
             keep_dim=keep_dim,
-        )
-
-    def subtract(
-        self, other: Union[Action, float], metadata: dict | None = None
-    ) -> Action:
-        return super().subtract(other, backend_kwargs={"metadata": metadata})
-
-    def divide(
-        self, other: Union[Action, float], metadata: dict | None = None
-    ) -> Action:
-        return super().divide(other, backend_kwargs={"metadata": metadata})
-
-    def add(self, other: Union[Action, float], metadata: dict | None = None) -> Action:
-        return super().add(other, backend_kwargs={"metadata": metadata})
-
-    def multiply(
-        self, other: Union[Action, float], metadata: dict | None = None
-    ) -> Action:
-        return super().multiply(other, backend_kwargs={"metadata": metadata})
-
-    def scale(self, value: float, metadata: dict | None = None) -> Action:
-        return super().multiply(value, backend_kwargs={"metadata": metadata})
-
-    def power(
-        self, other: Union[Action, float], metadata: dict | None = None
-    ) -> Action:
-        return super().power(other, backend_kwargs={"metadata": metadata})
+        )  # type: ignore
 
     def extreme(
         self,
@@ -219,7 +170,7 @@ class Action(fluent.Action):
                 raise ValueError("Single node, but multiple step ranges")
             payload = fluent.create_task_instance(
                 "ppruntime.stats.efi",
-                static_input_ps=(fluent.Node.Index(1), fluent.Node.Index(0), eps),
+                static_input_ps=[fluent.Node.Index(1), fluent.Node.Index(0), eps],
                 static_input_kw={"metadata": metadata},
                 requirements=Requirements(environment=ENVIRONMENT["ppruntime"]),
             )
@@ -290,7 +241,7 @@ class Action(fluent.Action):
         metadata: Optional[dict] = None,
         clim_metadata: Optional[dict] = None,
     ) -> Action:
-        combined: Action = None
+        combined: Action = None  # type: ignore
         for threshold in thresholds:
             if isinstance(threshold, dict):
                 threshold = Threshold(**threshold)
@@ -298,7 +249,7 @@ class Action(fluent.Action):
             selected = selected.map(
                 fluent.create_task_instance(
                     "ppruntime.stats.mask",
-                    static_input_ps=(fluent.Node.Index(0),),
+                    static_input_ps=[fluent.Node.Index(0)],
                     static_input_kw=threshold.model_dump(
                         exclude={"select", "lower_scale_factor", "upper_scale_factor"}
                     ),
@@ -335,10 +286,10 @@ class Action(fluent.Action):
         std_anomaly: bool = False,
         metadata: dict | None = None,
     ) -> Action:
-        anom = self.subtract(clim_mean, metadata=metadata)  # type: ignore
+        anom = self.subtract(clim_mean, metadata=metadata)
         if not std_anomaly:
             return anom
-        return anom.divide(clim_std)  # type: ignore
+        return anom.divide(clim_std)
 
     def quantiles(
         self,
@@ -376,10 +327,9 @@ class Action(fluent.Action):
         ret = self.concatenate(dim).transform(_quantiles_transform, params, new_dim)
         return ret  # type: ignore
 
-    def _wrapped_reduction(
+    def _resolve_operation(
         self,
         operation: fluent.Payload | None,
-        dim: str,
         **kwargs,
     ) -> Action:
         if operation is None:
@@ -388,23 +338,14 @@ class Action(fluent.Action):
         if isinstance(operation, str):
             # operation is fluent method
             if hasattr(self, operation):
-                op = getattr(self, operation)
-                sig = inspect.signature(op)
-                args = [
-                    p.name
-                    for p in sig.parameters.values()
-                    if p.kind == p.POSITIONAL_OR_KEYWORD
-                ]
-                if "dim" in args:
-                    kwargs["dim"] = dim
-                return op(**kwargs)
+                return getattr(self, operation)(**kwargs)
             # operation is TaskInstance
             op_function = getattr(FieldListBackend, operation, None) or operation
             operation = fluent.create_task_instance(
                 op_function,
             )
         # Fallback on applying reduction operation during payload
-        return self.reduce(operation, dim=dim, **kwargs)  # type: ignore
+        return self.reduce(operation, **kwargs)  # type: ignore
 
     def preprocessing(
         self,
@@ -424,16 +365,16 @@ class Action(fluent.Action):
         ------
         Action
         """
-        return self._wrapped_reduction(operation, dim, **kwargs)
+        return self._resolve_operation(operation, dim=dim, **kwargs)
 
     def thermal_index(
         self,
         function: str,
         params: list[str],
+        metadata: dict,
         deaccumulate: Optional[list[str]] = None,
         dim: str = "param",
         join: bool = True,
-        metadata: dict | None = None,
     ) -> Action:
         """
         Thermal index computation
@@ -450,6 +391,8 @@ class Action(fluent.Action):
         logger.debug(
             f"Thermal index: function {function}, params {params}, deaccumulate {deaccumulate}"
         )
+        if "paramId" not in metadata:
+            raise ValueError("metadata must contain 'paramId'")
         if deaccumulate is not None:
             deaccum = self.sel(param=deaccumulate)
             array = nodetree_array(deaccum.nodes)
@@ -491,16 +434,16 @@ class Action(fluent.Action):
             ret = param_action.reduce(
                 fluent.create_task_instance(
                     function,
-                    static_input_kw={"metadata": metadata or {}},
+                    static_input_kw={"metadata": metadata},
                     requirements=Requirements(environment=ENVIRONMENT["ppruntime"]),
                 ),
                 dim=dim,
             )
         ret._add_dimension(dim, str(metadata.get("paramId")))
         if not join:
-            return ret
+            return ret  # type: ignore
         ret = ret.set_path(f"/{metadata.get('paramId')}")
-        return fluent.merge(self, ret)
+        return fluent.merge(self, ret)  # type: ignore
 
     def mask(
         self,
@@ -516,7 +459,7 @@ class Action(fluent.Action):
         mask_action = mask_action.map(
             fluent.create_task_instance(
                 "ppruntime.stats.mask",
-                static_input_ps=(fluent.Node.Index(0),),
+                static_input_ps=[fluent.Node.Index(0)],
                 static_input_kw={
                     "lower_comparison": mask.comparison,
                     "lower_value": mask.value,
@@ -536,7 +479,7 @@ class Action(fluent.Action):
                     },
                 ),
                 dim=dim,
-            )
+            )  # type: ignore
         )
 
     def ensemble_statistics(
@@ -578,7 +521,7 @@ class Action(fluent.Action):
             break
 
         kwargs.setdefault("metadata", {}).update(stat_metadata)
-        return self._wrapped_reduction(operation, dim, **kwargs)
+        return self._resolve_operation(operation, dim=dim, **kwargs)
 
     def accumulation(
         self,
@@ -644,7 +587,7 @@ def _write_transform(
     return action.map(
         fluent.create_task_instance(
             "ppruntime.io.write",
-            static_input_ps=(fluent.Node.Index(0),),
+            static_input_ps=[fluent.Node.Index(0)],
             static_input_kw=kwargs,
             requirements=Requirements(environment=ENVIRONMENT["ppruntime"]),
         )
@@ -657,7 +600,7 @@ def _sot_transform(
     new_sot = action.reduce(
         fluent.create_task_instance(
             "ppruntime.stats.sot",
-            static_input_ps=(fluent.Node.Index(1), fluent.Node.Index(0), number, eps),
+            static_input_ps=[fluent.Node.Index(1), fluent.Node.Index(0), number, eps],
             static_input_kw={"metadata": metadata},
             requirements=Requirements(environment=ENVIRONMENT["ppruntime"]),
         )
@@ -685,7 +628,7 @@ def _efi_window_transform(
     ret = action.select(selection).reduce(
         fluent.create_task_instance(
             "ppruntime.stats.efi",
-            static_input_ps=(fluent.Node.Index(1), fluent.Node.Index(0), eps),
+            static_input_ps=[fluent.Node.Index(1), fluent.Node.Index(0), eps],
             static_input_kw={"metadata": metadata},
             requirements=Requirements(environment=ENVIRONMENT["ppruntime"]),
         ),
@@ -699,7 +642,7 @@ def _quantiles_transform(
 ):
     payload = fluent.create_task_instance(
         "ppruntime.stats.quantiles",
-        static_input_ps=(fluent.Node.Index(0), q_number, total_number),
+        static_input_ps=[fluent.Node.Index(0), q_number, total_number],
         static_input_kw={"metadata": metadata},
         requirements=Requirements(environment=ENVIRONMENT["ppruntime"]),
     )
@@ -728,7 +671,7 @@ def _accum_transform(
             accum_action = action.select({dim: coords})
 
     if isinstance(name, dict):
-        name = TypeAdapter(AccumName, name).validate_python()
+        name = TypeAdapter(AccumName).validate_python(name)
     accum_name = name.name(coords)
     accum_metadata = accumulation_metadata(dim, coords, accum_name, metadata)
 
@@ -746,7 +689,7 @@ def _accum_transform(
             operation.static_input_kw.setdefault("metadata", {}).update(accum_metadata)
         else:
             kwargs["metadata"] = accum_metadata
-        accum_action = accum_action._wrapped_reduction(
+        accum_action = accum_action._resolve_operation(
             operation,
             dim=dim,
             **kwargs,
@@ -762,7 +705,7 @@ def from_source(
     requests: Union[list[dict[str, Any]], list[Request], list[MultiSourceRequest]],
     dtype: Optional[str] = None,
     join_key: str = "",
-):
+) -> Action:
     all_actions = None
     for request in requests:
         if isinstance(request, dict):
@@ -771,12 +714,12 @@ def from_source(
         for indices, new_request in request.expand():
             payloads[indices] = fluent.create_task_instance(
                 "ppruntime.io.retrieve",
-                static_input_ps=(sources, [new_request], dtype),
+                static_input_ps=[sources, [new_request], dtype],
                 requirements=Requirements(environment=ENVIRONMENT["ppruntime"]),
             )
         new_action = fluent.from_source(
             payloads,
-            dims=request.dims().keys(),
+            dims=list(request.dims().keys()),
             coords={
                 key: request[key] for key in request.dims(exclude_scalar=False).keys()
             },
@@ -792,7 +735,7 @@ def from_source(
             if len(join_key) == 0:
                 raise ValueError("Join key must be specified for multiple requests")
             all_actions = all_actions.join(new_action, join_key)
-    return all_actions
+    return cast(Action, all_actions)
 
 
 def path_from_request(request: dict, keys: list[str] = ["levtype", "param"]) -> str:

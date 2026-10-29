@@ -47,11 +47,11 @@ def from_outputs(
     else:
         schema = Schema.from_file(pproc_schema)
     if isinstance(forecast, str):
-        forecast = schema.datasets.definition(forecast)
+        forecast = schema.datasets.definition(forecast)  # type: ignore
     if isinstance(climatology, str):
-        climatology = schema.datasets.definition(climatology)
+        climatology = schema.datasets.definition(climatology)  # type: ignore
     for request in expand(requests):
-        schema_config = schema.config_from_output(request, forecast, climatology)
+        schema_config = schema.config_from_output(request, forecast, climatology)  # type: ignore
         yield from_schema(schema_config, request, metadata, **overrides)
 
 
@@ -71,10 +71,18 @@ def from_inputs(
     else:
         schema = Schema.from_file(pproc_schema)
     if isinstance(forecast, str):
-        forecast = schema.datasets.definition(forecast)
+        definition = schema.datasets.definition(forecast)
+        if not isinstance(definition, (ForecastDefinition, ReforecastDefinition)):
+            raise ValueError(f"Expected forecast definition, got {type(definition)}")
+        forecast = definition
     if isinstance(climatology, str):
-        climatology = schema.datasets.definition(climatology)
+        definition = schema.datasets.definition(climatology)
+        if not isinstance(definition, ClimatologyDefinition):
+            raise ValueError(f"Expected climatology definition, got {type(definition)}")
+        climatology = definition
     for schema_config in schema.config_from_input(
-        forecast, climatology, output_template=template
+        forecast,
+        climatology,
+        output_template=template,
     ):
         yield from_schema(schema_config, template, metadata, **overrides)

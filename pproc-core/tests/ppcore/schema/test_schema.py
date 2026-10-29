@@ -235,7 +235,7 @@ def test_schema_from_output(req, dataset, config, num_generated):
             datacubes=config["inputs"],
             unperturbed={x: config["inputs"][0][x] for x in ["stream", "type"]},
         ),
-        output_template={x: req[x] for x in ["stream", "type"]},  # type: ignore
+        output_template={x: req[x] for x in ["stream", "type"]},
     )
     assert len(list(generated)) == num_generated
 
