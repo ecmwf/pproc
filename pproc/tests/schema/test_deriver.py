@@ -12,6 +12,13 @@ FcStepDeriver = TypeAdapter(ForecastStepDeriver)
     [
         pytest.param({"type_": "default"}, {"step": 6}, [0, 6, 12], [6], id="inst"),
         pytest.param(
+            {"type_": "default"},
+            {"step": 6, "timespan": "none"},
+            [0, 6, 12],
+            [6],
+            id="default-timespan-none",
+        ),
+        pytest.param(
             {"type_": "default"}, {"step": "0-6"}, [0, 3, 6, 12], [3, 6], id="range"
         ),
         pytest.param(
@@ -41,6 +48,13 @@ FcStepDeriver = TypeAdapter(ForecastStepDeriver)
             [0, 3, 6, 12],
             [6],
             id="range-with-by",
+        ),
+        pytest.param(
+            {"type_": "default", "by": 6},
+            {"step": 12, "timespan": "9h"},
+            [0, 3, 6, 12],
+            [6, 12],
+            id="default-timespan-9h",
         ),
         pytest.param(
             {"type_": "deaccumulate"},
@@ -85,11 +99,39 @@ FcStepDeriver = TypeAdapter(ForecastStepDeriver)
             id="deacc-range-by",
         ),
         pytest.param(
+            {"type_": "deaccumulate"},
+            {"step": 12, "timespan": "none"},
+            [0, 6, 9, 12],
+            [9, 12],
+            id="deacc-timespan-none",
+        ),
+        pytest.param(
+            {"type_": "deaccumulate"},
+            {"step": 9, "timespan": "fs"},
+            [0, 6, 9, 12],
+            [0, 9],
+            id="deacc-timespan-fs",
+        ),
+        pytest.param(
+            {"type_": "deaccumulate"},
+            {"step": 12, "timespan": "12h"},
+            [0, 6, 9, 12],
+            [0, 12],
+            id="deacc-timespan-12h",
+        ),
+        pytest.param(
             {"type_": "precomputed"},
             {"step": "0-12"},
             [6, 9, 12],
             ["0-12"],
             id="precomputed",
+        ),
+        pytest.param(
+            {"type_": "precomputed"},
+            {"step": "0-12", "timespan": "fs"},
+            [6, 9, 12],
+            ["0-12"],
+            id="precomputed-timespan",
         ),
         pytest.param(
             {"type_": "monthly"},

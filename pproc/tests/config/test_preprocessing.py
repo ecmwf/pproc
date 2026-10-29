@@ -25,7 +25,6 @@ from pproc.config.preprocessing import (
     Expression,
 )
 
-
 _MASKEXPR_LEN_ERR = r"Mask expression should be a \[lhs, cmp, rhs\] list"
 
 

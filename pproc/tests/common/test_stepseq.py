@@ -69,3 +69,34 @@ def test_conversions(date, fcmonth, expected):
         stepseq.steprange_to_fcmonth(datetime.strptime(date, "%Y%m%d"), expected)
         == fcmonth
     )
+
+
+@pytest.mark.parametrize(
+    "step, timespan, expected_steprange",
+    [
+        [6, "none", "6"],
+        [6, "fs", "0-6"],
+        [24, "24h", "0-24"],
+        [24, "12h", "12-24"],
+    ],
+)
+def test_timespan_to_steprange(step, timespan, expected_steprange):
+    assert expected_steprange == stepseq.timespan_to_steprange(step, timespan)
+
+
+@pytest.mark.parametrize(
+    "step, original_timespan, expected_start, expected_timespan",
+    [
+        [12, "fs", 12, "fs"],
+        [12, "none", 12, "none"],
+        ["0-12", "fs", 12, "12h"],
+        ["0-24", "none", 24, "24h"],
+        ["6-12", "2h", 12, "6h"],
+    ],
+)
+def test_steprange_to_timespan(
+    step, original_timespan, expected_start, expected_timespan
+):
+    assert (expected_start, expected_timespan) == stepseq.steprange_to_timespan(
+        step, original_timespan
+    )

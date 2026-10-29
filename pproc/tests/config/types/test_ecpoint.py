@@ -2,9 +2,7 @@ import pytest
 
 from pproc.config import types
 
-BASE_OUTPUT = {
-    "target": "fdb",
-}
+BASE_OUTPUT = {"target": "fdb", "step": ["0-6", "6-12"]}
 
 
 @pytest.mark.parametrize(
@@ -49,6 +47,25 @@ BASE_OUTPUT = {
                 {**BASE_OUTPUT, "stream": "oper", "type": "gwt"},
             ],
         ],
+        [
+            {"stream": "oper", "type": "fc", "timespan": "fs"},
+            [
+                {
+                    **BASE_OUTPUT,
+                    "stream": "oper",
+                    "type": "gbf",
+                    "timespan": "6h",
+                    "step": [6, 12],
+                },
+                {
+                    **BASE_OUTPUT,
+                    "stream": "oper",
+                    "type": "gwt",
+                    "timespan": "6h",
+                    "step": [6, 12],
+                },
+            ],
+        ],
     ],
 )
 def test_ecpoint_outputs(inputs, expected):
@@ -62,6 +79,7 @@ def test_ecpoint_outputs(inputs, expected):
                 "inputs": {"fc": {"request": inputs}},
                 "dependencies": {},
                 "num_inputs": 1,
+                "accumulations": {"step": {"coords": [[0, 6], [6, 12]]}},
             }
         },
         inputs={"fc": {"source": {"type": "fdb"}}},
