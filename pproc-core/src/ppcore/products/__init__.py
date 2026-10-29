@@ -67,7 +67,7 @@ def action_from_outputs(
     requests: list[dict],
     pproc_schema: Union[str, os.PathLike, Schema],
     forecast: Union[str, Action, ForecastDefinition, ReforecastDefinition],
-    climatology: Optional[Union[str, Action, ClimatologyDefinition]] = None,
+    climatology: Optional[Union[str, tuple[Action, str], ClimatologyDefinition]] = None,
     metadata: Optional[dict] = None,
 ) -> Action:
     action_kwargs = {}
@@ -77,9 +77,12 @@ def action_from_outputs(
     else:
         action_kwargs["forecast"] = None
         dataset = forecast
-    if isinstance(climatology, Action):
-        action_kwargs["climatology"] = climatology
-        clim_dataset = ClimatologyDefinition(datacubes=datacubes(climatology.nodes))
+    if isinstance(climatology, tuple):
+        clim_action, scheme = climatology
+        action_kwargs["climatology"] = clim_action
+        clim_dataset = ClimatologyDefinition(
+            datacubes=datacubes(clim_action.nodes), scheme=scheme
+        )
     else:
         clim_dataset = climatology
 

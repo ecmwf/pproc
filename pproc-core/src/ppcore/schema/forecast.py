@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Optional, Annotated, Union, Literal, Self
+from typing import Optional, Annotated, Union, Literal, Self, overload
 from dataclasses import dataclass
 from functools import cached_property
 from qubed import Qube
@@ -117,7 +117,11 @@ class Dataset:
             return self.atmos_qube
         return self.qube.select({"stream": stream})
 
-    def type_qube(self, tp: Optional[str], number: Optional[str]) -> Qube:
+    def type_qube(
+        self,
+        tp: Optional[str],
+        number: Optional[Literal["{number}"]] | int | list[int] = None,
+    ) -> Qube:
         qube = self.qube if tp is None else self.qube.select({"type": tp})
         if number is None or number == "{number}" or "number" not in qube.axes():
             return qube
@@ -127,7 +131,7 @@ class Dataset:
         number_axes = sorted(qube.axes()["number"])
         start = bisect.bisect_left(number, number_axes[0])
         end = bisect.bisect_right(number, number_axes[-1])
-        return qube.select({"number": number[start:end]})
+        return qube.select({"number": number[start:end]})  # type: ignore
 
     def select(
         self, selection: dict, select_to_override: bool = False
@@ -196,7 +200,11 @@ class Forecast(Dataset):
             n_unperturbed = 1 if self.type_qube("unperturbed").n_leaves > 0 else 0
         return (n_perturbed + n_unperturbed) > 1
 
-    def type_qube(self, tp: Optional[str], number: Optional[str] = None) -> Qube:
+    def type_qube(
+        self,
+        tp: Optional[str],
+        number: Optional[Literal["{number}"]] | int | list[int] = None,
+    ) -> Qube:
         if tp is None:
             qube = self.qube
         elif tp == "unperturbed":
@@ -219,10 +227,11 @@ class Forecast(Dataset):
 
         if isinstance(number, int):
             number = [number]
+        number: list[int] = number
         number_axes = sorted(qube.axes()["number"])
         start = bisect.bisect_left(number, number_axes[0])
         end = bisect.bisect_right(number, number_axes[-1])
-        return qube.select({"number": number[start:end]})
+        return qube.select({"number": number[start:end]})  # type: ignore
 
     def select(
         self, selection: dict, select_to_override: bool = False
@@ -262,6 +271,21 @@ class DatasetDefinitions(PProcBaseModel):
         if name not in self.definitions:
             raise ValueError(f"Dataset {name} not defined")
         return self.definitions[name]
+
+
+@overload
+def definition_to_dataset(definition: ForecastDefinition) -> Forecast:
+    pass
+
+
+@overload
+def definition_to_dataset(definition: ReforecastDefinition) -> Reforecast:
+    pass
+
+
+@overload
+def definition_to_dataset(definition: ClimatologyDefinition) -> Climatology:
+    pass
 
 
 def definition_to_dataset(definition: DatasetDefinition) -> Dataset:

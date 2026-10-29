@@ -8,10 +8,9 @@ from dataclasses import dataclass
 import numpy as np
 import logging
 
-from earthkit.workflows.fluent import merge
+from earthkit.workflows.fluent import Action, merge
 from earthkit.workflows.nodetree import nodetree_dimensions
 from earthkit.workflows.plugins.pproc.fluent import (
-    Action,
     from_source,
     path_from_request,
 )
@@ -128,7 +127,7 @@ class Ensemble(Product):
             out_metadata.update(self.output_overrides)
             ret = ret.write(output_config["targets"], metadata=out_metadata)
 
-        final_dims = final_dims or []
+        final_dims: set[str] = final_dims or set()
         if preprocess_dim in final_dims:
             # Stream is uniquely determined by parameter
             final_dims.discard("stream")
@@ -145,7 +144,7 @@ class Ensemble(Product):
             {
                 k: v
                 for k, v in self.config.output.request.items()
-                if k not in final_dims
+                if str(k) not in final_dims
             },
             override=True,
         )

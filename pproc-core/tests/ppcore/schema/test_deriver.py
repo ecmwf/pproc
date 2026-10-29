@@ -268,7 +268,7 @@ def test_forecast_step_deriver(config, output_request, fc_steps, expected):
     ],
 )
 def test_clim_step_deriver(step_type, times, step, clim_steps, expected):
-    deriver = ClimDeriver.validate_python({"name": step_type})  # type: ignore
+    deriver = ClimDeriver.validate_python({"name": step_type})
     for time in times:
         assert (
             deriver.derive(

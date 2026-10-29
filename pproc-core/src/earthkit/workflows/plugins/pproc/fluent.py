@@ -58,7 +58,7 @@ class Action(fluent.Action):
             batch_size=batch_size,
             keep_dim=keep_dim,
             backend_kwargs={"metadata": metadata},
-        )
+        )  # type: ignore
 
     def mean(
         self,
@@ -72,7 +72,7 @@ class Action(fluent.Action):
             batch_size=batch_size,
             keep_dim=keep_dim,
             backend_kwargs={"metadata": metadata},
-        )
+        )  # type: ignore
 
     def std(
         self,
@@ -86,7 +86,7 @@ class Action(fluent.Action):
             batch_size=batch_size,
             keep_dim=keep_dim,
             backend_kwargs={"metadata": metadata},
-        )
+        )  # type: ignore
 
     def max(
         self,
@@ -100,7 +100,7 @@ class Action(fluent.Action):
             batch_size=batch_size,
             keep_dim=keep_dim,
             backend_kwargs={"metadata": metadata},
-        )
+        )  # type: ignore
 
     maximum = max
 
@@ -116,7 +116,7 @@ class Action(fluent.Action):
             batch_size=batch_size,
             keep_dim=keep_dim,
             backend_kwargs={"metadata": metadata},
-        )
+        )  # type: ignore
 
     minimum = min
 
@@ -132,7 +132,7 @@ class Action(fluent.Action):
             batch_size=batch_size,
             keep_dim=keep_dim,
             backend_kwargs={"metadata": metadata},
-        )
+        )  # type: ignore
 
     def norm(
         self,
@@ -149,12 +149,12 @@ class Action(fluent.Action):
             dim=dim,
             batch_size=batch_size,
             keep_dim=keep_dim,
-        )
+        )  # type: ignore
 
     def subtract(
         self, other: Union[Action, float], metadata: dict | None = None
     ) -> Action:
-        return super().subtract(other, backend_kwargs={"metadata": metadata})
+        return super().subtract(other, backend_kwargs={"metadata": metadata})  # type: ignore
 
     def divide(
         self, other: Union[Action, float], metadata: dict | None = None
@@ -162,20 +162,20 @@ class Action(fluent.Action):
         return super().divide(other, backend_kwargs={"metadata": metadata})
 
     def add(self, other: Union[Action, float], metadata: dict | None = None) -> Action:
-        return super().add(other, backend_kwargs={"metadata": metadata})
+        return super().add(other, backend_kwargs={"metadata": metadata})  # type: ignore
 
     def multiply(
         self, other: Union[Action, float], metadata: dict | None = None
     ) -> Action:
-        return super().multiply(other, backend_kwargs={"metadata": metadata})
+        return super().multiply(other, backend_kwargs={"metadata": metadata})  # type: ignore
 
     def scale(self, value: float, metadata: dict | None = None) -> Action:
-        return super().multiply(value, backend_kwargs={"metadata": metadata})
+        return super().multiply(value, backend_kwargs={"metadata": metadata})  # type: ignore
 
     def power(
         self, other: Union[Action, float], metadata: dict | None = None
     ) -> Action:
-        return super().power(other, backend_kwargs={"metadata": metadata})
+        return super().power(other, backend_kwargs={"metadata": metadata})  # type: ignore
 
     def extreme(
         self,
@@ -219,7 +219,7 @@ class Action(fluent.Action):
                 raise ValueError("Single node, but multiple step ranges")
             payload = fluent.create_task_instance(
                 "ppruntime.stats.efi",
-                static_input_ps=(fluent.Node.Index(1), fluent.Node.Index(0), eps),
+                static_input_ps=[fluent.Node.Index(1), fluent.Node.Index(0), eps],
                 static_input_kw={"metadata": metadata},
                 requirements=Requirements(environment=ENVIRONMENT["ppruntime"]),
             )
@@ -290,7 +290,7 @@ class Action(fluent.Action):
         metadata: Optional[dict] = None,
         clim_metadata: Optional[dict] = None,
     ) -> Action:
-        combined: Action = None
+        combined: Action = None  # type: ignore
         for threshold in thresholds:
             if isinstance(threshold, dict):
                 threshold = Threshold(**threshold)
@@ -298,7 +298,7 @@ class Action(fluent.Action):
             selected = selected.map(
                 fluent.create_task_instance(
                     "ppruntime.stats.mask",
-                    static_input_ps=(fluent.Node.Index(0),),
+                    static_input_ps=[fluent.Node.Index(0)],
                     static_input_kw=threshold.model_dump(
                         exclude={"select", "lower_scale_factor", "upper_scale_factor"}
                     ),
@@ -430,10 +430,10 @@ class Action(fluent.Action):
         self,
         function: str,
         params: list[str],
+        metadata: dict,
         deaccumulate: Optional[list[str]] = None,
         dim: str = "param",
         join: bool = True,
-        metadata: dict | None = None,
     ) -> Action:
         """
         Thermal index computation
@@ -450,6 +450,8 @@ class Action(fluent.Action):
         logger.debug(
             f"Thermal index: function {function}, params {params}, deaccumulate {deaccumulate}"
         )
+        if "paramId" not in metadata:
+            raise ValueError("metadata must contain 'paramId'")
         if deaccumulate is not None:
             deaccum = self.sel(param=deaccumulate)
             array = nodetree_array(deaccum.nodes)
@@ -491,16 +493,16 @@ class Action(fluent.Action):
             ret = param_action.reduce(
                 fluent.create_task_instance(
                     function,
-                    static_input_kw={"metadata": metadata or {}},
+                    static_input_kw={"metadata": metadata},
                     requirements=Requirements(environment=ENVIRONMENT["ppruntime"]),
                 ),
                 dim=dim,
             )
         ret._add_dimension(dim, str(metadata.get("paramId")))
         if not join:
-            return ret
+            return ret  # type: ignore
         ret = ret.set_path(f"/{metadata.get('paramId')}")
-        return fluent.merge(self, ret)
+        return fluent.merge(self, ret)  # type: ignore
 
     def mask(
         self,
@@ -516,7 +518,7 @@ class Action(fluent.Action):
         mask_action = mask_action.map(
             fluent.create_task_instance(
                 "ppruntime.stats.mask",
-                static_input_ps=(fluent.Node.Index(0),),
+                static_input_ps=[fluent.Node.Index(0)],
                 static_input_kw={
                     "lower_comparison": mask.comparison,
                     "lower_value": mask.value,
@@ -536,7 +538,7 @@ class Action(fluent.Action):
                     },
                 ),
                 dim=dim,
-            )
+            )  # type: ignore
         )
 
     def ensemble_statistics(
@@ -644,7 +646,7 @@ def _write_transform(
     return action.map(
         fluent.create_task_instance(
             "ppruntime.io.write",
-            static_input_ps=(fluent.Node.Index(0),),
+            static_input_ps=[fluent.Node.Index(0)],
             static_input_kw=kwargs,
             requirements=Requirements(environment=ENVIRONMENT["ppruntime"]),
         )
@@ -657,7 +659,7 @@ def _sot_transform(
     new_sot = action.reduce(
         fluent.create_task_instance(
             "ppruntime.stats.sot",
-            static_input_ps=(fluent.Node.Index(1), fluent.Node.Index(0), number, eps),
+            static_input_ps=[fluent.Node.Index(1), fluent.Node.Index(0), number, eps],
             static_input_kw={"metadata": metadata},
             requirements=Requirements(environment=ENVIRONMENT["ppruntime"]),
         )
@@ -685,7 +687,7 @@ def _efi_window_transform(
     ret = action.select(selection).reduce(
         fluent.create_task_instance(
             "ppruntime.stats.efi",
-            static_input_ps=(fluent.Node.Index(1), fluent.Node.Index(0), eps),
+            static_input_ps=[fluent.Node.Index(1), fluent.Node.Index(0), eps],
             static_input_kw={"metadata": metadata},
             requirements=Requirements(environment=ENVIRONMENT["ppruntime"]),
         ),
@@ -699,7 +701,7 @@ def _quantiles_transform(
 ):
     payload = fluent.create_task_instance(
         "ppruntime.stats.quantiles",
-        static_input_ps=(fluent.Node.Index(0), q_number, total_number),
+        static_input_ps=[fluent.Node.Index(0), q_number, total_number],
         static_input_kw={"metadata": metadata},
         requirements=Requirements(environment=ENVIRONMENT["ppruntime"]),
     )
@@ -728,7 +730,7 @@ def _accum_transform(
             accum_action = action.select({dim: coords})
 
     if isinstance(name, dict):
-        name = TypeAdapter(AccumName, name).validate_python()
+        name = TypeAdapter(AccumName).validate_python(name)
     accum_name = name.name(coords)
     accum_metadata = accumulation_metadata(dim, coords, accum_name, metadata)
 
@@ -771,12 +773,12 @@ def from_source(
         for indices, new_request in request.expand():
             payloads[indices] = fluent.create_task_instance(
                 "ppruntime.io.retrieve",
-                static_input_ps=(sources, [new_request], dtype),
+                static_input_ps=[sources, [new_request], dtype],
                 requirements=Requirements(environment=ENVIRONMENT["ppruntime"]),
             )
         new_action = fluent.from_source(
             payloads,
-            dims=request.dims().keys(),
+            dims=list(request.dims().keys()),
             coords={
                 key: request[key] for key in request.dims(exclude_scalar=False).keys()
             },
