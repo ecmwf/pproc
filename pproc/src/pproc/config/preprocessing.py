@@ -171,7 +171,7 @@ class Masking(Preprocessing):
 
 
 class WindRose(Preprocessing):
-    operation: Literal["wind_rose"] = "wind_rose"
+    operation: Literal["windrose"] = "windrose"
     speed: dict[str, Any]
     direction: dict[str, Any]
     sectors: int = 8
