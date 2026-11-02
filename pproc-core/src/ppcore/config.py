@@ -38,15 +38,13 @@ def from_outputs(args):
     forecast = args.forecast
     if os.path.exists(forecast):
         with open(forecast, "r") as f:
-            forecast = TypeAdapter(DatasetDefinition).validate_python(
-                **yaml.safe_load(f)
-            )
+            forecast = TypeAdapter(DatasetDefinition).validate_python(yaml.safe_load(f))
 
     climatology = args.climatology
     if climatology and os.path.exists(climatology):
         with open(climatology, "r") as f:
             climatology = TypeAdapter(DatasetDefinition).validate_python(
-                **yaml.safe_load(f)
+                yaml.safe_load(f)
             )
 
     entrypoint_config = EntrypointConfig(
@@ -74,15 +72,13 @@ def from_inputs(args):
     forecast = args.forecast
     if os.path.exists(forecast):
         with open(forecast, "r") as f:
-            forecast = TypeAdapter(DatasetDefinition).validate_python(
-                **yaml.safe_load(f)
-            )
+            forecast = TypeAdapter(DatasetDefinition).validate_python(yaml.safe_load(f))
 
     climatology = args.climatology
     if climatology and os.path.exists(climatology):
         with open(climatology, "r") as f:
             climatology = TypeAdapter(DatasetDefinition).validate_python(
-                **yaml.safe_load(f)
+                yaml.safe_load(f)
             )
 
     entrypoint_config = EntrypointConfig(

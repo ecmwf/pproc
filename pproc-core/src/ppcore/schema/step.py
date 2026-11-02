@@ -3,14 +3,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import bisect
-from typing import Annotated
-from typing import Literal
-from typing import Optional
-from typing import Union
+from typing import Annotated, cast, Literal, Optional, Union
 
 import numpy as np
-from pydantic import Field
-from pydantic import RootModel
+from pydantic import Field, RootModel
 
 from earthkit.workflows.plugins.pproc.utils.pydantic_utils import PProcBaseModel
 from ppcore.schema.base import BaseSchema
@@ -26,7 +22,10 @@ class Instantaneous(PProcBaseModel):
     interval: Optional[int] = None
     dim: Literal["step"] = "step"
 
-    def generate_steps(self, steps: list[int]) -> list[int]:
+    def generate_steps(self, steps: Union[list[int], list[str]]) -> list[int]:
+        if not all(isinstance(x, int) for x in steps):
+            raise ValueError("Input steps for instantaneous steps must be integers")
+        steps: list[int] = cast(list[int], steps)
         start = self.start if self.start is not None else steps[0]
         end = self.end if self.end is not None else steps[-1]
         if self.interval:
@@ -54,6 +53,7 @@ class Range(PProcBaseModel):
         assert all(
             isinstance(x, int) for x in steps
         ), "Steps can not be a mix of strings and integers"
+        steps: list[int] = cast(list[int], steps)
         if self.start == 0 and 0 not in steps and self.allow_missing_zero:
             steps = [0] + steps
         start = self.start if self.start is not None else steps[0]
@@ -71,12 +71,15 @@ class Monthly(PProcBaseModel):
     date: str
     dim: Literal["fcmonth"] = "fcmonth"
 
-    def generate_steps(self, steps: list[int]) -> list[int]:
+    def generate_steps(self, steps: Union[list[int], list[str]]) -> list[int]:
         by = np.diff(steps)
         if len(by) == 0:
             return []
         if len(set(by)) != 1:
             raise ValueError("Monthly steps must be evenly spaced")
+        if not all(isinstance(x, int) for x in steps):
+            raise ValueError("Input steps for monthly step ranges must be integers")
+        steps: list[int] = cast(list[int], steps)
         return [
             steprange_to_fcmonth(self.date, f"{x[0]}-{x[-1]}")
             for x in stepseq_monthly(self.date, steps[0], steps[-1], by[0])
@@ -108,7 +111,7 @@ class StepSchema(BaseSchema):
         return sorted(steps)
 
     def out_steps(
-        self, request: dict, in_steps: list[int]
+        self, request: dict, in_steps: list[int] | list[str]
     ) -> tuple[str, list[Union[int, str]]]:
         for dim in ["step", "fcmonth"]:
             if dim in request:

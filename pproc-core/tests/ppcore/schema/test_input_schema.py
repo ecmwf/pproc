@@ -18,7 +18,7 @@ from ppcore.utils.requests import update_request
 from ppcore.utils.mars import extract_mars
 from ppcore.utils.qube import qube_from_datacubes
 
-INPUTS = {
+INPUTS: dict[str, list[ForecastDefinition | ClimatologyDefinition | None]] = {
     "ensms": [
         ForecastDefinition(
             datacubes=[
@@ -365,7 +365,9 @@ INPUTS = {
     ids=["ensms", "thermofeel", "thermo_pf", "t850", "efi", "monthly", "prob"],
 )
 def test_inputs(request, output):
-    forecast, climatology = INPUTS[request.node.callspec.id]
+    forecast: ForecastDefinition
+    climatology: ClimatologyDefinition | None
+    forecast, climatology = INPUTS[request.node.callspec.id]  # type: ignore
     input_schema = InputSchema(schema("inputs"))
     step_schema = StepSchema(schema("windows"))
     all_inputs = list(input_schema.inputs(output, forecast, climatology))
@@ -441,7 +443,9 @@ def test_inputs(request, output):
 )
 def test_outputs(request, template, num_outputs):
     test_schema = Schema(**schema())
-    forecast, climatology = INPUTS[request.node.callspec.id]
+    forecast: ForecastDefinition
+    climatology: ClimatologyDefinition | None
+    forecast, climatology = INPUTS[request.node.callspec.id]  # type: ignore
     generated = list(
         test_schema.outputs_from_inputs(forecast, climatology, output_template=template)
     )
@@ -451,7 +455,7 @@ def test_outputs(request, template, num_outputs):
 def test_input_format():
     input_schema = InputSchema(schema("inputs"))
     step_schema = StepSchema(schema("windows"))
-    dataset, _ = INPUTS["sfc-pl"]
+    dataset: ForecastDefinition = INPUTS["sfc-pl"][0]  # type: ignore
     generated = list(
         input_schema.outputs(
             dataset,
