@@ -15,7 +15,7 @@ import numexpr
 import numpy as np
 from pydantic import BaseModel, Field, model_validator
 
-from earthkit.meteo.wind import direction, wind_rose
+from earthkit.meteo.wind import direction, windrose
 
 
 class Preprocessing(BaseModel, ABC):
@@ -187,7 +187,7 @@ class WindRose(Preprocessing):
             (len(self.speed_bins) - 1, self.sectors, speed.shape[-1]), dtype=speed.dtype
         )
         for i in range(speed.shape[-1]):
-            res[..., i], _ = wind_rose(
+            res[..., i], _ = windrose(
                 speed[..., i],
                 direction[..., i],
                 sectors=self.sectors,
