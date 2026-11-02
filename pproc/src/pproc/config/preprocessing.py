@@ -15,7 +15,7 @@ import numexpr
 import numpy as np
 from pydantic import BaseModel, Field, model_validator
 
-from earthkit.meteo.wind import direction
+from earthkit.meteo.wind import direction, wind_rose
 
 
 class Preprocessing(BaseModel, ABC):
@@ -170,6 +170,34 @@ class Masking(Preprocessing):
         return [new_metadata], [masked]
 
 
+class WindRose(Preprocessing):
+    operation: Literal["wind_rose"] = "wind_rose"
+    speed: dict[str, Any]
+    direction: dict[str, Any]
+    sectors: int = 8
+    speed_bins: list[float]
+    percent: bool = False
+
+    def apply(
+        self, metadata: List[dict], data: List[np.ndarray]
+    ) -> Tuple[List[dict], List[np.ndarray]]:
+        speed = data[find_matching(self.speed, metadata)]
+        direction = data[find_matching(self.direction, metadata)]
+        res = np.empty(
+            (len(self.speed_bins) - 1, self.sectors, speed.shape[-1]), dtype=speed.dtype
+        )
+        for i in range(speed.shape[-1]):
+            res[..., i], _ = wind_rose(
+                speed[..., i],
+                direction[..., i],
+                sectors=self.sectors,
+                speed_bins=self.speed_bins,
+                percent=self.percent,
+            )
+        new_metadata = self._update_metadata(metadata[0])
+        return [new_metadata], [res]
+
+
 class PreprocessingConfig(BaseModel):
     # preprocessing:
     #   - operation: norm
@@ -180,7 +208,7 @@ class PreprocessingConfig(BaseModel):
     #     value: 3600
     actions: List[
         Annotated[
-            Union[Scaling, Combination, Masking, Reshape, Expression],
+            Union[Scaling, Combination, Masking, Reshape, Expression, WindRose],
             Field(discriminator="operation"),
         ]
     ] = Field(default_factory=list)
