@@ -5,6 +5,14 @@ from contextlib import nullcontext
 from pproc.config.types import FlightLevelsConfig
 from pproc.config.utils import deep_update
 
+BASE_OUTPUT = {
+    "param": [260290],
+    "levtype": "fl",
+    "levelist": [110, 200, 300, 340, 380],
+    "step": [0, 3, 6],
+    "target": "fdb",
+}
+
 
 @pytest.mark.parametrize(
     "configs, merged_or_error",
@@ -219,12 +227,9 @@ def test_merge(configs, merged_or_error):
             ],
             [
                 {
+                    **BASE_OUTPUT,
                     "stream": "oper",
                     "type": "fc",
-                    "param": [260290],
-                    "levtype": "fl",
-                    "levelist": [110, 200, 300, 340, 380],
-                    "target": "fdb",
                 },
             ],
         ],
@@ -248,21 +253,15 @@ def test_merge(configs, merged_or_error):
             ],
             [
                 {
+                    **BASE_OUTPUT,
                     "stream": "oper",
                     "type": "fc",
-                    "param": [260290],
-                    "levtype": "fl",
-                    "levelist": [110, 200, 300, 340, 380],
-                    "target": "fdb",
                 },
                 {
+                    **BASE_OUTPUT,
                     "stream": "enfo",
                     "type": "pf",
-                    "param": [260290],
-                    "levtype": "fl",
-                    "levelist": [110, 200, 300, 340, 380],
                     "number": [1, 2, 3],
-                    "target": "fdb",
                 },
             ],
         ],
@@ -286,26 +285,42 @@ def test_merge(configs, merged_or_error):
             ],
             [
                 {
+                    **BASE_OUTPUT,
                     "stream": "oper",
                     "type": "fc",
                     "param": [130, 260290],
-                    "levtype": "fl",
-                    "levelist": [110, 200, 300, 340, 380],
-                    "target": "fdb",
                 },
                 {
+                    **BASE_OUTPUT,
                     "stream": "enfo",
                     "type": "pf",
                     "param": [130, 260290],
-                    "levtype": "fl",
-                    "levelist": [110, 200, 300, 340, 380],
                     "number": [1, 2, 3],
-                    "target": "fdb",
+                },
+            ],
+        ],
+        [
+            [
+                {
+                    "stream": "oper",
+                    "type": "fc",
+                    "param": [260290],
+                    "levtype": "ml",
+                    "levelist": list(range(1, 138)),
+                    "timespan": "none",
+                },
+            ],
+            [
+                {
+                    **BASE_OUTPUT,
+                    "stream": "oper",
+                    "type": "fc",
+                    "timespan": "none",
                 },
             ],
         ],
     ],
-    ids=["fc", "ens", "multi-param"],
+    ids=["fc", "ens", "multi-param", "fc-timespan"],
 )
 def test_outputs(inputs, expected):
     config = FlightLevelsConfig(
@@ -319,6 +334,11 @@ def test_outputs(inputs, expected):
                     },
                 },
                 "num_inputs": 1,
+                "accumulations": {
+                    "step": {
+                        "coords": [[0], [3], [6]],
+                    }
+                },
             }
         },
         inputs={"default": {"source": {"type": "fdb"}}},
@@ -329,11 +349,14 @@ def test_outputs(inputs, expected):
     config.print()
     assert sum(
         [
-            [{**x, "param": param, "source": "fdb"} for x in inputs]
+            [{**x, "param": param, "step": [0, 3, 6], "source": "fdb"} for x in inputs]
             for param in inputs[0]["param"]
         ],
         [],
-    ) + [{**x, "param": 152, "levelist": 1, "source": "fdb"} for x in inputs] == list(
+    ) + [
+        {**x, "param": 152, "step": [0, 3, 6], "levelist": 1, "source": "fdb"}
+        for x in inputs
+    ] == list(
         config.in_mars(sources=["fdb"])
     )
     outputs = list(config.out_mars(targets=["fdb"]))
