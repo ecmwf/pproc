@@ -176,7 +176,7 @@ def _windrose(
     speed, direction = np.reshape(arr_1d, (2, -1))
     return windrose(
         speed, direction, sectors=sectors, speed_bins=speed_bins, percent=percent
-    )
+    )[0]
 
 
 class WindRose(Preprocessing):
