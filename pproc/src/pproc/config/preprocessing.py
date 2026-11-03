@@ -170,6 +170,15 @@ class Masking(Preprocessing):
         return [new_metadata], [masked]
 
 
+def _windrose(
+    arr_1d: np.ndarray, sectors: int, speed_bins: list[float], percent: bool
+) -> np.ndarray:
+    speed, direction = np.reshape(arr_1d, (2, -1))
+    return windrose(
+        speed, direction, sectors=sectors, speed_bins=speed_bins, percent=percent
+    )
+
+
 class WindRose(Preprocessing):
     operation: Literal["windrose"] = "windrose"
     speed: dict[str, Any]
@@ -183,17 +192,15 @@ class WindRose(Preprocessing):
     ) -> Tuple[List[dict], List[np.ndarray]]:
         speed = data[find_matching(self.speed, metadata)]
         direction = data[find_matching(self.direction, metadata)]
-        res = np.empty(
-            (len(self.speed_bins) - 1, self.sectors, speed.shape[-1]), dtype=speed.dtype
+        res = np.apply_along_axis(
+            _windrose,
+            -1,
+            np.concatenate([speed, direction], axis=0),
+            sectors=self.sectors,
+            speed_bins=self.speed_bins,
+            percent=self.percent,
         )
-        for i in range(speed.shape[-1]):
-            res[..., i], _ = windrose(
-                speed[..., i],
-                direction[..., i],
-                sectors=self.sectors,
-                speed_bins=self.speed_bins,
-                percent=self.percent,
-            )
+        assert res.shape == (len(self.speed_bins) - 1, self.sectors, speed.shape[-1])
         new_metadata = self._update_metadata(metadata[0])
         return [new_metadata], [res]
 
