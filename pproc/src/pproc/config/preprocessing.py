@@ -194,13 +194,17 @@ class WindRose(Preprocessing):
         direction = data[find_matching(self.direction, metadata)]
         res = np.apply_along_axis(
             _windrose,
-            -1,
+            0,
             np.concatenate([speed, direction], axis=0),
             sectors=self.sectors,
             speed_bins=self.speed_bins,
             percent=self.percent,
         )
-        assert res.shape == (len(self.speed_bins) - 1, self.sectors, speed.shape[-1])
+        assert res.shape == (
+            len(self.speed_bins) - 1,
+            self.sectors,
+            speed.shape[-1],
+        ), f"Expected shape to be {(len(self.speed_bins) - 1, self.sectors, speed.shape[-1])}, got {res.shape}"
         new_metadata = self._update_metadata(metadata[0])
         return [new_metadata], [res]
 
