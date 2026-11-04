@@ -104,6 +104,8 @@ def compute_cape_cin(
     p_pa = np.array(p_levels_hpa, dtype=np.float64) * 100.0
     p = np.broadcast_to(p_pa.reshape((-1,) + (1,) * (t.ndim - 1)), t.shape)
 
+    # Use allow_nans=False as NaNs in the input arrays suggest invalid data
+    # The output array will contain NaNs at the locations where any input array contains NaNs.
     return CAPE_CIN_FUNCTIONS[parcel_type](
-        p, t, q, zh, p_sfc, t_sfc, q_sfc, zh_sfc, vertical_axis=0, **options
+        p, t, q, zh, p_sfc, t_sfc, q_sfc, zh_sfc, vertical_axis=0, allow_nans=False, **options
     )
