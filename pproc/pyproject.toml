@@ -76,6 +76,7 @@ scripts.pproc-tcycl-summarise-trckr = "pproc.tcycl.tcycl_summarise_trckr:main"
 scripts.pproc-thermal-indices = "pproc.thermal_indices:main"
 scripts.pproc-wind = "pproc.wind:main"
 scripts.pproc-quantile-probabilities = "pproc.quantile_probabilities:main"
+scripts.pproc-cape = "pproc.cape_cin:main"
 
 [tool.setuptools]
 include-package-data = true
