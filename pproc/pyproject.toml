@@ -100,4 +100,4 @@ testpaths = [ "tests" ]
 package = true
 
 [tool.uv.sources]
-pproc-core = { path = "../pproc-core" }
+pproc-core = { path = "../pproc-core", editable = true }

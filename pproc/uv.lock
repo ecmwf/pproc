@@ -1593,7 +1593,7 @@ requires-dist = [
     { name = "numexpr" },
     { name = "numpy", specifier = ">=1.21.2" },
     { name = "pandas", specifier = ">=1.3.3" },
-    { name = "pproc-core", marker = "extra == 'ppcore'", directory = "../pproc-core" },
+    { name = "pproc-core", marker = "extra == 'ppcore'", editable = "../pproc-core" },
     { name = "psutil" },
     { name = "pydantic" },
     { name = "pyfdb", specifier = "<=0.1.3" },
@@ -1611,7 +1611,7 @@ provides-extras = ["fdb", "ppcore", "tcycl", "test"]
 
 [[package]]
 name = "pproc-core"
-source = { directory = "../pproc-core" }
+source = { editable = "../pproc-core" }
 dependencies = [
     { name = "code-meters" },
     { name = "conflator" },
