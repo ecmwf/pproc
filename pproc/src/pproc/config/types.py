@@ -1807,3 +1807,18 @@ class FlightLevelsConfig(AccumConfig):
         req["levtype"] = "fl"
         req["levelist"] = self.target_flight_levels
         return req
+
+
+class ClassifierConfig(BaseModel):
+    regimes: Literal["grams", "naobl"]
+    path: str
+    project_kwargs: dict[str, Any] = {}
+
+
+class RegimesConfig(BaseConfig):
+    parallelisation: int = 1
+    inputs: io.RegimesInputModel
+    outputs: io.RegimesOutputModel = io.RegimesOutputModel()
+    parameters: list[ClimParamConfig]
+    classifier: ClassifierConfig
+    to_xarray_kwargs: dict[str, Any]
