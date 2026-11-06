@@ -6,7 +6,6 @@ from collections.abc import Mapping, MutableSequence
 from multiprocessing.managers import SyncManager
 from typing import Any, Self, cast
 
-from earthkit.data import FieldList
 import pandas as pd
 import xarray as xr
 
@@ -123,19 +122,3 @@ class DatasetBuilder:
         ds.encoding = {}
         return ds
 
-
-def _get_key(metadata, key: str):
-    if key == "forecast_reference_time":
-        return metadata.base_datetime()
-    if key == "step":
-        return metadata.step_timedelta()
-    if key == "valid_datetime":
-        return metadata.valid_datetime()
-    return metadata.get(key)
-
-
-def as_multiindex(fl: FieldList, names: list[str]):
-    return pd.MultiIndex.from_tuples(
-        [tuple(_get_key(md, name) for name in names) for md in ek_mds],
-        names=names
-    )

@@ -1811,8 +1811,8 @@ class FlightLevelsConfig(AccumConfig):
 
 class SSWConfig(BaseConfig):
     parallelisation: int = 1
-    inputs: io.SSWInputModel
     outputs: io.SSWOutputModel = io.SSWOutputModel()
     parameters: list[ParamConfig]
-    out_dims: list[str]
+    to_xarray_kwargs: dict[str, Any]
     latitude_bands: dict[str, tuple[float, float]]
+

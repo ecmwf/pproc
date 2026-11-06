@@ -18,15 +18,10 @@ from pproc.common.parallel import (
 )
 from pproc.common.param_requester import ParamRequester
 from pproc.common.utils import dict_product
-from pproc.common.xr_helpers import as_multiindex
 from pproc.config.types import ParamConfig, SSWConfig
 
 
-
-def weighted_average(values, latitude, axis):
-    weights = np.cos(np.deg2rad(latitude))
-    return np.average(values, weights=weights, axis=axis)
-
+PARAM = "u"
 
 def ssw_iteration(
     config: SSWConfig,
@@ -45,22 +40,29 @@ def ssw_iteration(
             metadata, data = requester.retrieve_data(**dims)
         fields += FieldList.from_array(data, [x.to_ekmetadata() for x in metadata])
 
-    print(fields.ls())
+    fields = fields.sel(param=PARAM)
+
+    kwargs = config.to_xarray_kwargs.copy()
+    kwargs.update({
+        "add_earthkit_attrs": False,
+        # Remain grid-agnostic
+        "flatten_values": True,
+        "add_geo_coords": True,
+    })
+    da = fields.to_xarray(**kwargs)[PARAM]
 
     for region, lat_bounds in config.latitude_bands.items():
         with ResourceMeter(f"Compute {region} {ids}"):
-            template = metadata[0]
-            lats = template.get_array("latitudes")
-            mask = (min(lat_bounds) <= lats) & (lats <= max(lat_bounds))
-            values = weighted_average(data[...,mask], lats[mask], axis=-1)
-            target.write(
-                pd.Series(
-                    data=values,
-                    index=as_multiindex(metadata, config.ensure_dims),
-                    name=template.get('shortName'))
-                .to_xarray()
-                .expand_dims({"region": [region]})
+            mask = (min(lat_bounds) <= da.coords["latitude"]) & (da.coords["latitude"] <= max(lat_bounds))
+            da_region = da.sel({"values": mask})
+            weights = np.cos(np.deg2rad(da_region.coords["latitude"]))
+            result = (
+                da_region
+                .weighted(weights)
+                .mean(dim="values")
+                .expand_dims({"region": [region]}, axis=-1)
             )
+            target.write(result)
 
     target.flush()
     config.recovery.add_checkpoint(param=pconfig.name, **dims)
