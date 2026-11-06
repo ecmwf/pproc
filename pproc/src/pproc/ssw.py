@@ -9,7 +9,7 @@ from conflator import Conflator
 from earthkit.data import FieldList, SimpleFieldList
 from meters import ResourceMeter
 import numpy as np
-import pandas as pd
+import xarray as xr
 
 from pproc.common.accumulation_manager import AccumulationManager
 from pproc.common.parallel import (
@@ -21,13 +21,7 @@ from pproc.common.utils import dict_product
 from pproc.config.types import ParamConfig, SSWConfig
 
 
-PARAM = "u"
-
-def ssw_iteration(
-    config: SSWConfig,
-    pconfig: ParamConfig,
-    dims: dict
-):
+def ssw_iteration(config: SSWConfig, pconfig: ParamConfig, dims: dict):
     ids = ", ".join(f"{k}={v}" for k, v in dims.items())
     target = config.outputs.ssw.target
 
@@ -40,28 +34,44 @@ def ssw_iteration(
             metadata, data = requester.retrieve_data(**dims)
         fields += FieldList.from_array(data, [x.to_ekmetadata() for x in metadata])
 
-    fields = fields.sel(param=PARAM)
+    fields = fields.sel(param="u")
 
     kwargs = config.to_xarray_kwargs.copy()
-    kwargs.update({
-        "add_earthkit_attrs": False,
-        # Remain grid-agnostic
-        "flatten_values": True,
-        "add_geo_coords": True,
-    })
-    da = fields.to_xarray(**kwargs)[PARAM]
+    kwargs["add_earthkit_attrs"] = False
+    ds = fields.to_xarray(**kwargs)
+    ds = ds.drop_attrs(deep=False)
+
+    for var in ds.data_vars:
+        if ds[var].dims[-2:] != ("latitude", "longitude"):
+            raise NotImplementedError(
+                f"{var}: cos-lat-based area weighting only implemented for regular lat-lon grids"
+            )
 
     for region, lat_bounds in config.latitude_bands.items():
         with ResourceMeter(f"Compute {region} {ids}"):
-            mask = (min(lat_bounds) <= da.coords["latitude"]) & (da.coords["latitude"] <= max(lat_bounds))
-            da_region = da.sel({"values": mask})
-            weights = np.cos(np.deg2rad(da_region.coords["latitude"]))
+            lo, hi = sorted(lat_bounds)
+            ds_region = ds.sel({"latitude": slice(hi, lo)})
+            weights = np.cos(np.deg2rad(ds_region.coords["latitude"]))
             result = (
-                da_region
-                .weighted(weights)
-                .mean(dim="values")
+                ds_region.weighted(weights)
+                .mean(dim=["latitude", "longitude"], keep_attrs=True)
                 .expand_dims({"region": [region]}, axis=-1)
             )
+            # Add coordinate with the region's boundary latitudes
+            band_coord = xr.DataArray(
+                [[lo, hi]],
+                dims=("region", "bounds"),
+                attrs={"units": ds.coords["latitude"].attrs["units"]},
+            )
+            result = result.assign_coords({"latitude_band": band_coord})
+            # Add aggregation metadata to all data variables
+            for var in result.data_vars:
+                result[var].attrs.update(
+                    {
+                        "cell_methods": "area: mean",
+                        "comment": "cos(latitude)-weighted mean over grid points within the region",
+                    }
+                )
             target.write(result)
 
     target.flush()
