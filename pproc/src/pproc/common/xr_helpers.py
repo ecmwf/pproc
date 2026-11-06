@@ -6,7 +6,6 @@ from collections.abc import Mapping, MutableSequence
 from multiprocessing.managers import SyncManager
 from typing import Any, Self, cast
 
-import pandas as pd
 import xarray as xr
 
 
@@ -121,4 +120,3 @@ class DatasetBuilder:
             var.encoding = {}
         ds.encoding = {}
         return ds
-
