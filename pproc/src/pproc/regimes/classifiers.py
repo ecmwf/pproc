@@ -3,6 +3,7 @@
 
 import abc
 import json
+from collections.abc import Sequence
 
 import numpy as np
 import pandas as pd
@@ -128,3 +129,47 @@ class Grams7RegimesClassifier(RegimesClassifier):
         weights = np.cos(np.deg2rad(self.data.coords["latitude"]))
         proj = project(anomaly, self.patterns, weights, **kwargs)
         return self.regime_index(proj)
+
+    def filter_regime_index(
+        self,
+        iwr: xr.DataArray,
+        window: Sequence[float],
+    ) -> xr.DataArray:
+        """Filter a regime index as if the projections had been filtered.
+
+        The Grams scheme is implemented as time-modulated patterns. Filtering
+        the index directly mixes different modulations. The filter is applied
+        to the unmodulated, unstandardised projections instead, and the
+        modulation of the target time is reapplied afterwards:
+
+            I_filtered(t) = a(t) * F[(I + c) / a](t) - c,
+            where c = mean / std, F is the filter
+
+        This equals the index of the projection of the filtered anomalies.
+        """
+        kernel = np.asarray(window, dtype=float)
+        if kernel.ndim != 1 or kernel.size % 2 == 0:
+            raise ValueError("Filter window must be a 1D kernel of odd length")
+        if not np.isclose(kernel.sum(), 1.0):
+            raise ValueError(f"Filter window must sum to 1, got {kernel.sum()}")
+
+        valid_time = iwr.coords["valid_time"]
+        modulation = xr.DataArray(
+            self.pattern_modulator(valid_time=valid_time.values),
+            dims=valid_time.dims,
+            coords=valid_time.coords,
+        )
+
+        c = self.data["projection_mean"] / self.data["projection_std"]
+        # Convolution weights apply to y(t - k), the rolling window is in time order
+        weights = xr.DataArray(kernel[::-1], dims="__window__")
+        shape_proj = (iwr + c) / modulation
+        filtered = (
+            shape_proj.rolling(valid_time=kernel.size, center=True)
+            .construct("__window__")
+            .dot(weights)
+        )
+        result = modulation * filtered - c
+        result.name = iwr.name
+        result.attrs = iwr.attrs
+        return result
