@@ -51,6 +51,28 @@ class RegimesClassifier(abc.ABC):
     def classify(self):
         pass
 
+    def regime_index(self, proj: xr.DataArray) -> xr.Dataset:
+        """Standardise the projections and set the attributes of the index.
+
+        The index is returned as a dataset with the DOI of the pattern data, if
+        available, as the global ``references`` attribute.
+        """
+        index = regime_index(
+            proj, self.data["projection_mean"], self.data["projection_std"]
+        )
+        index.attrs = {
+            "long_name": "Regime index",
+            "units": "1",
+            "description": (
+                "Area-weighted regime projection standardised with the "
+                "reference mean and standard deviation"
+            ),
+        }
+        ds = index.to_dataset()
+        if doi := self.data.attrs.get("original_source_doi"):
+            ds.attrs["references"] = f"https://doi.org/{doi}"
+        return ds
+
     def crop_region(self, ds):
         return ds.sel(
             {
@@ -69,21 +91,11 @@ class NAOBLRegimesClassifier(RegimesClassifier):
             grid=json.loads(self.data.attrs["earthkit_grid_spec"]),
         )
 
-    @property
-    def projection_mean(self):
-        return self.data["projection_mean"]
-
-    @property
-    def projection_std(self):
-        return self.data["projection_std"]
-
     def classify(self, anomaly, **kwargs):
         kwargs = {"patterns_coords": None, **kwargs}
         weights = self.data["gridpoint_weights"]
         proj = project(anomaly, self.patterns, weights, **kwargs)
-        index = regime_index(proj, self.projection_mean, self.projection_std)
-        # TODO clear/set attributes
-        return index
+        return self.regime_index(proj)
 
 
 class Grams7RegimeClassifier(RegimesClassifier):
@@ -103,14 +115,6 @@ class Grams7RegimeClassifier(RegimesClassifier):
             grid=json.loads(self.data["base_pattern"].attrs["earthkit_grid_spec"]),
         )
 
-    @property
-    def projection_mean(self):
-        return self.data["projection_mean"]
-
-    @property
-    def projection_std(self):
-        return self.data["projection_std"]
-
     @needs_valid_time
     def pattern_modulator(self, *, valid_time):
         shape = valid_time.shape
@@ -123,6 +127,4 @@ class Grams7RegimeClassifier(RegimesClassifier):
         kwargs = {"patterns_coords": detect_time_coords(anomaly), **kwargs}
         weights = np.cos(np.deg2rad(self.data.coords["latitude"]))
         proj = project(anomaly, self.patterns, weights, **kwargs)
-        index = regime_index(proj, self.projection_mean, self.projection_std)
-        # TODO: clear/set attributes
-        return index
+        return self.regime_index(proj)
