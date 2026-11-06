@@ -1807,3 +1807,12 @@ class FlightLevelsConfig(AccumConfig):
         req["levtype"] = "fl"
         req["levelist"] = self.target_flight_levels
         return req
+
+
+class SSWConfig(BaseConfig):
+    parallelisation: int = 1
+    inputs: io.SSWInputModel
+    outputs: io.SSWOutputModel = io.SSWOutputModel()
+    parameters: list[ParamConfig]
+    out_dims: list[str]
+    latitude_bands: dict[str, tuple[float, float]]
