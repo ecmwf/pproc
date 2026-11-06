@@ -98,7 +98,7 @@ class NAOBLRegimesClassifier(RegimesClassifier):
         return self.regime_index(proj)
 
 
-class Grams7RegimeClassifier(RegimesClassifier):
+class Grams7RegimesClassifier(RegimesClassifier):
     def __init__(self, path):
         self.path = path
         self.data = xr.load_dataset(path)
