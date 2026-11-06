@@ -26,8 +26,8 @@ class Instantaneous(BaseModel):
     dim: Literal["step"] = "step"
 
     def generate_steps(self, steps: list[int]) -> list[int]:
-        start = self.start or steps[0]
-        end = self.end or steps[-1]
+        start = self.start if self.start is not None else steps[0]
+        end = self.end if self.end is not None else steps[-1]
         if self.interval:
             interval_steps = list(range(start, end + 1, self.interval))
             selected_steps = [x for x in interval_steps if x in steps]
@@ -55,8 +55,8 @@ class Range(BaseModel):
         ), "Steps can not be a mix of strings and integers"
         if self.start == 0 and 0 not in steps and self.allow_missing_zero:
             steps = [0] + steps
-        start = self.start or steps[0]
-        end = min((self.end or steps[-1]), steps[-1]) - self.width
+        start = self.start if self.start is not None else steps[0]
+        end = min((self.end if self.end is not None else steps[-1]), steps[-1]) - self.width
         rstarts = set(range(start, end + 1, self.interval))
         rstarts.intersection_update(steps)
         return [f"{rstart}-{rstart + self.width}" for rstart in sorted(rstarts)]

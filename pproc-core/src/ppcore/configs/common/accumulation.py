@@ -6,7 +6,9 @@ from typing import Optional, Union, Literal, Annotated, Any
 
 from pydantic import Discriminator, Field, Tag, field_validator, model_validator
 
-from earthkit.workflows.fluent import Payload
+from earthkit.workflows.fluent import create_task_instance
+from earthkit.workflows.metadata import Requirements
+from earthkit.workflows.plugins.pproc.fluent import ENVIRONMENT
 from earthkit.workflows.plugins.pproc.config.accumulation import (
     Default,
     Monthly,
@@ -42,7 +44,7 @@ class BaseAccumulation(PProcBaseModel):
             return [values]
         return values
 
-    def create_action(self) -> dict:
+    def action_kwargs(self) -> dict:
         return {
             "operation": self.payload,
             "coords": self.coords,
@@ -111,12 +113,12 @@ class DifferenceRateAccumulation(BaseAccumulation):
             )
         return coords
 
-    def create_action(self) -> dict:
+    def action_kwargs(self) -> dict:
         return {
-            "operation": Payload(
+            "operation": create_task_instance(
                 self.payload,
-                kwargs={"factor": self.factor, "metadata": self.metadata},
-                metadata={"environment": ["ppruntime"]},
+                static_input_kw={"factor": self.factor, "metadata": self.metadata},
+                requirements=Requirements(environment=ENVIRONMENT["ppruntime"]),
             ),
             "coords": self.coords,
             "deaccumulate": self.deaccumulate,

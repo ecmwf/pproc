@@ -14,6 +14,7 @@ from typing_extensions import Self
 import logging
 
 from pproc.config.utils import deep_update
+from pproc.schema.filters import default_filter
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ def dict_update(base: dict, update: dict) -> dict:
 
 
 DEFAULT_UPDATE: UpdateFunc = deep_update
-DEFAULT_FILTER: FilterFunc = dict.__getitem__
+DEFAULT_FILTER: FilterFunc = default_filter
 DEFAULT_MATCH: MatchFunc = lambda _, value, expected: value == expected
 
 
@@ -69,7 +70,13 @@ class BaseSchema:
         return "filter" in key
 
     @classmethod
-    def subschema(cls, key: str, schema: dict, request: dict, path: Optional[list[tuple[str, str]]] = None) -> dict:
+    def subschema(
+        cls,
+        key: str,
+        schema: dict,
+        request: dict,
+        path: Optional[list[tuple[str, str]]] = None,
+    ) -> dict:
         _, mars_key = key.split(":")
         filter_value = cls.custom_filter.get(mars_key, DEFAULT_FILTER)(
             request, mars_key
@@ -82,7 +89,9 @@ class BaseSchema:
         if ret is None:
             crumbs = ""
             if path is not None:
-                crumbs = " (" + " > ".join(f"{fkey}={fval}" for fkey, fval in path) + ")"
+                crumbs = (
+                    " (" + " > ".join(f"{fkey}={fval}" for fkey, fval in path) + ")"
+                )
             raise ValueError(
                 f"Filter value {filter_value} not found in schema {schema}{crumbs}, and no default provided"
             )
@@ -90,12 +99,20 @@ class BaseSchema:
         return ret
 
     @classmethod
-    def _traverse(cls, sub_schema: dict, request: dict, config: dict, path: Optional[list[tuple[str, str]]] = None) -> dict:
+    def _traverse(
+        cls,
+        sub_schema: dict,
+        request: dict,
+        config: dict,
+        path: Optional[list[tuple[str, str]]] = None,
+    ) -> dict:
         for key, value in sub_schema.items():
             if cls.is_subschema(key):
                 if path is not None:
                     path = path.copy()
-                cls._traverse(cls.subschema(key, value, request, path), request, config, path)
+                cls._traverse(
+                    cls.subschema(key, value, request, path), request, config, path
+                )
             else:
                 # TODO: Remove copies?
                 cls.custom_update.get(key, DEFAULT_UPDATE)(
@@ -104,10 +121,6 @@ class BaseSchema:
         return config
 
     def traverse(self, request: dict, config: Optional[dict] = None) -> dict:
-        if len(set.intersection(set(request.keys()), self.filters)) < len(self.filters):
-            raise ValueError(
-                f"Request {request} does not contain all required filters {self.filters}"
-            )
         return self._traverse(self.schema, request, config or {}, path=[])
 
     @classmethod

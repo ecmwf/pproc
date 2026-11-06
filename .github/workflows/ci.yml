@@ -20,7 +20,7 @@ jobs:
         python-version: ['3.10', '3.11', '3.12', '3.13']
     steps:
     - uses: actions/checkout@v4
-    - uses: astral-sh/setup-uv@v7
+    - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
     - name: Run checks and tests
       run: |
         cd pproc-runtime
@@ -40,13 +40,14 @@ jobs:
         python-version: ['3.11', '3.12', '3.13']
     steps:
     - uses: actions/checkout@v4
-    - uses: astral-sh/setup-uv@v7
+    - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
     - name: Run checks and tests
       run: |
         cd pproc-core
         export UV_FROZEN=1
         uv sync --python "${{ matrix.python_version }}" --all-packages
         uv run prek --directory . --config ../.pre-commit-config.yaml
+        uv run ty check
         if [ -d "tests" ]; then
           uv run -m pytest tests/ -v
         fi
@@ -59,7 +60,7 @@ jobs:
         python-version: ['3.11', '3.12', '3.13']
     steps:
     - uses: actions/checkout@v4
-    - uses: astral-sh/setup-uv@v7
+    - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
     - name: Run pproc tests
       run: |
         cd pproc

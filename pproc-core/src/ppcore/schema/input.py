@@ -4,11 +4,7 @@
 
 import logging
 import itertools
-from typing import Any
-from typing import Iterator
-from typing import Optional
-from typing import Union
-from typing import Literal
+from typing import Any, Iterator, Optional, Union, Literal
 
 from pydantic import field_validator
 
@@ -125,9 +121,9 @@ class ForecastInput(PProcBaseModel):
         datacubes = []
         if (
             getattr(forecast, "unperturbed", None) is not None
-            and selection.select(forecast.unperturbed).n_leaves > 0
+            and selection.select(forecast.unperturbed).n_leaves > 0  # type: ignore
         ):
-            datacubes.extend(selection.select(forecast.unperturbed).datacubes())
+            datacubes.extend(selection.select(forecast.unperturbed).datacubes())  # type: ignore
             datacubes.extend(
                 cube for cube in selection.datacubes() if cube not in datacubes
             )
@@ -155,7 +151,9 @@ class ForecastInput(PProcBaseModel):
         return validate_request({**self._from_output(base_request), **selection})
 
     def match(
-        self, request: dict, forecast: Union[Forecast, Reforecast]
+        self,
+        request: dict,
+        forecast: Dataset,
     ) -> Iterator[Qube]:
         if "param" not in self.select:
             groupby = ["param", "levtype"]
@@ -242,7 +240,7 @@ class InputConfig(PProcBaseModel):
         forecast: Union[Forecast],
         climatology: Optional[Climatology] = None,
     ) -> Iterator[dict]:
-        sample_input = None
+        sample_input: dict = None  # type: ignore
         for inp in self.fc_inputs:
             inputs = list(inp.requests(output_request, forecast))
             if len(inputs) == 0:
@@ -277,7 +275,7 @@ class InputConfig(PProcBaseModel):
         ]
         if len(fc_inputs) == 0:
             logger.debug("No inputs for request %s", request)
-            return iter([])
+            return None
 
         if self.clim_inputs and len(fc_inputs) > 1:
             raise PProcDatasetError("Climatology should be uniquely tied to forecast")
@@ -350,13 +348,13 @@ class InputSchema(BaseSchema):
         self,
         output_request: dict,
         forecast: Union[ForecastDefinition, ReforecastDefinition],
-        climatology: Optional[Climatology] = None,
+        climatology: Optional[ClimatologyDefinition] = None,
     ) -> Iterator[dict]:
         output_request = validate_request(output_request)
         config = InputConfig(**self.traverse(output_request))
-        forecast = definition_to_dataset(forecast)
+        forecast: Forecast | Reforecast = definition_to_dataset(forecast)
         if climatology is not None:
-            climatology = definition_to_dataset(climatology)
+            climatology: Climatology = definition_to_dataset(climatology)
 
         for inp in config.inputs(output_request, forecast, climatology):
             yield inp
@@ -392,9 +390,9 @@ class InputSchema(BaseSchema):
         Assumes inputs are from the same forecast for a single date and time
         """
         output_template = output_template or {}
-        forecast = definition_to_dataset(forecast)
+        forecast: Forecast | Reforecast = definition_to_dataset(forecast)
         if climatology is not None:
-            climatology = definition_to_dataset(climatology)
+            climatology: Climatology = definition_to_dataset(climatology)
         # Check that the output template contains the required keys to derive outputs from inputs
         # To avoid generating outputs across different streams
         # TODO: consider splitting schema by dataset definers to avoid this requirement
