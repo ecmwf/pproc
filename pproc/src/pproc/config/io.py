@@ -305,3 +305,4 @@ ClusterAttributionInputModel = create_input_model(
 )
 FlightLevelsInputModel = create_input_model("FlightLevels", ["fc", "lnsp"])
 FlightLevelsOutputModel = create_output_model("FlightLevels", ["levels"])
+SSWOutputModel = create_output_model("SSW", ["ssw"])
