@@ -28,7 +28,7 @@ from pproc.common.parallel import parallel_processing, sigterm_handler
 from pproc.common.param_requester import ParamRequester
 from pproc.common.utils import dict_product
 from pproc.config.param import ParamConfig
-from pproc.config.types import CapeConfig
+from pproc.config.types import CAPE_CIN_KINDS, CapeConfig
 
 logger = logging.getLogger(__name__)
 
@@ -115,33 +115,22 @@ def cape_iteration(
                     **product.parcel_options(),
                 )
 
-                out_cape = getattr(config.outputs, product.cape_output)
-                write_grib(
-                    out_cape.target,
-                    template,
-                    cape.astype(np.float32),
-                    {
-                        **out_cape.metadata,
-                        **pconfig.metadata,
-                        **dims,
-                    },
-                )
+                for kind, values in zip(CAPE_CIN_KINDS, (cape, cin)):
+                    output = getattr(config.outputs, kind)
+                    write_grib(
+                        output.target,
+                        template,
+                        values.astype(np.float32),
+                        {
+                            **output.metadata,
+                            **pconfig.metadata,
+                            **product.metadata(kind),
+                            **dims,
+                        },
+                    )
 
-                out_cin = getattr(config.outputs, product.cin_output)
-                write_grib(
-                    out_cin.target,
-                    template,
-                    cin.astype(np.float32),
-                    {
-                        **out_cin.metadata,
-                        **pconfig.metadata,
-                        **dims,
-                    },
-                )
-
-    for product in config.cape_products:
-        getattr(config.outputs, product.cape_output).target.flush()
-        getattr(config.outputs, product.cin_output).target.flush()
+    for kind in CAPE_CIN_KINDS:
+        getattr(config.outputs, kind).target.flush()
     config.recovery.add_checkpoint(param=pconfig.name, **dims)
 
 

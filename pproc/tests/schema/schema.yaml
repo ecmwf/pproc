@@ -134,6 +134,26 @@ config:
           accumulations: 
             step:
               operation: difference
+        "228231/228232/228233/228234/228235/228236":
+          entrypoint: pproc-cape
+          filter:param:
+            "228235/228236":
+              cape_product:
+                parcel_type: mu
+                cape_metadata: {paramId: 228235}
+                cin_metadata: {paramId: 228236}
+            "228231/228232":
+              cape_product:
+                parcel_type: mixed
+                layer_depth: 5000
+                cape_metadata: {paramId: 228231}
+                cin_metadata: {paramId: 228232}
+            "228233/228234":
+              cape_product:
+                parcel_type: mixed
+                layer_depth: 10000
+                cape_metadata: {paramId: 228233}
+                cin_metadata: {paramId: 228234}
         "*":
           entrypoint: pproc-accumulate
           filter:stream:
@@ -2434,6 +2454,22 @@ inputs:
               end: 10
         scheme: *eefh_scheme
   filter:param:
+    "228231/228232/228233/228234/228235/228236":
+      filter:type:
+        "fc/cf/pf":
+          from_inputs: False
+          forecast:
+            inputs:
+              - request:
+                  param: ["167", "168", "134"]
+                  levtype: sfc
+              - request:
+                  param: ["130", "133", "129"]
+                  levtype: pl
+                  levelist: [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
+              - request:
+                  param: "129"
+                  levtype: sfc
     "*": 
       filter:type:
         "fc/cf/pf":
