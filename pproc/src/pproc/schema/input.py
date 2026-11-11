@@ -289,6 +289,9 @@ def _intersect(
     dfa.drop(columns="number", errors="ignore", inplace=True)
     dfa.drop_duplicates(inplace=True)
     dfb = pd.DataFrame(listb)
+    if not set(dfa.columns).issubset(dfb.columns):
+        # Required keys absent from all provided requests cannot match
+        return pd.DataFrame()
     merged = dfa.merge(dfb, how=how, on=dfa.columns.tolist())
 
     num_expected = len(dfa)

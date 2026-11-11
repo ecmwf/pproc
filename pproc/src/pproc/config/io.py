@@ -303,3 +303,6 @@ ClusterAttributionInputModel = create_input_model(
 )
 FlightLevelsInputModel = create_input_model("FlightLevels", ["fc", "lnsp"])
 FlightLevelsOutputModel = create_output_model("FlightLevels", ["levels"])
+# sfc first: output requests (levtype, members) are derived from the first input
+CapeInputModel = create_input_model("Cape", ["sfc", "pl", "zsfc"])
+CapeOutputModel = create_output_model("Cape", ["cape", "cin"])
