@@ -163,7 +163,7 @@ class Accumulation(metaclass=ABCMeta):
                     grib_header.setdefault(
                         "stepType", "max"
                     )  # Don't override if set in config
-                grib_header["stepRange"] = steprange
+                grib_header.setdefault("stepRange", steprange)
             else:
                 assert end == start, f"Start step can not be greater than end step"
                 if "timeRangeIndicator" not in grib_header:
