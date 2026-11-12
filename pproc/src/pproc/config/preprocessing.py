@@ -174,6 +174,9 @@ def _windrose(
     arr_1d: np.ndarray, sectors: int, speed_bins: list[float], percent: bool
 ) -> np.ndarray:
     speed, direction = np.reshape(arr_1d, (2, -1))
+    # If any ensemble member is nan, return nan
+    if np.any(np.isnan(speed)):
+        return np.full((len(speed_bins) - 1, sectors), np.nan)
     return windrose(
         speed, direction, sectors=sectors, speed_bins=speed_bins, percent=percent
     )[0]
