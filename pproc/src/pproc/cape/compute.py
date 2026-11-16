@@ -15,6 +15,7 @@ parcel type: ``"surface"`` (:func:`earthkit.meteo.thermo.surface_cape_cin`),
 ``"mu"`` (:func:`earthkit.meteo.thermo.most_unstable_cape_cin`).
 """
 
+import inspect
 from typing import Any, Callable, Tuple
 
 import numpy as np
@@ -30,6 +31,40 @@ CAPE_CIN_FUNCTIONS: dict[str, Callable[..., Tuple[np.ndarray, np.ndarray]]] = {
     "mixed": mixed_layer_cape_cin,
     "mu": most_unstable_cape_cin,
 }
+
+# Options controlled by pproc: the vertical layout of the input arrays and the
+# ``(cape, cin)`` return signature
+RESERVED_OPTIONS = frozenset({"vertical_axis", "extra_outputs"})
+
+DEFAULT_OPTIONS: dict[str, Any] = {"allow_nans": False}
+
+
+def _validate_parcel_type(parcel_type: str) -> None:
+    if parcel_type not in CAPE_CIN_FUNCTIONS:
+        raise ValueError(
+            f"Unsupported parcel_type '{parcel_type}', "
+            f"expected one of {list(CAPE_CIN_FUNCTIONS)}"
+        )
+
+
+def supported_options(parcel_type: str) -> set[str]:
+    """Return the options that can be set for a parcel type."""
+    _validate_parcel_type(parcel_type)
+    params = inspect.signature(CAPE_CIN_FUNCTIONS[parcel_type]).parameters.values()
+    return {
+        param.name for param in params if param.kind is param.KEYWORD_ONLY
+    } - RESERVED_OPTIONS
+
+
+def validate_options(parcel_type: str, options: dict[str, Any]) -> None:
+    """Check that all options are supported for a parcel type."""
+    allowed = supported_options(parcel_type)
+    unknown = set(options) - allowed
+    if unknown:
+        raise ValueError(
+            f"Unsupported options {sorted(unknown)} for parcel_type "
+            f"'{parcel_type}', expected a subset of {sorted(allowed)}"
+        )
 
 
 def compute_cape_cin(
@@ -70,9 +105,10 @@ def compute_cape_cin(
         most-unstable, ``"mixed"`` for mixed-layer, ``"surface"``
         for surface parcel.
     **options
-        Parcel-specific keyword arguments forwarded to the earthkit-meteo
-        function, e.g. ``layer_depth`` (Pa) for ``"mixed"``, or
-        ``exclude_surface_layer`` and ``max_search_height`` (m) for ``"mu"``.
+        Keyword arguments forwarded to the earthkit-meteo function, see
+        :func:`supported_options`. Unset options use the earthkit-meteo
+        defaults, except ``allow_nans`` which defaults to ``False``: NaNs in
+        any input give NaNs in the output at the corresponding points.
 
     Returns
     -------
@@ -84,13 +120,9 @@ def compute_cape_cin(
     Raises
     ------
     ValueError
-        If ``parcel_type`` is not supported.
+        If ``parcel_type`` or any of the options is not supported.
     """
-    if parcel_type not in CAPE_CIN_FUNCTIONS:
-        raise ValueError(
-            f"Unsupported parcel_type '{parcel_type}', "
-            f"expected one of {list(CAPE_CIN_FUNCTIONS)}"
-        )
+    validate_options(parcel_type, options)
 
     t = np.asarray(t, dtype=np.float64)
     q = np.asarray(q, dtype=np.float64)
@@ -104,8 +136,15 @@ def compute_cape_cin(
     p_pa = np.array(p_levels_hpa, dtype=np.float64) * 100.0
     p = np.broadcast_to(p_pa.reshape((-1,) + (1,) * (t.ndim - 1)), t.shape)
 
-    # Use allow_nans=False as NaNs in the input arrays suggest invalid data
-    # The output array will contain NaNs at the locations where any input array contains NaNs.
     return CAPE_CIN_FUNCTIONS[parcel_type](
-        p, t, q, zh, p_sfc, t_sfc, q_sfc, zh_sfc, vertical_axis=0, allow_nans=False, **options
+        p,
+        t,
+        q,
+        zh,
+        p_sfc,
+        t_sfc,
+        q_sfc,
+        zh_sfc,
+        vertical_axis=0,
+        **{**DEFAULT_OPTIONS, **options},
     )

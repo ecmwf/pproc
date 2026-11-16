@@ -61,11 +61,11 @@ cape_products:
     cape_metadata: {paramId: 228235}
     cin_metadata: {paramId: 228236}
   - parcel_type: mixed
-    layer_depth: 5000
+    options: {layer_depth: 5000}
     cape_metadata: {paramId: 228231}
     cin_metadata: {paramId: 228232}
   - parcel_type: mixed
-    layer_depth: 10000
+    options: {layer_depth: 10000}
     cape_metadata: {paramId: 228233}
     cin_metadata: {paramId: 228234}
 outputs:

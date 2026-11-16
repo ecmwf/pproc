@@ -17,6 +17,7 @@ from pydantic import (
     model_serializer,
     model_validator,
     BaseModel,
+    ConfigDict,
     Field,
     Tag,
     Discriminator,
@@ -46,6 +47,7 @@ from pproc.config.preprocessing import Reshape, Expression
 from pproc.common.stepseq import steprange_to_fcmonth
 from pproc.extremes.indices import Index, SUPPORTED_INDICES, create_indices
 from pproc.flightlevel.mapping import FLIGHT_TO_PRESSURE_LEVEL
+from pproc.cape.compute import validate_options as validate_cape_options
 
 
 def end_step(step: int | str) -> int:
@@ -879,35 +881,28 @@ class CapeProductConfig(ConfigModel):
 
     ``parcel_type`` selects the earthkit-meteo function: ``"surface"``
     (:func:`surface_cape_cin`), ``"mixed"`` (:func:`mixed_layer_cape_cin`)
-    or ``"mu"`` (:func:`most_unstable_cape_cin`). Unset options fall back
-    to the earthkit-meteo defaults.
+    or ``"mu"`` (:func:`most_unstable_cape_cin`). ``options`` are forwarded
+    as keyword arguments to that function, e.g. ``layer_depth`` (Pa) for
+    ``"mixed"``, ``max_search_height`` (m) for ``"mu"``, or ``lcl_method``
+    and ``ept_method`` for all parcel types. Unset options fall back to the
+    earthkit-meteo defaults, except ``allow_nans`` which defaults to
+    ``False``.
 
     ``cape_metadata`` and ``cin_metadata`` are the GRIB metadata of the CAPE
     and CIN fields of this product. Both must contain a ``paramId``, which
     may be an agreed-upon identifier if no official paramId exists.
     """
 
+    model_config = ConfigDict(extra="forbid")
+
     parcel_type: Literal["surface", "mixed", "mu"] = "mu"
-    layer_depth: float | None = None
-    exclude_surface_layer: bool | None = None
-    max_search_height: float | None = None
+    options: dict[str, Any] = {}
     cape_metadata: dict
     cin_metadata: dict
 
-    _PARCEL_OPTIONS: ClassVar[dict[str, tuple[str, ...]]] = {
-        "surface": (),
-        "mixed": ("layer_depth",),
-        "mu": ("exclude_surface_layer", "max_search_height"),
-    }
-
     @model_validator(mode="after")
-    def validate_parcel_options(self) -> Self:
-        allowed = self._PARCEL_OPTIONS[self.parcel_type]
-        for option in ("layer_depth", "exclude_surface_layer", "max_search_height"):
-            if option not in allowed and getattr(self, option) is not None:
-                raise ValueError(
-                    f"{option} is not supported for parcel_type '{self.parcel_type}'"
-                )
+    def validate_options(self) -> Self:
+        validate_cape_options(self.parcel_type, self.options)
         return self
 
     @model_validator(mode="after")
@@ -918,34 +913,12 @@ class CapeProductConfig(ConfigModel):
         return self
 
     def metadata(self, kind: str) -> dict:
-        """Return the GRIB metadata of the CAPE or CIN field.
-
-        Parameters
-        ----------
-        kind : str
-            ``"cape"`` or ``"cin"``.
-
-        Returns
-        -------
-        dict
-            Metadata of the requested field, including its ``paramId``.
-        """
+        """Return the GRIB metadata of the CAPE or CIN field."""
         return getattr(self, f"{kind}_metadata")
 
     def parcel_options(self) -> dict[str, Any]:
-        """Return ``parcel_type`` and the explicitly set parcel options.
-
-        Returns
-        -------
-        dict
-            Keyword arguments for :func:`pproc.cape.compute.compute_cape_cin`.
-        """
-        options = {"parcel_type": self.parcel_type}
-        for option in self._PARCEL_OPTIONS[self.parcel_type]:
-            value = getattr(self, option)
-            if value is not None:
-                options[option] = value
-        return options
+        """Return ``parcel_type`` and the set options."""
+        return {"parcel_type": self.parcel_type, **self.options}
 
 
 class CapeConfig(BaseConfig):
