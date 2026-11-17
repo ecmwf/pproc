@@ -37,6 +37,7 @@ from pproc.config.types import HistogramConfig, HistParamConfig
 from pproc.config.targets import Target
 from pproc.config.io import InputsCollection, Input
 from pproc.config.recovery import BaseRecovery
+from pproc.quantile.grib import quantiles_metadata
 
 
 def write_histogram(
@@ -72,11 +73,7 @@ def write_histogram(
     nbins = hist.shape[0]
 
     for i, hist_bin in enumerate(hist):
-        grib_keys = {
-            **out_keys,
-            "totalNumber": nbins,
-            "perturbationNumber": i + 1,
-        }
+        grib_keys = quantiles_metadata(template, i + 1, nbins, out_keys)
         write_grib(target, template, hist_bin, grib_keys)
 
 
