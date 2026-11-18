@@ -31,6 +31,7 @@ from pproc.config.targets import (
     FileTarget,
     NullTarget,
     OverrideTargetWrapper,
+    NetCDFTarget,
 )
 from pproc.extremes.indices import SUPPORTED_INDICES
 
@@ -157,6 +158,7 @@ class Output(ConfigModel):
             Annotated[FileSetTarget, Tag("fileset")],
             Annotated[FDBTarget, Tag("fdb")],
             Annotated[OverrideTargetWrapper, Tag("override")],
+            Annotated[NetCDFTarget, Tag("netcdf")],
         ],
         Discriminator(target_discriminator),
         Field(default_factory=NullTarget),
