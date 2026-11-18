@@ -15,7 +15,7 @@ import numexpr
 import numpy as np
 from pydantic import BaseModel, Field, model_validator
 
-from earthkit.meteo.wind import direction
+from earthkit.meteo.wind import direction, windrose
 
 
 class Preprocessing(BaseModel, ABC):
@@ -170,6 +170,56 @@ class Masking(Preprocessing):
         return [new_metadata], [masked]
 
 
+def _windrose(
+    arr_1d: np.ndarray,
+    sectors: int,
+    speed_bins: list[float],
+    percent: bool,
+    sectors_start: float | None,
+) -> np.ndarray:
+    speed, direction = np.reshape(arr_1d, (2, -1))
+    return windrose(
+        speed,
+        direction,
+        sectors=sectors,
+        speed_bins=speed_bins,
+        percent=percent,
+        sectors_start=sectors_start,
+    )[0]
+
+
+class WindRose(Preprocessing):
+    operation: Literal["windrose"] = "windrose"
+    speed: dict[str, Any]
+    direction: dict[str, Any]
+    sectors: int = 8
+    speed_bins: list[float]
+    percent: bool = False
+    sectors_start: float | None = None
+
+    def apply(
+        self, metadata: List[dict], data: List[np.ndarray]
+    ) -> Tuple[List[dict], List[np.ndarray]]:
+        speed = data[find_matching(self.speed, metadata)]
+        direction = data[find_matching(self.direction, metadata)]
+        res = np.apply_along_axis(
+            _windrose,
+            0,
+            np.concatenate([speed, direction], axis=0),
+            sectors=self.sectors,
+            speed_bins=self.speed_bins,
+            percent=self.percent,
+            sectors_start=self.sectors_start,
+        )
+        assert res.shape == (
+            len(self.speed_bins) - 1,
+            self.sectors,
+            speed.shape[-1],
+        ), f"Expected shape to be {(len(self.speed_bins) - 1, self.sectors, speed.shape[-1])}, got {res.shape}"
+        new_metadata = self._update_metadata(metadata[0])
+        return [new_metadata], [res]
+
+
 class PreprocessingConfig(BaseModel):
     # preprocessing:
     #   - operation: norm
@@ -180,7 +230,7 @@ class PreprocessingConfig(BaseModel):
     #     value: 3600
     actions: List[
         Annotated[
-            Union[Scaling, Combination, Masking, Reshape, Expression],
+            Union[Scaling, Combination, Masking, Reshape, Expression, WindRose],
             Field(discriminator="operation"),
         ]
     ] = Field(default_factory=list)
