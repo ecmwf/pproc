@@ -171,14 +171,20 @@ class Masking(Preprocessing):
 
 
 def _windrose(
-    arr_1d: np.ndarray, sectors: int, speed_bins: list[float], percent: bool
+    arr_1d: np.ndarray,
+    sectors: int,
+    speed_bins: list[float],
+    percent: bool,
+    sectors_start: float | None,
 ) -> np.ndarray:
     speed, direction = np.reshape(arr_1d, (2, -1))
-    # If any ensemble member is nan, return nan
-    if np.any(np.isnan(speed)):
-        return np.full((len(speed_bins) - 1, sectors), np.nan)
     return windrose(
-        speed, direction, sectors=sectors, speed_bins=speed_bins, percent=percent
+        speed,
+        direction,
+        sectors=sectors,
+        speed_bins=speed_bins,
+        percent=percent,
+        sectors_start=sectors_start,
     )[0]
 
 
@@ -189,6 +195,7 @@ class WindRose(Preprocessing):
     sectors: int = 8
     speed_bins: list[float]
     percent: bool = False
+    sectors_start: float | None = None
 
     def apply(
         self, metadata: List[dict], data: List[np.ndarray]
@@ -202,6 +209,7 @@ class WindRose(Preprocessing):
             sectors=self.sectors,
             speed_bins=self.speed_bins,
             percent=self.percent,
+            sectors_start=self.sectors_start,
         )
         assert res.shape == (
             len(self.speed_bins) - 1,
