@@ -756,7 +756,11 @@ class ExtremeParamConfig(ClimParamConfig):
         return create_indices(self.compute_indices, self.model_dump())
 
     def _merge_clim(self, other: Self) -> dict:
-        return {}
+        clim = self.clim.model_dump(by_alias=True, exclude={"inputs"})
+        other_clim = other.clim.model_dump(by_alias=True, exclude={"inputs"})
+        if clim != other_clim:
+            raise ValueError("Cannot merge different clim configs")
+        return clim
 
     def _merge_cpf_eps(self, other: Self) -> Optional[float]:
         if self.cpf_eps is None:

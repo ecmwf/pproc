@@ -25,7 +25,7 @@ jobs:
       run: |
         cd pproc-runtime
         export UV_FROZEN=1
-        uv sync --python "${{ matrix.python_version }}" --all-packages --extra fdb
+        uv sync --python "${{ matrix.python-version }}" --all-packages --extra fdb
         uv run prek --directory . --config ../.pre-commit-config.yaml
         uv run ty check
         if [ -d "tests" ]; then
@@ -45,7 +45,7 @@ jobs:
       run: |
         cd pproc-core
         export UV_FROZEN=1
-        uv sync --python "${{ matrix.python_version }}" --all-packages
+        uv sync --python "${{ matrix.python-version }}" --all-packages
         uv run prek --directory . --config ../.pre-commit-config.yaml
         uv run ty check
         if [ -d "tests" ]; then
@@ -65,7 +65,7 @@ jobs:
       run: |
         cd pproc
         export UV_FROZEN=1
-        uv sync --python "${{ matrix.python_version }}" --all-packages --extra fdb --extra test --extra ppcore
+        uv sync --python "${{ matrix.python-version }}" --all-packages --extra fdb --extra test --extra ppcore
         if [ -d "tests" ]; then
           uv run -m pytest tests/ -v
         fi
