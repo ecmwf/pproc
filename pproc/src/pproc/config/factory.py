@@ -39,6 +39,7 @@ class ConfigFactory:
         "pproc-clustereps": types.ClusterFullConfig,
         "pproc-flight-levels": types.FlightLevelsConfig,
         "pproc-quantile-probabilities": types.QuantileProbConfig,
+        "pproc-cape": types.CapeConfig,
     }
 
     @classmethod

@@ -17,6 +17,7 @@ from pydantic import (
     model_serializer,
     model_validator,
     BaseModel,
+    ConfigDict,
     Field,
     Tag,
     Discriminator,
@@ -40,11 +41,13 @@ from pproc.config.utils import (
     deep_update,
     expand,
     squeeze,
+    to_list,
 )
 from pproc.config.preprocessing import Reshape, Expression
 from pproc.common.stepseq import steprange_to_fcmonth
 from pproc.extremes.indices import Index, SUPPORTED_INDICES, create_indices
 from pproc.flightlevel.mapping import FLIGHT_TO_PRESSURE_LEVEL
+from pproc.cape.compute import validate_options as validate_cape_options
 
 
 def end_step(step: int | str) -> int:
@@ -868,6 +871,166 @@ class WindConfig(BaseConfig):
         if req["type"] in ["em", "es"]:
             req.pop("number", None)
         return req
+
+
+CAPE_CIN_KINDS = ("cape", "cin")
+
+
+class CapeProductConfig(ConfigModel):
+    """Configuration for a single CAPE/CIN product variant.
+
+    ``parcel_type`` selects the earthkit-meteo function: ``"surface"``
+    (:func:`surface_cape_cin`), ``"mixed"`` (:func:`mixed_layer_cape_cin`)
+    or ``"mu"`` (:func:`most_unstable_cape_cin`). ``options`` are forwarded
+    as keyword arguments to that function, e.g. ``layer_depth`` (Pa) for
+    ``"mixed"``, ``max_search_height`` (m) for ``"mu"``, or ``lcl_method``
+    and ``ept_method`` for all parcel types. Unset options fall back to the
+    earthkit-meteo defaults, except ``allow_nans`` which defaults to
+    ``False``.
+
+    ``cape_metadata`` and ``cin_metadata`` are the GRIB metadata of the CAPE
+    and CIN fields of this product. Both must contain a ``paramId``, which
+    may be an agreed-upon identifier if no official paramId exists.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    parcel_type: Literal["surface", "mixed", "mu"] = "mu"
+    options: dict[str, Any] = {}
+    cape_metadata: dict
+    cin_metadata: dict
+
+    @model_validator(mode="after")
+    def validate_options(self) -> Self:
+        validate_cape_options(self.parcel_type, self.options)
+        return self
+
+    @model_validator(mode="after")
+    def validate_param_ids(self) -> Self:
+        for kind in CAPE_CIN_KINDS:
+            if "paramId" not in self.metadata(kind):
+                raise ValueError(f"{kind}_metadata must contain paramId")
+        return self
+
+    def metadata(self, kind: str) -> dict:
+        """Return the GRIB metadata of the CAPE or CIN field."""
+        return getattr(self, f"{kind}_metadata")
+
+    def parcel_options(self) -> dict[str, Any]:
+        """Return ``parcel_type`` and the set options."""
+        return {"parcel_type": self.parcel_type, **self.options}
+
+
+class CapeConfig(BaseConfig):
+    parallelisation: int = 1
+    inputs: io.CapeInputModel
+    outputs: io.CapeOutputModel = io.CapeOutputModel()
+    parameters: list[ParamConfig]
+    pressure_levels: list[int]
+    model: str = "aifs"
+    cape_products: list[CapeProductConfig] = [
+        CapeProductConfig(
+            parcel_type="mu",
+            cape_metadata={"paramId": 228235},
+            cin_metadata={"paramId": 228236},
+        ),
+    ]
+    _merge_exclude: tuple[str] = ("parameters", "cape_products")
+
+    @model_validator(mode="after")
+    def validate_split_params(self) -> Self:
+        for param in self.parameters:
+            param.split_params = False
+        return self
+
+    @model_validator(mode="after")
+    def validate_pressure_levels(self) -> Self:
+        pl_request = self.inputs.pl.request
+        if isinstance(pl_request, list):
+            pl_request = pl_request[0]
+        levelist = pl_request.get("levelist", None)
+        if levelist is not None:
+            if set(self.pressure_levels) != set(
+                levelist if isinstance(levelist, list) else [levelist]
+            ):
+                raise ValueError(
+                    f"pressure_levels {self.pressure_levels} must match "
+                    f"levelist {levelist} in pl input request"
+                )
+        return self
+
+    @model_validator(mode="after")
+    def validate_unique_param_ids(self) -> Self:
+        seen = set()
+        for product in self.cape_products:
+            for kind in CAPE_CIN_KINDS:
+                param_id = str(product.metadata(kind)["paramId"])
+                if param_id in seen:
+                    raise ValueError(
+                        f"paramId {param_id} used by more than one CAPE/CIN output"
+                    )
+                seen.add(param_id)
+        return self
+
+    @classmethod
+    def from_schema(cls, schema_config: dict, **overrides) -> Self:
+        schema_config = copy.deepcopy(schema_config)
+        product = CapeProductConfig(**schema_config.pop("cape_product"))
+        param_id = schema_config.get("metadata", {}).pop("paramId", None)
+        product_ids = [str(product.metadata(kind)["paramId"]) for kind in CAPE_CIN_KINDS]
+        if param_id is not None and str(param_id) not in product_ids:
+            raise ValueError(
+                f"Requested paramId {param_id} not produced by CAPE/CIN product "
+                f"with paramIds {product_ids}"
+            )
+        schema_config["name"] = "cape"
+
+        overrides = copy.deepcopy(overrides)
+        overrides["cape_products"] = [product.model_dump(exclude_none=True)]
+        if "pressure_levels" not in overrides:
+            pl_inputs = cls.sort_inputs(schema_config["inputs"])["pl"]
+            overrides["pressure_levels"] = list(
+                map(int, to_list(pl_inputs[0]["levelist"]))
+            )
+        return super().from_schema(schema_config, **overrides)
+
+    @classmethod
+    def sort_inputs(cls, inputs: list[dict]) -> dict:
+        sorted_requests = {}
+        for inp in inputs:
+            if inp.get("levtype") == "pl":
+                src_name = "pl"
+            elif str(inp.get("param")) in ("129", "z"):
+                src_name = "zsfc"
+            else:
+                src_name = "sfc"
+            sorted_requests.setdefault(src_name, []).append(inp)
+        return sorted_requests
+
+    def out_mars(self, targets: Optional[list[str]] = None) -> Iterator:
+        seen = []
+        for kind in CAPE_CIN_KINDS:
+            output = getattr(self.outputs, kind)
+            out_type = output.target.type_
+            if out_type == "null" or (targets and out_type not in targets):
+                continue
+            for product, param in itertools.product(
+                self.cape_products, self.parameters
+            ):
+                metadata = {**output.metadata, **product.metadata(kind)}
+                for req in param.out_keys(self.inputs, metadata):
+                    req["param"] = product.metadata(kind)["paramId"]
+                    req["target"] = (
+                        output.target.path
+                        if hasattr(output.target, "path")
+                        else output.target.type_
+                    )
+                    req.update(extract_mars(dict(self.outputs.overrides)))
+                    req = self._format_out(param, req)
+                    req.pop("interpolate", None)
+                    if req not in seen:
+                        seen.append(req)
+                        yield req
 
 
 class ThermoParamConfig(ParamConfig):
