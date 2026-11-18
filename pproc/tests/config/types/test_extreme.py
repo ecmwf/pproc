@@ -230,3 +230,75 @@ def test_outputs(overrides, expected):
     config.print()
     outputs = list(config.out_mars(targets=["fdb"]))
     assert outputs == expected
+
+
+def _extreme_param(sot: list[int], clim: dict = None, clim_step: dict = None):
+    clim_request = {"type": "cd"}
+    if clim_step is not None:
+        clim_request["step"] = clim_step
+    config = {
+        "name": "2t",
+        "inputs": {
+            "fc": {"request": {"stream": "enfo", "type": "pf"}},
+            "clim": {"request": clim_request},
+        },
+        "sot": sot,
+    }
+    if clim is not None:
+        config["clim"] = clim
+    return types.ExtremeParamConfig(**config)
+
+
+@pytest.mark.parametrize(
+    "clim1, clim2, clim_steps, expected",
+    [
+        [
+            {"metadata": {"expver": "0001"}, "dtype": "float64"},
+            {"metadata": {"expver": "0001"}, "dtype": "float64"},
+            None,
+            {"metadata": {"expver": "0001"}, "dtype_": "float64"},
+        ],
+        [
+            {"metadata": {"expver": "0001"}},
+            {"metadata": {"expver": "0002"}},
+            None,
+            None,
+        ],
+        [None, {"dtype": "float64"}, None, None],
+        [
+            {"metadata": {"expver": "0001"}},
+            {"metadata": {"expver": "0001"}},
+            ({"0-24": 12}, {"24-48": 36}),
+            {"metadata": {"expver": "0001"}},
+        ],
+    ],
+    ids=[
+        "same-clim",
+        "different-metadata",
+        "different-dtype",
+        "different-inputs",
+    ],
+)
+def test_merge_clim(clim1, clim2, clim_steps, expected):
+    step1, step2 = clim_steps or (None, None)
+    param1 = _extreme_param([10], clim=clim1, clim_step=step1)
+    param2 = _extreme_param([90], clim=clim2, clim_step=step2)
+
+    if expected is None:
+        with pytest.raises(ValueError, match="Cannot merge different clim configs"):
+            param1.merge(param2)
+        return
+
+    merged = param1.merge(param2)
+    assert merged.sot == [10, 90]
+    for attr, value in expected.items():
+        assert getattr(merged.clim, attr) == value
+    assert merged.clim.model_dump(
+        by_alias=True, exclude={"inputs"}
+    ) == param1.clim.model_dump(by_alias=True, exclude={"inputs"})
+
+    expected_clim_request = {"type": "cd"}
+    if clim_steps is not None:
+        expected_clim_request["step"] = {**step1, **step2}
+    assert merged.inputs["clim"]["request"] == expected_clim_request
+    assert merged.clim.inputs == merged.inputs
