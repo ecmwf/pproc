@@ -78,11 +78,11 @@ class BaseSchema:
         path: Optional[list[tuple[str, str]]] = None,
     ) -> dict:
         _, mars_key = key.split(":")
-        filter_value = cls.custom_filter.get(mars_key, DEFAULT_FILTER)(
-            request, mars_key
+        filter_value = str(
+            cls.custom_filter.get(mars_key, DEFAULT_FILTER)(request, mars_key)
         )
         if filter_value in schema:
-            path.append((mars_key, str(filter_value)))
+            path.append((mars_key, filter_value))
         elif "*" in schema:
             path.append((mars_key, "*"))
         ret = schema.get(filter_value, schema.get("*", None))

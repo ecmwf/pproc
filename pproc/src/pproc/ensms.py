@@ -43,8 +43,8 @@ def ensms_metadata(
     accum: Accumulator,
     out_keys: dict,
 ):
-    grib_sets = accum.grib_keys().copy()
-    grib_sets.update(out_keys)
+    grib_sets = out_keys.copy()
+    grib_sets.update(accum.grib_keys())
     grib_sets = fill_template_values(
         grib_sets, {"num_fields": np.prod(accum.values.shape[:-1])}
     )
